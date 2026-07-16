@@ -1,0 +1,69 @@
+"use client";
+
+import * as React from "react";
+import * as TabsPrimitive from "@radix-ui/react-tabs";
+
+import { cn } from "./utils";
+
+function Tabs({
+  className,
+  ...props
+}: React.ComponentProps<typeof TabsPrimitive.Root>) {
+  return (
+    <TabsPrimitive.Root
+      data-slot="tabs"
+      className={cn("flex flex-col gap-2", className)}
+      {...props}
+    />
+  );
+}
+
+function TabsList({
+  className,
+  ...props
+}: React.ComponentProps<typeof TabsPrimitive.List>) {
+  return (
+    <TabsPrimitive.List
+      data-slot="tabs-list"
+      className={cn(
+        "bg-[var(--luxia-surface-subtle)] text-[var(--luxia-text-muted)] inline-flex h-9 w-fit items-center justify-center rounded-[var(--luxia-radius-12)] p-[3px] flex border border-[var(--luxia-border-subtle)]",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+function TabsTrigger({
+  className,
+  ...props
+}: React.ComponentProps<typeof TabsPrimitive.Trigger>) {
+  return (
+    <TabsPrimitive.Trigger
+      data-slot="tabs-trigger"
+      className={cn(
+        "data-[state=active]:bg-[var(--luxia-surface)] data-[state=active]:text-[var(--luxia-brand-primary)] data-[state=active]:shadow-[var(--luxia-shadow-xs)]",
+        "text-[var(--luxia-text-secondary)] inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center gap-1.5 rounded-[var(--luxia-radius-8)] border border-transparent px-2 py-1 text-sm font-semibold whitespace-nowrap transition-[color,box-shadow,background]",
+        "focus-visible:shadow-[0_0_0_3px_var(--luxia-opacity-brand-secondary-32)] focus-visible:outline-none",
+        "disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+function TabsContent({
+  className,
+  ...props
+}: React.ComponentProps<typeof TabsPrimitive.Content>) {
+  return (
+    <TabsPrimitive.Content
+      data-slot="tabs-content"
+      className={cn("flex-1 outline-none", className)}
+      {...props}
+    />
+  );
+}
+
+export { Tabs, TabsList, TabsTrigger, TabsContent };

@@ -1,0 +1,444 @@
+{
+  "$schema": "https://tokens.studio/schemas/tokens.json",
+  "global": {
+    "color": {
+      "brand": {
+        "primary": {
+          "$type": "color",
+          "$value": "#30214E",
+          "$description": "Luxia primary / purple SL70"
+        },
+        "primaryDark": {
+          "$type": "color",
+          "$value": "#281B41"
+        },
+        "secondaryLight": {
+          "$type": "color",
+          "$value": "#8E63EB",
+          "$description": "Luxia secondary light / purple SL50"
+        },
+        "terziary": {
+          "$type": "color",
+          "$value": "#96DBFB",
+          "$description": "Original Fancy Factory naming"
+        },
+        "tertiary": {
+          "$type": "color",
+          "$value": "#96DBFB",
+          "$description": "English alias for terziary"
+        }
+      },
+      "text": {
+        "black": {
+          "$type": "color",
+          "$value": "#000000"
+        },
+        "breadcrumbs": {
+          "$type": "color",
+          "$value": "#697077"
+        },
+        "dataYellow": {
+          "$type": "color",
+          "$value": "#FFCC00"
+        }
+      },
+      "surface": {
+        "background": {
+          "$type": "color",
+          "$value": "#FFFFFF"
+        },
+        "subtle": {
+          "$type": "color",
+          "$value": "#FAFDFF"
+        }
+      },
+      "feedback": {
+        "success": {
+          "$type": "color",
+          "$value": "#05AA3F"
+        },
+        "warningError": {
+          "$type": "color",
+          "$value": "#F75050"
+        }
+      },
+      "purple": {
+        "sl70": {
+          "$type": "color",
+          "$value": "#30214E"
+        },
+        "sl60": {
+          "$type": "color",
+          "$value": "#7652C4"
+        },
+        "sl50": {
+          "$type": "color",
+          "$value": "#8E63EB"
+        },
+        "sl40": {
+          "$type": "color",
+          "$value": "#A37DEE"
+        },
+        "sl30": {
+          "$type": "color",
+          "$value": "#B497F2"
+        },
+        "sl20": {
+          "$type": "color",
+          "$value": "#C6B1F5"
+        },
+        "sl10": {
+          "$type": "color",
+          "$value": "#DACBF8"
+        }
+      },
+      "blue": {
+        "t70": {
+          "$type": "color",
+          "$value": "#4B6E7E"
+        },
+        "t60": {
+          "$type": "color",
+          "$value": "#6492A7"
+        },
+        "t50": {
+          "$type": "color",
+          "$value": "#96DBFB"
+        },
+        "t40": {
+          "$type": "color",
+          "$value": "#A8E1FC"
+        },
+        "t30": {
+          "$type": "color",
+          "$value": "#B9E7FC"
+        },
+        "t20": {
+          "$type": "color",
+          "$value": "#CBEDFD"
+        },
+        "t10": {
+          "$type": "color",
+          "$value": "#EEF9FE"
+        }
+      }
+    },
+    "gradient": {
+      "blackPrimary": {
+        "$type": "color",
+        "$value": "linear-gradient(90deg, #000000 0%, #30214E 100%)"
+      },
+      "primarySecondary": {
+        "$type": "color",
+        "$value": "linear-gradient(84.18deg, #30214E 38.5%, #8E63EB 96.68%)"
+      },
+      "secondaryTertiary": {
+        "$type": "color",
+        "$value": "linear-gradient(90deg, #8E63EB 0%, #96DBFB 100%)"
+      }
+    },
+    "fontFamilies": {
+      "nunito": {
+        "$type": "fontFamilies",
+        "$value": "Nunito"
+      }
+    },
+    "fontWeights": {
+      "regular": {
+        "$type": "fontWeights",
+        "$value": "400"
+      },
+      "semiBold": {
+        "$type": "fontWeights",
+        "$value": "600"
+      },
+      "bold": {
+        "$type": "fontWeights",
+        "$value": "700"
+      },
+      "extraBold": {
+        "$type": "fontWeights",
+        "$value": "800"
+      }
+    },
+    "fontSizes": {
+      "displayH1": {
+        "$type": "fontSizes",
+        "$value": "40px"
+      },
+      "headingH2": {
+        "$type": "fontSizes",
+        "$value": "32px"
+      },
+      "headingH3": {
+        "$type": "fontSizes",
+        "$value": "24px"
+      },
+      "headingH4": {
+        "$type": "fontSizes",
+        "$value": "20px"
+      },
+      "bodyLarge": {
+        "$type": "fontSizes",
+        "$value": "18px"
+      },
+      "bodyMedium": {
+        "$type": "fontSizes",
+        "$value": "16px"
+      },
+      "bodySmall": {
+        "$type": "fontSizes",
+        "$value": "14px"
+      },
+      "labelCaption": {
+        "$type": "fontSizes",
+        "$value": "12px"
+      }
+    },
+    "spacing": {
+      "xs": {
+        "$type": "spacing",
+        "$value": "8px"
+      },
+      "sm": {
+        "$type": "spacing",
+        "$value": "12px"
+      },
+      "md": {
+        "$type": "spacing",
+        "$value": "16px"
+      },
+      "lg": {
+        "$type": "spacing",
+        "$value": "24px"
+      },
+      "xl": {
+        "$type": "spacing",
+        "$value": "32px"
+      },
+      "2xl": {
+        "$type": "spacing",
+        "$value": "40px"
+      },
+      "3xl": {
+        "$type": "spacing",
+        "$value": "48px"
+      }
+    },
+    "borderRadius": {
+      "none": {
+        "$type": "borderRadius",
+        "$value": "0px"
+      },
+      "xs": {
+        "$type": "borderRadius",
+        "$value": "4px"
+      },
+      "sm": {
+        "$type": "borderRadius",
+        "$value": "8px"
+      },
+      "md": {
+        "$type": "borderRadius",
+        "$value": "12px"
+      },
+      "lg": {
+        "$type": "borderRadius",
+        "$value": "16px"
+      },
+      "xl": {
+        "$type": "borderRadius",
+        "$value": "24px"
+      },
+      "full": {
+        "$type": "borderRadius",
+        "$value": "50%"
+      },
+      "button": {
+        "$type": "borderRadius",
+        "$value": "24px"
+      }
+    },
+    "boxShadow": {
+      "xs": {
+        "$type": "boxShadow",
+        "$value": [
+          {
+            "x": "0",
+            "y": "1",
+            "blur": "2",
+            "spread": "0",
+            "color": "rgba(48, 33, 78, 0.05)",
+            "type": "dropShadow"
+          }
+        ]
+      },
+      "sm": {
+        "$type": "boxShadow",
+        "$value": [
+          {
+            "x": "0",
+            "y": "2",
+            "blur": "8",
+            "spread": "0",
+            "color": "rgba(48, 33, 78, 0.08)",
+            "type": "dropShadow"
+          }
+        ]
+      },
+      "md": {
+        "$type": "boxShadow",
+        "$value": [
+          {
+            "x": "0",
+            "y": "4",
+            "blur": "16",
+            "spread": "0",
+            "color": "rgba(48, 33, 78, 0.10)",
+            "type": "dropShadow"
+          }
+        ]
+      },
+      "lg": {
+        "$type": "boxShadow",
+        "$value": [
+          {
+            "x": "0",
+            "y": "8",
+            "blur": "24",
+            "spread": "0",
+            "color": "rgba(48, 33, 78, 0.12)",
+            "type": "dropShadow"
+          }
+        ]
+      },
+      "xl": {
+        "$type": "boxShadow",
+        "$value": [
+          {
+            "x": "0",
+            "y": "16",
+            "blur": "48",
+            "spread": "0",
+            "color": "rgba(48, 33, 78, 0.16)",
+            "type": "dropShadow"
+          }
+        ]
+      }
+    },
+    "typography": {
+      "displayH1": {
+        "$type": "typography",
+        "$value": {
+          "fontFamily": "{fontFamilies.nunito}",
+          "fontWeight": "{fontWeights.extraBold}",
+          "fontSize": "{fontSizes.displayH1}",
+          "lineHeight": "120%"
+        }
+      },
+      "headingH2": {
+        "$type": "typography",
+        "$value": {
+          "fontFamily": "{fontFamilies.nunito}",
+          "fontWeight": "{fontWeights.bold}",
+          "fontSize": "{fontSizes.headingH2}",
+          "lineHeight": "125%"
+        }
+      },
+      "headingH3": {
+        "$type": "typography",
+        "$value": {
+          "fontFamily": "{fontFamilies.nunito}",
+          "fontWeight": "{fontWeights.bold}",
+          "fontSize": "{fontSizes.headingH3}",
+          "lineHeight": "130%"
+        }
+      },
+      "headingH4": {
+        "$type": "typography",
+        "$value": {
+          "fontFamily": "{fontFamilies.nunito}",
+          "fontWeight": "{fontWeights.semiBold}",
+          "fontSize": "{fontSizes.headingH4}",
+          "lineHeight": "135%"
+        }
+      },
+      "bodyLarge": {
+        "$type": "typography",
+        "$value": {
+          "fontFamily": "{fontFamilies.nunito}",
+          "fontWeight": "{fontWeights.regular}",
+          "fontSize": "{fontSizes.bodyLarge}",
+          "lineHeight": "150%"
+        }
+      },
+      "bodyMedium": {
+        "$type": "typography",
+        "$value": {
+          "fontFamily": "{fontFamilies.nunito}",
+          "fontWeight": "{fontWeights.regular}",
+          "fontSize": "{fontSizes.bodyMedium}",
+          "lineHeight": "150%"
+        }
+      },
+      "bodySmall": {
+        "$type": "typography",
+        "$value": {
+          "fontFamily": "{fontFamilies.nunito}",
+          "fontWeight": "{fontWeights.regular}",
+          "fontSize": "{fontSizes.bodySmall}",
+          "lineHeight": "145%"
+        }
+      },
+      "labelCaption": {
+        "$type": "typography",
+        "$value": {
+          "fontFamily": "{fontFamilies.nunito}",
+          "fontWeight": "{fontWeights.semiBold}",
+          "fontSize": "{fontSizes.labelCaption}",
+          "lineHeight": "135%"
+        }
+      }
+    },
+    "component": {
+      "button": {
+        "heightMd": {
+          "$type": "sizing",
+          "$value": "46px"
+        },
+        "minWidthMd": {
+          "$type": "sizing",
+          "$value": "170px"
+        },
+        "paddingY": {
+          "$type": "spacing",
+          "$value": "12px"
+        },
+        "paddingX": {
+          "$type": "spacing",
+          "$value": "20px"
+        },
+        "gap": {
+          "$type": "spacing",
+          "$value": "8px"
+        },
+        "borderWidth": {
+          "$type": "borderWidth",
+          "$value": "2px"
+        },
+        "radius": {
+          "$type": "borderRadius",
+          "$value": "24px"
+        },
+        "chatSize": {
+          "$type": "sizing",
+          "$value": "48px"
+        },
+        "iconSize": {
+          "$type": "sizing",
+          "$value": "30px"
+        }
+      }
+    }
+  }
+}

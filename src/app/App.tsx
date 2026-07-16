@@ -1,0 +1,3012 @@
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import ReactDOM from "react-dom";
+import luxiaWordmarkUrl from "@/assets/brand/Luxia-Star.svg";
+import flagUs from "@/assets/flags/us.svg";
+import flagIt from "@/assets/flags/it.svg";
+import flagSa from "@/assets/flags/sa.svg";
+import flagFr from "@/assets/flags/fr.svg";
+import flagDe from "@/assets/flags/de.svg";
+import flagEs from "@/assets/flags/es.svg";
+import flagCn from "@/assets/flags/cn.svg";
+import { LuxiaStarLogo } from "@/app/components/LuxiaStarLogo";
+import { ActiveDataTablesSection } from "@/app/features/active-data-tables/ActiveDataTablesSection";
+import { ExtraContextFilesSection } from "@/app/features/extra-context-files/ExtraContextFilesSection";
+import { InstructionSection } from "@/app/features/instruction/InstructionSection";
+import { KBEntryMenu } from "@/app/features/kb/KBEntryMenu";
+import { MetricsSection } from "@/app/features/metrics/MetricsSection";
+import { PDFFilesSection } from "@/app/features/pdf-files/PDFFilesSection";
+import { CrawlerSection } from "@/app/features/crawler/CrawlerSection";
+import { RelationshipSection } from "@/app/features/relationship/RelationshipSection";
+import { LX } from "@/app/features/active-data-tables/tokens";
+import { Button } from "@/app/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/app/components/ui/tooltip";
+import {
+  ChevronDown, ChevronRight, ChevronLeft,
+  Plus, X, Pin, Copy, Bookmark, Maximize2,
+  FileText, Database, Globe, BookOpen, FolderOpen, Cpu,
+  Send, Mic, Eye, EyeOff, Upload, GripVertical,
+  Trash2, Check, Edit3, BarChart3, Table2,
+  Home, Users, LayoutGrid, Bot,
+  Bell, Wrench, HelpCircle,
+  Sparkles, MessageSquare, Network, Star,
+  RefreshCw, Search, MoreHorizontal, Wand2,
+  AlignLeft, Layers, Settings2, Pencil, Share2, List, FileBarChart2,
+} from "lucide-react";
+
+// ─── Constellation type style tokens (tab cards + indicators) ──
+const CONSTELLATION_STYLE: Record<string, {
+  color: string; bg: string; activeBg: string;
+  border: string; activeBorder: string;
+}> = {
+  database: {
+    color: "#7652C4",
+    bg: "rgba(118,82,196,0.05)",
+    activeBg: "rgba(118,82,196,0.10)",
+    border: "rgba(118,82,196,0.18)",
+    activeBorder: "rgba(118,82,196,0.35)",
+  },
+  pdf: {
+    color: "#2B8DC4",
+    bg: "rgba(43,141,196,0.05)",
+    activeBg: "rgba(43,141,196,0.10)",
+    border: "rgba(43,141,196,0.18)",
+    activeBorder: "rgba(43,141,196,0.35)",
+  },
+};
+
+// ─── Response languages ───────────────────────────────────────
+const LANGUAGES = [
+  { code: "EN", flagUrl: flagUs, label: "English",  sublabel: "United States" },
+  { code: "IT", flagUrl: flagIt, label: "Italiano", sublabel: "Italia" },
+  { code: "AR", flagUrl: flagSa, label: "Arabic",   sublabel: "Saudi Arabia" },
+  { code: "FR", flagUrl: flagFr, label: "French",   sublabel: "France" },
+  { code: "DE", flagUrl: flagDe, label: "German",   sublabel: "Deutschland" },
+  { code: "ES", flagUrl: flagEs, label: "Spanish",  sublabel: "España" },
+  { code: "ZH", flagUrl: flagCn, label: "Chinese",  sublabel: "中国" },
+];
+
+function FlagCircle({ flagUrl, label, size = 24 }: { flagUrl: string; label: string; size?: number }) {
+  return (
+    <span style={{
+      display: "inline-block",
+      width: size, height: size, borderRadius: "50%",
+      overflow: "hidden", flexShrink: 0,
+      border: "1px solid rgba(0,0,0,0.10)",
+      background: "#f0f0f0",
+    }}>
+      <img src={flagUrl} alt="" aria-hidden="true"
+        style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center", display: "block" }} />
+    </span>
+  );
+}
+
+// ─── Constellation Section Definitions ───────────────────────
+type SectionId = "kb" | "dataTable" | "contextFiles" | "relationship" | "metrics" | "instr" | "pdfFiles" | "crawler";
+type ConstellationType = "database" | "pdf";
+
+const SECTION_META: Record<SectionId, { label: string; icon: React.FC<{ size?: number; color?: string }> }> = {
+  kb: { label: "Knowledge Base", icon: BookOpen },
+  dataTable: { label: "Active Data Table", icon: Table2 },
+  contextFiles: { label: "Extra Context Files", icon: FolderOpen },
+  relationship: { label: "Relationship", icon: Network },
+  metrics: { label: "Metrics", icon: BarChart3 },
+  instr: { label: "Instruction", icon: Cpu },
+  pdfFiles: { label: "PDF Files", icon: FileText },
+  crawler: { label: "Crawler URL Data", icon: Globe },
+};
+
+const CONSTELLATION_SECTIONS: Record<ConstellationType, SectionId[]> = {
+  database: ["dataTable", "kb", "instr", "contextFiles", "relationship", "metrics"],
+  pdf: ["pdfFiles", "kb", "instr", "crawler"],
+};
+
+const SECTION_DEFAULTS: Partial<Record<SectionId, string[]>> = {
+  kb: [],
+  dataTable: ["Table 1", "Table 2"],
+  contextFiles: ["Context File A", "Context File B"],
+  relationship: ["Relation 1"],
+  metrics: ["Metric 1", "Metric 2"],
+  pdfFiles: ["Report A.pdf", "Guide B.pdf"],
+  crawler: ["https://site-1.example", "https://site-2.example"],
+};
+
+const SECTION_INSTRUCTION: Record<ConstellationType, string> = {
+  database: "Answer based on the connected data sources and documents.",
+  pdf: "Extract and summarise information from the connected PDF files.",
+};
+
+// ─── Knowledge Base Types & Data ─────────────────────────────
+interface KBEntry { id: string; question: string; answer: string; responseType?: string; }
+
+const KB_RESPONSE_TYPES = [
+  { id: "narrative", label: "Narrative" },
+  { id: "table", label: "Table" },
+  { id: "chart", label: "Chart" },
+  { id: "kpi", label: "KPI" },
+  { id: "list", label: "List" },
+];
+
+const KB_DEFAULTS: KBEntry[] = [
+  {
+    id: "kb1", responseType: "narrative", question: "What is Luxia?",
+    answer: "Luxia is an enterprise AI platform that connects your data, documents, and knowledge into intelligent conversational experiences through AI-powered Constellations."
+  },
+  {
+    id: "kb2", responseType: "list", question: "How do I create a Constellation?",
+    answer: "Navigate to Constellations in the sidebar, click Create New, choose your data sources (databases, PDFs, or web crawlers), configure your settings, and save. It becomes available in Chat immediately."
+  },
+  {
+    id: "kb3", responseType: "narrative", question: "How does the Relationship feature work?",
+    answer: "Relationship maps entity connections in your data using graph logic. It traverses linked records to surface related information, improving accuracy for complex multi-entity queries."
+  },
+  {
+    id: "kb4", responseType: "list", question: "Which documents belong to this Constellation?",
+    answer: "Connected documents appear in the Extra Context Files and Active Data Table sidebar sections. Each section shows the resources Luxia searches when generating responses for this Constellation."
+  },
+  {
+    id: "kb5", responseType: "table", question: "What response types are available?",
+    answer: "Luxia supports five response types: Narrative (natural language), Table (structured grid), Chart (visual graph), KPI (key metric), and List (bullet summary). Each Knowledge Entry can have a default type."
+  },
+];
+
+const KB_AUTO_SAMPLES: KBEntry[] = [
+  {
+    id: "s1", responseType: "narrative", question: "How is data refreshed in real time?",
+    answer: "Data refreshes automatically when connected sources are updated. You can also trigger a manual refresh from the Datasources panel in the left navigation."
+  },
+  {
+    id: "s2", responseType: "list", question: "What file formats can I upload?",
+    answer: "Supported formats include PDF, DOCX, XLSX, CSV, and TXT. Files are indexed automatically after upload and become searchable within seconds."
+  },
+  {
+    id: "s3", responseType: "narrative", question: "How do I share a Constellation with my team?",
+    answer: "Open the Constellation settings, go to the Permissions tab, and add team members by email. You can set View or Edit access per person."
+  },
+  {
+    id: "s4", responseType: "list", question: "Can I export chat conversations?",
+    answer: "Yes. Open any Chat, click the ⋯ menu in the header, and select Export. You can export as PDF, Markdown, or plain text."
+  },
+  {
+    id: "s5", responseType: "kpi", question: "What is the maximum number of data sources per Constellation?",
+    answer: "Enterprise plans support up to 50 connected data sources per Constellation. The Standard plan allows up to 10 sources."
+  },
+  {
+    id: "s6", responseType: "narrative", question: "Does Luxia support Arabic language responses?",
+    answer: "Yes. Luxia supports responses in Arabic, English, French, German, Spanish, and Chinese. The language can be set per-session using the Language selector in the Chat composer."
+  },
+  {
+    id: "s7", responseType: "table", question: "How does the Metrics section work?",
+    answer: "Metrics connect to your KPI definitions and aggregate numeric data from your active data sources. They update dynamically as the underlying data changes."
+  },
+  {
+    id: "s8", responseType: "narrative", question: "What happens if a data source is disconnected?",
+    answer: "If a data source disconnects, Luxia will continue using cached data up to the last successful sync. A warning badge appears in the sidebar indicating the disconnected source."
+  },
+  {
+    id: "s9", responseType: "list", question: "Can I use multiple Constellations in one Chat session?",
+    answer: "Each Chat is connected to one Constellation at a time. To switch contexts, create a new Chat and select a different Constellation from the selector."
+  },
+  {
+    id: "s10", responseType: "narrative", question: "How is the Knowledge Base different from documents?",
+    answer: "The Knowledge Base contains hand-curated question-answer pairs that provide precise, structured answers. Documents are raw files that Luxia searches through semantic retrieval. The KB takes priority in responses when a matching entry is found."
+  },
+];
+
+// ─── Types ────────────────────────────────────────────────────
+interface Source { id: string; label: string; }
+interface Message {
+  id: string; role: "user" | "ai"; content: string; timestamp: string;
+  sources?: Source[]; reasoning?: string[];
+}
+interface Chat { id: string; label: string; constellationId: string; pinned?: boolean; }
+interface Constellation {
+  id: string; label: string; type: ConstellationType;
+  description: string;
+}
+
+// ─── Data ─────────────────────────────────────────────────────
+const CONSTELLATIONS: Constellation[] = [
+  {
+    id: "con1", label: "Constellation 1", type: "database",
+    description: "Connects structured data tables, relationship graphs, and metrics for analytical queries and reporting.",
+  },
+  {
+    id: "con2", label: "Constellation 2", type: "pdf",
+    description: "Indexes PDF documents and crawled web pages for semantic search and content summarisation.",
+  },
+  {
+    id: "con3", label: "Constellation 3", type: "database",
+    description: "Operational database with real-time event streams, KPI dashboards, and usage analytics.",
+  },
+];
+
+const INITIAL_CHATS: Chat[] = [
+  { id: "c1", label: "Chat 1", constellationId: "con1" },
+  { id: "c2", label: "Chat 2", constellationId: "con2" },
+];
+
+const MESSAGES_C1: Message[] = [
+  { id: "u1", role: "user", timestamp: "10:14 AM", content: "What data is available in this constellation?" },
+  {
+    id: "a1", role: "ai", timestamp: "10:14 AM",
+    content: "This constellation is connected to two data tables and three knowledge base documents.\n\nYou can query the tables directly or ask questions about the documents.",
+    sources: [{ id: "s1", label: "Table 1" }, { id: "s2", label: "Document A" }],
+    reasoning: ["Checked active data table connections", "Scanned knowledge base index", "Composed summary"],
+  },
+];
+
+const MESSAGES_C2: Message[] = [
+  { id: "u1", role: "user", timestamp: "11:02 AM", content: "What PDF files are connected here?" },
+  {
+    id: "a1", role: "ai", timestamp: "11:02 AM",
+    content: "This constellation includes two PDF documents and one crawled URL.\n\nI can search within the PDFs, summarise their content, or retrieve specific sections.",
+    sources: [{ id: "s1", label: "Report A.pdf" }, { id: "s2", label: "Guide B.pdf" }],
+    reasoning: ["Resolved active PDF file connections", "Checked crawler URL index", "Prepared response"],
+  },
+];
+
+const INITIAL_MESSAGES: Record<string, Message[]> = { c1: MESSAGES_C1, c2: MESSAGES_C2 };
+
+const EMPTY_PROMPTS = [
+  "What information is available here?",
+  "Give me a brief summary",
+  "What are the key topics?",
+  "Walk me through the structure",
+];
+
+const NAV_TOP_ITEMS = [
+  { icon: Home, label: "Home page" },
+  { icon: Users, label: "User & permissions" },
+  { icon: Database, label: "Datasources" },
+];
+const NAV_PROJECT_ITEMS = [
+  { icon: Network, label: "Galaxies" },
+  { icon: LayoutGrid, label: "Constellations" },
+  { icon: BarChart3, label: "Dashboard" },
+  { icon: Bot, label: "Virtual assistant" },
+  { icon: MessageSquare, label: "Chat", active: true },
+];
+const NAV_BOTTOM_ITEMS = [
+  { icon: Bell, label: "Notifications" },
+  { icon: Wrench, label: "Tools gallery" },
+  { icon: Star, label: "Settings" },
+  { icon: HelpCircle, label: "Support" },
+];
+
+// ─── Markdown renderer ────────────────────────────────────────
+function renderMd(text: string) {
+  return text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g).map((p, i) => {
+    if (p.startsWith("**") && p.endsWith("**"))
+      return <strong key={i} className="font-bold">{p.slice(2, -2)}</strong>;
+    if (p.startsWith("`") && p.endsWith("`"))
+      return <code key={i} className="px-1.5 py-0.5 rounded text-[13px] font-mono" style={{ background: LX.blueT10, color: LX.accent }}>{p.slice(1, -1)}</code>;
+    return <span key={i}>{p}</span>;
+  });
+}
+
+function renderContent(content: string) {
+  return content.split("\n\n").map((block, i) => {
+    const lines = block.split("\n");
+    if (lines.every(l => l.startsWith("- "))) {
+      return (
+        <ul key={i} className="space-y-1.5 my-2">
+          {lines.map((l, j) => (
+            <li key={j} className="flex items-start gap-2 text-[15px]">
+              <span className="mt-[7px] w-[5px] h-[5px] rounded-full flex-shrink-0" style={{ background: LX.accent }} />
+              <span>{renderMd(l.slice(2))}</span>
+            </li>
+          ))}
+        </ul>
+      );
+    }
+    return <p key={i} className={`text-[15px] leading-[1.7] ${i > 0 ? "mt-3" : ""}`}>{renderMd(block)}</p>;
+  });
+}
+
+// ─── Sidebar Brand Background ────────────────────────────────
+function SidebarBrandBackground() {
+  return null;
+}
+
+// ─── Nav Item ─────────────────────────────────────────────────
+function NavItem({ icon: Icon, label, active, badge, chevron }: {
+  icon: React.FC<{ size?: number; color?: string }>;
+  label: string; active?: boolean; badge?: number; chevron?: boolean;
+}) {
+  return (
+    <button
+      className="w-full flex items-center gap-3 px-3.5 h-[40px] rounded-[10px] transition-all text-left group"
+      style={{ background: active ? "rgba(255,255,255,0.12)" : "transparent" }}
+      onMouseEnter={(e) => { if (!active) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.06)"; }}
+      onMouseLeave={(e) => { if (!active) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+    >
+      <Icon size={16} color={active ? "white" : "rgba(255,255,255,0.55)"} />
+      <span className="flex-1 text-[13.5px] truncate"
+        style={{ color: active ? "white" : "rgba(255,255,255,0.7)", fontWeight: active ? 700 : 500, letterSpacing: active ? "-0.01em" : "0" }}>
+        {label}
+      </span>
+      {badge && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: LX.error, color: "white" }}>{badge}</span>}
+      {chevron && <ChevronRight size={12} color={active ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.22)"} />}
+    </button>
+  );
+}
+
+// ─── Official Luxia Logo ──────────────────────────────────────
+// Uses the exact Luxia-Star.svg brand asset (wordmark + star mark).
+// The SVG viewBox is 120×47. Target height in sidebar: 28px.
+function LuxiaLogo() {
+  const targetH = 28;
+  const targetW = Math.round(120 * (targetH / 47)); // ≈ 71px
+  return (
+    <img
+      src={luxiaWordmarkUrl}
+      alt="Luxia"
+      width={targetW}
+      height={targetH}
+      style={{ display: "block", objectFit: "contain", flexShrink: 0 }}
+    />
+  );
+}
+
+// ─── Left Navigation ──────────────────────────────────────────
+function LeftNav() {
+  return (
+    <aside className="relative flex flex-col w-[264px] flex-shrink-0 h-full overflow-hidden"
+      style={{ background: LX.gradient.nav }}>
+      <div className="relative z-[2] flex items-center px-5 h-[68px] flex-shrink-0">
+        <LuxiaLogo />
+      </div>
+      <nav className="relative z-[2] px-3 space-y-px">
+        {NAV_TOP_ITEMS.map(({ icon, label, badge }) => (
+          <NavItem key={label} icon={icon} label={label} badge={badge} />
+        ))}
+      </nav>
+      <div className="relative z-[2] mx-4 my-4" style={{ height: 1, background: "rgba(255,255,255,0.07)" }} />
+      <div className="relative z-[2] px-3">
+        <p className="px-3 mb-1.5 text-[10px] font-semibold tracking-[0.12em] uppercase"
+          style={{ color: "rgba(150,219,251,0.55)" }}>
+          Project Name 1
+        </p>
+        <nav className="space-y-px">
+          {NAV_PROJECT_ITEMS.map(({ icon, label, active }) => (
+            <NavItem key={label} icon={icon} label={label} active={active} chevron />
+          ))}
+        </nav>
+      </div>
+      <div className="relative flex-1" />
+      <div className="relative z-[2] px-3 pb-2 space-y-px pt-3" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+        {NAV_BOTTOM_ITEMS.map(({ icon, label }) => (
+          <NavItem key={label} icon={icon} label={label} />
+        ))}
+      </div>
+      <div className="relative z-[2] flex items-center gap-2.5 px-4 py-3.5" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+        <div className="w-8 h-8 rounded-[8px] flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0"
+          style={{ background: "linear-gradient(135deg, #5BC8F5 0%, #2C7A9E 100%)" }}>
+          HR
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-white text-[12.5px] font-semibold truncate leading-tight">Hoda Roshani</p>
+          <p className="text-[11px] truncate leading-tight" style={{ color: "rgba(255,255,255,0.4)" }}>Administrator</p>
+        </div>
+        <ChevronRight size={12} color="rgba(255,255,255,0.25)" />
+      </div>
+    </aside>
+  );
+}
+
+// ─── Chat Tab Bar — premium rounded-card style ────────────────
+function ChatTabBar({ chats, activeId, onSelect, onNew, onClose, onPin, onRename }: {
+  chats: Chat[]; activeId: string;
+  onSelect: (id: string) => void; onNew: () => void;
+  onClose: (id: string) => void; onPin: (id: string) => void;
+  onRename: (id: string, v: string) => void;
+}) {
+  const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null);
+  const [renaming, setRenaming] = useState<string | null>(null);
+  const [renameVal, setRenameVal] = useState("");
+  const renameRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { if (renaming) renameRef.current?.focus(); }, [renaming]);
+  useEffect(() => {
+    const close = () => setMenu(null);
+    window.addEventListener("click", close);
+    return () => window.removeEventListener("click", close);
+  }, []);
+
+  return (
+    <div className="flex items-center gap-1.5 px-6 py-2.5 overflow-x-auto flex-shrink-0"
+      style={{ borderBottom: `1px solid ${LX.border}` }}>
+      {chats.map((chat) => {
+        const isActive = chat.id === activeId;
+        const con = CONSTELLATIONS.find(c => c.id === chat.constellationId);
+        const style = con ? CONSTELLATION_STYLE[con.type] : null;
+
+        return (
+          <div key={chat.id} className="relative flex-shrink-0 group"
+            onContextMenu={(e) => { e.preventDefault(); setMenu({ id: chat.id, x: e.clientX, y: e.clientY }); }}>
+            <button onClick={() => onSelect(chat.id)}
+              className="flex items-center gap-2 px-3.5 h-[36px] rounded-[10px] text-[13px] transition-all"
+              style={{
+                background: style ? (isActive ? style.activeBg : style.bg) : "transparent",
+                border: `1px solid ${style ? (isActive ? style.activeBorder : style.border) : LX.border}`,
+                color: isActive ? LX.primary : LX.muted,
+                fontWeight: isActive ? 800 : 600,
+                boxShadow: isActive ? LX.shadow.sm : "none",
+              }}>
+              {chat.pinned && <Pin size={10} style={{ color: style?.color ?? LX.accent }} />}
+              {renaming === chat.id ? (
+                <input ref={renameRef} value={renameVal}
+                  onChange={(e) => setRenameVal(e.target.value)}
+                  onBlur={() => { if (renameVal.trim()) onRename(chat.id, renameVal.trim()); setRenaming(null); }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") { if (renameVal.trim()) onRename(chat.id, renameVal.trim()); setRenaming(null); }
+                    if (e.key === "Escape") setRenaming(null);
+                  }}
+                  className="bg-transparent border-none outline-none w-[90px] text-[13px] font-extrabold"
+                  style={{ color: LX.primary }} onClick={(e) => e.stopPropagation()} />
+              ) : (
+                <span className="truncate select-none" style={{ maxWidth: 110 }}>{chat.label}</span>
+              )}
+              {chats.length > 1 && (
+                <span onClick={(e) => { e.stopPropagation(); onClose(chat.id); }}
+                  className="opacity-0 group-hover:opacity-100 w-4 h-4 flex items-center justify-center rounded-full transition-all hover:bg-black/10 ml-0.5 flex-shrink-0">
+                  <X size={9} style={{ color: LX.muted }} />
+                </span>
+              )}
+            </button>
+          </div>
+        );
+      })}
+
+      {/* New Chat — opens constellation picker, never creates directly */}
+      <button onClick={onNew}
+        className="flex items-center justify-center w-[30px] h-[30px] rounded-[8px] flex-shrink-0 transition-all hover:opacity-80"
+        style={{ border: `1.5px dashed ${LX.border}` }}
+        title="New Chat — select a Constellation">
+        <Plus size={13} style={{ color: LX.muted }} />
+      </button>
+
+      {menu && (
+        <div className="fixed z-50 rounded-[12px] overflow-hidden py-1"
+          style={{ top: menu.y, left: menu.x, background: "white", boxShadow: LX.shadow.md, border: `1px solid ${LX.border}`, minWidth: 156 }}
+          onClick={(e) => e.stopPropagation()}>
+          {[
+            { icon: Edit3, label: "Rename", action: () => { const c = chats.find(x => x.id === menu.id); if (c) { setRenaming(menu.id); setRenameVal(c.label); setMenu(null); } } },
+            { icon: Pin, label: "Toggle pin", action: () => { onPin(menu.id); setMenu(null); } },
+            { icon: Copy, label: "Duplicate", action: () => setMenu(null) },
+            { icon: Trash2, label: "Close tab", action: () => { onClose(menu.id); setMenu(null); }, danger: true },
+          ].map(({ icon: Icon, label, action, danger }) => (
+            <button key={label} onClick={action}
+              className="w-full flex items-center gap-2.5 px-4 py-2 text-[13px] font-semibold hover:bg-[#FAFDFF] transition-colors text-left"
+              style={{ color: danger ? LX.error : LX.primary }}>
+              <Icon size={13} />{label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Assistant Mode Dropdown ──────────────────────────────────
+const ASSISTANT_MODES = ["Luxia", "Knowledge Base", "Luxia / AI"];
+
+function AssistantModeDropdown({ mode, onChange }: { mode: string; onChange: (m: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function onOutside(e: MouseEvent) { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); }
+    document.addEventListener("mousedown", onOutside);
+    return () => document.removeEventListener("mousedown", onOutside);
+  }, []);
+
+  return (
+    <div ref={ref} className="relative flex-shrink-0">
+      <button onClick={() => setOpen(p => !p)}
+        className="flex items-center gap-1 px-2 h-full rounded-lg transition-colors outline-none"
+        style={{ color: "#64748B" }}
+        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = LX.primary; }}
+        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "#64748B"; }}>
+        <span className="text-[13px] font-medium whitespace-nowrap">{mode}</span>
+        <ChevronDown size={14} strokeWidth={2} style={{ transition: "transform 160ms ease", transform: open ? "rotate(180deg)" : "none" }} />
+      </button>
+      {open && (
+        <div className="absolute bottom-full right-0 mb-2 rounded-[12px] overflow-hidden py-1.5 z-50"
+          style={{ background: "white", boxShadow: LX.shadow.md, border: `1px solid #E2E8F0`, minWidth: 160 }}>
+          {ASSISTANT_MODES.map(m => (
+            <button key={m} onClick={() => { onChange(m); setOpen(false); }}
+              className="w-full flex items-center gap-2.5 px-3.5 py-2 text-[13px] text-left transition-colors hover:bg-[#F8FAFC]"
+              style={{ color: LX.primary, fontWeight: m === mode ? 700 : 500 }}>
+              {m === mode && <Check size={12} style={{ color: LX.secondary }} />}
+              {m !== mode && <span className="w-3" />}
+              {m}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── New Chat Modal ───────────────────────────────────────────
+function NewChatModal({ onSelect, onClose, recentIds }: {
+  onSelect: (constellationId: string) => void;
+  onClose: () => void;
+  recentIds: string[];
+}) {
+  const [query, setQuery] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { searchRef.current?.focus(); }, []);
+
+  const filtered = query
+    ? CONSTELLATIONS.filter(c =>
+      c.label.toLowerCase().includes(query.toLowerCase()) ||
+      c.description.toLowerCase().includes(query.toLowerCase()))
+    : CONSTELLATIONS;
+
+  const recent = CONSTELLATIONS.filter(c => recentIds.includes(c.id));
+  const dbList = filtered.filter(c => c.type === "database");
+  const pdfList = filtered.filter(c => c.type === "pdf");
+
+  function ConRow({ c }: { c: Constellation }) {
+    const style = CONSTELLATION_STYLE[c.type];
+    return (
+      <button onClick={() => onSelect(c.id)}
+        className="w-full flex items-center gap-3 px-4 py-3 rounded-[12px] transition-all text-left hover:bg-[#FAFDFF] group"
+        style={{ border: "1px solid transparent" }}
+        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = style.border; (e.currentTarget as HTMLElement).style.background = style.bg; }}
+        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "transparent"; (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
+        <div className="w-8 h-8 rounded-[8px] flex items-center justify-center flex-shrink-0"
+          style={{ background: style.bg, border: `1px solid ${style.border}` }}>
+          {c.type === "database" ? <Database size={14} color={style.color} /> : <FileText size={14} color={style.color} />}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-[13px] font-bold truncate" style={{ color: LX.primary }}>{c.label}</p>
+          <p className="text-[11px] truncate" style={{ color: LX.muted }}>{c.description}</p>
+        </div>
+        <ChevronRight size={14} style={{ color: LX.muted }} className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+      </button>
+    );
+  }
+
+  function Section({ title, items }: { title: string; items: Constellation[] }) {
+    if (items.length === 0) return null;
+    return (
+      <div>
+        <p className="px-1 mb-1.5 text-[10px] font-bold tracking-widest uppercase" style={{ color: LX.muted }}>{title}</p>
+        <div className="space-y-1">
+          {items.map(c => <ConRow key={c.id} c={c} />)}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
+      <div className="absolute inset-0" style={{ background: "rgba(16,5,32,0.35)", backdropFilter: "blur(4px)" }} />
+      <div className="relative flex flex-col rounded-[20px] overflow-hidden"
+        style={{ width: 500, maxHeight: "80vh", background: "white", boxShadow: "0 12px 32px rgba(15,23,42,0.14)" }}
+        onClick={(e) => e.stopPropagation()}>
+
+        {/* Header */}
+        <div className="flex items-start justify-between px-7 pt-6 pb-5 flex-shrink-0">
+          <div>
+            <h2 className="text-[18px] font-bold mb-1" style={{ color: LX.primary }}>New Chat</h2>
+            <p className="text-[12.5px]" style={{ color: LX.textMuted }}>
+              Every chat is linked to a Constellation. Select one to continue.
+            </p>
+          </div>
+          <button onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center rounded-full transition-colors flex-shrink-0 mt-0.5 outline-none"
+            style={{ border: `1px solid ${LX.border}` }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.borderSubtle; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
+            <X size={13} style={{ color: LX.textMuted }} />
+          </button>
+        </div>
+
+        {/* Search */}
+        <div className="px-7 pb-4 flex-shrink-0">
+          <div className="flex items-center gap-2.5 px-3.5 h-[40px] rounded-[12px]"
+            style={{ background: LX.subtle, border: `1px solid ${LX.border}` }}>
+            <Search size={14} color={LX.muted} className="flex-shrink-0" />
+            <input ref={searchRef} value={query} onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search constellations…"
+              className="flex-1 outline-none bg-transparent text-[13px]"
+              style={{ color: LX.primary }} />
+          </div>
+        </div>
+
+        {/* Sections */}
+        <div className="flex-1 overflow-y-auto px-5 pb-4 space-y-5">
+          {!query && recent.length > 0 && <Section title="Recently used" items={recent} />}
+          <Section title={query ? "Results" : "Database constellations"} items={dbList} />
+          {!query && <Section title="PDF constellations" items={pdfList} />}
+          {query && pdfList.length > 0 && filtered.length !== dbList.length && <Section title="PDF constellations" items={pdfList} />}
+          {filtered.length === 0 && (
+            <p className="text-center py-8 text-[13px]" style={{ color: LX.muted }}>No constellations match "{query}"</p>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex-shrink-0 px-7 py-4" style={{ borderTop: `1px solid ${LX.border}` }}>
+          <button className="w-full flex items-center justify-center gap-2 h-[40px] rounded-[99px] text-[13px] font-bold hover:opacity-80 transition-opacity"
+            style={{ border: `1.5px dashed ${LX.border}`, color: LX.muted }}>
+            <Plus size={14} />Create New Constellation
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Luxia Dialog Shell ───────────────────────────────────────
+function LuxiaDialog({ open, onClose, title, children, footer }: {
+  open: boolean; onClose: () => void;
+  title: string; children: React.ReactNode; footer: React.ReactNode;
+}) {
+  useEffect(() => {
+    if (!open) return;
+    function onKey(e: KeyboardEvent) { if (e.key === "Escape") onClose(); }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+  if (!open) return null;
+  return ReactDOM.createPortal(
+    <div className="fixed inset-0 z-[9990] flex items-center justify-center p-4"
+      style={{ background: "rgba(15,23,42,0.40)" }}
+      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="w-full max-w-md flex flex-col max-h-[85vh]"
+        style={{ background: "white", border: "1px solid #E2E8F0", borderRadius: 16, boxShadow: "0 12px 32px rgba(15,23,42,0.14)" }}>
+        <div className="flex-shrink-0 flex items-center justify-between px-7 pt-6 pb-4">
+          <h2 className="text-[18px] font-bold" style={{ color: LX.primary }}>{title}</h2>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-[8px] transition-colors outline-none"
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.borderSubtle; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
+            <X size={16} style={{ color: LX.textMuted }} />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-7 pb-2">{children}</div>
+        <div className="flex-shrink-0 flex items-center justify-end gap-3 px-7 py-5" style={{ borderTop: `1px solid ${LX.border}` }}>
+          {footer}
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+// ─── Options Dialogs ──────────────────────────────────────────
+const DEMO_USERS = [
+  { id: "u1", name: "Alice Martin", email: "alice@luxia.ai" },
+  { id: "u2", name: "Ben Torres", email: "ben@luxia.ai" },
+  { id: "u3", name: "Clara Huang", email: "clara@luxia.ai" },
+  { id: "u4", name: "David Kim", email: "david@luxia.ai" },
+];
+
+function RenameDialog({ open, current, onClose, onRename }: {
+  open: boolean; current: string; onClose: () => void; onRename: (name: string) => void;
+}) {
+  const [value, setValue] = useState(current);
+  useEffect(() => { if (open) setValue(current); }, [open, current]);
+  const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => { if (open) setTimeout(() => inputRef.current?.select(), 50); }, [open]);
+  return (
+    <LuxiaDialog open={open} onClose={onClose} title="Rename Chat"
+      footer={<>
+        <button onClick={onClose} className="px-5 h-[38px] rounded-full text-[13px] font-semibold transition-colors outline-none"
+          style={{ color: LX.textMuted, border: `1px solid ${LX.border}` }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.borderSubtle; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>Cancel</button>
+        <button onClick={() => { if (value.trim()) { onRename(value.trim()); onClose(); } }}
+          disabled={!value.trim()}
+          className="px-5 h-[38px] rounded-full text-[13px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40 outline-none"
+          style={{ background: LX.gradient.button }}>Rename</button>
+      </>}>
+      <input ref={inputRef} value={value} onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter" && value.trim()) { onRename(value.trim()); onClose(); } }}
+        className="w-full h-[42px] px-4 rounded-[10px] text-[14px] outline-none"
+        style={{ border: `1px solid ${LX.border}`, color: LX.primary }} />
+    </LuxiaDialog>
+  );
+}
+
+function ShareDialog({ open, chatLabel, sharedUsers, onClose, onShare }: {
+  open: boolean; chatLabel: string; sharedUsers: string[];
+  onClose: () => void; onShare: (ids: string[]) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [selected, setSelected] = useState<string[]>([]);
+  const [done, setDone] = useState(false);
+  useEffect(() => { if (open) { setSelected([...sharedUsers]); setQuery(""); setDone(false); } }, [open]);
+  const filtered = DEMO_USERS.filter(u =>
+    !sharedUsers.includes(u.id) &&
+    (u.name.toLowerCase().includes(query.toLowerCase()) || u.email.toLowerCase().includes(query.toLowerCase()))
+  );
+  function toggle(id: string) {
+    setSelected(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
+  }
+  if (done) return (
+    <LuxiaDialog open={open} onClose={onClose} title={`Share ${chatLabel}`}
+      footer={<button onClick={onClose} className="px-5 h-[38px] rounded-full text-[13px] font-semibold text-white outline-none" style={{ background: LX.gradient.button }}>Done</button>}>
+      <div className="py-6 text-center">
+        <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3" style={{ background: "rgba(142,99,235,0.1)" }}>
+          <Check size={22} style={{ color: LX.secondary }} />
+        </div>
+        <p className="text-[15px] font-semibold" style={{ color: LX.primary }}>Chat shared successfully</p>
+      </div>
+    </LuxiaDialog>
+  );
+  return (
+    <LuxiaDialog open={open} onClose={onClose} title={`Share ${chatLabel}`}
+      footer={<>
+        <button onClick={onClose} className="px-5 h-[38px] rounded-full text-[13px] font-semibold transition-colors outline-none"
+          style={{ color: LX.textMuted, border: `1px solid ${LX.border}` }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.borderSubtle; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>Cancel</button>
+        <button onClick={() => { onShare(selected); setDone(true); }}
+          disabled={selected.length === 0}
+          className="px-5 h-[38px] rounded-full text-[13px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40 outline-none"
+          style={{ background: LX.gradient.button }}>Share</button>
+      </>}>
+      <div className="flex items-center gap-2 px-3 h-[38px] rounded-[10px] mb-3" style={{ border: `1px solid ${LX.border}` }}>
+        <Search size={13} style={{ color: LX.textMuted }} />
+        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search users…"
+          className="flex-1 bg-transparent text-[13px] outline-none" style={{ color: LX.primary }} />
+      </div>
+      {selected.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mb-3">
+          {selected.map(id => {
+            const u = DEMO_USERS.find(x => x.id === id);
+            if (!u) return null;
+            return (
+              <span key={id} className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[12px] font-semibold"
+                style={{ background: "rgba(142,99,235,0.08)", color: LX.secondary }}>
+                {u.name}
+                <button onClick={() => toggle(id)} className="outline-none ml-0.5"><X size={10} /></button>
+              </span>
+            );
+          })}
+        </div>
+      )}
+      <div className="space-y-0.5 max-h-48 overflow-y-auto">
+        {filtered.map(u => (
+          <button key={u.id} onClick={() => toggle(u.id)}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-[8px] text-left transition-colors outline-none"
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.borderSubtle; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
+            <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0"
+              style={{ background: "rgba(142,99,235,0.12)", color: LX.secondary }}>{u.name[0]}</div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[13px] font-semibold truncate" style={{ color: LX.primary }}>{u.name}</p>
+              <p className="text-[11px] truncate" style={{ color: LX.textMuted }}>{u.email}</p>
+            </div>
+            {selected.includes(u.id) && <Check size={13} style={{ color: LX.secondary }} />}
+          </button>
+        ))}
+        {filtered.length === 0 && <p className="text-[13px] py-4 text-center" style={{ color: LX.textMuted }}>No users found</p>}
+      </div>
+    </LuxiaDialog>
+  );
+}
+
+function ShareListDialog({ open, sharedUsers, onClose }: {
+  open: boolean; sharedUsers: string[]; onClose: () => void;
+}) {
+  const users = DEMO_USERS.filter(u => sharedUsers.includes(u.id));
+  return (
+    <LuxiaDialog open={open} onClose={onClose} title="Who Has Access"
+      footer={<button onClick={onClose} className="px-5 h-[38px] rounded-full text-[13px] font-semibold text-white outline-none" style={{ background: LX.gradient.button }}>Close</button>}>
+      {users.length === 0
+        ? <p className="py-6 text-[14px] text-center" style={{ color: LX.textMuted }}>No users currently have access to this chat.</p>
+        : <div className="space-y-1 py-1">
+            {users.map(u => (
+              <div key={u.id} className="flex items-center gap-3 px-3 py-2.5 rounded-[8px]"
+                style={{ border: `1px solid ${LX.borderSubtle}` }}>
+                <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0"
+                  style={{ background: "rgba(142,99,235,0.12)", color: LX.secondary }}>{u.name[0]}</div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] font-semibold" style={{ color: LX.primary }}>{u.name}</p>
+                  <p className="text-[11px]" style={{ color: LX.textMuted }}>{u.email}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+      }
+    </LuxiaDialog>
+  );
+}
+
+function GenerateReportDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const [scope, setScope] = useState("entire");
+  const [content, setContent] = useState("transcript_charts");
+  const [instructions, setInstructions] = useState("");
+  return (
+    <LuxiaDialog open={open} onClose={onClose} title="Generate Report"
+      footer={<>
+        <button onClick={onClose} className="px-5 h-[38px] rounded-full text-[13px] font-semibold transition-colors outline-none"
+          style={{ color: LX.textMuted, border: `1px solid ${LX.border}` }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.borderSubtle; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>Cancel</button>
+        <button onClick={onClose}
+          className="px-5 h-[38px] rounded-full text-[13px] font-semibold text-white transition-opacity hover:opacity-90 outline-none"
+          style={{ background: LX.gradient.button }}>Generate and open in editor</button>
+      </>}>
+      <div className="space-y-5 py-1">
+        <div>
+          <p className="text-[12px] font-bold tracking-wide uppercase mb-2" style={{ color: LX.textMuted }}>Include</p>
+          {[{ id: "entire", label: "Entire conversation" }, { id: "selected", label: "Selected interactions" }].map(opt => (
+            <label key={opt.id} className="flex items-center gap-2.5 py-1.5 cursor-pointer">
+              <input type="radio" name="scope" value={opt.id} checked={scope === opt.id} onChange={() => setScope(opt.id)}
+                className="accent-purple-600" />
+              <span className="text-[14px]" style={{ color: LX.primary }}>{opt.label}</span>
+            </label>
+          ))}
+        </div>
+        <div style={{ borderTop: `1px solid ${LX.borderSubtle}`, paddingTop: 16 }}>
+          <p className="text-[12px] font-bold tracking-wide uppercase mb-2" style={{ color: LX.textMuted }}>Report content</p>
+          {[
+            { id: "transcript_charts", label: "Transcript with charts" },
+            { id: "summary", label: "Summary only" },
+            { id: "transcript_summary", label: "Transcript and summary" },
+          ].map(opt => (
+            <label key={opt.id} className="flex items-center gap-2.5 py-1.5 cursor-pointer">
+              <input type="radio" name="content" value={opt.id} checked={content === opt.id} onChange={() => setContent(opt.id)}
+                className="accent-purple-600" />
+              <span className="text-[14px]" style={{ color: LX.primary }}>{opt.label}</span>
+            </label>
+          ))}
+        </div>
+        <div style={{ borderTop: `1px solid ${LX.borderSubtle}`, paddingTop: 16 }}>
+          <p className="text-[12px] font-bold tracking-wide uppercase mb-2" style={{ color: LX.textMuted }}>Custom instructions (optional)</p>
+          <textarea value={instructions} onChange={(e) => setInstructions(e.target.value)}
+            placeholder="Add any specific instructions for this report…"
+            rows={3}
+            className="w-full px-3 py-2.5 rounded-[10px] text-[13px] resize-none outline-none"
+            style={{ border: `1px solid ${LX.border}`, color: LX.primary }} />
+        </div>
+      </div>
+    </LuxiaDialog>
+  );
+}
+
+function DeleteChatDialog({ open, onClose, onDelete }: {
+  open: boolean; onClose: () => void; onDelete: () => void;
+}) {
+  return (
+    <LuxiaDialog open={open} onClose={onClose} title="Delete Chat?"
+      footer={<>
+        <button onClick={onClose} className="px-5 h-[38px] rounded-full text-[13px] font-semibold transition-colors outline-none"
+          style={{ color: LX.textMuted, border: `1px solid ${LX.border}` }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.borderSubtle; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>Cancel</button>
+        <button onClick={() => { onDelete(); onClose(); }}
+          className="px-5 h-[38px] rounded-full text-[13px] font-semibold text-white transition-opacity hover:opacity-90 outline-none"
+          style={{ background: "#F75050" }}>Delete Chat</button>
+      </>}>
+      <p className="py-4 text-[14px] leading-relaxed" style={{ color: LX.textSecondary }}>
+        This will permanently remove the current chat and all its messages. This action cannot be undone.
+      </p>
+    </LuxiaDialog>
+  );
+}
+
+// ─── Page Header ──────────────────────────────────────────────
+function PageHeader({ chatLabel, constellationLabel, onRenameChat, onDeleteChat }: {
+  chatLabel: string; constellationLabel: string;
+  onRenameChat: (name: string) => void; onDeleteChat: () => void;
+}) {
+  const crumbs = ["Home", "Project Name 1", constellationLabel, chatLabel];
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
+  const [sharedUsers, setSharedUsers] = useState<string[]>([]);
+  const [dialog, setDialog] = useState<"rename" | "share" | "shareList" | "report" | "delete" | null>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    function onOutside(e: MouseEvent) {
+      if (btnRef.current?.contains(e.target as Node)) return;
+      if (menuRef.current?.contains(e.target as Node)) return;
+      setMenuOpen(false);
+    }
+    function onKey(e: KeyboardEvent) { if (e.key === "Escape") { setMenuOpen(false); btnRef.current?.focus(); } }
+    document.addEventListener("mousedown", onOutside);
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("mousedown", onOutside); document.removeEventListener("keydown", onKey); };
+  }, [menuOpen]);
+
+  function openMenu() {
+    if (!btnRef.current) return;
+    const r = btnRef.current.getBoundingClientRect();
+    setMenuPos({ top: r.bottom + 8, right: window.innerWidth - r.right });
+    setMenuOpen(true);
+  }
+
+  function act(d: typeof dialog) { setMenuOpen(false); setDialog(d); }
+
+  const menuItems: Array<{ label: string; icon: React.FC<{ size?: number; color?: string; strokeWidth?: number }>; action: () => void; destructive?: boolean; divider?: boolean }> = [
+    { label: "Rename", icon: Pencil, action: () => act("rename") },
+    { label: "Share", icon: Share2, action: () => act("share") },
+    { label: "Share List", icon: List, action: () => act("shareList") },
+    { label: "Generate report", icon: FileBarChart2, action: () => act("report") },
+    { label: "Delete chat", icon: Trash2, action: () => act("delete"), destructive: true, divider: true },
+  ];
+
+  return (
+    <div className="flex-shrink-0 flex items-start justify-between gap-6 px-10 pt-6 pb-3">
+      <div className="min-w-0 flex-1">
+        <h1 className="text-[32px] leading-[40px] truncate mb-1.5" style={{ color: LX.primary, fontWeight: 700 }}>
+          {chatLabel}
+        </h1>
+        <nav className="flex items-center gap-1.5 flex-wrap">
+          {crumbs.map((crumb, i) => {
+            const isLast = i === crumbs.length - 1;
+            return (
+              <span key={i} className="flex items-center gap-1.5">
+                {i > 0 && <span style={{ color: LX.borderStrong, fontSize: 12 }}>/</span>}
+                <span className="text-[12px] leading-[16px]" style={{
+                  color: isLast ? LX.primary : "#697077",
+                  fontWeight: isLast ? 600 : 400,
+                }}>{crumb}</span>
+              </span>
+            );
+          })}
+        </nav>
+      </div>
+
+      {/* Options button */}
+      <button ref={btnRef} onClick={menuOpen ? () => setMenuOpen(false) : openMenu}
+        className="flex-shrink-0 flex items-center gap-2 h-[38px] px-5 rounded-full text-[13px] font-semibold text-white transition-opacity hover:opacity-90 outline-none mt-1"
+        style={{ background: LX.gradient.button, boxShadow: "0 2px 10px rgba(48,33,78,0.18)" }}>
+        <Settings2 size={14} />
+        Options
+      </button>
+
+      {/* Options menu — portal */}
+      {menuOpen && menuPos && ReactDOM.createPortal(
+        <div ref={menuRef} className="fixed z-[9999] rounded-[12px] overflow-hidden py-1.5"
+          style={{
+            background: "white",
+            boxShadow: "0 4px 16px rgba(15,23,42,0.10)",
+            border: "1px solid #E2E8F0",
+            width: 220,
+            top: menuPos.top,
+            right: menuPos.right,
+          }}>
+          {menuItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <div key={item.label}>
+                {item.divider && <div style={{ height: 1, background: "#F1F5F9", margin: "4px 0" }} />}
+                <button onClick={item.action}
+                  className="w-full flex items-center gap-3 px-4 h-[40px] text-[13px] font-medium text-left transition-colors outline-none"
+                  style={{ color: item.destructive ? "#F75050" : "#30214E" }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = item.destructive ? "rgba(247,80,80,0.06)" : "rgba(142,99,235,0.08)"; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
+                  <Icon size={15} color={item.destructive ? "#F75050" : "#64748B"} strokeWidth={1.8} />
+                  {item.label}
+                </button>
+              </div>
+            );
+          })}
+        </div>,
+        document.body
+      )}
+
+      {/* Dialogs */}
+      <RenameDialog open={dialog === "rename"} current={chatLabel} onClose={() => setDialog(null)} onRename={onRenameChat} />
+      <ShareDialog open={dialog === "share"} chatLabel={chatLabel} sharedUsers={sharedUsers} onClose={() => setDialog(null)} onShare={(ids) => setSharedUsers(ids)} />
+      <ShareListDialog open={dialog === "shareList"} sharedUsers={sharedUsers} onClose={() => setDialog(null)} />
+      <GenerateReportDialog open={dialog === "report"} onClose={() => setDialog(null)} />
+      <DeleteChatDialog open={dialog === "delete"} onClose={() => setDialog(null)} onDelete={onDeleteChat} />
+    </div>
+  );
+}
+
+// ─── Date Separator ───────────────────────────────────────────
+function DateSeparator({ label }: { label: string }) {
+  return (
+    <div className="flex items-center gap-3 my-8">
+      <div className="flex-1 h-px" style={{ background: LX.borderSubtle }} />
+      <span className="text-[11px] font-semibold tracking-wide uppercase" style={{ color: LX.borderStrong }}>{label}</span>
+      <div className="flex-1 h-px" style={{ background: LX.borderSubtle }} />
+    </div>
+  );
+}
+
+// ─── Source Footer ────────────────────────────────────────────
+function SourceFooter({ sources, reasoning }: { sources: Source[]; reasoning?: string[] }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="mt-4 pt-3.5" style={{ borderTop: `1px solid ${LX.borderSubtle}` }}>
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <span className="text-[12px] font-semibold" style={{ color: LX.textMuted }}>Sources:</span>
+        {sources.map((s, i) => (
+          <button key={s.id} type="button"
+            className="text-[12px] font-medium transition-colors outline-none"
+            style={{ color: LX.purple60 }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = LX.primary; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = LX.purple60; }}>
+            {s.label}{i < sources.length - 1 ? "," : ""}
+          </button>
+        ))}
+        {reasoning && (
+          <button onClick={() => setOpen(!open)}
+            className="ml-auto flex items-center gap-1 text-[11.5px] font-semibold hover:opacity-80 transition-opacity"
+            style={{ color: LX.textMuted }}>
+            {open ? <EyeOff size={11} /> : <Eye size={11} />}
+            {open ? "Hide reasoning" : "Show reasoning"}
+          </button>
+        )}
+      </div>
+      {open && reasoning && (
+        <div className="mt-3 space-y-2 pl-1">
+          {reasoning.map((step, i) => (
+            <div key={i} className="flex items-start gap-2 text-[12px]" style={{ color: LX.textMuted }}>
+              <span className="w-4 h-4 flex-shrink-0 rounded-full flex items-center justify-center text-[10px] font-bold mt-px"
+                style={{ background: LX.blueT10, color: LX.secondary }}>{i + 1}</span>
+              {step}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── AI Card ──────────────────────────────────────────────────
+function AICard({ message }: { message: Message }) {
+  const [hover, setHover] = useState(false);
+  return (
+    <div className="flex gap-3 mb-7" onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
+      <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-[8px] mt-0.5"
+        style={{ background: "transparent" }}>
+        <LuxiaStarLogo size={24} />
+      </div>
+      <div className="flex-1 max-w-[680px]">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-[12.5px] font-bold" style={{ color: LX.primary }}>Luxia</span>
+          <span className="text-[11px]" style={{ color: LX.borderStrong }}>{message.timestamp}</span>
+        </div>
+        <div className="px-5 py-4 rounded-[16px]"
+          style={{ background: "white", border: "1px solid #EAF0F6", boxShadow: "0 6px 18px rgba(15,23,42,0.08)" }}>
+          <div style={{ color: LX.primary }}>{renderContent(message.content)}</div>
+          {message.sources && <SourceFooter sources={message.sources} reasoning={message.reasoning} />}
+        </div>
+        <div className="flex items-center gap-0.5 mt-2 transition-opacity duration-150" style={{ opacity: hover ? 1 : 0 }}>
+          {[{ icon: Copy, label: "Copy" }, { icon: RefreshCw, label: "Regenerate" }, { icon: Bookmark, label: "Save" }].map(({ icon: Icon, label }) => (
+            <button key={label}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-[8px] text-[11.5px] font-semibold transition-colors"
+              style={{ color: LX.textMuted }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.borderSubtle; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
+              <Icon size={11} />{label}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── User Bubble ──────────────────────────────────────────────
+function UserBubble({ message }: { message: Message }) {
+  return (
+    <div className="flex justify-end mb-7">
+      <div className="max-w-[520px]">
+        <div className="px-5 py-3.5 text-white text-[14.5px] leading-[1.65] font-medium"
+          style={{ background: LX.gradient.primary, borderRadius: "18px 18px 6px 18px", boxShadow: "0 2px 12px rgba(48,33,78,0.22)" }}>
+          {message.content}
+        </div>
+        <p className="text-right text-[11px] mt-1.5 pr-1" style={{ color: LX.borderStrong }}>{message.timestamp}</p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Empty State ──────────────────────────────────────────────
+function EmptyState({ onPrompt }: { onPrompt: (p: string) => void }) {
+  return (
+    <div className="flex flex-col items-center justify-center h-full px-8 pb-8">
+      <div className="w-16 h-16 rounded-[20px] flex items-center justify-center mb-5 overflow-hidden"
+        style={{ background: LX.gradient.button, boxShadow: LX.shadow.lg }}>
+        <LuxiaStarLogo size={32} />
+      </div>
+      <h2 className="text-[22px] font-bold mb-2 text-center" style={{ color: LX.primary }}>
+        Start the conversation
+      </h2>
+      <p className="text-[15px] text-center mb-8 max-w-[380px]" style={{ color: LX.muted }}>
+        Ask anything. Luxia will search across your connected constellation.
+      </p>
+      <div className="grid grid-cols-2 gap-2.5 w-full max-w-[480px]">
+        {EMPTY_PROMPTS.map((p) => (
+          <button key={p} onClick={() => onPrompt(p)}
+            className="text-left px-4 py-3 rounded-[14px] text-[13px] leading-[1.45] transition-all outline-none"
+            style={{ color: LX.primary, fontWeight: 500, background: "white", border: `1px solid ${LX.border}`, boxShadow: "0 2px 8px rgba(15,23,42,0.06)" }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = LX.secondary; (e.currentTarget as HTMLElement).style.boxShadow = `0 0 0 3px rgba(142,99,235,0.08)`; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = LX.border; (e.currentTarget as HTMLElement).style.boxShadow = "0 2px 8px rgba(15,23,42,0.06)"; }}>
+            {p}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Language Selector ───────────────────────────────────────
+function LanguageSelector({ lang, onChange }: { lang: string; onChange: (c: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState<{ bottom: number; left: number } | null>(null);
+  const current = LANGUAGES.find(l => l.code === lang) ?? LANGUAGES[0];
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onOutside(e: MouseEvent) {
+      if (triggerRef.current?.contains(e.target as Node)) return;
+      if (menuRef.current?.contains(e.target as Node)) return;
+      setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") { setOpen(false); triggerRef.current?.focus(); }
+    }
+    document.addEventListener("mousedown", onOutside);
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("mousedown", onOutside); document.removeEventListener("keydown", onKey); };
+  }, [open]);
+
+  function openMenu() {
+    if (!triggerRef.current) return;
+    const r = triggerRef.current.getBoundingClientRect();
+    setMenuPos({ bottom: window.innerHeight - r.top + 8, left: r.left });
+    setOpen(true);
+  }
+
+  return (
+    <div className="relative flex-shrink-0">
+      <button ref={triggerRef}
+        aria-label="Select answer language"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => open ? setOpen(false) : openMenu()}
+        className="flex items-center gap-1 p-1 rounded-full select-none transition-colors outline-none"
+        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "#F1F5F9"; }}
+        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
+        <FlagCircle flagUrl={current.flagUrl} label={current.label} size={26} />
+        <ChevronDown size={13} strokeWidth={2.2} style={{ color: "#94A3B8", marginTop: 1 }} />
+      </button>
+      {open && menuPos && ReactDOM.createPortal(
+        <div ref={menuRef} role="menu"
+          className="fixed z-[9999] rounded-[12px] overflow-hidden py-1.5"
+          style={{
+            background: "white",
+            boxShadow: "0 4px 16px rgba(15,23,42,0.10)",
+            border: "1px solid #E2E8F0",
+            minWidth: 190,
+            bottom: menuPos.bottom,
+            left: menuPos.left,
+          }}>
+          {LANGUAGES.map(l => (
+            <button key={l.code} role="menuitem"
+              onClick={() => { onChange(l.code); setOpen(false); triggerRef.current?.focus(); }}
+              className="w-full flex items-center gap-2.5 px-2.5 h-[44px] text-left outline-none transition-colors"
+              style={{ color: LX.primary, fontWeight: l.code === lang ? 600 : 400 }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(142,99,235,0.08)"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
+              <FlagCircle flagUrl={l.flagUrl} label={l.label} size={24} />
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-semibold leading-none mb-0.5" style={{ color: LX.primary }}>{l.label}</p>
+                <p className="text-[11px] leading-none" style={{ color: "#64748B" }}>{l.sublabel}</p>
+              </div>
+              {l.code === lang && <Check size={13} style={{ color: LX.secondary, flexShrink: 0 }} />}
+            </button>
+          ))}
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+}
+
+// ─── Response Type Dropdown (portal, opens upward) ───────────
+function ResponseTypeDropdown({ constellationType }: { constellationType: ConstellationType }) {
+  const options = constellationType === "database"
+    ? [{ id: "narrative", label: "Narrative", icon: AlignLeft }, { id: "charts", label: "Charts", icon: BarChart3 }]
+    : [{ id: "standard", label: "Standard", icon: AlignLeft }, { id: "deep", label: "Deep", icon: Layers }];
+  const [selected, setSelected] = useState(options[0].id);
+  const [open, setOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const focusRef = useRef<number>(-1);
+
+  useEffect(() => { setSelected(options[0].id); setOpen(false); }, [constellationType]);
+
+  useEffect(() => {
+    if (!open) return;
+    function onOutside(e: MouseEvent) {
+      if (triggerRef.current?.contains(e.target as Node)) return;
+      if (menuRef.current?.contains(e.target as Node)) return;
+      setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") { setOpen(false); triggerRef.current?.focus(); }
+      if (e.key === "ArrowDown") { e.preventDefault(); focusRef.current = Math.min(focusRef.current + 1, options.length - 1); focusNth(focusRef.current); }
+      if (e.key === "ArrowUp") { e.preventDefault(); focusRef.current = Math.max(focusRef.current - 1, 0); focusNth(focusRef.current); }
+      if (e.key === "Home") { e.preventDefault(); focusRef.current = 0; focusNth(0); }
+      if (e.key === "End") { e.preventDefault(); focusRef.current = options.length - 1; focusNth(options.length - 1); }
+    }
+    document.addEventListener("mousedown", onOutside);
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("mousedown", onOutside); document.removeEventListener("keydown", onKey); };
+  }, [open, options.length]);
+
+  function focusNth(n: number) {
+    const btns = menuRef.current?.querySelectorAll("button");
+    (btns?.[n] as HTMLElement | undefined)?.focus();
+  }
+
+  function openMenu() {
+    if (!triggerRef.current) return;
+    const r = triggerRef.current.getBoundingClientRect();
+    setMenuPos({ top: r.top - 8, left: r.left });
+    focusRef.current = options.findIndex(o => o.id === selected);
+    setOpen(true);
+  }
+
+  const current = options.find(o => o.id === selected) ?? options[0];
+  const Icon = current.icon;
+
+  return (
+    <>
+      <button ref={triggerRef} onClick={() => open ? setOpen(false) : openMenu()}
+        className="flex items-center gap-1.5 h-[30px] px-1 rounded-lg transition-colors outline-none"
+        style={{ color: "#64748B" }}
+        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = LX.primary; }}
+        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "#64748B"; }}>
+        <Icon size={14} strokeWidth={1.8} />
+        <span className="text-[14px] font-medium">{current.label}</span>
+        <ChevronDown size={14} strokeWidth={2} style={{ transition: "transform 160ms ease", transform: open ? "rotate(180deg)" : "none" }} />
+      </button>
+      {open && menuPos && ReactDOM.createPortal(
+        <div ref={menuRef} className="fixed z-[9999] rounded-[12px] overflow-hidden py-1.5"
+          style={{
+            background: "white",
+            boxShadow: "0 4px 16px rgba(15,23,42,0.10)",
+            border: "1px solid #E2E8F0",
+            minWidth: 160,
+            bottom: `calc(100vh - ${menuPos.top}px)`,
+            left: menuPos.left,
+          }}>
+          {options.map(opt => {
+            const OptIcon = opt.icon;
+            return (
+              <button key={opt.id}
+                onClick={() => { setSelected(opt.id); setOpen(false); triggerRef.current?.focus(); }}
+                className="w-full flex items-center gap-2.5 px-3.5 py-2 text-left transition-colors outline-none"
+                style={{ color: LX.primary, fontWeight: opt.id === selected ? 700 : 500, fontSize: 13 }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(142,99,235,0.06)"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
+                <OptIcon size={13} strokeWidth={1.8} style={{ color: opt.id === selected ? LX.secondary : "#94A3B8" }} />
+                {opt.label}
+                {opt.id === selected && <Check size={12} style={{ color: LX.secondary, marginLeft: "auto" }} />}
+              </button>
+            );
+          })}
+        </div>,
+        document.body
+      )}
+    </>
+  );
+}
+
+// ─── Prompt Composer ──────────────────────────────────────────
+function PromptComposer({ value, onChange, onSend, language, onLanguageChange, constellationType, assistantMode, onModeChange }: {
+  value: string; onChange: (v: string) => void; onSend: () => void;
+  language: string; onLanguageChange: (c: string) => void;
+  constellationType: ConstellationType;
+  assistantMode: string; onModeChange: (m: string) => void;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  const hasText = value.trim().length > 0;
+
+  useEffect(() => {
+    if (ref.current) {
+      ref.current.style.height = "auto";
+      ref.current.style.height = Math.min(ref.current.scrollHeight, 140) + "px";
+    }
+  }, [value]);
+
+  return (
+    <div className="flex-shrink-0 px-8 pb-7 pt-2">
+      {/* Main input row */}
+      <div className="flex items-center gap-5">
+        {/* Language selector — left of input */}
+        <LanguageSelector lang={language} onChange={onLanguageChange} />
+
+        {/* Input surface — focus ring owned by .luxia-chat-composer:focus-within */}
+        <div className="luxia-chat-composer">
+          <textarea
+            ref={ref}
+            rows={1}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(); } }}
+            placeholder="Ask something"
+            className="luxia-chat-composer__input"
+            aria-label="Message"
+          />
+          {/* Assistant mode — right side of typing bar */}
+          <AssistantModeDropdown mode={assistantMode} onChange={onModeChange} />
+        </div>
+
+        {/* Voice button */}
+        <button
+          type="button"
+          className="flex-shrink-0 w-[46px] h-[46px] flex items-center justify-center rounded-full transition-all hover:opacity-85 outline-none"
+          style={{
+            background: LX.gradient.button,
+            boxShadow: "0 4px 12px rgba(48,33,78,0.18)",
+          }}
+          aria-label="Voice input"
+        >
+          <Mic size={18} color="white" />
+        </button>
+
+        {/* Send button */}
+        <button
+          type="button"
+          onClick={onSend}
+          disabled={!hasText}
+          className="flex-shrink-0 w-[46px] h-[46px] flex items-center justify-center rounded-full transition-all hover:opacity-90 outline-none"
+          style={{
+            background: hasText ? LX.gradient.button : "#E2E8F0",
+            boxShadow: hasText ? "0 4px 12px rgba(48,33,78,0.18)" : "none",
+          }}
+          aria-label="Send message"
+        >
+          <Send size={17} color={hasText ? "white" : "#94A3B8"} />
+        </button>
+      </div>
+
+      {/* Below-input row: response type */}
+      <div className="mt-2" style={{ paddingLeft: "calc(2.25rem + 20px + 1.25rem)" }}>
+        <ResponseTypeDropdown constellationType={constellationType} />
+      </div>
+    </div>
+  );
+}
+
+// ─── Sidebar small item ───────────────────────────────────────
+function SidebarListItem({ label, icon: Icon, onView, onRemove, draggable: isDraggable, onDragStart, onDragOver, onDrop, onDragEnd, dragOver }: {
+  label: string; icon: React.FC<{ size?: number; color?: string }>;
+  onView?: () => void; onRemove: () => void;
+  draggable?: boolean; onDragStart?: () => void; onDragOver?: (e: React.DragEvent) => void;
+  onDrop?: () => void; onDragEnd?: () => void; dragOver?: boolean;
+}) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const close = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+    };
+    window.addEventListener("mousedown", close);
+    return () => window.removeEventListener("mousedown", close);
+  }, [menuOpen]);
+
+  return (
+    <div
+      draggable={isDraggable}
+      onDragStart={onDragStart}
+      onDragOver={(e) => { e.preventDefault(); onDragOver?.(e); }}
+      onDrop={onDrop}
+      onDragEnd={onDragEnd}
+      className="flex items-center gap-1.5 px-2 py-1.5 rounded-[7px] group transition-colors relative"
+      style={{ borderTop: dragOver ? `2px solid ${LX.accent}` : "2px solid transparent", background: dragOver ? `${LX.accent}08` : "transparent" }}
+      onMouseEnter={(e) => { if (!dragOver) (e.currentTarget as HTMLElement).style.background = LX.borderSubtle; }}
+      onMouseLeave={(e) => { if (!dragOver) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+    >
+      {isDraggable && <GripVertical size={10} color={LX.borderStrong} className="flex-shrink-0 cursor-grab" />}
+      <Icon size={11} color={LX.accent} className="flex-shrink-0" />
+      <span className="flex-1 text-[11.5px] truncate select-none" style={{ color: LX.primary, fontWeight: 500 }}>{label}</span>
+      <div ref={menuRef} className="relative flex-shrink-0">
+        <button onClick={() => setMenuOpen(p => !p)}
+          className="w-5 h-5 flex items-center justify-center rounded-[5px] transition-all"
+          style={{ opacity: menuOpen ? 1 : 0 }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = "1"; (e.currentTarget as HTMLElement).style.background = LX.border; }}
+          onMouseLeave={(e) => { if (!menuOpen) { (e.currentTarget as HTMLElement).style.opacity = "0"; (e.currentTarget as HTMLElement).style.background = "transparent"; } }}>
+          <MoreHorizontal size={11} style={{ color: LX.textMuted }} />
+        </button>
+        {menuOpen && (
+          <div className="absolute right-0 top-full mt-1 z-40 min-w-[176px] py-1"
+            style={{ background: "white", boxShadow: LX.shadow.lg, border: `1px solid ${LX.border}`, borderRadius: 12 }}
+            onClick={(e) => e.stopPropagation()}>
+            {onView && (
+              <button onClick={() => { setMenuOpen(false); onView(); }}
+                className="w-full flex items-center gap-2.5 px-3.5 text-[12.5px] font-semibold transition-colors text-left"
+                style={{ color: LX.primary, height: 36 }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.borderSubtle; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
+                <Eye size={13} style={{ color: LX.textMuted }} />View
+              </button>
+            )}
+            <div className="h-px mx-3 my-0.5" style={{ background: LX.borderSubtle }} />
+            <button onClick={() => { setMenuOpen(false); onRemove(); }}
+              className="w-full flex items-center gap-2.5 px-3.5 text-[12.5px] font-semibold transition-colors text-left"
+              style={{ color: LX.error, height: 36 }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.state.error06; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
+              <Trash2 size={13} style={{ color: LX.error }} />Remove
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Confirm Remove Dialog ─────────────────────────────────────
+function ConfirmRemoveDialog({ label, onConfirm, onCancel }: {
+  label: string; onConfirm: () => void; onCancel: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onCancel}>
+      <div className="absolute inset-0" style={{ background: "rgba(16,5,32,0.3)", backdropFilter: "blur(3px)" }} />
+      <div className="relative rounded-[20px] p-7 w-[380px]"
+        style={{ background: "white", boxShadow: "0 12px 32px rgba(15,23,42,0.14)" }}
+        onClick={(e) => e.stopPropagation()}>
+        <div className="w-10 h-10 rounded-[12px] flex items-center justify-center mb-4"
+          style={{ background: "rgba(247,80,80,0.06)", border: "1px solid rgba(247,80,80,0.14)" }}>
+          <Trash2 size={17} style={{ color: LX.error }} />
+        </div>
+        <h3 className="text-[15px] font-bold mb-1.5" style={{ color: LX.primary }}>Remove item?</h3>
+        <p className="text-[13px] leading-[1.6] mb-6" style={{ color: LX.textMuted }}>
+          This will be removed from the constellation. This action cannot be undone.
+        </p>
+        <div className="flex items-center gap-2.5">
+          <button onClick={onCancel}
+            className="flex-1 h-[40px] rounded-[10px] text-[13px] font-semibold transition-colors outline-none"
+            style={{ color: LX.textMuted, border: `1px solid ${LX.border}`, background: "white" }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.subtle; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "white"; }}>
+            Cancel
+          </button>
+          <button onClick={onConfirm}
+            className="flex-1 h-[40px] rounded-[10px] text-[13px] font-semibold text-white hover:opacity-90 transition-opacity outline-none"
+            style={{ background: LX.error }}>
+            Remove
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Item Preview Modal ────────────────────────────────────────
+function ItemPreviewModal({ label, icon: Icon, onClose }: {
+  label: string; icon: React.FC<{ size?: number; color?: string }>; onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/30" style={{ backdropFilter: "blur(2px)" }} />
+      <div className="relative rounded-[20px] w-[560px] max-h-[70vh] overflow-hidden flex flex-col"
+        style={{ background: "white", boxShadow: LX.shadow.xl }} onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-3 px-6 py-5 flex-shrink-0" style={{ borderBottom: `1px solid ${LX.border}` }}>
+          <div className="w-8 h-8 rounded-[8px] flex items-center justify-center" style={{ background: LX.blueT10 }}>
+            <Icon size={14} color={LX.accent} />
+          </div>
+          <h3 className="flex-1 text-[16px] font-extrabold truncate" style={{ color: LX.primary }}>{label}</h3>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/5 transition-colors"
+            style={{ border: `1px solid ${LX.border}` }}>
+            <X size={14} style={{ color: LX.muted }} />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-6 py-6">
+          <div className="rounded-[12px] p-4 text-[13px] leading-[1.7]"
+            style={{ background: LX.subtle, border: `1px solid ${LX.border}`, color: LX.muted }}>
+            <p className="font-bold mb-2" style={{ color: LX.primary }}>{label}</p>
+            <p>Preview content for this resource would appear here. Connect to your data source to load the full content of this item.</p>
+          </div>
+        </div>
+        <div className="flex justify-end px-6 py-4 flex-shrink-0" style={{ borderTop: `1px solid ${LX.border}` }}>
+          <button onClick={onClose} className="px-5 h-[38px] rounded-[24px] text-[13px] font-bold hover:bg-black/5 transition-colors" style={{ color: LX.muted }}>
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── File Drop Zone ───────────────────────────────────────────
+function FileDropZone({ onDrop }: { onDrop: (names: string[]) => void }) {
+  const [over, setOver] = useState(false);
+  return (
+    <div className="flex flex-col items-center justify-center gap-1.5 py-3 rounded-[10px] cursor-pointer transition-all mt-1"
+      style={{ border: `1.5px dashed ${over ? LX.accent : LX.border}`, background: over ? `${LX.accent}08` : "transparent" }}
+      onDragOver={(e) => { e.preventDefault(); setOver(true); }}
+      onDragLeave={() => setOver(false)}
+      onDrop={(e) => { e.preventDefault(); setOver(false); const n = Array.from(e.dataTransfer.files).map(f => f.name); if (n.length) onDrop(n); }}
+      onClick={() => { const i = document.createElement("input"); i.type = "file"; i.multiple = true; i.onchange = (e) => { const f = (e.target as HTMLInputElement).files; if (f) onDrop(Array.from(f).map(x => x.name)); }; i.click(); }}>
+      <Upload size={13} color={over ? LX.accent : LX.muted} />
+      <span className="text-[11px] font-semibold" style={{ color: over ? LX.accent : LX.muted }}>Drop files or click to upload</span>
+    </div>
+  );
+}
+
+// ─── Section Workspace Modal ───────────────────────────────────
+function SectionWorkspaceModal({ sectionId, items, instruction, onSave, onClose }: {
+  sectionId: SectionId; items: string[]; instruction: string;
+  onSave: (items: string[], instruction: string) => void;
+  onClose: () => void;
+}) {
+  const meta = SECTION_META[sectionId];
+  const Icon = meta.icon;
+  const isInstr = sectionId === "instr";
+  const showDrop = sectionId === "pdfFiles";
+
+  const [pendingItems, setPendingItems] = useState<string[]>([...items]);
+  const [pendingInstr, setPendingInstr] = useState(instruction);
+  const [searchQ, setSearchQ] = useState("");
+  const [dragSrc, setDragSrc] = useState<number | null>(null);
+  const [dragOver, setDragOver] = useState<number | null>(null);
+  const [confirmRemoveIdx, setConfirmRemoveIdx] = useState<number | null>(null);
+  const [previewIdx, setPreviewIdx] = useState<number | null>(null);
+  const [itemMenu, setItemMenu] = useState<number | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (itemMenu === null) return;
+    const close = (e: MouseEvent) => { setItemMenu(null); };
+    window.addEventListener("mousedown", close);
+    return () => window.removeEventListener("mousedown", close);
+  }, [itemMenu]);
+
+  const filtered = pendingItems.filter(it => it.toLowerCase().includes(searchQ.toLowerCase()));
+
+  function reorder(fromIdx: number, toIdx: number) {
+    const next = [...pendingItems];
+    const [moved] = next.splice(fromIdx, 1);
+    next.splice(toIdx, 0, moved);
+    setPendingItems(next);
+  }
+
+  function removeItem(idx: number) {
+    setPendingItems(p => p.filter((_, i) => i !== idx));
+    setConfirmRemoveIdx(null);
+  }
+
+  const hasChanges = !isInstr
+    ? JSON.stringify(pendingItems) !== JSON.stringify(items)
+    : pendingInstr !== instruction;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
+      <div className="absolute inset-0" style={{ background: "rgba(16,5,32,0.35)", backdropFilter: "blur(4px)" }} />
+      <div className="relative w-[700px] max-h-[84vh] rounded-[20px] overflow-hidden flex flex-col"
+        style={{ background: "white", boxShadow: "0 12px 32px rgba(15,23,42,0.14)" }}
+        onClick={(e) => e.stopPropagation()}>
+
+        {/* Header */}
+        <div className="flex items-center gap-3 px-7 py-5 flex-shrink-0" style={{ borderBottom: `1px solid ${LX.border}` }}>
+          <div className="w-9 h-9 rounded-[10px] flex items-center justify-center flex-shrink-0"
+            style={{ background: "rgba(142,99,235,0.08)" }}>
+            <Icon size={16} color={LX.secondary} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-[16px] font-bold leading-none" style={{ color: LX.primary }}>{meta.label}</h2>
+            <p className="text-[11.5px] mt-0.5" style={{ color: LX.textMuted }}>Changes are local until saved</p>
+          </div>
+          <button onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center rounded-full transition-colors outline-none"
+            style={{ border: `1px solid ${LX.border}` }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.borderSubtle; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
+            <X size={14} style={{ color: LX.textMuted }} />
+          </button>
+        </div>
+
+        {/* Search bar (non-instruction sections) */}
+        {!isInstr && (
+          <div className="flex items-center gap-2 px-6 py-3 flex-shrink-0" style={{ borderBottom: `1px solid ${LX.border}` }}>
+            <Search size={13} style={{ color: LX.muted }} />
+            <input value={searchQ} onChange={(e) => setSearchQ(e.target.value)}
+              placeholder={`Search ${meta.label.toLowerCase()}…`}
+              className="flex-1 outline-none text-[13px] bg-transparent"
+              style={{ color: LX.primary }} />
+            {searchQ && (
+              <button onClick={() => setSearchQ("")} className="w-5 h-5 flex items-center justify-center">
+                <X size={11} style={{ color: LX.muted }} />
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto px-8 py-5">
+          {isInstr ? (
+            <textarea value={pendingInstr} onChange={(e) => setPendingInstr(e.target.value)} rows={14}
+              className="w-full outline-none resize-none text-[14px] leading-[1.7] p-4 rounded-[12px]"
+              style={{ border: `1px solid ${LX.border}`, color: LX.primary, background: LX.subtle }} />
+          ) : (
+            <div className="space-y-1.5">
+              {filtered.length === 0 && (
+                <p className="text-center py-8 text-[13px]" style={{ color: LX.muted }}>
+                  {searchQ ? "No items match your search." : "No items yet. Add one below."}
+                </p>
+              )}
+              {filtered.map((item) => {
+                const realIdx = pendingItems.indexOf(item);
+                return (
+                  <div key={realIdx}
+                    draggable
+                    onDragStart={() => setDragSrc(realIdx)}
+                    onDragOver={(e) => { e.preventDefault(); setDragOver(realIdx); }}
+                    onDrop={() => { if (dragSrc !== null && dragSrc !== realIdx) reorder(dragSrc, realIdx); setDragSrc(null); setDragOver(null); }}
+                    onDragEnd={() => { setDragSrc(null); setDragOver(null); }}
+                    className="flex items-center gap-3 px-4 py-3 rounded-[12px] group transition-colors relative"
+                    style={{
+                      border: `1px solid ${dragOver === realIdx ? LX.accent : LX.border}`,
+                      background: dragOver === realIdx ? `${LX.accent}06` : "white",
+                    }}>
+                    <GripVertical size={14} color="rgba(0,0,0,0.18)" className="cursor-grab flex-shrink-0" />
+                    <Icon size={14} color={LX.accent} className="flex-shrink-0" />
+                    <span className="flex-1 text-[14px] font-semibold truncate" style={{ color: LX.primary }}>{item}</span>
+                    <div className="relative flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                      <button onClick={() => setItemMenu(itemMenu === realIdx ? null : realIdx)}
+                        className="opacity-0 group-hover:opacity-100 w-7 h-7 flex items-center justify-center rounded-[7px] hover:bg-black/5 transition-all"
+                        style={{ opacity: itemMenu === realIdx ? 1 : undefined }}>
+                        <MoreHorizontal size={14} style={{ color: LX.muted }} />
+                      </button>
+                      {itemMenu === realIdx && (
+                        <div className="absolute right-0 top-full mt-1.5 z-50 min-w-[180px] py-1.5"
+                          style={{ background: "white", boxShadow: LX.shadow.lg, border: `1px solid ${LX.border}`, borderRadius: 14 }}>
+                          <button onClick={() => { setItemMenu(null); setPreviewIdx(realIdx); }}
+                            className="w-full flex items-center gap-2.5 px-4 text-[13px] font-semibold transition-colors text-left"
+                            style={{ color: LX.primary, height: 40 }}
+                            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(218,203,248,0.28)"; }}
+                            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
+                            <Eye size={14} style={{ color: LX.muted }} />View
+                          </button>
+                          <div className="h-px mx-3 my-1" style={{ background: LX.border }} />
+                          <button onClick={() => { setItemMenu(null); setConfirmRemoveIdx(realIdx); }}
+                            className="w-full flex items-center gap-2.5 px-4 text-[13px] font-semibold transition-colors text-left"
+                            style={{ color: LX.error, height: 40 }}
+                            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(247,80,80,0.07)"; }}
+                            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
+                            <Trash2 size={14} style={{ color: LX.error }} />Remove from Constellation
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+              {!searchQ && showDrop && <FileDropZone onDrop={(names) => setPendingItems(p => [...p, ...names])} />}
+              {!searchQ && (
+                <button
+                  onClick={() => setPendingItems(p => [...p, sectionId === "crawler" ? "https://example.com" : `Item ${p.length + 1}`])}
+                  className="w-full flex items-center justify-center gap-2 py-3 rounded-[12px] text-[13px] font-semibold hover:opacity-80 transition-opacity mt-1"
+                  style={{ border: `1.5px dashed ${LX.border}`, color: LX.muted }}>
+                  <Plus size={14} />{sectionId === "crawler" ? "Add URL" : "Add item"}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between gap-3 px-7 py-4 flex-shrink-0" style={{ borderTop: `1px solid ${LX.border}` }}>
+          <span className="text-[12px]" style={{ color: LX.textMuted }}>
+            {isInstr ? "" : `${pendingItems.length} item${pendingItems.length !== 1 ? "s" : ""}`}
+          </span>
+          <div className="flex items-center gap-2">
+            <button onClick={onClose}
+              className="px-5 h-[38px] rounded-[10px] text-[13px] font-semibold transition-colors outline-none"
+              style={{ color: LX.textMuted, border: `1px solid ${LX.border}` }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.subtle; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
+              Cancel
+            </button>
+            <button onClick={() => { onSave(pendingItems, pendingInstr); onClose(); }}
+              disabled={!hasChanges}
+              className="flex items-center gap-2 px-5 h-[38px] rounded-[10px] text-[13px] font-semibold text-white transition-opacity outline-none disabled:opacity-40"
+              style={{ background: LX.gradient.button, boxShadow: LX.shadow.sm }}>
+              <Check size={13} />Save Changes
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {confirmRemoveIdx !== null && (
+        <ConfirmRemoveDialog
+          label={pendingItems[confirmRemoveIdx]}
+          onConfirm={() => removeItem(confirmRemoveIdx)}
+          onCancel={() => setConfirmRemoveIdx(null)}
+        />
+      )}
+      {previewIdx !== null && (
+        <ItemPreviewModal
+          label={pendingItems[previewIdx]}
+          icon={Icon}
+          onClose={() => setPreviewIdx(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── KB Entry Preview Modal ───────────────────────────────────
+// ─── KB Entry Modal (Add / View / Edit) ──────────────────────
+function KBEntryModal({ mode: initialMode, entry, onSave, onAdd, onClose }: {
+  mode: "add" | "view" | "edit";
+  entry?: KBEntry;
+  onSave?: (e: KBEntry) => void;
+  onAdd?: (e: KBEntry) => void;
+  onClose: () => void;
+}) {
+  const [mode, setMode] = useState(initialMode);
+  const [question, setQuestion] = useState(entry?.question ?? "");
+  const [answer, setAnswer] = useState(entry?.answer ?? "");
+  const [responseType, setResponseType] = useState(entry?.responseType ?? "narrative");
+  const [advanced, setAdvanced] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [sqlDraft, setSqlDraft] = useState("");
+
+  const isView = mode === "view";
+  const isAdd = mode === "add";
+  const typeLabel = KB_RESPONSE_TYPES.find(t => t.id === responseType)?.label ?? "Narrative";
+  const sqlDisabled = responseType === "narrative";
+  const canSave = question.trim().length > 0 && answer.trim().length > 0;
+
+  function handleGenerateSQL() {
+    if (!question.trim() || sqlDisabled) return;
+    setGenerating(true);
+    setTimeout(() => {
+      setSqlDraft(`SELECT content, source, relevance_score\nFROM knowledge_base\nWHERE question ILIKE '%${question.slice(0, 28).replace(/'/g, "''").trim()}%'\n   OR content_vector <-> query_vector < 0.35\nORDER BY relevance_score DESC\nLIMIT 5;`);
+      setGenerating(false);
+    }, 1100);
+  }
+
+  function handleSubmit() {
+    if (!canSave) return;
+    const updated: KBEntry = { id: entry?.id ?? `kb${Date.now()}`, question: question.trim(), answer: answer.trim(), responseType };
+    if (isAdd) { onAdd?.(updated); }
+    else { onSave?.(updated); }
+    onClose();
+  }
+
+  const title = isAdd ? "Add Knowledge Entry" : isView ? "Knowledge Entry" : "Edit Knowledge Entry";
+  const submitLabel = isAdd ? "Add" : "Save Changes";
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/35" style={{ backdropFilter: "blur(3px)" }} />
+      <div className="relative rounded-[24px] w-[600px] max-h-[90vh] flex flex-col overflow-hidden"
+        style={{ background: LX.surface, boxShadow: LX.shadow.xl }} onClick={(e) => e.stopPropagation()}>
+
+        {/* Header */}
+        <div className="flex items-center gap-3 px-8 pt-6 pb-5 flex-shrink-0">
+          <div className="w-9 h-9 rounded-[10px] flex items-center justify-center" style={{ background: LX.blueT10 }}>
+            <BookOpen size={15} color={LX.secondary} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-[17px] font-extrabold" style={{ color: LX.primary }}>{title}</h2>
+          </div>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button type="button" variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 rounded-full" aria-label="Close">
+                <X size={14} style={{ color: LX.textMuted }} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent sideOffset={6}>Close</TooltipContent>
+          </Tooltip>
+        </div>
+        <div className="h-px mx-8 flex-shrink-0" style={{ background: LX.border }} />
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto px-8 py-6 space-y-5">
+          {/* Question */}
+          <div>
+            <label className="text-[12px] font-bold mb-2 block" style={{ color: LX.textMuted }}>Question</label>
+            {isView ? (
+              <p className="text-[15px] font-bold leading-[1.55] px-4 py-3.5 rounded-[12px]"
+                style={{ border: `1px solid ${LX.border}`, color: LX.primary, background: LX.subtle }}>{question}</p>
+            ) : (
+              <input value={question} onChange={(e) => setQuestion(e.target.value)}
+                placeholder="e.g. What is Luxia?"
+                className="w-full outline-none text-[15px] px-4 py-3.5 rounded-[12px] transition-colors"
+                style={{ border: `1px solid ${question ? LX.secondary : LX.border}`, color: LX.primary, background: LX.subtle }} />
+            )}
+          </div>
+          {/* Answer */}
+          <div>
+            <label className="text-[12px] font-bold mb-2 block" style={{ color: LX.textMuted }}>Answer</label>
+            {isView ? (
+              <p className="text-[14px] leading-[1.75] px-4 py-3.5 rounded-[12px]"
+                style={{ border: `1px solid ${LX.border}`, color: LX.primary, background: LX.subtle, whiteSpace: "pre-wrap" }}>{answer}</p>
+            ) : (
+              <textarea value={answer} onChange={(e) => setAnswer(e.target.value)}
+                placeholder="Write the expected answer…"
+                rows={6}
+                className="w-full outline-none resize-none text-[14px] px-4 py-3.5 rounded-[12px] leading-[1.7] transition-colors"
+                style={{ border: `1px solid ${answer ? LX.secondary : LX.border}`, color: LX.primary, background: LX.subtle }} />
+            )}
+          </div>
+          {/* Advanced / Response Type */}
+          <div>
+            <button onClick={() => !isView && setAdvanced(p => !p)}
+              className="flex items-center gap-1.5 text-[12px] font-semibold transition-opacity"
+              style={{ color: LX.textMuted, opacity: isView ? 0.5 : 1, cursor: isView ? "default" : "pointer" }}>
+              <ChevronRight size={12} style={{ transform: advanced ? "rotate(90deg)" : "none", transition: "transform 0.16s" }} />
+              Advanced Mode
+            </button>
+            {(advanced || isView) && (
+              <div className="mt-3 space-y-5 rounded-[14px] p-5" style={{ background: LX.subtle, border: `1px solid ${LX.border}` }}>
+                {/* Response Type */}
+                <div>
+                  <label className="text-[11px] font-bold mb-2.5 block uppercase tracking-wider" style={{ color: LX.textMuted }}>Response Type</label>
+                  <div className="inline-flex rounded-[10px] overflow-hidden" style={{ border: `1px solid ${LX.border}`, background: LX.surface, opacity: isView ? 0.7 : 1 }}>
+                    {KB_RESPONSE_TYPES.map((rt, i) => (
+                      <button key={rt.id} onClick={() => !isView && setResponseType(rt.id)}
+                        disabled={isView}
+                        className="px-4 py-2 text-[12px] font-bold transition-all"
+                        style={{
+                          background: responseType === rt.id ? LX.primary : "transparent",
+                          color: responseType === rt.id ? LX.surface : LX.textMuted,
+                          borderRight: i < KB_RESPONSE_TYPES.length - 1 ? `1px solid ${LX.border}` : "none",
+                          cursor: isView ? "default" : "pointer",
+                        }}>{rt.label}</button>
+                    ))}
+                  </div>
+                </div>
+                {/* Generate SQL */}
+                {!isView && (
+                  <div>
+                    <label className="text-[11px] font-bold mb-2.5 block uppercase tracking-wider" style={{ color: LX.textMuted }}>Generate SQL</label>
+                    <button onClick={handleGenerateSQL}
+                      disabled={!question.trim() || generating || sqlDisabled}
+                      className="flex items-center gap-2 px-4 h-[34px] rounded-[10px] text-[12px] font-bold transition-opacity disabled:opacity-35"
+                      style={{ background: sqlDisabled ? LX.borderStrong : LX.primary, color: LX.surface }}>
+                      <Wand2 size={12} />{generating ? "Generating…" : "Generate SQL"}
+                    </button>
+                    {sqlDisabled && (
+                      <p className="text-[11px] mt-1.5" style={{ color: LX.textMuted }}>Available for Table, Chart, KPI, and List types only.</p>
+                    )}
+                    {sqlDraft && !sqlDisabled && (
+                      <div className="mt-3">
+                        <label className="text-[11px] font-bold mb-1.5 block uppercase tracking-wider" style={{ color: LX.textMuted }}>SQL Editor</label>
+                        <textarea value={sqlDraft} onChange={(e) => setSqlDraft(e.target.value)} rows={5}
+                          className="w-full outline-none resize-none text-[12px] font-mono px-3.5 py-3 rounded-[10px] leading-[1.65]"
+                          style={{ border: `1px solid ${LX.border}`, color: LX.primary, background: LX.surface }} />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-end gap-2.5 px-8 py-5 flex-shrink-0" style={{ borderTop: `1px solid ${LX.border}` }}>
+          {isView ? (
+            <>
+              <Button type="button" variant="secondary" onClick={onClose} className="h-[40px] rounded-[24px] px-5 text-[13px] font-bold" style={{ color: LX.textMuted }}>
+                Close
+              </Button>
+              <Button type="button" onClick={() => setMode("edit")} className="h-[40px] rounded-[24px] px-5 text-[13px] font-bold text-white hover:opacity-90" style={{ background: LX.gradient.button, boxShadow: LX.shadow.sm }}>
+                <Edit3 size={14} />Edit
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button type="button" variant="secondary" onClick={onClose} className="h-[40px] rounded-[24px] px-5 text-[13px] font-bold" style={{ color: LX.textMuted }}>
+                Cancel
+              </Button>
+              <Button type="button" onClick={handleSubmit} disabled={!canSave} className="h-[40px] rounded-[24px] px-5 text-[13px] font-bold text-white hover:opacity-90 disabled:opacity-40" style={{ background: LX.gradient.button, boxShadow: LX.shadow.sm }}>
+                <Check size={14} />{submitLabel}
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Auto-Generate KB Modal ───────────────────────────────────
+function AutoKBModal({ constellationLabel, onAdd, onClose }: {
+  constellationLabel: string; onAdd: (entries: KBEntry[]) => void; onClose: () => void;
+}) {
+  const [count, setCount] = useState(5);
+  const [lang, setLang] = useState("EN");
+  const [generating, setGenerating] = useState(false);
+  const [generated, setGenerated] = useState<KBEntry[]>([]);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  function handleGenerate() {
+    setGenerating(true);
+    setGenerated([]);
+    setSelected(new Set());
+    setTimeout(() => {
+      const slice = KB_AUTO_SAMPLES.slice(0, count).map(e => ({ ...e, id: `auto${Date.now()}${Math.random().toString(36).slice(2, 6)}` }));
+      setGenerated(slice);
+      setSelected(new Set(slice.map(e => e.id)));
+      setGenerating(false);
+    }, 1400);
+  }
+
+  function toggleSelect(id: string) {
+    setSelected(p => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  }
+
+  const selectedEntries = generated.filter(e => selected.has(e.id));
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/35" style={{ backdropFilter: "blur(3px)" }} />
+      <div className="relative rounded-[24px] w-[640px] max-h-[86vh] flex flex-col overflow-hidden"
+        style={{ background: LX.surface, boxShadow: LX.shadow.xl }} onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div className="flex items-center gap-3 px-7 py-5 flex-shrink-0" style={{ borderBottom: `1px solid ${LX.border}` }}>
+          <div className="w-9 h-9 rounded-[10px] flex items-center justify-center flex-shrink-0"
+            style={{ background: `linear-gradient(135deg, ${LX.blueT10} 0%, ${LX.sl10} 100%)` }}>
+            <Wand2 size={15} color={LX.secondary} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-[17px] font-extrabold" style={{ color: LX.primary }}>Auto-generate Knowledge</h2>
+            <p className="text-[12px]" style={{ color: LX.textMuted }}>From <span className="font-bold">{constellationLabel}</span></p>
+          </div>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button type="button" variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 rounded-full" aria-label="Close">
+                <X size={14} style={{ color: LX.textMuted }} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent sideOffset={6}>Close</TooltipContent>
+          </Tooltip>
+        </div>
+        {/* Config bar */}
+        <div className="flex items-center gap-4 px-7 py-3.5 flex-shrink-0" style={{ borderBottom: `1px solid ${LX.border}` }}>
+          <div className="flex items-center gap-2">
+            <span className="text-[12px] font-bold" style={{ color: LX.primary }}>Entries</span>
+            <div className="flex gap-1">
+              {[3, 5, 10].map(n => (
+                <button key={n} onClick={() => setCount(n)}
+                  className="w-9 h-8 rounded-[8px] text-[12px] font-bold transition-all"
+                  style={{ background: count === n ? LX.secondary : LX.surface, color: count === n ? LX.surface : LX.textMuted, border: `1px solid ${count === n ? LX.secondary : LX.border}` }}>
+                  {n}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[12px] font-bold" style={{ color: LX.primary }}>Language</span>
+            <select value={lang} onChange={(e) => setLang(e.target.value)}
+              className="h-8 px-2.5 rounded-[8px] text-[12px] font-semibold outline-none"
+              style={{ border: `1px solid ${LX.border}`, color: LX.primary, background: LX.surface }}>
+              {LANGUAGES.map(l => <option key={l.code} value={l.code}>{l.label}</option>)}
+            </select>
+          </div>
+          <div className="flex-1" />
+          <Button type="button" onClick={handleGenerate} disabled={generating} className="h-[34px] rounded-[24px] px-4 text-[12px] font-bold text-white hover:opacity-90 disabled:opacity-60" style={{ background: LX.gradient.button, boxShadow: LX.shadow.sm }}>
+            <Wand2 size={11} />{generating ? "Generating…" : "Generate"}
+          </Button>
+        </div>
+        {/* Results */}
+        <div className="flex-1 overflow-y-auto px-7 py-5">
+          {generating && (
+            <div className="flex flex-col items-center justify-center py-14 gap-3">
+              <div className="w-9 h-9 rounded-full border-2 animate-spin"
+                style={{ borderColor: `${LX.secondary} transparent ${LX.secondary} ${LX.secondary}` }} />
+              <p className="text-[13px] font-semibold" style={{ color: LX.textMuted }}>Generating Knowledge Entries…</p>
+            </div>
+          )}
+          {!generating && generated.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-14 gap-2">
+              <Wand2 size={28} style={{ color: `${LX.textMuted}55` }} />
+              <p className="text-[13px]" style={{ color: LX.textMuted }}>Configure above, then click Generate</p>
+            </div>
+          )}
+          {!generating && generated.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-[12px] font-bold" style={{ color: LX.textMuted }}>{selected.size} of {generated.length} selected</p>
+                <button onClick={() => setSelected(selected.size === generated.length ? new Set() : new Set(generated.map(e => e.id)))}
+                  className="text-[12px] font-bold hover:opacity-80 transition-opacity" style={{ color: LX.secondary }}>
+                  {selected.size === generated.length ? "Deselect all" : "Select all"}
+                </button>
+              </div>
+              {generated.map(entry => {
+                const checked = selected.has(entry.id);
+                return (
+                  <button key={entry.id} onClick={() => toggleSelect(entry.id)}
+                    className="w-full flex items-start gap-3 px-4 py-3.5 rounded-[14px] text-left transition-all"
+                    style={{ background: checked ? LX.state.secondary08 : LX.surface, border: `1px solid ${checked ? LX.secondary : LX.border}`, boxShadow: checked ? LX.shadow.xs : "none" }}>
+                    <div className="w-4 h-4 rounded-[5px] flex items-center justify-center flex-shrink-0 mt-0.5 transition-all"
+                      style={{ background: checked ? LX.secondary : LX.surface, border: `1.5px solid ${checked ? LX.secondary : LX.border}` }}>
+                      {checked && <Check size={9} color={LX.surface} />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] font-bold" style={{ color: LX.primary }}>{entry.question}</p>
+                      <p className="text-[12px] mt-0.5 truncate" style={{ color: LX.textMuted }}>{entry.answer}</p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+        {/* Footer */}
+        <div className="flex items-center justify-end gap-2.5 px-7 py-4 flex-shrink-0" style={{ borderTop: `1px solid ${LX.border}` }}>
+          <Button type="button" variant="secondary" onClick={onClose} className="h-[40px] rounded-[24px] px-5 text-[13px] font-bold" style={{ color: LX.textMuted }}>
+            Cancel
+          </Button>
+          <Button type="button" onClick={() => { if (selectedEntries.length > 0) { onAdd(selectedEntries); onClose(); } }}
+            disabled={selectedEntries.length === 0}
+            className="h-[40px] rounded-[24px] px-5 text-[13px] font-bold text-white hover:opacity-90 disabled:opacity-40"
+            style={{ background: LX.gradient.button, boxShadow: LX.shadow.sm }}>
+            <Plus size={14} />Add {selectedEntries.length > 0 ? `${selectedEntries.length} ` : ""}Selected
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── KB Workspace Modal ───────────────────────────────────────
+function KBWorkspaceModal({ entries, constellationLabel, onSave, onClose }: {
+  entries: KBEntry[]; constellationLabel: string;
+  onSave: (entries: KBEntry[]) => void; onClose: () => void;
+}) {
+  const [pending, setPending] = useState<KBEntry[]>([...entries]);
+  const [searchQ, setSearchQ] = useState("");
+  const [dragSrc, setDragSrc] = useState<number | null>(null);
+  const [dragOver, setDragOver] = useState<number | null>(null);
+  const [itemMenu, setItemMenu] = useState<string | null>(null);
+  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
+  const [previewEntry, setPreviewEntry] = useState<KBEntry | null>(null);
+  const [editEntry, setEditEntry] = useState<KBEntry | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
+  const [autoOpen, setAutoOpen] = useState(false);
+
+  useEffect(() => {
+    const close = () => setItemMenu(null);
+    window.addEventListener("mousedown", close);
+    return () => window.removeEventListener("mousedown", close);
+  }, []);
+
+  const filtered = pending.filter(e =>
+    e.question.toLowerCase().includes(searchQ.toLowerCase()) ||
+    e.answer.toLowerCase().includes(searchQ.toLowerCase())
+  );
+
+  function reorder(from: number, to: number) {
+    const next = [...pending]; const [moved] = next.splice(from, 1); next.splice(to, 0, moved); setPending(next);
+  }
+  function removeEntry(id: string) { setPending(p => p.filter(e => e.id !== id)); setConfirmRemoveId(null); }
+  function updateEntry(updated: KBEntry) { setPending(p => p.map(e => e.id === updated.id ? updated : e)); }
+
+  const hasChanges = JSON.stringify(pending) !== JSON.stringify(entries);
+
+  return (
+    <>
+      <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
+        <div className="absolute inset-0 bg-black/40" style={{ backdropFilter: "blur(4px)" }} />
+        <div className="relative w-[760px] max-h-[88vh] rounded-[24px] overflow-hidden flex flex-col"
+          style={{ background: LX.surface, boxShadow: LX.shadow.xl }} onClick={(e) => e.stopPropagation()}>
+
+          {/* Header */}
+          <div className="flex items-center gap-4 px-8 py-6 flex-shrink-0">
+            <div className="flex-1 min-w-0">
+              <h2 className="text-[22px] font-extrabold leading-none" style={{ color: LX.primary }}>Knowledge Base</h2>
+              <p className="text-[13px] mt-1" style={{ color: LX.textMuted }}>
+                {constellationLabel} · {pending.length} {pending.length === 1 ? "entry" : "entries"}
+              </p>
+            </div>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button type="button" variant="ghost" size="icon" onClick={onClose} className="h-9 w-9 rounded-full" aria-label="Close knowledge base">
+                  <X size={15} style={{ color: LX.textMuted }} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent sideOffset={6}>Close</TooltipContent>
+            </Tooltip>
+          </div>
+
+          {/* Toolbar */}
+          <div className="flex items-center gap-2.5 px-8 pb-5 flex-shrink-0">
+            <div className="flex-1 flex items-center gap-2 px-3.5 h-[38px] rounded-[12px]"
+              style={{ border: `1px solid ${LX.border}`, background: LX.subtle }}>
+              <Search size={13} style={{ color: LX.textMuted }} />
+              <input value={searchQ} onChange={(e) => setSearchQ(e.target.value)}
+                placeholder="Search questions and answers…"
+                className="flex-1 outline-none text-[13px] bg-transparent" style={{ color: LX.primary }} />
+              {searchQ && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => setSearchQ("")} aria-label="Clear search">
+                      <X size={11} style={{ color: LX.textMuted }} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent sideOffset={6}>Clear search</TooltipContent>
+                </Tooltip>
+              )}
+            </div>
+            <Button type="button" variant="outline" onClick={() => { const i = document.createElement("input"); i.type = "file"; i.accept = ".csv"; i.click(); }}
+              className="h-[38px] rounded-[12px] px-3.5 text-[12px] font-semibold" style={{ color: LX.textMuted }}>
+              <Upload size={12} />Import CSV
+            </Button>
+            <Button type="button" variant="outline" onClick={() => setAutoOpen(true)}
+              className="h-[38px] rounded-[12px] px-3.5 text-[12px] font-semibold" style={{ color: LX.secondary }}>
+              <Wand2 size={12} />Auto-generate
+            </Button>
+            <Button type="button" onClick={() => setAddOpen(true)}
+              className="h-[38px] rounded-[12px] px-4 text-[12px] font-bold text-white hover:opacity-90"
+              style={{ background: LX.gradient.button, boxShadow: LX.shadow.sm }}>
+              <Plus size={13} />Add Entry
+            </Button>
+          </div>
+
+          <div className="h-px mx-8 flex-shrink-0" style={{ background: LX.border }} />
+
+          {/* Entry list */}
+          <div className="flex-1 overflow-y-auto px-8 py-5">
+            {filtered.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 gap-3">
+                <BookOpen size={32} style={{ color: `${LX.textMuted}44` }} />
+                <p className="text-[14px]" style={{ color: LX.textMuted }}>
+                  {searchQ ? "No entries match your search." : "No entries yet."}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {filtered.map((entry) => {
+                  const realIdx = pending.findIndex(e => e.id === entry.id);
+                  const typeLabel = KB_RESPONSE_TYPES.find(t => t.id === entry.responseType)?.label;
+                  const isMenuOpen = itemMenu === entry.id;
+                  return (
+                    <div key={entry.id}
+                      draggable={!searchQ}
+                      onDragStart={() => setDragSrc(realIdx)}
+                      onDragOver={(e) => { e.preventDefault(); setDragOver(realIdx); }}
+                      onDrop={() => { if (dragSrc !== null && dragSrc !== realIdx) reorder(dragSrc, realIdx); setDragSrc(null); setDragOver(null); }}
+                      onDragEnd={() => { setDragSrc(null); setDragOver(null); }}
+                      className="flex items-start gap-3.5 px-5 py-4 rounded-[16px] group relative transition-all"
+                      style={{
+                        border: `1px solid ${dragOver === realIdx ? LX.secondary : LX.border}`,
+                        background: dragOver === realIdx ? LX.state.secondary04 : LX.surface,
+                      }}>
+                      {!searchQ && <GripVertical size={14} color={LX.borderStrong} className="cursor-grab flex-shrink-0 mt-1" />}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[14px] font-bold leading-snug mb-1.5" style={{ color: LX.primary }}>{entry.question}</p>
+                        <p className="text-[13px] leading-[1.6]" style={{
+                          color: LX.textMuted,
+                          display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
+                        } as React.CSSProperties}>{entry.answer}</p>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0 mt-0.5">
+                        <div className="relative" onClick={(e) => e.stopPropagation()}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button type="button" variant="ghost" size="icon" onClick={() => setItemMenu(isMenuOpen ? null : entry.id)}
+                                className="h-7 w-7 rounded-[8px]" aria-label="Entry actions">
+                                <MoreHorizontal size={14} style={{ color: LX.textMuted }} />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent sideOffset={6}>Actions</TooltipContent>
+                          </Tooltip>
+                          {isMenuOpen && (
+                            <div className="absolute right-0 top-full mt-1.5 z-50 min-w-[168px] py-1.5"
+                              style={{ background: LX.surface, boxShadow: LX.shadow.lg, border: `1px solid ${LX.border}`, borderRadius: 14 }}
+                              onClick={(e) => e.stopPropagation()}>
+                              <button onClick={() => { setItemMenu(null); setPreviewEntry(entry); }}
+                                className="w-full flex items-center gap-2.5 px-4 text-[13px] font-semibold transition-colors text-left"
+                                style={{ color: LX.primary, height: 40 }}
+                                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.state.menuHover; }}
+                                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
+                                <Eye size={14} style={{ color: LX.textMuted }} />View</button>
+                              <button onClick={() => { setItemMenu(null); setEditEntry(entry); }}
+                                className="w-full flex items-center gap-2.5 px-4 text-[13px] font-semibold transition-colors text-left"
+                                style={{ color: LX.primary, height: 40 }}
+                                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.state.menuHover; }}
+                                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
+                                <Edit3 size={14} style={{ color: LX.textMuted }} />Edit</button>
+                              <div className="h-px mx-3 my-1" style={{ background: LX.border }} />
+                              <button onClick={() => { setItemMenu(null); setConfirmRemoveId(entry.id); }}
+                                className="w-full flex items-center gap-2.5 px-4 text-[13px] font-semibold transition-colors text-left"
+                                style={{ color: LX.error, height: 40 }}
+                                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.state.error07; }}
+                                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
+                                <Trash2 size={14} style={{ color: LX.error }} />Remove</button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="flex items-center justify-between gap-3 px-8 py-5 flex-shrink-0" style={{ borderTop: `1px solid ${LX.border}` }}>
+            <span className="text-[13px]" style={{ color: LX.textMuted }}>
+              {pending.length} {pending.length === 1 ? "entry" : "entries"}
+            </span>
+            <div className="flex items-center gap-2.5">
+              <Button type="button" variant="secondary" onClick={onClose} className="h-[40px] rounded-[12px] px-5 text-[13px] font-bold" style={{ color: LX.textMuted }}>
+                Cancel
+              </Button>
+              <Button type="button" onClick={() => { onSave(pending); onClose(); }} disabled={!hasChanges}
+                className="h-[40px] rounded-[12px] px-5 text-[13px] font-bold text-white disabled:opacity-40"
+                style={{ background: LX.gradient.button, boxShadow: LX.shadow.sm }}>
+                <Check size={14} />Save Changes
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Nested dialogs */}
+      {confirmRemoveId && (
+        <ConfirmRemoveDialog
+          label={pending.find(e => e.id === confirmRemoveId)?.question ?? ""}
+          onConfirm={() => removeEntry(confirmRemoveId)}
+          onCancel={() => setConfirmRemoveId(null)}
+        />
+      )}
+      {previewEntry && (
+        <KBEntryModal mode="view" entry={previewEntry}
+          onSave={(e) => { updateEntry(e); setPreviewEntry(null); }}
+          onClose={() => setPreviewEntry(null)} />
+      )}
+      {editEntry && (
+        <KBEntryModal mode="edit" entry={editEntry}
+          onSave={(e) => { updateEntry(e); setEditEntry(null); }}
+          onClose={() => setEditEntry(null)} />
+      )}
+      {addOpen && (
+        <KBEntryModal mode="add"
+          onAdd={(e) => setPending(p => [...p, e])}
+          onClose={() => setAddOpen(false)} />
+      )}
+      {autoOpen && <AutoKBModal constellationLabel={constellationLabel} onAdd={(es) => setPending(p => [...p, ...es])} onClose={() => setAutoOpen(false)} />}
+    </>
+  );
+}
+
+// ─── KB Sidebar Section ───────────────────────────────────────
+function KBSidebarSection({ entries, isOpen, onToggle, onExpand, onAdd, onView, onEdit, onRemove }: {
+  entries: KBEntry[]; isOpen: boolean;
+  onToggle: () => void; onExpand: () => void; onAdd: () => void;
+  onView: (id: string) => void; onEdit: (id: string) => void; onRemove: (id: string) => void;
+}) {
+  const [searchQ, setSearchQ] = useState("");
+
+  const filtered = entries.filter(e => e.question.toLowerCase().includes(searchQ.toLowerCase()));
+
+  return (
+    <div className="rounded-[12px] overflow-hidden"
+      style={{ background: "white", border: `1px solid ${LX.border}`, boxShadow: "0 2px 8px rgba(15,23,42,0.06)" }}>
+      {/* Header */}
+      <div className="flex items-center gap-1.5 px-[14px] py-3">
+        <BookOpen size={14} color={LX.secondary} className="flex-shrink-0" />
+        <span className="flex-1 text-[14px] font-semibold leading-5 truncate" style={{ color: LX.primary }}>Knowledge Base</span>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button onClick={(e) => { e.stopPropagation(); onExpand(); }}
+              className="w-8 h-8 flex items-center justify-center rounded-[8px] transition-colors outline-none flex-shrink-0"
+              aria-label="Manage knowledge base"
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.state.secondary08; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
+              <Maximize2 size={15} style={{ color: LX.textMuted }} />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent sideOffset={6}>Manage</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button onClick={onToggle}
+              className="w-8 h-8 flex items-center justify-center rounded-[8px] transition-colors outline-none flex-shrink-0"
+              aria-label={isOpen ? "Collapse" : "Expand"}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.state.secondary08; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
+              <ChevronDown size={15} style={{ color: LX.textMuted, transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 160ms ease" }} />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent sideOffset={6}>{isOpen ? "Collapse" : "Expand"}</TooltipContent>
+        </Tooltip>
+      </div>
+
+      {isOpen && (
+        <div className="px-2 pb-2.5" style={{ borderTop: `1px solid ${LX.borderSubtle}` }}>
+          {/* Search */}
+          <div className="flex items-center gap-1.5 px-2.5 h-[28px] rounded-[7px] mt-2 mb-1"
+            style={{ border: `1px solid ${LX.border}`, background: LX.subtle }}>
+            <Search size={10} style={{ color: LX.textMuted }} />
+            <input value={searchQ} onChange={(e) => setSearchQ(e.target.value)}
+              placeholder="Search…"
+              className="flex-1 outline-none text-[11px] bg-transparent" style={{ color: LX.primary }} />
+            {searchQ && (
+              <button onClick={() => setSearchQ("")} className="w-4 h-4 flex items-center justify-center outline-none">
+                <X size={9} style={{ color: LX.textMuted }} />
+              </button>
+            )}
+          </div>
+
+          {/* Entry rows */}
+          {filtered.length === 0 ? (
+            <p className="px-2 py-2 text-[11px]" style={{ color: LX.textMuted }}>
+              {searchQ ? "No matches." : "No entries yet."}
+            </p>
+          ) : (
+            filtered.map(entry => (
+              <div key={entry.id}
+                className="flex items-center gap-1.5 px-2 py-1.5 rounded-[7px] relative"
+                style={{ background: "transparent" }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.borderSubtle; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
+                <BookOpen size={10} color={LX.secondary} className="flex-shrink-0" />
+                <span className="flex-1 text-[11px] font-medium truncate" style={{ color: LX.primary }}>{entry.question}</span>
+                <KBEntryMenu
+                  onView={() => onView(entry.id)}
+                  onEdit={() => onEdit(entry.id)}
+                  onRemove={() => onRemove(entry.id)}
+                />
+              </div>
+            ))
+          )}
+
+          {/* Add Entry */}
+          <button onClick={onAdd}
+            className="mt-1 w-full flex items-center gap-1.5 px-2 py-1.5 rounded-[7px] text-[11px] font-semibold transition-colors outline-none"
+            style={{ color: LX.textMuted }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.borderSubtle; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
+            <Plus size={10} />Add Entry
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Constellation Sidebar ────────────────────────────────────
+function ConstellationSidebar({ width, onResizeStart, collapsed, onCollapse, constellation, allConstellations, onConstellationChange }: {
+  width: number; onResizeStart: (e: React.MouseEvent) => void;
+  collapsed: boolean; onCollapse: () => void;
+  constellation: Constellation;
+  allConstellations: Constellation[];
+  onConstellationChange: (id: string) => void;
+}) {
+  const sectionIds = CONSTELLATION_SECTIONS[constellation.type];
+
+  // Build initial items state for this constellation type
+  const initItems = () => Object.fromEntries(sectionIds.map(id => [id, [...(SECTION_DEFAULTS[id] ?? [])]])) as Record<SectionId, string[]>;
+  const [items, setItems] = useState<Record<SectionId, string[]>>(initItems);
+  const [instruction, setInstruction] = useState(SECTION_INSTRUCTION[constellation.type]);
+  const [openSections, setOpenSections] = useState<Record<SectionId, boolean>>(
+    Object.fromEntries(sectionIds.map((id, i) => [id, i < 2])) as Record<SectionId, boolean>
+  );
+
+  // Constellation search dropdown
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQ, setSearchQ] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  // Description expand
+  const [descExpanded, setDescExpanded] = useState(false);
+
+  // Modal / confirm / preview
+  const [modalSection, setModalSection] = useState<SectionId | null>(null);
+  const [confirmRemove, setConfirmRemove] = useState<{ sid: SectionId; idx: number } | null>(null);
+  const [previewItem, setPreviewItem] = useState<{ sid: SectionId; idx: number } | null>(null);
+
+  // KB state
+  const [kbEntries, setKbEntries] = useState<KBEntry[]>(KB_DEFAULTS);
+  const [kbWorkspaceOpen, setKbWorkspaceOpen] = useState(false);
+  const [kbAddOpen, setKbAddOpen] = useState(false);
+  const [kbConfirmId, setKbConfirmId] = useState<string | null>(null);
+  const [kbViewId, setKbViewId] = useState<string | null>(null);
+  const [kbEditId, setKbEditId] = useState<string | null>(null);
+
+  // Drag state (non-KB sections)
+  const [dragSrc, setDragSrc] = useState<{ sid: SectionId; i: number } | null>(null);
+  const [dragOver, setDragOver] = useState<{ sid: SectionId; i: number } | null>(null);
+
+  // Constellation save state
+  const [sectionSignatures, setSectionSignatures] = useState<Record<string, string>>({});
+  const [savedConstellationSnapshot, setSavedConstellationSnapshot] = useState<string | null>(null);
+  const [constellationSaving, setConstellationSaving] = useState(false);
+  const [constellationFeedback, setConstellationFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
+  const registerSectionSignature = useCallback((sectionId: string, signature: string) => {
+    setSectionSignatures((prev) => (prev[sectionId] === signature ? prev : { ...prev, [sectionId]: signature }));
+  }, []);
+
+  const kbSignature = useMemo(
+    () => JSON.stringify(kbEntries.map((e) => ({ id: e.id, question: e.question, answer: e.answer, responseType: e.responseType }))),
+    [kbEntries],
+  );
+
+  const currentConstellationSnapshot = useMemo(
+    () => JSON.stringify({ kb: kbSignature, sections: sectionSignatures }),
+    [kbSignature, sectionSignatures],
+  );
+
+  useEffect(() => {
+    setSectionSignatures({});
+    setSavedConstellationSnapshot(null);
+    setConstellationFeedback(null);
+  }, [constellation.id]);
+
+  useEffect(() => {
+    if (savedConstellationSnapshot === null) {
+      const timer = window.setTimeout(() => setSavedConstellationSnapshot(currentConstellationSnapshot), 150);
+      return () => window.clearTimeout(timer);
+    }
+  }, [savedConstellationSnapshot, currentConstellationSnapshot, constellation.id]);
+
+  const constellationDirty = savedConstellationSnapshot !== null && currentConstellationSnapshot !== savedConstellationSnapshot;
+
+  function saveConstellation() {
+    if (!constellationDirty || constellationSaving) return;
+    setConstellationSaving(true);
+    setConstellationFeedback(null);
+    window.setTimeout(() => {
+      setSavedConstellationSnapshot(currentConstellationSnapshot);
+      setConstellationSaving(false);
+      setConstellationFeedback({ type: "success", message: "Constellation saved." });
+      window.setTimeout(() => setConstellationFeedback(null), 2500);
+    }, 600);
+  }
+
+  useEffect(() => {
+    if (searchOpen) searchRef.current?.focus();
+  }, [searchOpen]);
+
+  useEffect(() => {
+    const close = () => setSearchOpen(false);
+    window.addEventListener("click", close);
+    return () => window.removeEventListener("click", close);
+  }, []);
+
+  function updateItems(sid: SectionId, next: string[]) {
+    setItems(prev => ({ ...prev, [sid]: next }));
+  }
+
+  function handleDrop(sid: SectionId, targetIdx: number) {
+    if (!dragSrc || dragSrc.sid !== sid || dragSrc.i === targetIdx) return;
+    const next = [...items[sid]];
+    const [moved] = next.splice(dragSrc.i, 1);
+    next.splice(targetIdx, 0, moved);
+    updateItems(sid, next);
+    setDragSrc(null); setDragOver(null);
+  }
+
+  const filtered = allConstellations.filter(c => c.label.toLowerCase().includes(searchQ.toLowerCase()));
+
+  if (collapsed) {
+    return (
+      <aside className="flex flex-col items-center py-3 gap-2 flex-shrink-0"
+        style={{ width: 50, background: LX.subtle, borderLeft: `1px solid ${LX.border}` }}>
+        <button onClick={onCollapse}
+          className="w-7 h-7 flex items-center justify-center rounded-[7px] transition-colors mb-1"
+          style={{ border: `1px solid ${LX.border}`, background: "white" }}
+          title="Expand sidebar">
+          <ChevronLeft size={13} style={{ color: LX.textMuted }} />
+        </button>
+        {sectionIds.map((id) => {
+          const Icon = SECTION_META[id].icon;
+          return (
+            <button key={id} onClick={onCollapse} title={SECTION_META[id].label}
+              className="w-8 h-8 flex items-center justify-center rounded-[8px] transition-colors"
+              style={{ border: `1px solid ${LX.border}`, background: "white" }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = LX.secondary; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = LX.border; }}>
+              <Icon size={14} color={LX.accent} />
+            </button>
+          );
+        })}
+      </aside>
+    );
+  }
+
+  return (
+    <aside className="relative flex flex-col flex-shrink-0"
+      style={{ width, background: "#F6F9FC", borderLeft: `1px solid ${LX.border}` }}>
+
+      {/* Resize handle */}
+      <div className="absolute left-0 top-0 h-full w-[5px] z-20 cursor-col-resize group" onMouseDown={onResizeStart}>
+        <div className="absolute inset-y-0 left-0 w-[3px] group-hover:bg-[var(--luxia-brand-secondary)]/30 transition-colors" />
+      </div>
+
+      {/* Header — constellation selector + description preview */}
+      <div className="relative flex-shrink-0 px-4 pt-4 pb-3.5" style={{ borderBottom: `1px solid ${LX.border}` }}>
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-[6px] flex items-center justify-center flex-shrink-0"
+            style={{ background: "rgba(142,99,235,0.10)" }}>
+            <Sparkles size={12} color={LX.secondary} />
+          </div>
+
+          {/* Searchable selector */}
+          <div className="relative flex-1" onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => setSearchOpen(!searchOpen)}
+              className="flex items-center gap-1.5 text-[13px] font-bold hover:opacity-75 transition-opacity"
+              style={{ color: LX.primary }}>
+              <span className="truncate" style={{ maxWidth: 130 }}>{constellation.label}</span>
+              <ChevronDown size={11} style={{ color: LX.textMuted }} />
+            </button>
+
+            {searchOpen && (
+              <div className="absolute top-full left-0 mt-2 rounded-[14px] overflow-hidden z-30"
+                style={{ background: "white", boxShadow: LX.shadow.lg, border: `1px solid ${LX.border}`, width: 244 }}>
+                <div className="flex items-center gap-2 px-3 py-2.5" style={{ borderBottom: `1px solid ${LX.borderSubtle}` }}>
+                  <Search size={12} style={{ color: LX.textMuted, flexShrink: 0 }} />
+                  <input ref={searchRef} value={searchQ}
+                    onChange={(e) => setSearchQ(e.target.value)}
+                    placeholder="Search constellations…"
+                    className="flex-1 outline-none text-[12.5px] bg-transparent"
+                    style={{ color: LX.primary }} />
+                </div>
+                <div className="py-1 max-h-[200px] overflow-y-auto">
+                  {filtered.length === 0 ? (
+                    <p className="px-4 py-3 text-[12px]" style={{ color: LX.textMuted }}>No results</p>
+                  ) : filtered.map((c) => {
+                    const cs = CONSTELLATION_STYLE[c.type];
+                    return (
+                      <button key={c.id}
+                        onClick={() => { onConstellationChange(c.id); setSearchOpen(false); setSearchQ(""); }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2.5 transition-colors text-left"
+                        style={{ background: "transparent" }}
+                        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.subtle; }}
+                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
+                        <div className="w-5 h-5 rounded-[5px] flex items-center justify-center flex-shrink-0"
+                          style={{ background: cs.bg, border: `1px solid ${cs.border}` }}>
+                          {c.type === "database"
+                            ? <Database size={10} color={cs.color} />
+                            : <FileText size={10} color={cs.color} />}
+                        </div>
+                        <span className="flex-1 text-[12.5px] font-semibold truncate" style={{ color: c.id === constellation.id ? LX.accent : LX.primary }}>{c.label}</span>
+                        {c.id === constellation.id && <Check size={11} style={{ color: LX.accent, flexShrink: 0 }} />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <button onClick={onCollapse} title="Collapse"
+            className="w-6 h-6 flex items-center justify-center rounded-[6px] transition-colors flex-shrink-0"
+            style={{ border: `1px solid ${LX.border}`, background: "white" }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = LX.borderStrong; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = LX.border; }}>
+            <ChevronRight size={12} style={{ color: LX.textMuted }} />
+          </button>
+        </div>
+
+        {/* Description preview */}
+        <div className="mt-2.5 pl-[32px]">
+          <p className="text-[11px] leading-[1.55]"
+            style={{
+              color: LX.textMuted,
+              overflow: "hidden",
+              display: "-webkit-box",
+              WebkitLineClamp: descExpanded ? "unset" : 2,
+              WebkitBoxOrient: "vertical",
+            } as React.CSSProperties}>
+            {constellation.description}
+          </p>
+          <button onClick={() => setDescExpanded(p => !p)}
+            className="text-[10.5px] font-semibold mt-0.5 hover:opacity-70 transition-opacity"
+            style={{ color: LX.secondary }}>
+            {descExpanded ? "Show less" : "Read more"}
+          </button>
+        </div>
+      </div>
+
+      {/* Sections */}
+      <div className="flex-1 overflow-y-auto py-3 px-3 space-y-2">
+        {sectionIds.map((sid) => {
+          const meta = SECTION_META[sid];
+          const Icon = meta.icon;
+          const isOpen = openSections[sid];
+
+          if (sid === "dataTable") {
+            return (
+              <ActiveDataTablesSection
+                key="dataTable"
+                isOpen={isOpen}
+                onToggle={() => setOpenSections(p => ({ ...p, dataTable: !p.dataTable }))}
+                onSignatureChange={(sig) => registerSectionSignature("dataTable", sig)}
+              />
+            );
+          }
+
+          if (sid === "contextFiles") {
+            return (
+              <ExtraContextFilesSection
+                key="contextFiles"
+                isOpen={isOpen}
+                onToggle={() => setOpenSections(p => ({ ...p, contextFiles: !p.contextFiles }))}
+                onSignatureChange={(sig) => registerSectionSignature("contextFiles", sig)}
+              />
+            );
+          }
+
+          if (sid === "relationship") {
+            return (
+              <RelationshipSection
+                key="relationship"
+                isOpen={isOpen}
+                onToggle={() => setOpenSections(p => ({ ...p, relationship: !p.relationship }))}
+                onSignatureChange={(sig) => registerSectionSignature("relationship", sig)}
+              />
+            );
+          }
+
+          if (sid === "metrics") {
+            return (
+              <MetricsSection
+                key="metrics"
+                isOpen={isOpen}
+                onToggle={() => setOpenSections(p => ({ ...p, metrics: !p.metrics }))}
+                onSignatureChange={(sig) => registerSectionSignature("metrics", sig)}
+              />
+            );
+          }
+
+          if (sid === "instr") {
+            return (
+              <InstructionSection
+                key={constellation.id}
+                defaultInstruction={SECTION_INSTRUCTION[constellation.type]}
+                isOpen={isOpen}
+                onToggle={() => setOpenSections(p => ({ ...p, instr: !p.instr }))}
+                onSignatureChange={(sig) => registerSectionSignature("instr", sig)}
+              />
+            );
+          }
+
+          if (sid === "pdfFiles") {
+            return (
+              <PDFFilesSection
+                key="pdfFiles"
+                isOpen={isOpen}
+                onToggle={() => setOpenSections(p => ({ ...p, pdfFiles: !p.pdfFiles }))}
+                onSignatureChange={(sig) => registerSectionSignature("pdfFiles", sig)}
+              />
+            );
+          }
+
+          if (sid === "crawler") {
+            return (
+              <CrawlerSection
+                key="crawler"
+                isOpen={isOpen}
+                onToggle={() => setOpenSections(p => ({ ...p, crawler: !p.crawler }))}
+                onSignatureChange={(sig) => registerSectionSignature("crawler", sig)}
+              />
+            );
+          }
+
+          // Knowledge Base gets its own specialized component
+          if (sid === "kb") {
+            return (
+              <KBSidebarSection key="kb"
+                entries={kbEntries}
+                isOpen={isOpen}
+                onToggle={() => setOpenSections(p => ({ ...p, kb: !p.kb }))}
+                onExpand={() => setKbWorkspaceOpen(true)}
+                onAdd={() => setKbAddOpen(true)}
+                onView={(id) => setKbViewId(id)}
+                onEdit={(id) => setKbEditId(id)}
+                onRemove={(id) => setKbConfirmId(id)}
+              />
+            );
+          }
+
+          const isInstr = sid === "instr";
+          const showDrop = sid === "pdfFiles";
+          const sectionItems = items[sid] ?? [];
+
+          return (
+            <div key={sid} className="rounded-[12px] overflow-hidden"
+              style={{ background: "white", border: `1px solid ${LX.border}`, boxShadow: "0 2px 8px rgba(15,23,42,0.06)" }}>
+              {/* Section header */}
+              <div className="flex items-center gap-1.5 px-[14px] py-3">
+                <Icon size={14} color={LX.secondary} className="flex-shrink-0" />
+                <span className="flex-1 text-[14px] font-semibold leading-5 truncate" style={{ color: LX.primary }}>{meta.label}</span>
+                <button onClick={(e) => { e.stopPropagation(); setModalSection(sid); }} title="Open in workspace"
+                  className="w-8 h-8 flex items-center justify-center rounded-[8px] transition-colors outline-none"
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.state.secondary08; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
+                  <Maximize2 size={15} style={{ color: LX.textMuted }} />
+                </button>
+                <button onClick={() => setOpenSections(p => ({ ...p, [sid]: !p[sid] }))}
+                  className="w-8 h-8 flex items-center justify-center rounded-[8px] transition-colors outline-none"
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.state.secondary08; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
+                  <ChevronDown size={15} style={{ color: LX.textMuted, transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 160ms ease" }} />
+                </button>
+              </div>
+              {/* Section body */}
+              {isOpen && (
+                <div className="px-2 pb-2.5" style={{ borderTop: `1px solid ${LX.borderSubtle}` }}>
+                  {isInstr ? (
+                    <textarea value={instruction} onChange={(e) => setInstruction(e.target.value)} rows={3}
+                      className="w-full outline-none resize-none text-[12px] leading-[1.6] p-2.5 rounded-[8px] mt-2 transition-colors"
+                      style={{ color: LX.primary, background: LX.subtle, border: `1px solid ${LX.border}` }}
+                      placeholder="Write instructions…" />
+                  ) : (
+                    <div className="pt-1.5">
+                      {sectionItems.map((item, i) => (
+                        <SidebarListItem key={i} label={item}
+                          icon={Icon}
+                          draggable
+                          onDragStart={() => setDragSrc({ sid, i })}
+                          onDragOver={() => setDragOver({ sid, i })}
+                          onDrop={() => handleDrop(sid, i)}
+                          onDragEnd={() => { setDragSrc(null); setDragOver(null); }}
+                          dragOver={dragOver?.sid === sid && dragOver?.i === i && dragSrc?.i !== i}
+                          onView={() => setPreviewItem({ sid, idx: i })}
+                          onRemove={() => setConfirmRemove({ sid, idx: i })} />
+                      ))}
+                      {showDrop && <FileDropZone onDrop={(names) => updateItems(sid, [...sectionItems, ...names])} />}
+                      <button onClick={() => updateItems(sid, [...sectionItems, sid === "crawler" ? "https://example.com" : `Item ${sectionItems.length + 1}`])}
+                        className="w-full flex items-center gap-1.5 px-2 py-1.5 rounded-[7px] text-[11px] font-semibold transition-colors mt-1 outline-none"
+                        style={{ color: LX.textMuted }}
+                        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.borderSubtle; }}
+                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
+                        <Plus size={11} />{sid === "crawler" ? "Add URL" : "Add item"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Footer */}
+      <div className="flex-shrink-0 px-4 py-4" style={{ borderTop: `1px solid ${LX.border}`, background: "white" }}>
+        {constellationFeedback ? (
+          <p className="mb-2 text-center text-[11.5px] font-medium" role="status"
+            style={{ color: constellationFeedback.type === "error" ? LX.error : LX.success }}>
+            {constellationFeedback.message}
+          </p>
+        ) : null}
+        <button
+          type="button"
+          disabled={!constellationDirty || constellationSaving}
+          onClick={saveConstellation}
+          className="flex h-[38px] w-full items-center justify-center gap-2 rounded-[10px] text-[13px] font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed outline-none"
+          style={{ background: LX.gradient.button, boxShadow: LX.shadow.sm, opacity: constellationDirty && !constellationSaving ? 1 : 0.4 }}
+        >
+          <Check size={13} />{constellationSaving ? "Saving…" : "Save Constellation"}
+        </button>
+      </div>
+
+      {modalSection && (
+        <SectionWorkspaceModal
+          sectionId={modalSection}
+          items={items[modalSection] ?? []}
+          instruction={instruction}
+          onSave={(newItems, newInstr) => {
+            updateItems(modalSection, newItems);
+            setInstruction(newInstr);
+          }}
+          onClose={() => setModalSection(null)}
+        />
+      )}
+      {confirmRemove && (
+        <ConfirmRemoveDialog
+          label={items[confirmRemove.sid]?.[confirmRemove.idx] ?? ""}
+          onConfirm={() => {
+            updateItems(confirmRemove.sid, items[confirmRemove.sid].filter((_, j) => j !== confirmRemove.idx));
+            setConfirmRemove(null);
+          }}
+          onCancel={() => setConfirmRemove(null)}
+        />
+      )}
+      {previewItem && (
+        <ItemPreviewModal
+          label={items[previewItem.sid]?.[previewItem.idx] ?? ""}
+          icon={SECTION_META[previewItem.sid].icon}
+          onClose={() => setPreviewItem(null)}
+        />
+      )}
+
+      {/* KB modals */}
+      {kbWorkspaceOpen && (
+        <KBWorkspaceModal
+          entries={kbEntries}
+          constellationLabel={constellation.label}
+          onSave={(es) => setKbEntries(es)}
+          onClose={() => setKbWorkspaceOpen(false)}
+        />
+      )}
+      {kbAddOpen && (
+        <KBEntryModal mode="add"
+          onAdd={(e) => setKbEntries(p => [...p, e])}
+          onClose={() => setKbAddOpen(false)}
+        />
+      )}
+      {kbViewId && (() => {
+        const e = kbEntries.find(x => x.id === kbViewId); return e ? (
+          <KBEntryModal mode="view" entry={e}
+            onSave={(upd) => { setKbEntries(p => p.map(x => x.id === upd.id ? upd : x)); setKbViewId(null); }}
+            onClose={() => setKbViewId(null)} />
+        ) : null;
+      })()}
+      {kbEditId && (() => {
+        const e = kbEntries.find(x => x.id === kbEditId); return e ? (
+          <KBEntryModal mode="edit" entry={e}
+            onSave={(upd) => { setKbEntries(p => p.map(x => x.id === upd.id ? upd : x)); setKbEditId(null); }}
+            onClose={() => setKbEditId(null)} />
+        ) : null;
+      })()}
+      {kbConfirmId && (
+        <ConfirmRemoveDialog
+          label={kbEntries.find(e => e.id === kbConfirmId)?.question ?? ""}
+          onConfirm={() => { setKbEntries(p => p.filter(e => e.id !== kbConfirmId)); setKbConfirmId(null); }}
+          onCancel={() => setKbConfirmId(null)}
+        />
+      )}
+    </aside>
+  );
+}
+
+// ─── App ──────────────────────────────────────────────────────
+export default function App() {
+  const [chats, setChats] = useState<Chat[]>(INITIAL_CHATS);
+  const [activeChat, setActiveChat] = useState("c1");
+  const [chatMessages, setChatMessages] = useState<Record<string, Message[]>>(INITIAL_MESSAGES);
+  const [inputValue, setInputValue] = useState("");
+  const [language, setLanguage] = useState("EN");
+  const [assistantMode, setAssistantMode] = useState("Luxia");
+  const [showNewChatModal, setShowNewChatModal] = useState(false);
+  const [recentConIds, setRecentConIds] = useState<string[]>(["con1", "con2"]);
+  const [sidebarWidth, setSidebarWidth] = useState(296);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const counterRef = useRef(200);
+
+  const activeData = chats.find(c => c.id === activeChat);
+  const activeConstellation = CONSTELLATIONS.find(c => c.id === activeData?.constellationId) ?? CONSTELLATIONS[0];
+  const messages = chatMessages[activeChat] ?? [];
+
+  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+
+  function handleSidebarResizeStart(e: React.MouseEvent) {
+    e.preventDefault();
+    const startX = e.clientX, startW = sidebarWidth;
+    function onMove(ev: MouseEvent) { setSidebarWidth(Math.max(220, Math.min(560, startW + startX - ev.clientX))); }
+    function onUp() { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); }
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  }
+
+  function handleNewChat() {
+    setShowNewChatModal(true);
+  }
+
+  function handleNewChatCreate(constellationId: string) {
+    const id = `c${Date.now()}`;
+    const n = chats.length + 1;
+    setChats(p => [...p, { id, label: `Chat ${n}`, constellationId }]);
+    setChatMessages(p => ({ ...p, [id]: [] }));
+    setActiveChat(id);
+    setRecentConIds(p => [constellationId, ...p.filter(x => x !== constellationId)].slice(0, 3));
+    setShowNewChatModal(false);
+  }
+
+  function handleCloseChat(id: string) {
+    if (chats.length <= 1) return;
+    setChats(p => p.filter(c => c.id !== id));
+    if (activeChat === id) setActiveChat(chats.filter(c => c.id !== id).at(-1)!.id);
+  }
+
+  function handleConstellationChange(conId: string) {
+    setChats(p => p.map(c => c.id === activeChat ? { ...c, constellationId: conId } : c));
+  }
+
+  function handleSend(text?: string) {
+    const content = (text ?? inputValue).trim();
+    if (!content) return;
+    setInputValue("");
+    const now = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+    const uid = `u${counterRef.current++}`, aid = `a${counterRef.current++}`;
+    setChatMessages(p => ({
+      ...p,
+      [activeChat]: [...(p[activeChat] ?? []),
+      { id: uid, role: "user", content, timestamp: now },
+      {
+        id: aid, role: "ai", timestamp: now,
+        content: "I have searched the connected constellation for your query.\n\nHere is what I found based on the available sources.",
+        sources: [{ id: `${aid}s1`, label: "Document A" }],
+        reasoning: ["Analysed query", "Searched connected sources", "Composed response"],
+      },
+      ],
+    }));
+  }
+
+  return (
+    <div className="flex h-screen overflow-hidden" style={{ background: "#FAFDFF" }}>
+      <LeftNav />
+
+      <div className="flex flex-col flex-1 overflow-hidden min-w-0">
+        <PageHeader
+          chatLabel={activeData?.label ?? "Chat 1"}
+          constellationLabel={activeConstellation.label}
+          onRenameChat={(name) => setChats(p => p.map(c => c.id === activeChat ? { ...c, label: name } : c))}
+          onDeleteChat={handleCloseChat.bind(null, activeChat)}
+        />
+
+        <ChatTabBar
+          chats={chats} activeId={activeChat}
+          onSelect={setActiveChat} onNew={handleNewChat}
+          onClose={handleCloseChat}
+          onPin={(id) => setChats(p => p.map(c => c.id === id ? { ...c, pinned: !c.pinned } : c))}
+          onRename={(id, label) => setChats(p => p.map(c => c.id === id ? { ...c, label } : c))}
+        />
+
+        <div className="flex flex-1 overflow-hidden min-h-0">
+          {/* Chat */}
+          <div className="flex flex-col flex-1 overflow-hidden min-w-0">
+            <div className="flex-1 overflow-y-auto px-10 py-6">
+              {messages.length === 0
+                ? <EmptyState onPrompt={handleSend} />
+                : <>
+                  <DateSeparator label="Today" />
+                  {messages.map(msg =>
+                    msg.role === "user"
+                      ? <UserBubble key={msg.id} message={msg} />
+                      : <AICard key={msg.id} message={msg} />
+                  )}
+                  <div ref={messagesEndRef} />
+                </>}
+            </div>
+            <PromptComposer value={inputValue} onChange={setInputValue} onSend={() => handleSend()}
+              language={language} onLanguageChange={setLanguage}
+              constellationType={activeConstellation.type}
+              assistantMode={assistantMode} onModeChange={setAssistantMode} />
+          </div>
+
+          {/* Constellation Sidebar — keyed so it resets when constellation changes */}
+          <ConstellationSidebar
+            key={activeConstellation.id}
+            width={sidebarWidth}
+            onResizeStart={handleSidebarResizeStart}
+            collapsed={sidebarCollapsed}
+            onCollapse={() => setSidebarCollapsed(p => !p)}
+            constellation={activeConstellation}
+            allConstellations={CONSTELLATIONS}
+            onConstellationChange={handleConstellationChange}
+          />
+        </div>
+      </div>
+
+      {/* New Chat Modal — constellation must be selected before chat is created */}
+      {showNewChatModal && (
+        <NewChatModal
+          recentIds={recentConIds}
+          onSelect={handleNewChatCreate}
+          onClose={() => setShowNewChatModal(false)}
+        />
+      )}
+    </div>
+  );
+}

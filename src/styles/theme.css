@@ -1,0 +1,469 @@
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  /* Typography — Nunito via canonical font family */
+  --font-family: var(--luxia-font-family);
+  --font-size: 16px;
+
+  --font-weight-regular: 400;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-weight-extrabold: 800;
+
+  --font-weight-normal: var(--font-weight-regular);
+  --font-weight-medium: var(--font-weight-bold);
+
+  /* Semantic light theme → canonical Luxia tokens */
+  --background: var(--luxia-background);
+  --foreground: var(--luxia-text-primary);
+
+  --card: var(--luxia-surface);
+  --card-foreground: var(--luxia-text-primary);
+
+  --popover: var(--luxia-surface-floating);
+  --popover-foreground: var(--luxia-text-primary);
+
+  --primary: var(--luxia-brand-primary);
+  --primary-foreground: var(--luxia-text-inverse);
+
+  --secondary: var(--luxia-brand-secondary);
+  --secondary-foreground: var(--luxia-text-inverse);
+
+  --muted: var(--luxia-surface-subtle);
+  --muted-foreground: var(--luxia-text-breadcrumb);
+
+  --accent: var(--luxia-blue-10);
+  --accent-foreground: var(--luxia-brand-primary);
+
+  --destructive: var(--luxia-error);
+  --destructive-foreground: var(--luxia-text-inverse);
+
+  --border: var(--luxia-border-default);
+  --input: var(--luxia-border-default);
+  --input-background: var(--luxia-surface);
+  --switch-background: var(--luxia-neutral-300);
+
+  --ring: var(--luxia-opacity-brand-secondary-32);
+
+  --chart-1: var(--luxia-brand-primary);
+  --chart-2: var(--luxia-success);
+  --chart-3: var(--luxia-data-yellow);
+  --chart-4: var(--luxia-brand-secondary);
+  --chart-5: var(--luxia-brand-tertiary);
+
+  /* Radius scale (maps to Luxia) */
+  --radius-none: 0;
+  --radius-xs: var(--luxia-radius-4);
+  --radius-sm: var(--luxia-radius-8);
+  --radius-md: var(--luxia-radius-12);
+  --radius-lg: var(--luxia-radius-16);
+  --radius-xl: var(--luxia-radius-24);
+  --radius-full: var(--luxia-radius-pill);
+  --radius: var(--radius-md);
+
+  /* Spacing scale */
+  --space-xs: var(--luxia-spacing-8);
+  --space-sm: var(--luxia-spacing-12);
+  --space-md: var(--luxia-spacing-16);
+  --space-lg: var(--luxia-spacing-24);
+  --space-xl: var(--luxia-spacing-32);
+  --space-2xl: var(--luxia-spacing-40);
+  --space-3xl: var(--luxia-spacing-48);
+
+  /* Shadow scale */
+  --shadow-xs: var(--luxia-shadow-xs);
+  --shadow-sm: var(--luxia-shadow-sm);
+  --shadow-md: var(--luxia-shadow-md);
+  --shadow-lg: var(--luxia-shadow-lg);
+  --shadow-xl: var(--luxia-shadow-xl);
+
+  /* Gradients — canonical */
+  --gradient-fade-purple-dark: linear-gradient(
+    90deg,
+    #000000 0%,
+    #30214e 100%
+  );
+  --gradient-fade-purple-light: var(--luxia-gradient-primary);
+  --gradient-fade-blue: var(--luxia-gradient-secondary-tertiary);
+
+  /* Sidebar — solid brand for shadcn sidebar utility; nav gradient applied in LeftNav */
+  --sidebar: var(--luxia-brand-primary);
+  --sidebar-foreground: var(--luxia-text-inverse);
+  --sidebar-primary: var(--luxia-brand-secondary);
+  --sidebar-primary-foreground: var(--luxia-text-inverse);
+  --sidebar-accent: var(--luxia-opacity-white-12);
+  --sidebar-accent-foreground: var(--luxia-text-inverse);
+  --sidebar-border: var(--luxia-opacity-white-12);
+  --sidebar-ring: var(--luxia-opacity-brand-tertiary-40);
+}
+
+.dark {
+  --background: var(--luxia-purple-brand-dark);
+  --foreground: var(--luxia-text-inverse);
+
+  --card: var(--luxia-purple-70);
+  --card-foreground: var(--luxia-text-inverse);
+
+  --popover: var(--luxia-purple-70);
+  --popover-foreground: var(--luxia-text-inverse);
+
+  --primary: var(--luxia-brand-secondary);
+  --primary-foreground: var(--luxia-text-inverse);
+
+  --secondary: var(--luxia-purple-60);
+  --secondary-foreground: var(--luxia-text-inverse);
+
+  --muted: var(--luxia-opacity-white-08);
+  --muted-foreground: var(--luxia-opacity-white-64);
+
+  --accent: var(--luxia-opacity-brand-tertiary-16);
+  --accent-foreground: var(--luxia-text-inverse);
+
+  --destructive: var(--luxia-error);
+  --destructive-foreground: var(--luxia-text-inverse);
+
+  --border: var(--luxia-opacity-white-12);
+  --input: var(--luxia-opacity-white-12);
+  --input-background: var(--luxia-opacity-white-08);
+  --switch-background: var(--luxia-opacity-white-24);
+
+  --ring: var(--luxia-opacity-brand-secondary-48);
+
+  --chart-1: var(--luxia-brand-secondary);
+  --chart-2: var(--luxia-success);
+  --chart-3: var(--luxia-data-yellow);
+  --chart-4: var(--luxia-purple-40);
+  --chart-5: var(--luxia-brand-tertiary);
+
+  --sidebar: var(--luxia-purple-brand-dark);
+  --sidebar-foreground: var(--luxia-text-inverse);
+  --sidebar-primary: var(--luxia-brand-secondary);
+  --sidebar-primary-foreground: var(--luxia-text-inverse);
+  --sidebar-accent: var(--luxia-opacity-white-12);
+  --sidebar-accent-foreground: var(--luxia-text-inverse);
+  --sidebar-border: var(--luxia-opacity-white-12);
+  --sidebar-ring: var(--luxia-opacity-brand-tertiary-40);
+}
+
+@theme inline {
+  --font-sans: var(--font-family);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-input-background: var(--input-background);
+  --color-switch-background: var(--switch-background);
+
+  --color-ring: var(--ring);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --radius-xs: var(--radius-xs);
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+  --radius-full: var(--radius-full);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Luxia token utilities for Tailwind */
+  --color-luxia-brand-primary: var(--luxia-brand-primary);
+  --color-luxia-brand-secondary: var(--luxia-brand-secondary);
+  --color-luxia-brand-tertiary: var(--luxia-brand-tertiary);
+  --color-luxia-success: var(--luxia-success);
+  --color-luxia-error: var(--luxia-error);
+  --color-luxia-surface-hover: var(--luxia-surface-hover);
+  --color-luxia-surface-selected: var(--luxia-surface-selected);
+  --color-luxia-border-default: var(--luxia-border-default);
+  --color-luxia-border-strong: var(--luxia-border-strong);
+  --color-luxia-text-muted: var(--luxia-text-muted);
+  --color-luxia-text-secondary: var(--luxia-text-secondary);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+    box-sizing: border-box;
+  }
+
+  html {
+    font-family: var(--font-family);
+    font-size: var(--font-size);
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    margin: 0;
+    min-width: 320px;
+    min-height: 100vh;
+    font-family: var(--font-family);
+    font-weight: var(--font-weight-regular);
+    font-size: 1rem;
+    line-height: 1.5rem;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Tipografia/Display H1 — 40/48 ExtraBold */
+  h1 {
+    margin: 0;
+    font-family: var(--font-family);
+    font-size: 2.5rem;
+    font-weight: var(--font-weight-extrabold);
+    line-height: 3rem;
+  }
+
+  /* Tipografia/Heading H2 — 32/40 Bold */
+  h2 {
+    margin: 0;
+    font-family: var(--font-family);
+    font-size: 2rem;
+    font-weight: var(--font-weight-bold);
+    line-height: 2.5rem;
+  }
+
+  /* Tipografia/Heading H3 — 24/32 Bold */
+  h3 {
+    margin: 0;
+    font-family: var(--font-family);
+    font-size: 1.5rem;
+    font-weight: var(--font-weight-bold);
+    line-height: 2rem;
+  }
+
+  /* Tipografia/Heading H4 — 20/28 Bold */
+  h4 {
+    margin: 0;
+    font-family: var(--font-family);
+    font-size: 1.25rem;
+    font-weight: var(--font-weight-bold);
+    line-height: 1.75rem;
+  }
+
+  p {
+    margin: 0;
+    font-family: var(--font-family);
+    font-size: 1rem;
+    font-weight: var(--font-weight-regular);
+    line-height: 1.5rem;
+  }
+
+  label {
+    font-family: var(--font-family);
+    font-size: 0.875rem;
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.25rem;
+  }
+
+  button {
+    font-family: var(--font-family);
+  }
+
+  input,
+  textarea,
+  select {
+    font-family: var(--font-family);
+    font-size: 0.875rem;
+    font-weight: var(--font-weight-regular);
+    line-height: 1.25rem;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    font-family: var(--font-family);
+    font-size: 0.875rem;
+    font-style: italic;
+    font-weight: var(--font-weight-regular);
+    line-height: 1.25rem;
+    color: var(--luxia-text-muted);
+  }
+
+  input,
+  textarea,
+  select {
+    transition: border-color 160ms ease, box-shadow 160ms ease;
+  }
+
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible {
+    outline: none;
+    border-color: var(--luxia-border-focus) !important;
+    box-shadow: 0 0 0 3px var(--luxia-opacity-brand-secondary-12) !important;
+  }
+
+  /* Composer owns its focus ring on the shell — never on the nested field */
+  .luxia-chat-composer textarea:focus-visible,
+  .luxia-chat-composer textarea:focus,
+  .luxia-chat-composer .luxia-chat-composer__input:focus-visible,
+  .luxia-chat-composer .luxia-chat-composer__input:focus {
+    outline: none !important;
+    border: none !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+  }
+
+  input:hover:not(:focus-visible):not(:disabled),
+  textarea:hover:not(:focus-visible):not(:disabled) {
+    border-color: var(--luxia-border-strong);
+  }
+
+  .luxia-chat-composer textarea:hover,
+  .luxia-chat-composer .luxia-chat-composer__input:hover {
+    border: none !important;
+    border-color: transparent !important;
+  }
+
+  :where(button, a, [role="menuitem"], [role="switch"]):focus-visible {
+    outline: 2px solid var(--luxia-border-focus);
+    outline-offset: 2px;
+  }
+}
+
+/* Exact reusable Luxia typography classes */
+@layer components {
+  .typography-display-h1 {
+    font-size: 2.5rem;
+    font-weight: var(--font-weight-extrabold);
+    line-height: 3rem;
+  }
+
+  .typography-heading-h2 {
+    font-size: 2rem;
+    font-weight: var(--font-weight-bold);
+    line-height: 2.5rem;
+  }
+
+  .typography-heading-h3 {
+    font-size: 1.5rem;
+    font-weight: var(--font-weight-bold);
+    line-height: 2rem;
+  }
+
+  .typography-heading-h4 {
+    font-size: 1.25rem;
+    font-weight: var(--font-weight-bold);
+    line-height: 1.75rem;
+  }
+
+  .typography-body-large {
+    font-size: 1.125rem;
+    font-weight: var(--font-weight-regular);
+    line-height: 1.5rem;
+  }
+
+  .typography-body-large-bold {
+    font-size: 1.125rem;
+    font-weight: var(--font-weight-bold);
+    line-height: 1.5rem;
+  }
+
+  .typography-body-large-extrabold {
+    font-size: 1.125rem;
+    font-weight: var(--font-weight-extrabold);
+    line-height: 1.5rem;
+  }
+
+  .typography-body-medium {
+    font-size: 1rem;
+    font-weight: var(--font-weight-regular);
+    line-height: 1.5rem;
+  }
+
+  .typography-body-medium-bold {
+    font-size: 1rem;
+    font-weight: var(--font-weight-bold);
+    line-height: 1.5rem;
+  }
+
+  .typography-body-medium-extrabold {
+    font-size: 1rem;
+    font-weight: var(--font-weight-extrabold);
+    line-height: 1.25rem;
+  }
+
+  .typography-body-small {
+    font-size: 0.875rem;
+    font-weight: var(--font-weight-regular);
+    line-height: 1.25rem;
+  }
+
+  .typography-body-small-bold {
+    font-size: 0.875rem;
+    font-weight: var(--font-weight-bold);
+    line-height: 1.25rem;
+  }
+
+  .typography-body-small-extrabold {
+    font-size: 0.875rem;
+    font-weight: var(--font-weight-extrabold);
+    line-height: 1.125rem;
+  }
+
+  .typography-label-placeholder {
+    font-size: 0.875rem;
+    font-style: italic;
+    font-weight: var(--font-weight-regular);
+    line-height: 1.25rem;
+  }
+
+  .typography-label-caption {
+    font-size: 0.75rem;
+    font-weight: var(--font-weight-semibold);
+    line-height: 1rem;
+  }
+
+  .typography-button-default {
+    font-size: 13px;
+    font-weight: var(--font-weight-semibold);
+    line-height: 18px;
+  }
+
+  .typography-button-compact {
+    font-size: 12px;
+    font-weight: var(--font-weight-semibold);
+    line-height: 16px;
+  }
+
+  .typography-button-large {
+    font-size: 14px;
+    font-weight: var(--font-weight-semibold);
+    line-height: 20px;
+  }
+}

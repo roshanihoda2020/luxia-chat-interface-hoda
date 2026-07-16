@@ -1,0 +1,62 @@
+/**
+ * Feature-level Luxia token aliases.
+ * Values map to the canonical CSS variables in src/styles/luxia-tokens.css.
+ * Kept as concrete hex/rgba for inline style usage while staying in sync with the DS.
+ */
+export const LX = {
+  primary: "#30214E",
+  primaryDark: "#281B41",
+  secondary: "#8E63EB",
+  tertiary: "#96DBFB",
+  purple60: "#7652C4",
+  success: "#05AA3F",
+  error: "#F75050",
+  dataYellow: "#FFCC00",
+  surface: "#FFFFFF",
+  subtle: "#FAFDFF",
+  borderSubtle: "#F1F5F9",
+  border: "#E2E8F0",
+  borderStrong: "#CBD5E1",
+  textPrimary: "#000000",
+  textBreadcrumb: "#697077",
+  textSecondary: "#475569",
+  textMuted: "#64748B",
+  sl10: "#DACBF8",
+  blueT10: "#EEF9FE",
+  accent: "#8E63EB",
+  muted: "#64748B",
+  gradient: {
+    button: "linear-gradient(87.081deg, #30214E 45.623%, #8E63EB 112.38%)",
+    primary: "linear-gradient(84.18deg, #30214E 38.5%, #8E63EB 96.68%)",
+    nav: "linear-gradient(180deg, #1C1336 0%, #110B24 45%, #080512 100%)",
+    secondaryTertiary: "linear-gradient(90deg, #8E63EB 0%, #96DBFB 100%)",
+  },
+  shadow: {
+    xs: "0 1px 2px rgba(0, 0, 0, 0.05)",
+    sm: "0 2px 8px rgba(0, 0, 0, 0.08)",
+    md: "0 4px 16px rgba(0, 0, 0, 0.10)",
+    lg: "0 8px 24px rgba(0, 0, 0, 0.12)",
+    xl: "0 16px 48px rgba(0, 0, 0, 0.16)",
+    dialog: "0 8px 24px rgba(0, 0, 0, 0.12)",
+  },
+  state: {
+    hover: "rgba(48, 33, 78, 0.04)",
+    secondary04: "rgba(142, 99, 235, 0.04)",
+    secondary08: "rgba(142, 99, 235, 0.08)",
+    secondary12: "rgba(142, 99, 235, 0.12)",
+    error06: "rgba(247, 80, 80, 0.06)",
+    error07: "rgba(247, 80, 80, 0.07)",
+    error08: "rgba(247, 80, 80, 0.08)",
+    menuHover: "rgba(142, 99, 235, 0.08)",
+  },
+  css: {
+    primary: "var(--luxia-brand-primary)",
+    secondary: "var(--luxia-brand-secondary)",
+    surface: "var(--luxia-surface)",
+    border: "var(--luxia-border-default)",
+    textMuted: "var(--luxia-text-muted)",
+    overlay: "var(--luxia-surface-overlay)",
+    gradientButton: "var(--luxia-gradient-button)",
+    gradientNav: "var(--luxia-gradient-navigation)",
+  },
+};

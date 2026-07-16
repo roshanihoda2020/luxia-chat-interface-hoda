@@ -1,0 +1,606 @@
+/**
+ * Canonical Luxia Design System token layer.
+ * Single source of truth for colors, opacity, typography scales,
+ * spacing, radius, shadows, and gradients.
+ */
+:root {
+  /* ── Brand ─────────────────────────────────────────── */
+  --luxia-brand-primary: #30214E;
+  --luxia-brand-primary-dark: #281B41;
+  --luxia-brand-secondary: #8E63EB;
+  --luxia-brand-tertiary: #96DBFB;
+
+  /* ── Purple scale ──────────────────────────────────── */
+  --luxia-purple-10: #DACBF8;
+  --luxia-purple-20: #C6B1F5;
+  --luxia-purple-30: #B497F2;
+  --luxia-purple-40: #A37DEE;
+  --luxia-purple-50: #8E63EB;
+  --luxia-purple-60: #7652C4;
+  --luxia-purple-70: #30214E;
+  --luxia-purple-brand-dark: #281B41;
+
+  /* ── Blue scale ────────────────────────────────────── */
+  --luxia-blue-10: #EEF9FE;
+  --luxia-blue-20: #CBEDFD;
+  --luxia-blue-30: #B9E7FC;
+  --luxia-blue-40: #A8E1FC;
+  --luxia-blue-50: #96DBFB;
+  --luxia-blue-60: #6492A7;
+  --luxia-blue-70: #4B6E7E;
+
+  /* ── Neutral scale ─────────────────────────────────── */
+  --luxia-neutral-black: #000000;
+  --luxia-neutral-white: #FFFFFF;
+  --luxia-neutral-50: #F8FAFC;
+  --luxia-neutral-100: #F1F5F9;
+  --luxia-neutral-200: #E2E8F0;
+  --luxia-neutral-300: #CBD5E1;
+  --luxia-neutral-400: #94A3B8;
+  --luxia-neutral-500: #64748B;
+  --luxia-neutral-600: #475569;
+  --luxia-neutral-700: #334155;
+  --luxia-neutral-800: #1E293B;
+  --luxia-neutral-900: #0F172A;
+  --luxia-neutral-breadcrumb: #697077;
+  --luxia-neutral-surface-subtle: #FAFDFF;
+
+  /* Legacy short aliases (map to canonical) */
+  --luxia-black: var(--luxia-neutral-black);
+  --luxia-white: var(--luxia-neutral-white);
+  --luxia-breadcrumb: var(--luxia-neutral-breadcrumb);
+  --luxia-surface-subtle: var(--luxia-neutral-surface-subtle);
+
+  /* ── Feedback ──────────────────────────────────────── */
+  --luxia-success: #05AA3F;
+  --luxia-error: #F75050;
+  --luxia-data-yellow: #FFCC00;
+
+  --luxia-success-10: #E6F7EC;
+  --luxia-success-50: var(--luxia-success);
+  --luxia-success-70: #047C2E;
+  --luxia-error-10: #FFF1F1;
+  --luxia-error-50: var(--luxia-error);
+  --luxia-error-70: #BC3D3D;
+  --luxia-warning-10: #FFF9DB;
+  --luxia-warning-50: var(--luxia-data-yellow);
+  --luxia-warning-90: #665200;
+
+  /* ── Semantic surfaces & text ──────────────────────── */
+  --luxia-background: var(--luxia-neutral-white);
+  --luxia-surface: var(--luxia-neutral-white);
+  --luxia-surface-elevated: var(--luxia-neutral-white);
+  --luxia-surface-floating: var(--luxia-neutral-white);
+  --luxia-surface-background: var(--luxia-background);
+
+  --luxia-text-primary: var(--luxia-neutral-black);
+  --luxia-text-secondary: var(--luxia-neutral-600);
+  --luxia-text-muted: var(--luxia-neutral-500);
+  --luxia-text-breadcrumb: var(--luxia-neutral-breadcrumb);
+  --luxia-text-inverse: var(--luxia-neutral-white);
+
+  --luxia-border-subtle: var(--luxia-neutral-100);
+  --luxia-border-default: var(--luxia-neutral-200);
+  --luxia-border-strong: var(--luxia-neutral-300);
+  --luxia-border-focus: var(--luxia-brand-secondary);
+
+  --luxia-accent: var(--luxia-brand-secondary);
+  --luxia-muted: var(--luxia-neutral-500);
+
+  --luxia-divider-default: var(--luxia-border-subtle);
+  --luxia-divider-strong: var(--luxia-border-default);
+
+  /* ── Opacity: Brand Primary (48, 33, 78) ───────────── */
+  --luxia-opacity-brand-primary-04: rgba(48, 33, 78, 0.04);
+  --luxia-opacity-brand-primary-08: rgba(48, 33, 78, 0.08);
+  --luxia-opacity-brand-primary-12: rgba(48, 33, 78, 0.12);
+  --luxia-opacity-brand-primary-16: rgba(48, 33, 78, 0.16);
+  --luxia-opacity-brand-primary-24: rgba(48, 33, 78, 0.24);
+  --luxia-opacity-brand-primary-32: rgba(48, 33, 78, 0.32);
+  --luxia-opacity-brand-primary-40: rgba(48, 33, 78, 0.40);
+  --luxia-opacity-brand-primary-48: rgba(48, 33, 78, 0.48);
+  --luxia-opacity-brand-primary-64: rgba(48, 33, 78, 0.64);
+  --luxia-opacity-brand-primary-80: rgba(48, 33, 78, 0.80);
+
+  /* ── Opacity: Brand Primary Dark (40, 27, 65) ──────── */
+  --luxia-opacity-brand-primary-dark-04: rgba(40, 27, 65, 0.04);
+  --luxia-opacity-brand-primary-dark-08: rgba(40, 27, 65, 0.08);
+  --luxia-opacity-brand-primary-dark-12: rgba(40, 27, 65, 0.12);
+  --luxia-opacity-brand-primary-dark-16: rgba(40, 27, 65, 0.16);
+  --luxia-opacity-brand-primary-dark-24: rgba(40, 27, 65, 0.24);
+  --luxia-opacity-brand-primary-dark-32: rgba(40, 27, 65, 0.32);
+  --luxia-opacity-brand-primary-dark-40: rgba(40, 27, 65, 0.40);
+  --luxia-opacity-brand-primary-dark-48: rgba(40, 27, 65, 0.48);
+  --luxia-opacity-brand-primary-dark-64: rgba(40, 27, 65, 0.64);
+  --luxia-opacity-brand-primary-dark-80: rgba(40, 27, 65, 0.80);
+
+  /* ── Opacity: Brand Secondary (142, 99, 235) ───────── */
+  --luxia-opacity-brand-secondary-04: rgba(142, 99, 235, 0.04);
+  --luxia-opacity-brand-secondary-08: rgba(142, 99, 235, 0.08);
+  --luxia-opacity-brand-secondary-12: rgba(142, 99, 235, 0.12);
+  --luxia-opacity-brand-secondary-16: rgba(142, 99, 235, 0.16);
+  --luxia-opacity-brand-secondary-24: rgba(142, 99, 235, 0.24);
+  --luxia-opacity-brand-secondary-32: rgba(142, 99, 235, 0.32);
+  --luxia-opacity-brand-secondary-40: rgba(142, 99, 235, 0.40);
+  --luxia-opacity-brand-secondary-48: rgba(142, 99, 235, 0.48);
+  --luxia-opacity-brand-secondary-64: rgba(142, 99, 235, 0.64);
+  --luxia-opacity-brand-secondary-80: rgba(142, 99, 235, 0.80);
+
+  /* ── Opacity: Brand Tertiary (150, 219, 251) ───────── */
+  --luxia-opacity-brand-tertiary-04: rgba(150, 219, 251, 0.04);
+  --luxia-opacity-brand-tertiary-08: rgba(150, 219, 251, 0.08);
+  --luxia-opacity-brand-tertiary-12: rgba(150, 219, 251, 0.12);
+  --luxia-opacity-brand-tertiary-16: rgba(150, 219, 251, 0.16);
+  --luxia-opacity-brand-tertiary-24: rgba(150, 219, 251, 0.24);
+  --luxia-opacity-brand-tertiary-32: rgba(150, 219, 251, 0.32);
+  --luxia-opacity-brand-tertiary-40: rgba(150, 219, 251, 0.40);
+  --luxia-opacity-brand-tertiary-48: rgba(150, 219, 251, 0.48);
+  --luxia-opacity-brand-tertiary-64: rgba(150, 219, 251, 0.64);
+  --luxia-opacity-brand-tertiary-80: rgba(150, 219, 251, 0.80);
+
+  /* ── Opacity: Black ────────────────────────────────── */
+  --luxia-opacity-black-04: rgba(0, 0, 0, 0.04);
+  --luxia-opacity-black-08: rgba(0, 0, 0, 0.08);
+  --luxia-opacity-black-12: rgba(0, 0, 0, 0.12);
+  --luxia-opacity-black-16: rgba(0, 0, 0, 0.16);
+  --luxia-opacity-black-24: rgba(0, 0, 0, 0.24);
+  --luxia-opacity-black-32: rgba(0, 0, 0, 0.32);
+  --luxia-opacity-black-40: rgba(0, 0, 0, 0.40);
+  --luxia-opacity-black-48: rgba(0, 0, 0, 0.48);
+  --luxia-opacity-black-64: rgba(0, 0, 0, 0.64);
+  --luxia-opacity-black-80: rgba(0, 0, 0, 0.80);
+
+  /* ── Opacity: White ────────────────────────────────── */
+  --luxia-opacity-white-04: rgba(255, 255, 255, 0.04);
+  --luxia-opacity-white-08: rgba(255, 255, 255, 0.08);
+  --luxia-opacity-white-12: rgba(255, 255, 255, 0.12);
+  --luxia-opacity-white-16: rgba(255, 255, 255, 0.16);
+  --luxia-opacity-white-24: rgba(255, 255, 255, 0.24);
+  --luxia-opacity-white-32: rgba(255, 255, 255, 0.32);
+  --luxia-opacity-white-40: rgba(255, 255, 255, 0.40);
+  --luxia-opacity-white-48: rgba(255, 255, 255, 0.48);
+  --luxia-opacity-white-64: rgba(255, 255, 255, 0.64);
+  --luxia-opacity-white-80: rgba(255, 255, 255, 0.80);
+
+  /* ── Opacity: Breadcrumb (105, 112, 119) ────────────── */
+  --luxia-opacity-breadcrumb-04: rgba(105, 112, 119, 0.04);
+  --luxia-opacity-breadcrumb-08: rgba(105, 112, 119, 0.08);
+  --luxia-opacity-breadcrumb-12: rgba(105, 112, 119, 0.12);
+  --luxia-opacity-breadcrumb-16: rgba(105, 112, 119, 0.16);
+  --luxia-opacity-breadcrumb-24: rgba(105, 112, 119, 0.24);
+  --luxia-opacity-breadcrumb-32: rgba(105, 112, 119, 0.32);
+  --luxia-opacity-breadcrumb-40: rgba(105, 112, 119, 0.40);
+  --luxia-opacity-breadcrumb-48: rgba(105, 112, 119, 0.48);
+  --luxia-opacity-breadcrumb-64: rgba(105, 112, 119, 0.64);
+  --luxia-opacity-breadcrumb-80: rgba(105, 112, 119, 0.80);
+
+  /* Component-state opacities (not foundation families) */
+  --luxia-opacity-success-08: rgba(5, 170, 63, 0.08);
+  --luxia-opacity-success-12: rgba(5, 170, 63, 0.12);
+  --luxia-opacity-success-16: rgba(5, 170, 63, 0.16);
+  --luxia-opacity-success-24: rgba(5, 170, 63, 0.24);
+  --luxia-opacity-success-32: rgba(5, 170, 63, 0.32);
+  --luxia-opacity-error-08: rgba(247, 80, 80, 0.08);
+  --luxia-opacity-error-12: rgba(247, 80, 80, 0.12);
+  --luxia-opacity-error-16: rgba(247, 80, 80, 0.16);
+  --luxia-opacity-error-24: rgba(247, 80, 80, 0.24);
+  --luxia-opacity-error-32: rgba(247, 80, 80, 0.32);
+  --luxia-opacity-warning-08: rgba(255, 204, 0, 0.08);
+  --luxia-opacity-warning-12: rgba(255, 204, 0, 0.12);
+  --luxia-opacity-warning-16: rgba(255, 204, 0, 0.16);
+  --luxia-opacity-warning-24: rgba(255, 204, 0, 0.24);
+  --luxia-opacity-warning-32: rgba(255, 204, 0, 0.32);
+
+  /* Legacy purple/blue opacity aliases → brand secondary/tertiary */
+  --luxia-opacity-purple-04: var(--luxia-opacity-brand-secondary-04);
+  --luxia-opacity-purple-08: var(--luxia-opacity-brand-secondary-08);
+  --luxia-opacity-purple-12: var(--luxia-opacity-brand-secondary-12);
+  --luxia-opacity-purple-16: var(--luxia-opacity-brand-secondary-16);
+  --luxia-opacity-purple-24: var(--luxia-opacity-brand-secondary-24);
+  --luxia-opacity-purple-32: var(--luxia-opacity-brand-secondary-32);
+  --luxia-opacity-purple-40: var(--luxia-opacity-brand-secondary-40);
+  --luxia-opacity-purple-48: var(--luxia-opacity-brand-secondary-48);
+  --luxia-opacity-purple-64: var(--luxia-opacity-brand-secondary-64);
+  --luxia-opacity-purple-80: var(--luxia-opacity-brand-secondary-80);
+
+  --luxia-opacity-blue-04: var(--luxia-opacity-brand-tertiary-04);
+  --luxia-opacity-blue-08: var(--luxia-opacity-brand-tertiary-08);
+  --luxia-opacity-blue-12: var(--luxia-opacity-brand-tertiary-12);
+  --luxia-opacity-blue-16: var(--luxia-opacity-brand-tertiary-16);
+  --luxia-opacity-blue-24: var(--luxia-opacity-brand-tertiary-24);
+  --luxia-opacity-blue-32: var(--luxia-opacity-brand-tertiary-32);
+  --luxia-opacity-blue-40: var(--luxia-opacity-brand-tertiary-40);
+  --luxia-opacity-blue-48: var(--luxia-opacity-brand-tertiary-48);
+  --luxia-opacity-blue-64: var(--luxia-opacity-brand-tertiary-64);
+  --luxia-opacity-blue-80: var(--luxia-opacity-brand-tertiary-80);
+
+  /* Legacy short opacity names (theme.css / product) */
+  --luxia-primary-4: var(--luxia-opacity-brand-primary-04);
+  --luxia-primary-8: var(--luxia-opacity-brand-primary-08);
+  --luxia-primary-12: var(--luxia-opacity-brand-primary-12);
+  --luxia-primary-16: var(--luxia-opacity-brand-primary-16);
+  --luxia-primary-24: var(--luxia-opacity-brand-primary-24);
+  --luxia-primary-32: var(--luxia-opacity-brand-primary-32);
+  --luxia-primary-40: var(--luxia-opacity-brand-primary-40);
+  --luxia-primary-48: var(--luxia-opacity-brand-primary-48);
+  --luxia-primary-64: var(--luxia-opacity-brand-primary-64);
+  --luxia-primary-80: var(--luxia-opacity-brand-primary-80);
+
+  --luxia-secondary-4: var(--luxia-opacity-brand-secondary-04);
+  --luxia-secondary-8: var(--luxia-opacity-brand-secondary-08);
+  --luxia-secondary-12: var(--luxia-opacity-brand-secondary-12);
+  --luxia-secondary-16: var(--luxia-opacity-brand-secondary-16);
+  --luxia-secondary-24: var(--luxia-opacity-brand-secondary-24);
+  --luxia-secondary-32: var(--luxia-opacity-brand-secondary-32);
+  --luxia-secondary-40: var(--luxia-opacity-brand-secondary-40);
+  --luxia-secondary-48: var(--luxia-opacity-brand-secondary-48);
+  --luxia-secondary-64: var(--luxia-opacity-brand-secondary-64);
+  --luxia-secondary-80: var(--luxia-opacity-brand-secondary-80);
+
+  --luxia-tertiary-4: var(--luxia-opacity-brand-tertiary-04);
+  --luxia-tertiary-8: var(--luxia-opacity-brand-tertiary-08);
+  --luxia-tertiary-12: var(--luxia-opacity-brand-tertiary-12);
+  --luxia-tertiary-16: var(--luxia-opacity-brand-tertiary-16);
+  --luxia-tertiary-24: var(--luxia-opacity-brand-tertiary-24);
+  --luxia-tertiary-32: var(--luxia-opacity-brand-tertiary-32);
+  --luxia-tertiary-40: var(--luxia-opacity-brand-tertiary-40);
+  --luxia-tertiary-48: var(--luxia-opacity-brand-tertiary-48);
+  --luxia-tertiary-64: var(--luxia-opacity-brand-tertiary-64);
+  --luxia-tertiary-80: var(--luxia-opacity-brand-tertiary-80);
+
+  --luxia-black-4: var(--luxia-opacity-black-04);
+  --luxia-black-8: var(--luxia-opacity-black-08);
+  --luxia-black-12: var(--luxia-opacity-black-12);
+  --luxia-black-16: var(--luxia-opacity-black-16);
+  --luxia-black-24: var(--luxia-opacity-black-24);
+  --luxia-black-32: var(--luxia-opacity-black-32);
+  --luxia-black-40: var(--luxia-opacity-black-40);
+  --luxia-black-48: var(--luxia-opacity-black-48);
+  --luxia-black-64: var(--luxia-opacity-black-64);
+  --luxia-black-80: var(--luxia-opacity-black-80);
+
+  --luxia-white-4: var(--luxia-opacity-white-04);
+  --luxia-white-8: var(--luxia-opacity-white-08);
+  --luxia-white-12: var(--luxia-opacity-white-12);
+  --luxia-white-16: var(--luxia-opacity-white-16);
+  --luxia-white-24: var(--luxia-opacity-white-24);
+  --luxia-white-32: var(--luxia-opacity-white-32);
+  --luxia-white-40: var(--luxia-opacity-white-40);
+  --luxia-white-48: var(--luxia-opacity-white-48);
+  --luxia-white-64: var(--luxia-opacity-white-64);
+  --luxia-white-80: var(--luxia-opacity-white-80);
+
+  /* Semantic state / surface aliases */
+  --luxia-surface-hover: var(--luxia-opacity-brand-primary-04);
+  --luxia-surface-selected: var(--luxia-opacity-brand-secondary-08);
+  --luxia-surface-overlay: var(--luxia-opacity-black-48);
+  --luxia-surface-card-hover: var(--luxia-opacity-brand-secondary-04);
+
+  --luxia-state-hover: var(--luxia-opacity-brand-secondary-08);
+  --luxia-state-active: var(--luxia-opacity-brand-secondary-16);
+  --luxia-state-selected: var(--luxia-opacity-brand-secondary-12);
+  --luxia-state-focus: var(--luxia-opacity-brand-secondary-32);
+
+  /* Chat surface aliases */
+  --luxia-chat-surface-sidebar: var(--luxia-surface-elevated);
+  --luxia-chat-surface-transcript: var(--luxia-surface-elevated);
+  --luxia-chat-surface-modules: var(--luxia-surface-elevated);
+  --luxia-chat-surface-composer: var(--luxia-surface-subtle);
+  --luxia-chat-message-assistant-bg: var(--luxia-opacity-brand-tertiary-08);
+  --luxia-chat-message-assistant-border: var(--luxia-blue-20);
+  --luxia-chat-message-user-bg: var(--luxia-opacity-brand-secondary-08);
+  --luxia-chat-message-user-border: var(--luxia-purple-20);
+  --luxia-chat-module-surface: var(--luxia-surface-subtle);
+  --luxia-chat-module-border: var(--luxia-border-subtle);
+  --luxia-chat-nav-hover: var(--luxia-state-hover);
+  --luxia-chat-nav-active: var(--luxia-state-selected);
+
+  /* Chat composer focus — calm, 1px secondary border + soft ring */
+  --luxia-chat-composer-border: var(--luxia-border-default);
+  --luxia-chat-composer-border-focus: var(--luxia-brand-secondary);
+  --luxia-chat-composer-focus-ring: var(--luxia-opacity-brand-secondary-08);
+
+  /* ── Typography ────────────────────────────────────── */
+  --luxia-font-family: "Nunito", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  /* ── Spacing ───────────────────────────────────────── */
+  --luxia-spacing-8: 8px;
+  --luxia-spacing-12: 12px;
+  --luxia-spacing-16: 16px;
+  --luxia-spacing-24: 24px;
+  --luxia-spacing-32: 32px;
+  --luxia-spacing-40: 40px;
+  --luxia-spacing-48: 48px;
+
+  /* ── Radius ────────────────────────────────────────── */
+  --luxia-radius-4: 4px;
+  --luxia-radius-8: 8px;
+  --luxia-radius-12: 12px;
+  --luxia-radius-16: 16px;
+  --luxia-radius-24: 24px;
+  --luxia-radius-circle: 50%;
+  --luxia-radius-pill: 9999px;
+
+  /* Legacy radius aliases */
+  --luxia-radius-sm: var(--luxia-radius-8);
+  --luxia-radius-md: var(--luxia-radius-12);
+  --luxia-radius-lg: var(--luxia-radius-16);
+  --luxia-radius-xl: var(--luxia-radius-24);
+
+  /* ── Shadows ───────────────────────────────────────── */
+  --luxia-shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --luxia-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --luxia-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.10);
+  --luxia-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+  --luxia-shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.16);
+
+  /* ── Gradients ─────────────────────────────────────── */
+  --luxia-gradient-button: linear-gradient(
+    87.081deg,
+    #30214E 45.623%,
+    #8E63EB 112.38%
+  );
+  --luxia-gradient-primary: linear-gradient(
+    84.18deg,
+    #30214E 38.5%,
+    #8E63EB 96.68%
+  );
+  --luxia-gradient-navigation: linear-gradient(
+    180deg,
+    #1C1336 0%,
+    #110B24 45%,
+    #080512 100%
+  );
+  --luxia-gradient-secondary-tertiary: linear-gradient(
+    90deg,
+    #8E63EB 0%,
+    #96DBFB 100%
+  );
+}
+
+/* Shared Luxia button primitives (consumed by ui/button.tsx) */
+.luxia-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 38px;
+  min-height: 38px;
+  padding-inline: 20px;
+  border-width: 1px;
+  border-style: solid;
+  border-color: transparent;
+  border-radius: var(--luxia-radius-pill);
+  font-family: var(--luxia-font-family);
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  outline: none;
+  box-sizing: border-box;
+  transition:
+    background 160ms ease,
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease,
+    opacity 160ms ease,
+    transform 160ms ease;
+}
+
+.luxia-button svg {
+  flex-shrink: 0;
+}
+
+.luxia-button--primary {
+  color: var(--luxia-text-inverse);
+  background: var(--luxia-gradient-button);
+  border-color: transparent;
+  box-shadow: 0 2px 10px rgba(48, 33, 78, 0.18);
+}
+
+.luxia-button--primary:hover:not(:disabled):not([aria-disabled="true"]) {
+  background: var(--luxia-gradient-button);
+  opacity: 0.94;
+}
+
+.luxia-button--primary:focus-visible {
+  box-shadow:
+    0 2px 10px rgba(48, 33, 78, 0.18),
+    0 0 0 3px var(--luxia-opacity-brand-secondary-32);
+}
+
+.luxia-button--secondary {
+  color: var(--luxia-text-muted);
+  background: var(--luxia-surface);
+  border-color: var(--luxia-border-default);
+  box-shadow: none;
+}
+
+.luxia-button--secondary:hover:not(:disabled):not([aria-disabled="true"]) {
+  background: var(--luxia-border-subtle);
+  color: var(--luxia-brand-primary);
+}
+
+.luxia-button--outline {
+  color: var(--luxia-brand-primary);
+  background: var(--luxia-surface);
+  border-color: var(--luxia-brand-primary);
+  box-shadow: none;
+}
+
+.luxia-button--outline:hover:not(:disabled):not([aria-disabled="true"]) {
+  background: var(--luxia-opacity-brand-secondary-08);
+}
+
+.luxia-button--ghost {
+  color: var(--luxia-brand-primary);
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.luxia-button--ghost:hover:not(:disabled):not([aria-disabled="true"]) {
+  background: var(--luxia-opacity-brand-secondary-08);
+}
+
+.luxia-button--destructive {
+  color: var(--luxia-text-inverse);
+  background: var(--luxia-error);
+  border-color: var(--luxia-error);
+  box-shadow: none;
+}
+
+.luxia-button--destructive:hover:not(:disabled):not([aria-disabled="true"]) {
+  opacity: 0.92;
+}
+
+.luxia-button--destructive-ghost {
+  color: var(--luxia-error);
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.luxia-button--destructive-ghost:hover:not(:disabled):not([aria-disabled="true"]) {
+  background: var(--luxia-opacity-error-08);
+}
+
+.luxia-button--link {
+  color: var(--luxia-brand-primary);
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  text-decoration: none;
+  height: auto;
+  min-height: 0;
+  padding-inline: 0;
+  border-radius: 0;
+}
+
+.luxia-button--link:hover:not(:disabled):not([aria-disabled="true"]) {
+  text-decoration: underline;
+}
+
+.luxia-button--compact {
+  height: 32px;
+  min-height: 32px;
+  padding-inline: 12px;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 16px;
+  border-radius: var(--luxia-radius-pill);
+}
+
+.luxia-button--large {
+  height: 44px;
+  min-height: 44px;
+  padding-inline: 24px;
+  font-size: 14px;
+  line-height: 20px;
+  border-radius: var(--luxia-radius-pill);
+}
+
+.luxia-button--icon {
+  width: 38px;
+  min-width: 38px;
+  height: 38px;
+  min-height: 38px;
+  padding: 0;
+  border-radius: var(--luxia-radius-pill);
+}
+
+.luxia-button--icon-compact {
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0;
+  border-radius: var(--luxia-radius-pill);
+}
+
+.luxia-button:focus-visible:not(.luxia-button--primary) {
+  box-shadow: 0 0 0 3px var(--luxia-opacity-brand-secondary-32);
+}
+
+.luxia-button:active:not(:disabled):not([aria-disabled="true"]):not(.luxia-button--link) {
+  transform: translateY(1px);
+}
+
+.luxia-button:disabled,
+.luxia-button[aria-disabled="true"] {
+  opacity: 0.48;
+  pointer-events: none;
+  cursor: not-allowed;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .luxia-button {
+    transition: none;
+  }
+
+  .luxia-button:active:not(:disabled):not([aria-disabled="true"]) {
+    transform: none;
+  }
+
+  .luxia-chat-composer {
+    transition: none;
+  }
+}
+
+/**
+ * Chat composer input shell.
+ * Focus indicator lives on the outer surface (focus-within), not a heavy ring on the textarea.
+ */
+.luxia-chat-composer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-height: 52px;
+  padding-inline: 20px;
+  border: 1px solid var(--luxia-chat-composer-border);
+  border-radius: var(--luxia-radius-pill);
+  background: var(--luxia-surface);
+  box-shadow: none;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.luxia-chat-composer:focus-within {
+  border-color: var(--luxia-chat-composer-border-focus);
+  border-width: 1px;
+  box-shadow: 0 0 0 3px var(--luxia-chat-composer-focus-ring);
+}
+
+.luxia-chat-composer__input {
+  flex: 1;
+  resize: none;
+  outline: none;
+  border: none !important;
+  background: transparent;
+  box-shadow: none !important;
+  min-height: 24px;
+  max-height: 140px;
+  padding-block: 14px;
+  font-family: var(--luxia-font-family);
+  font-size: 15px;
+  line-height: 1.55;
+  font-weight: 400;
+  color: var(--luxia-brand-primary);
+}
+
+.luxia-chat-composer__input::placeholder {
+  font-style: italic;
+  color: var(--luxia-neutral-400);
+}
+
+.luxia-chat-composer__input:focus,
+.luxia-chat-composer__input:focus-visible,
+.luxia-chat-composer__input:hover {
+  outline: none !important;
+  border: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
