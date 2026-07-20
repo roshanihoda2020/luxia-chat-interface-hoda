@@ -25,6 +25,10 @@ const badgeVariants = cva(
           "border-[var(--luxia-blue-30)] bg-[var(--luxia-blue-10)] text-[var(--luxia-blue-70)]",
         error:
           "border-[var(--luxia-opacity-error-24)] bg-[var(--luxia-opacity-error-08)] text-[var(--luxia-error-70)]",
+        database:
+          "border-[var(--luxia-opacity-purple-16)] bg-[var(--luxia-opacity-purple-08)] text-[var(--luxia-purple-60)]",
+        pdf:
+          "border-[var(--luxia-opacity-blue-16)] bg-[var(--luxia-opacity-blue-08)] text-[var(--luxia-blue-70)]",
       },
     },
     defaultVariants: {

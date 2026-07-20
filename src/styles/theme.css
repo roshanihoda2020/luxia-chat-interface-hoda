@@ -324,8 +324,8 @@
   textarea:focus-visible,
   select:focus-visible {
     outline: none;
-    border-color: var(--luxia-border-focus) !important;
-    box-shadow: 0 0 0 3px var(--luxia-opacity-brand-secondary-12) !important;
+    border-color: var(--luxia-border-strong) !important;
+    box-shadow: none !important;
   }
 
   /* Composer owns its focus ring on the shell — never on the nested field */

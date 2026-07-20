@@ -16,7 +16,7 @@ function Input({ className, type, ...props }: React.ComponentProps<"input">) {
         "disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50",
         "transition-[border-color,box-shadow] duration-160",
         "hover:border-[var(--luxia-border-strong)]",
-        "focus-visible:border-[var(--luxia-border-focus)] focus-visible:shadow-[0_0_0_3px_var(--luxia-opacity-brand-secondary-12)]",
+        "focus-visible:border-[var(--luxia-border-strong)] focus-visible:shadow-none",
         "aria-invalid:border-[var(--luxia-error)] aria-invalid:shadow-[0_0_0_3px_var(--luxia-opacity-error-16)]",
         className,
       )}

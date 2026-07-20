@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import ReactDOM from "react-dom";
 import luxiaWordmarkUrl from "@/assets/brand/Luxia-Star.svg";
+import sidebarStarLogoUrl from "@/assets/brand/Star.svg";
 import flagUs from "@/assets/flags/us.svg";
 import flagIt from "@/assets/flags/it.svg";
 import flagSa from "@/assets/flags/sa.svg";
@@ -19,12 +20,22 @@ import { CrawlerSection } from "@/app/features/crawler/CrawlerSection";
 import { RelationshipSection } from "@/app/features/relationship/RelationshipSection";
 import { LX } from "@/app/features/active-data-tables/tokens";
 import { Button } from "@/app/components/ui/button";
+import { Badge } from "@/app/components/ui/badge";
+import { Label } from "@/app/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/app/components/ui/radio-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/app/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/app/components/ui/tooltip";
 import {
   ChevronDown, ChevronRight, ChevronLeft,
   Plus, X, Pin, Copy, Bookmark, Maximize2,
   FileText, Database, Globe, BookOpen, FolderOpen, Cpu,
-  Send, Mic, Eye, EyeOff, Upload, GripVertical,
+  Send, Mic, Eye, Upload, GripVertical,
   Trash2, Check, Edit3, BarChart3, Table2,
   Home, Users, LayoutGrid, Bot,
   Bell, Wrench, HelpCircle,
@@ -194,44 +205,209 @@ const KB_AUTO_SAMPLES: KBEntry[] = [
 
 // ─── Types ────────────────────────────────────────────────────
 interface Source { id: string; label: string; }
+type ResponseInsights = {
+  format: "bullets" | "paragraphs";
+  items: string[];
+};
 interface Message {
   id: string; role: "user" | "ai"; content: string; timestamp: string;
-  sources?: Source[]; reasoning?: string[];
+  sources?: Source[]; insights?: ResponseInsights;
 }
-interface Chat { id: string; label: string; constellationId: string; pinned?: boolean; }
+interface Chat {
+  id: string;
+  label: string;
+  chatType: ChatScope;
+  projectId: string;
+  constellationId?: string;
+  pinned?: boolean;
+}
+interface Project {
+  id: string;
+  label: string;
+}
 interface Constellation {
-  id: string; label: string; type: ConstellationType;
+  id: string;
+  label: string;
+  type: ConstellationType;
+  projectId: string;
   description: string;
 }
 
+type ChatScope = "galaxy" | "constellation";
+type NewChatPayload = {
+  chatType: ChatScope;
+  projectId: string;
+  constellationId?: string;
+};
+
+function getConstellationSourceLabel(type: ConstellationType): "PDF" | "DB" {
+  return type === "pdf" ? "PDF" : "DB";
+}
+
+function ConstellationSourceBadge({
+  type,
+  className = "",
+}: {
+  type: ConstellationType;
+  className?: string;
+}) {
+  return (
+    <Badge
+      variant={type === "pdf" ? "pdf" : "database"}
+      className={`min-h-0 h-[15px] px-1 py-0 text-[11px] leading-4 font-medium uppercase tracking-[0.04em] ${className}`}
+    >
+      {getConstellationSourceLabel(type)}
+    </Badge>
+  );
+}
+
+function ConstellationNameWithSource({
+  label,
+  type,
+  labelClassName = "",
+  badgeClassName = "",
+}: {
+  label: string;
+  type: ConstellationType;
+  labelClassName?: string;
+  badgeClassName?: string;
+}) {
+  return (
+    <span className="inline-flex items-center gap-1 min-w-0">
+      <span className={`truncate ${labelClassName}`}>{label}</span>
+      <ConstellationSourceBadge type={type} className={badgeClassName} />
+    </span>
+  );
+}
+
+function getProjectConstellations(projectId: string) {
+  return CONSTELLATIONS.filter((c) => c.projectId === projectId);
+}
+
+function resolveChatConstellation(chat: Chat | undefined): Constellation {
+  if (chat?.chatType === "constellation" && chat.constellationId) {
+    return CONSTELLATIONS.find((c) => c.id === chat.constellationId) ?? CONSTELLATIONS[0];
+  }
+  const projectConstellations = getProjectConstellations(chat?.projectId ?? PROJECTS[0].id);
+  return projectConstellations[0] ?? CONSTELLATIONS[0];
+}
+
+const INSIGHTS_MIN_CONTENT_LENGTH = 220;
+
+function normalizeInsightText(value: string): string {
+  return value.toLowerCase().replace(/[^\w\s]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function shouldShowInsightsEligibleContent(content: string): boolean {
+  const normalized = content.trim();
+  if (!normalized) return false;
+
+  const paragraphs = normalized.split(/\n\s*\n/).filter((paragraph) => paragraph.trim());
+  const bulletLines = normalized.split("\n").filter((line) => line.trim().startsWith("- "));
+  const sentences = normalized.split(/(?<=[.!?])\s+/).filter(Boolean);
+
+  return (
+    normalized.length >= INSIGHTS_MIN_CONTENT_LENGTH ||
+    paragraphs.length >= 3 ||
+    bulletLines.length >= 2 ||
+    sentences.length >= 5
+  );
+}
+
+function insightsRepeatAnswer(content: string, items: string[]): boolean {
+  const normalizedContent = normalizeInsightText(content);
+  const redundant = items.filter((item) => {
+    const normalizedItem = normalizeInsightText(item);
+    if (!normalizedItem) return true;
+    if (normalizedContent.includes(normalizedItem)) return true;
+    const words = normalizedItem.split(" ").filter(Boolean);
+    if (words.length < 4) return normalizedContent.includes(normalizedItem);
+    return normalizedContent.includes(words.slice(0, 6).join(" "));
+  });
+  return redundant.length >= Math.ceil(items.length * 0.67);
+}
+
+function getResponseInsights(content: string, insights?: ResponseInsights): ResponseInsights | null {
+  if (!insights?.items?.length) return null;
+  const items = insights.items.map((item) => item.trim()).filter(Boolean).slice(0, 3);
+  if (items.length === 0) return null;
+  if (!shouldShowInsightsEligibleContent(content)) return null;
+  if (insightsRepeatAnswer(content, items)) return null;
+  return { format: insights.format, items };
+}
+
+function ResponseInsightsContent({ insights }: { insights: ResponseInsights }) {
+  if (insights.format === "paragraphs") {
+    return (
+      <div className="mt-3 space-y-2 pl-1 min-w-0">
+        {insights.items.map((item, i) => (
+          <p key={i} className="luxia-chat-text text-[12px] leading-[1.45]" style={{ color: LX.textSecondary }}>
+            {item}
+          </p>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <ul className="mt-3 space-y-1.5 pl-1 min-w-0">
+      {insights.items.map((item, i) => (
+        <li key={i} className="flex items-start gap-2 text-[12px] leading-[1.45] min-w-0" style={{ color: LX.textSecondary }}>
+          <span
+            className="mt-[6px] w-[5px] h-[5px] rounded-full flex-shrink-0"
+            style={{ background: LX.accent }}
+          />
+          <span className="luxia-chat-text min-w-0">{item}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 // ─── Data ─────────────────────────────────────────────────────
+const PROJECTS: Project[] = [
+  { id: "proj1", label: "Project Name 1" },
+  { id: "proj2", label: "Financial Analytics" },
+];
+
 const CONSTELLATIONS: Constellation[] = [
   {
-    id: "con1", label: "Constellation 1", type: "database",
+    id: "con1", label: "Customer Records", type: "database", projectId: "proj1",
     description: "Connects structured data tables, relationship graphs, and metrics for analytical queries and reporting.",
   },
   {
-    id: "con2", label: "Constellation 2", type: "pdf",
+    id: "con2", label: "Financial Documents", type: "pdf", projectId: "proj1",
     description: "Indexes PDF documents and crawled web pages for semantic search and content summarisation.",
   },
   {
-    id: "con3", label: "Constellation 3", type: "database",
+    id: "con3", label: "Operations Database", type: "database", projectId: "proj1",
     description: "Operational database with real-time event streams, KPI dashboards, and usage analytics.",
+  },
+  {
+    id: "con4", label: "Quarterly Reports", type: "pdf", projectId: "proj2",
+    description: "Archived quarterly financial PDFs and supporting disclosure documents.",
   },
 ];
 
 const INITIAL_CHATS: Chat[] = [
-  { id: "c1", label: "Chat 1", constellationId: "con1" },
-  { id: "c2", label: "Chat 2", constellationId: "con2" },
+  { id: "c1", label: "Chat 1", chatType: "constellation", projectId: "proj1", constellationId: "con1" },
+  { id: "c2", label: "Chat 2", chatType: "constellation", projectId: "proj1", constellationId: "con2" },
 ];
 
 const MESSAGES_C1: Message[] = [
   { id: "u1", role: "user", timestamp: "10:14 AM", content: "What data is available in this constellation?" },
   {
     id: "a1", role: "ai", timestamp: "10:14 AM",
-    content: "This constellation is connected to two data tables and three knowledge base documents.\n\nYou can query the tables directly or ask questions about the documents.",
+    content: "This constellation connects two active data tables and three knowledge base documents across the project workspace.\n\nYou can query tables directly for structured metrics, filter records, and join related entities. Document sources support semantic search, summarisation, and section-level retrieval.\n\nKnowledge base entries take priority when a curated answer exists, while tables and documents complement each other for analytical and narrative questions.",
     sources: [{ id: "s1", label: "Table 1" }, { id: "s2", label: "Document A" }],
-    reasoning: ["Checked active data table connections", "Scanned knowledge base index", "Composed summary"],
+    insights: {
+      format: "bullets",
+      items: [
+        "Start with knowledge base matches when you need a definitive, curated answer.",
+        "Use table queries when the question depends on metrics, filters, or relationships.",
+        "Blend document search when the question needs narrative or section-level context.",
+      ],
+    },
   },
 ];
 
@@ -241,7 +417,6 @@ const MESSAGES_C2: Message[] = [
     id: "a1", role: "ai", timestamp: "11:02 AM",
     content: "This constellation includes two PDF documents and one crawled URL.\n\nI can search within the PDFs, summarise their content, or retrieve specific sections.",
     sources: [{ id: "s1", label: "Report A.pdf" }, { id: "s2", label: "Guide B.pdf" }],
-    reasoning: ["Resolved active PDF file connections", "Checked crawler URL index", "Prepared response"],
   },
 ];
 
@@ -279,8 +454,8 @@ function renderMd(text: string) {
     if (p.startsWith("**") && p.endsWith("**"))
       return <strong key={i} className="font-bold">{p.slice(2, -2)}</strong>;
     if (p.startsWith("`") && p.endsWith("`"))
-      return <code key={i} className="px-1.5 py-0.5 rounded text-[13px] font-mono" style={{ background: LX.blueT10, color: LX.accent }}>{p.slice(1, -1)}</code>;
-    return <span key={i}>{p}</span>;
+      return <code key={i} className="luxia-chat-text px-1.5 py-0.5 rounded text-[13px] font-mono" style={{ background: LX.blueT10, color: LX.accent }}>{p.slice(1, -1)}</code>;
+    return <span key={i} className="luxia-chat-text">{p}</span>;
   });
 }
 
@@ -289,17 +464,17 @@ function renderContent(content: string) {
     const lines = block.split("\n");
     if (lines.every(l => l.startsWith("- "))) {
       return (
-        <ul key={i} className="space-y-1.5 my-2">
+        <ul key={i} className="space-y-1.5 my-2 min-w-0">
           {lines.map((l, j) => (
-            <li key={j} className="flex items-start gap-2 text-[15px]">
+            <li key={j} className="flex items-start gap-2 text-[15px] min-w-0">
               <span className="mt-[7px] w-[5px] h-[5px] rounded-full flex-shrink-0" style={{ background: LX.accent }} />
-              <span>{renderMd(l.slice(2))}</span>
+              <span className="luxia-chat-text min-w-0">{renderMd(l.slice(2))}</span>
             </li>
           ))}
         </ul>
       );
     }
-    return <p key={i} className={`text-[15px] leading-[1.7] ${i > 0 ? "mt-3" : ""}`}>{renderMd(block)}</p>;
+    return <p key={i} className={`luxia-chat-text text-[15px] leading-[1.7] ${i > 0 ? "mt-3" : ""}`}>{renderMd(block)}</p>;
   });
 }
 
@@ -333,27 +508,70 @@ function NavItem({ icon: Icon, label, active, badge, chevron }: {
 
 // ─── Official Luxia Logo ──────────────────────────────────────
 // Uses the exact Luxia-Star.svg brand asset (wordmark + star mark).
-// The SVG viewBox is 120×47. Target height in sidebar: 28px.
+// Approved expanded-sidebar dimensions: 119.66 × 46.64px (SVG viewBox 120 × 47).
+const SIDEBAR_LOGO_WIDTH = 119.66;
+const SIDEBAR_LOGO_HEIGHT = 46.64;
+const SIDEBAR_BRAND_LEFT = 24;
+const SIDEBAR_BRAND_TOP = 24;
+
+// Decorative background star — approved Figma scale/placement (expanded sidebar only).
+const SIDEBAR_STAR_WIDTH = 538.11;
+const SIDEBAR_STAR_HEIGHT = 674.69;
+const SIDEBAR_STAR_INTERSECTION_X = 170;
+const SIDEBAR_STAR_INTERSECTION_Y = 185;
+
 function LuxiaLogo() {
-  const targetH = 28;
-  const targetW = Math.round(120 * (targetH / 47)); // ≈ 71px
   return (
     <img
       src={luxiaWordmarkUrl}
       alt="Luxia"
-      width={targetW}
-      height={targetH}
+      width={SIDEBAR_LOGO_WIDTH}
+      height={SIDEBAR_LOGO_HEIGHT}
       style={{ display: "block", objectFit: "contain", flexShrink: 0 }}
     />
+  );
+}
+
+function SidebarStarDecoration() {
+  return (
+    <div
+      aria-hidden="true"
+      className="pointer-events-none select-none absolute z-0"
+      style={{
+        left: SIDEBAR_STAR_INTERSECTION_X,
+        bottom: SIDEBAR_STAR_INTERSECTION_Y,
+        width: SIDEBAR_STAR_WIDTH,
+        height: SIDEBAR_STAR_HEIGHT,
+        transform: "translate(-50%, 50%) rotate(10deg)",
+        transformOrigin: "center",
+        opacity: 0.4,
+      }}
+    >
+      <img
+        src={sidebarStarLogoUrl}
+        alt=""
+        draggable={false}
+        style={{
+          display: "block",
+          width: "100%",
+          height: "100%",
+          objectFit: "contain",
+        }}
+      />
+    </div>
   );
 }
 
 // ─── Left Navigation ──────────────────────────────────────────
 function LeftNav() {
   return (
-    <aside className="relative flex flex-col w-[264px] flex-shrink-0 h-full overflow-hidden"
+    <aside className="relative flex flex-col w-[280px] flex-shrink-0 h-full overflow-hidden"
       style={{ background: LX.gradient.nav }}>
-      <div className="relative z-[2] flex items-center px-5 h-[68px] flex-shrink-0">
+      <SidebarStarDecoration />
+      <div
+        className="relative z-[2] flex-shrink-0"
+        style={{ paddingTop: SIDEBAR_BRAND_TOP, paddingLeft: SIDEBAR_BRAND_LEFT, paddingBottom: 24 }}
+      >
         <LuxiaLogo />
       </div>
       <nav className="relative z-[2] px-3 space-y-px">
@@ -418,7 +636,9 @@ function ChatTabBar({ chats, activeId, onSelect, onNew, onClose, onPin, onRename
       style={{ borderBottom: `1px solid ${LX.border}` }}>
       {chats.map((chat) => {
         const isActive = chat.id === activeId;
-        const con = CONSTELLATIONS.find(c => c.id === chat.constellationId);
+        const con = chat.chatType === "constellation" && chat.constellationId
+          ? CONSTELLATIONS.find((c) => c.id === chat.constellationId)
+          : null;
         const style = con ? CONSTELLATION_STYLE[con.type] : null;
 
         return (
@@ -427,13 +647,14 @@ function ChatTabBar({ chats, activeId, onSelect, onNew, onClose, onPin, onRename
             <button onClick={() => onSelect(chat.id)}
               className="flex items-center gap-2 px-3.5 h-[36px] rounded-[10px] text-[13px] transition-all"
               style={{
-                background: style ? (isActive ? style.activeBg : style.bg) : "transparent",
-                border: `1px solid ${style ? (isActive ? style.activeBorder : style.border) : LX.border}`,
+                background: style ? (isActive ? style.activeBg : style.bg) : (isActive ? LX.subtle : "transparent"),
+                border: `1px solid ${style ? (isActive ? style.activeBorder : style.border) : (isActive ? LX.borderStrong : LX.border)}`,
                 color: isActive ? LX.primary : LX.muted,
                 fontWeight: isActive ? 800 : 600,
                 boxShadow: isActive ? LX.shadow.sm : "none",
               }}>
               {chat.pinned && <Pin size={10} style={{ color: style?.color ?? LX.accent }} />}
+              {chat.chatType === "galaxy" && <Network size={11} style={{ color: LX.secondary, flexShrink: 0 }} />}
               {renaming === chat.id ? (
                 <input ref={renameRef} value={renameVal}
                   onChange={(e) => setRenameVal(e.target.value)}
@@ -445,7 +666,17 @@ function ChatTabBar({ chats, activeId, onSelect, onNew, onClose, onPin, onRename
                   className="bg-transparent border-none outline-none w-[90px] text-[13px] font-extrabold"
                   style={{ color: LX.primary }} onClick={(e) => e.stopPropagation()} />
               ) : (
-                <span className="truncate select-none" style={{ maxWidth: 110 }}>{chat.label}</span>
+                <span className="flex items-center gap-[6px] min-w-0 items-baseline">
+                  <span className="truncate select-none" style={{ maxWidth: 110 }}>{chat.label}</span>
+                  {con ? (
+                    <span
+                      className="text-[10px] font-medium uppercase tracking-[0.04em] shrink-0"
+                      style={{ color: con.type === "pdf" ? "var(--luxia-blue-60)" : "var(--luxia-purple-50)" }}
+                    >
+                      {getConstellationSourceLabel(con.type)}
+                    </span>
+                  ) : null}
+                </span>
               )}
               {chats.length > 1 && (
                 <span onClick={(e) => { e.stopPropagation(); onClose(chat.id); }}
@@ -458,11 +689,11 @@ function ChatTabBar({ chats, activeId, onSelect, onNew, onClose, onPin, onRename
         );
       })}
 
-      {/* New Chat — opens constellation picker, never creates directly */}
+      {/* New Chat — opens create chat modal */}
       <button onClick={onNew}
         className="flex items-center justify-center w-[30px] h-[30px] rounded-[8px] flex-shrink-0 transition-all hover:opacity-80"
         style={{ border: `1.5px dashed ${LX.border}` }}
-        title="New Chat — select a Constellation">
+        title="New Chat">
         <Plus size={13} style={{ color: LX.muted }} />
       </button>
 
@@ -493,29 +724,50 @@ const ASSISTANT_MODES = ["Luxia", "Knowledge Base", "Luxia / AI"];
 
 function AssistantModeDropdown({ mode, onChange }: { mode: string; onChange: (m: string) => void }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    function onOutside(e: MouseEvent) { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); }
+    if (!open) return;
+    function onOutside(e: MouseEvent) {
+      if (triggerRef.current?.contains(e.target as Node)) return;
+      if (menuRef.current?.contains(e.target as Node)) return;
+      setOpen(false);
+    }
     document.addEventListener("mousedown", onOutside);
     return () => document.removeEventListener("mousedown", onOutside);
-  }, []);
+  }, [open]);
+
+  function openMenu() {
+    if (!triggerRef.current) return;
+    const r = triggerRef.current.getBoundingClientRect();
+    setMenuPos({ top: r.top - 8, left: r.right - 160 });
+    setOpen(true);
+  }
 
   return (
-    <div ref={ref} className="relative flex-shrink-0">
-      <button onClick={() => setOpen(p => !p)}
+    <div className="relative z-[1] flex-shrink-0 min-w-0">
+      <button ref={triggerRef} onClick={() => open ? setOpen(false) : openMenu()}
         className="flex items-center gap-1 px-2 h-full rounded-lg transition-colors outline-none"
         style={{ color: "#64748B" }}
         onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = LX.primary; }}
         onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "#64748B"; }}>
-        <span className="text-[13px] font-medium whitespace-nowrap">{mode}</span>
+        <span className="text-[13px] font-medium truncate max-w-[140px]">{mode}</span>
         <ChevronDown size={14} strokeWidth={2} style={{ transition: "transform 160ms ease", transform: open ? "rotate(180deg)" : "none" }} />
       </button>
-      {open && (
-        <div className="absolute bottom-full right-0 mb-2 rounded-[12px] overflow-hidden py-1.5 z-50"
-          style={{ background: "white", boxShadow: LX.shadow.md, border: `1px solid #E2E8F0`, minWidth: 160 }}>
+      {open && menuPos && ReactDOM.createPortal(
+        <div ref={menuRef} className="fixed z-[9999] rounded-[12px] overflow-hidden py-1.5"
+          style={{
+            background: "white",
+            boxShadow: LX.shadow.md,
+            border: "1px solid #E2E8F0",
+            minWidth: 160,
+            bottom: `calc(100vh - ${menuPos.top}px)`,
+            left: menuPos.left,
+          }}>
           {ASSISTANT_MODES.map(m => (
-            <button key={m} onClick={() => { onChange(m); setOpen(false); }}
+            <button key={m} onClick={() => { onChange(m); setOpen(false); triggerRef.current?.focus(); }}
               className="w-full flex items-center gap-2.5 px-3.5 py-2 text-[13px] text-left transition-colors hover:bg-[#F8FAFC]"
               style={{ color: LX.primary, fontWeight: m === mode ? 700 : 500 }}>
               {m === mode && <Check size={12} style={{ color: LX.secondary }} />}
@@ -523,119 +775,212 @@ function AssistantModeDropdown({ mode, onChange }: { mode: string; onChange: (m:
               {m}
             </button>
           ))}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
 }
 
 // ─── New Chat Modal ───────────────────────────────────────────
-function NewChatModal({ onSelect, onClose, recentIds }: {
-  onSelect: (constellationId: string) => void;
-  onClose: () => void;
-  recentIds: string[];
+function ChatTypeOption({
+  id,
+  value,
+  title,
+  description,
+  selected,
+}: {
+  id: string;
+  value: ChatScope;
+  title: string;
+  description: string;
+  selected: boolean;
 }) {
-  const [query, setQuery] = useState("");
-  const searchRef = useRef<HTMLInputElement>(null);
+  return (
+    <label
+      htmlFor={id}
+      className="flex cursor-pointer items-start gap-3 rounded-[12px] border px-3.5 py-3 transition-[border-color,background-color,box-shadow] outline-none"
+      style={{
+        borderColor: selected ? LX.secondary : LX.border,
+        background: selected ? LX.state.secondary08 : LX.surface,
+        boxShadow: selected ? `0 0 0 3px ${LX.state.secondary04}` : "none",
+      }}
+    >
+      <RadioGroupItem id={id} value={value} className="mt-0.5" aria-label={title} />
+      <span className="min-w-0">
+        <span className="block text-[13px] font-bold leading-5" style={{ color: LX.primary }}>{title}</span>
+        <span className="block text-[11.5px] leading-4 mt-0.5" style={{ color: LX.textMuted }}>{description}</span>
+      </span>
+    </label>
+  );
+}
 
-  useEffect(() => { searchRef.current?.focus(); }, []);
+function NewChatModal({
+  onCreate,
+  onClose,
+}: {
+  onCreate: (payload: NewChatPayload) => void;
+  onClose: () => void;
+}) {
+  const [chatType, setChatType] = useState<ChatScope>("galaxy");
+  const [projectId, setProjectId] = useState(PROJECTS[0]?.id ?? "");
+  const [constellationId, setConstellationId] = useState("");
 
-  const filtered = query
-    ? CONSTELLATIONS.filter(c =>
-      c.label.toLowerCase().includes(query.toLowerCase()) ||
-      c.description.toLowerCase().includes(query.toLowerCase()))
-    : CONSTELLATIONS;
+  const projectConstellations = useMemo(
+    () => getProjectConstellations(projectId),
+    [projectId],
+  );
 
-  const recent = CONSTELLATIONS.filter(c => recentIds.includes(c.id));
-  const dbList = filtered.filter(c => c.type === "database");
-  const pdfList = filtered.filter(c => c.type === "pdf");
+  useEffect(() => {
+    if (chatType !== "constellation") return;
+    setConstellationId((current) => {
+      if (current && projectConstellations.some((c) => c.id === current)) return current;
+      return projectConstellations[0]?.id ?? "";
+    });
+  }, [chatType, projectConstellations]);
 
-  function ConRow({ c }: { c: Constellation }) {
-    const style = CONSTELLATION_STYLE[c.type];
-    return (
-      <button onClick={() => onSelect(c.id)}
-        className="w-full flex items-center gap-3 px-4 py-3 rounded-[12px] transition-all text-left hover:bg-[#FAFDFF] group"
-        style={{ border: "1px solid transparent" }}
-        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = style.border; (e.currentTarget as HTMLElement).style.background = style.bg; }}
-        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "transparent"; (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
-        <div className="w-8 h-8 rounded-[8px] flex items-center justify-center flex-shrink-0"
-          style={{ background: style.bg, border: `1px solid ${style.border}` }}>
-          {c.type === "database" ? <Database size={14} color={style.color} /> : <FileText size={14} color={style.color} />}
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-[13px] font-bold truncate" style={{ color: LX.primary }}>{c.label}</p>
-          <p className="text-[11px] truncate" style={{ color: LX.muted }}>{c.description}</p>
-        </div>
-        <ChevronRight size={14} style={{ color: LX.muted }} className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
-      </button>
-    );
+  const canCreate = chatType === "galaxy"
+    ? Boolean(projectId)
+    : Boolean(projectId && constellationId);
+
+  function handleCreate() {
+    if (!canCreate) return;
+    onCreate({
+      chatType,
+      projectId,
+      constellationId: chatType === "constellation" ? constellationId : undefined,
+    });
   }
 
-  function Section({ title, items }: { title: string; items: Constellation[] }) {
-    if (items.length === 0) return null;
-    return (
-      <div>
-        <p className="px-1 mb-1.5 text-[10px] font-bold tracking-widest uppercase" style={{ color: LX.muted }}>{title}</p>
-        <div className="space-y-1">
-          {items.map(c => <ConRow key={c.id} c={c} />)}
-        </div>
-      </div>
-    );
-  }
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="absolute inset-0" style={{ background: "rgba(16,5,32,0.35)", backdropFilter: "blur(4px)" }} />
-      <div className="relative flex flex-col rounded-[20px] overflow-hidden"
-        style={{ width: 500, maxHeight: "80vh", background: "white", boxShadow: "0 12px 32px rgba(15,23,42,0.14)" }}
-        onClick={(e) => e.stopPropagation()}>
-
-        {/* Header */}
-        <div className="flex items-start justify-between px-7 pt-6 pb-5 flex-shrink-0">
+      <div
+        className="relative flex w-full max-w-[500px] flex-col rounded-[20px] overflow-hidden"
+        style={{ maxHeight: "min(88vh, 760px)", background: "white", boxShadow: LX.shadow.dialog }}
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="new-chat-title"
+      >
+        <div className="flex items-start justify-between px-7 pt-6 pb-4 flex-shrink-0">
           <div>
-            <h2 className="text-[18px] font-bold mb-1" style={{ color: LX.primary }}>New Chat</h2>
+            <h2 id="new-chat-title" className="text-[18px] font-bold mb-1" style={{ color: LX.primary }}>Create Chat</h2>
             <p className="text-[12.5px]" style={{ color: LX.textMuted }}>
-              Every chat is linked to a Constellation. Select one to continue.
+              Choose a chat type and project to start a new conversation.
             </p>
           </div>
-          <button onClick={onClose}
+          <button
+            type="button"
+            onClick={onClose}
             className="w-8 h-8 flex items-center justify-center rounded-full transition-colors flex-shrink-0 mt-0.5 outline-none"
             style={{ border: `1px solid ${LX.border}` }}
+            aria-label="Close create chat dialog"
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.borderSubtle; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+          >
             <X size={13} style={{ color: LX.textMuted }} />
           </button>
         </div>
 
-        {/* Search */}
-        <div className="px-7 pb-4 flex-shrink-0">
-          <div className="flex items-center gap-2.5 px-3.5 h-[40px] rounded-[12px]"
-            style={{ background: LX.subtle, border: `1px solid ${LX.border}` }}>
-            <Search size={14} color={LX.muted} className="flex-shrink-0" />
-            <input ref={searchRef} value={query} onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search constellations…"
-              className="flex-1 outline-none bg-transparent text-[13px]"
-              style={{ color: LX.primary }} />
-          </div>
+        <div className="flex-1 overflow-y-auto px-7 pb-5 space-y-5">
+          <section>
+            <Label className="mb-2 block text-[12px] font-semibold uppercase tracking-[0.08em]" style={{ color: LX.textMuted }}>
+              Chat Type
+            </Label>
+            <RadioGroup
+              value={chatType}
+              onValueChange={(value) => setChatType(value as ChatScope)}
+              className="grid gap-2.5 sm:grid-cols-2"
+            >
+              <ChatTypeOption
+                id="chat-type-galaxy"
+                value="galaxy"
+                title="Galaxy"
+                description="Whole project knowledge"
+                selected={chatType === "galaxy"}
+              />
+              <ChatTypeOption
+                id="chat-type-constellation"
+                value="constellation"
+                title="Constellation"
+                description="Specific knowledge source"
+                selected={chatType === "constellation"}
+              />
+            </RadioGroup>
+          </section>
+
+          <section>
+            <Label htmlFor="create-chat-project" className="mb-2 block text-[13px] font-semibold" style={{ color: LX.primary }}>
+              Project
+            </Label>
+            <Select value={projectId} onValueChange={setProjectId}>
+              <SelectTrigger id="create-chat-project" className="w-full">
+                <SelectValue placeholder="Select a project" />
+              </SelectTrigger>
+              <SelectContent>
+                {PROJECTS.map((project) => (
+                  <SelectItem key={project.id} value={project.id}>
+                    {project.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {chatType === "galaxy" ? (
+              <p className="mt-2 text-[12px] leading-5" style={{ color: LX.textMuted }}>
+                Galaxy automatically uses the available constellations inside the selected project.
+              </p>
+            ) : null}
+          </section>
+
+          {chatType === "constellation" ? (
+            <section>
+              <Label htmlFor="create-chat-constellation" className="mb-2 block text-[13px] font-semibold" style={{ color: LX.primary }}>
+                Constellation
+              </Label>
+              <Select
+                value={constellationId}
+                onValueChange={setConstellationId}
+                disabled={projectConstellations.length === 0}
+              >
+                <SelectTrigger id="create-chat-constellation" className="w-full">
+                  <SelectValue placeholder={projectConstellations.length ? "Select a constellation" : "No constellations in this project"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {projectConstellations.map((constellation) => (
+                    <SelectItem key={constellation.id} value={constellation.id}>
+                      <span className="flex items-center gap-2 min-w-0">
+                        <span className="truncate">{constellation.label}</span>
+                        <ConstellationSourceBadge type={constellation.type} />
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {projectConstellations.length === 0 ? (
+                <p className="mt-2 text-[12px]" style={{ color: LX.textMuted }}>
+                  This project has no constellations yet.
+                </p>
+              ) : null}
+            </section>
+          ) : null}
         </div>
 
-        {/* Sections */}
-        <div className="flex-1 overflow-y-auto px-5 pb-4 space-y-5">
-          {!query && recent.length > 0 && <Section title="Recently used" items={recent} />}
-          <Section title={query ? "Results" : "Database constellations"} items={dbList} />
-          {!query && <Section title="PDF constellations" items={pdfList} />}
-          {query && pdfList.length > 0 && filtered.length !== dbList.length && <Section title="PDF constellations" items={pdfList} />}
-          {filtered.length === 0 && (
-            <p className="text-center py-8 text-[13px]" style={{ color: LX.muted }}>No constellations match "{query}"</p>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="flex-shrink-0 px-7 py-4" style={{ borderTop: `1px solid ${LX.border}` }}>
-          <button className="w-full flex items-center justify-center gap-2 h-[40px] rounded-[99px] text-[13px] font-bold hover:opacity-80 transition-opacity"
-            style={{ border: `1.5px dashed ${LX.border}`, color: LX.muted }}>
-            <Plus size={14} />Create New Constellation
-          </button>
+        <div className="flex-shrink-0 flex items-center justify-end gap-2.5 px-7 py-4" style={{ borderTop: `1px solid ${LX.border}` }}>
+          <Button type="button" variant="secondary" className="rounded-full px-4" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="button" className="rounded-full px-4" disabled={!canCreate} onClick={handleCreate}>
+            Create Chat
+          </Button>
         </div>
       </div>
     </div>
@@ -894,11 +1239,19 @@ function DeleteChatDialog({ open, onClose, onDelete }: {
 }
 
 // ─── Page Header ──────────────────────────────────────────────
-function PageHeader({ chatLabel, constellationLabel, onRenameChat, onDeleteChat }: {
-  chatLabel: string; constellationLabel: string;
-  onRenameChat: (name: string) => void; onDeleteChat: () => void;
+function PageHeader({ chatLabel, chat, onRenameChat, onDeleteChat }: {
+  chatLabel: string;
+  chat: Chat;
+  onRenameChat: (name: string) => void;
+  onDeleteChat: () => void;
 }) {
-  const crumbs = ["Home", "Project Name 1", constellationLabel, chatLabel];
+  const project = PROJECTS.find((p) => p.id === chat.projectId);
+  const constellation = chat.chatType === "constellation" && chat.constellationId
+    ? CONSTELLATIONS.find((c) => c.id === chat.constellationId)
+    : null;
+  const crumbs = chat.chatType === "galaxy"
+    ? ["Home", project?.label ?? "Project", "Galaxy", chatLabel]
+    : ["Home", project?.label ?? "Project", constellation?.label ?? "Constellation", chatLabel];
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
   const [sharedUsers, setSharedUsers] = useState<string[]>([]);
@@ -942,6 +1295,22 @@ function PageHeader({ chatLabel, constellationLabel, onRenameChat, onDeleteChat 
         <h1 className="text-[32px] leading-[40px] truncate mb-1.5" style={{ color: LX.primary, fontWeight: 700 }}>
           {chatLabel}
         </h1>
+        <div className="mb-1.5 flex flex-wrap items-center gap-2">
+          {chat.chatType === "galaxy" ? (
+            <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold" style={{ color: LX.textSecondary }}>
+              <Network size={12} style={{ color: LX.secondary }} />
+              Galaxy chat
+            </span>
+          ) : constellation ? (
+            <span className="inline-flex items-center gap-1.5 text-[12px]" style={{ color: LX.textSecondary }}>
+              <ConstellationNameWithSource
+                label={constellation.label}
+                type={constellation.type}
+                labelClassName="font-semibold"
+              />
+            </span>
+          ) : null}
+        </div>
         <nav className="flex items-center gap-1.5 flex-wrap">
           {crumbs.map((crumb, i) => {
             const isLast = i === crumbs.length - 1;
@@ -1019,41 +1388,56 @@ function DateSeparator({ label }: { label: string }) {
 }
 
 // ─── Source Footer ────────────────────────────────────────────
-function SourceFooter({ sources, reasoning }: { sources: Source[]; reasoning?: string[] }) {
-  const [open, setOpen] = useState(false);
+function SourceFooter({
+  sources,
+  insights,
+}: {
+  sources?: Source[];
+  insights?: ResponseInsights;
+}) {
+  const [insightsOpen, setInsightsOpen] = useState(false);
+  const hasInsights = Boolean(insights?.items.length);
+  const hasSources = Boolean(sources && sources.length > 0);
+  const sectionOffset = hasSources ? "mt-3" : "";
+
   return (
-    <div className="mt-4 pt-3.5" style={{ borderTop: `1px solid ${LX.borderSubtle}` }}>
-      <div className="flex items-center gap-1.5 flex-wrap">
-        <span className="text-[12px] font-semibold" style={{ color: LX.textMuted }}>Sources:</span>
-        {sources.map((s, i) => (
-          <button key={s.id} type="button"
-            className="text-[12px] font-medium transition-colors outline-none"
-            style={{ color: LX.purple60 }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = LX.primary; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = LX.purple60; }}>
-            {s.label}{i < sources.length - 1 ? "," : ""}
-          </button>
-        ))}
-        {reasoning && (
-          <button onClick={() => setOpen(!open)}
-            className="ml-auto flex items-center gap-1 text-[11.5px] font-semibold hover:opacity-80 transition-opacity"
-            style={{ color: LX.textMuted }}>
-            {open ? <EyeOff size={11} /> : <Eye size={11} />}
-            {open ? "Hide reasoning" : "Show reasoning"}
-          </button>
-        )}
-      </div>
-      {open && reasoning && (
-        <div className="mt-3 space-y-2 pl-1">
-          {reasoning.map((step, i) => (
-            <div key={i} className="flex items-start gap-2 text-[12px]" style={{ color: LX.textMuted }}>
-              <span className="w-4 h-4 flex-shrink-0 rounded-full flex items-center justify-center text-[10px] font-bold mt-px"
-                style={{ background: LX.blueT10, color: LX.secondary }}>{i + 1}</span>
-              {step}
-            </div>
+    <div className="mt-4 pt-3.5 min-w-0" style={{ borderTop: `1px solid ${LX.borderSubtle}` }}>
+      {hasSources ? (
+        <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+          <span className="text-[12px] font-semibold flex-shrink-0" style={{ color: LX.textMuted }}>Sources:</span>
+          {sources!.map((s, i) => (
+            <button key={s.id} type="button"
+              className="luxia-chat-text text-[12px] font-medium transition-colors outline-none text-left"
+              style={{ color: LX.purple60 }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = LX.primary; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = LX.purple60; }}>
+              {s.label}{i < sources!.length - 1 ? "," : ""}
+            </button>
           ))}
         </div>
-      )}
+      ) : null}
+
+      {hasInsights && insights ? (
+        <div className={sectionOffset}>
+          <button
+            type="button"
+            onClick={() => setInsightsOpen((open) => !open)}
+            aria-expanded={insightsOpen}
+            className="flex items-center gap-1.5 text-[11.5px] font-semibold hover:opacity-80 transition-opacity outline-none"
+            style={{ color: LX.textMuted }}
+          >
+            <ChevronDown
+              size={11}
+              style={{
+                transition: "transform 160ms ease",
+                transform: insightsOpen ? "rotate(180deg)" : "none",
+              }}
+            />
+            Insights
+          </button>
+          {insightsOpen ? <ResponseInsightsContent insights={insights} /> : null}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -1061,21 +1445,28 @@ function SourceFooter({ sources, reasoning }: { sources: Source[]; reasoning?: s
 // ─── AI Card ──────────────────────────────────────────────────
 function AICard({ message }: { message: Message }) {
   const [hover, setHover] = useState(false);
+  const insights = getResponseInsights(message.content, message.insights);
+
   return (
-    <div className="flex gap-3 mb-7" onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
+    <div className="flex gap-3 mb-7 min-w-0 max-w-full" onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
       <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-[8px] mt-0.5"
         style={{ background: "transparent" }}>
         <LuxiaStarLogo size={24} />
       </div>
-      <div className="flex-1 max-w-[680px]">
+      <div className="flex-1 min-w-0 max-w-[680px]">
         <div className="flex items-center gap-2 mb-2">
           <span className="text-[12.5px] font-bold" style={{ color: LX.primary }}>Luxia</span>
           <span className="text-[11px]" style={{ color: LX.borderStrong }}>{message.timestamp}</span>
         </div>
-        <div className="px-5 py-4 rounded-[16px]"
+        <div className="px-5 py-4 rounded-[16px] min-w-0 overflow-hidden"
           style={{ background: "white", border: "1px solid #EAF0F6", boxShadow: "0 6px 18px rgba(15,23,42,0.08)" }}>
-          <div style={{ color: LX.primary }}>{renderContent(message.content)}</div>
-          {message.sources && <SourceFooter sources={message.sources} reasoning={message.reasoning} />}
+          <div className="luxia-chat-text" style={{ color: LX.primary }}>{renderContent(message.content)}</div>
+          {(message.sources || insights) ? (
+            <SourceFooter
+              sources={message.sources}
+              insights={insights ?? undefined}
+            />
+          ) : null}
         </div>
         <div className="flex items-center gap-0.5 mt-2 transition-opacity duration-150" style={{ opacity: hover ? 1 : 0 }}>
           {[{ icon: Copy, label: "Copy" }, { icon: RefreshCw, label: "Regenerate" }, { icon: Bookmark, label: "Save" }].map(({ icon: Icon, label }) => (
@@ -1096,10 +1487,15 @@ function AICard({ message }: { message: Message }) {
 // ─── User Bubble ──────────────────────────────────────────────
 function UserBubble({ message }: { message: Message }) {
   return (
-    <div className="flex justify-end mb-7">
-      <div className="max-w-[520px]">
-        <div className="px-5 py-3.5 text-white text-[14.5px] leading-[1.65] font-medium"
-          style={{ background: LX.gradient.primary, borderRadius: "18px 18px 6px 18px", boxShadow: "0 2px 12px rgba(48,33,78,0.22)" }}>
+    <div className="flex justify-end mb-7 min-w-0 max-w-full">
+      <div className="min-w-0 max-w-[min(70%,720px)]">
+        <div className="luxia-chat-text px-5 py-3.5 text-[14.5px] leading-[1.65] font-medium"
+          style={{
+            background: "var(--luxia-purple-70)",
+            color: "var(--luxia-text-inverse)",
+            borderRadius: "18px 18px 6px 18px",
+            boxShadow: "0 2px 12px rgba(48,33,78,0.22)",
+          }}>
           {message.content}
         </div>
         <p className="text-right text-[11px] mt-1.5 pr-1" style={{ color: LX.borderStrong }}>{message.timestamp}</p>
@@ -1306,6 +1702,10 @@ function ResponseTypeDropdown({ constellationType }: { constellationType: Conste
 }
 
 // ─── Prompt Composer ──────────────────────────────────────────
+/** Must match --luxia-composer-input-max-height / min-height in luxia-tokens.css */
+const COMPOSER_INPUT_MIN_HEIGHT = 24;
+const COMPOSER_INPUT_MAX_HEIGHT = 47;
+
 function PromptComposer({ value, onChange, onSend, language, onLanguageChange, constellationType, assistantMode, onModeChange }: {
   value: string; onChange: (v: string) => void; onSend: () => void;
   language: string; onLanguageChange: (c: string) => void;
@@ -1316,33 +1716,42 @@ function PromptComposer({ value, onChange, onSend, language, onLanguageChange, c
   const hasText = value.trim().length > 0;
 
   useEffect(() => {
-    if (ref.current) {
-      ref.current.style.height = "auto";
-      ref.current.style.height = Math.min(ref.current.scrollHeight, 140) + "px";
-    }
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "auto";
+    const contentHeight = el.scrollHeight;
+    const capped = Math.min(
+      Math.max(contentHeight, COMPOSER_INPUT_MIN_HEIGHT),
+      COMPOSER_INPUT_MAX_HEIGHT,
+    );
+    el.style.height = `${capped}px`;
+    el.style.overflowY = contentHeight > COMPOSER_INPUT_MAX_HEIGHT ? "auto" : "hidden";
   }, [value]);
 
   return (
-    <div className="flex-shrink-0 px-8 pb-7 pt-2">
+    <div className="flex-shrink-0 min-w-0 max-w-full w-full px-8 pb-7 pt-2">
       {/* Main input row */}
-      <div className="flex items-center gap-5">
+      <div className="flex items-center gap-5 min-w-0 max-w-full">
         {/* Language selector — left of input */}
         <LanguageSelector lang={language} onChange={onLanguageChange} />
 
         {/* Input surface — focus ring owned by .luxia-chat-composer:focus-within */}
         <div className="luxia-chat-composer">
-          <textarea
-            ref={ref}
-            rows={1}
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(); } }}
-            placeholder="Ask something"
-            className="luxia-chat-composer__input"
-            aria-label="Message"
-          />
-          {/* Assistant mode — right side of typing bar */}
-          <AssistantModeDropdown mode={assistantMode} onChange={onModeChange} />
+          <div className="luxia-chat-composer__text-safe">
+            <textarea
+              ref={ref}
+              rows={1}
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(); } }}
+              placeholder="Ask something"
+              className="luxia-chat-composer__input"
+              aria-label="Message"
+            />
+          </div>
+          <div className="luxia-chat-composer__mode">
+            <AssistantModeDropdown mode={assistantMode} onChange={onModeChange} />
+          </div>
         </div>
 
         {/* Voice button */}
@@ -1375,7 +1784,7 @@ function PromptComposer({ value, onChange, onSend, language, onLanguageChange, c
       </div>
 
       {/* Below-input row: response type */}
-      <div className="mt-2" style={{ paddingLeft: "calc(2.25rem + 20px + 1.25rem)" }}>
+      <div className="mt-2 min-w-0 max-w-full" style={{ paddingLeft: "calc(2.25rem + 20px + 28px)" }}>
         <ResponseTypeDropdown constellationType={constellationType} />
       </div>
     </div>
@@ -2382,12 +2791,28 @@ function KBSidebarSection({ entries, isOpen, onToggle, onExpand, onAdd, onView, 
 }
 
 // ─── Constellation Sidebar ────────────────────────────────────
-function ConstellationSidebar({ width, onResizeStart, collapsed, onCollapse, constellation, allConstellations, onConstellationChange }: {
-  width: number; onResizeStart: (e: React.MouseEvent) => void;
-  collapsed: boolean; onCollapse: () => void;
+function ConstellationSidebar({
+  width,
+  onResizeStart,
+  collapsed,
+  onCollapse,
+  constellation,
+  allConstellations,
+  onConstellationChange,
+  projectId,
+  allowConstellationChange,
+  isGalaxyChat,
+}: {
+  width: number;
+  onResizeStart: (e: React.MouseEvent) => void;
+  collapsed: boolean;
+  onCollapse: () => void;
   constellation: Constellation;
   allConstellations: Constellation[];
   onConstellationChange: (id: string) => void;
+  projectId: string;
+  allowConstellationChange: boolean;
+  isGalaxyChat: boolean;
 }) {
   const sectionIds = CONSTELLATION_SECTIONS[constellation.type];
 
@@ -2494,7 +2919,9 @@ function ConstellationSidebar({ width, onResizeStart, collapsed, onCollapse, con
     setDragSrc(null); setDragOver(null);
   }
 
-  const filtered = allConstellations.filter(c => c.label.toLowerCase().includes(searchQ.toLowerCase()));
+  const filtered = allConstellations.filter(
+    (c) => c.projectId === projectId && c.label.toLowerCase().includes(searchQ.toLowerCase()),
+  );
 
   if (collapsed) {
     return (
@@ -2539,16 +2966,36 @@ function ConstellationSidebar({ width, onResizeStart, collapsed, onCollapse, con
             <Sparkles size={12} color={LX.secondary} />
           </div>
 
-          {/* Searchable selector */}
-          <div className="relative flex-1" onClick={(e) => e.stopPropagation()}>
-            <button onClick={() => setSearchOpen(!searchOpen)}
-              className="flex items-center gap-1.5 text-[13px] font-bold hover:opacity-75 transition-opacity"
-              style={{ color: LX.primary }}>
-              <span className="truncate" style={{ maxWidth: 130 }}>{constellation.label}</span>
-              <ChevronDown size={11} style={{ color: LX.textMuted }} />
+          {/* Searchable selector / galaxy context */}
+          <div className="relative flex-1 min-w-0" onClick={(e) => e.stopPropagation()}>
+            {isGalaxyChat ? (
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 text-[13px] font-bold" style={{ color: LX.primary }}>
+                  <Network size={12} style={{ color: LX.secondary, flexShrink: 0 }} />
+                  <span className="truncate">Galaxy chat</span>
+                </div>
+                <p className="mt-0.5 text-[11px] leading-4 truncate" style={{ color: LX.textMuted }}>
+                  Uses all constellations in this project
+                </p>
+              </div>
+            ) : (
+              <>
+            <button
+              type="button"
+              onClick={() => allowConstellationChange && setSearchOpen(!searchOpen)}
+              disabled={!allowConstellationChange}
+              className="flex items-center gap-1.5 text-[13px] font-bold hover:opacity-75 transition-opacity min-w-0 disabled:cursor-default disabled:opacity-100"
+              style={{ color: LX.primary }}
+            >
+              <ConstellationNameWithSource
+                label={constellation.label}
+                type={constellation.type}
+                labelClassName="truncate max-w-[130px] text-[13px] font-bold"
+              />
+              <ChevronDown size={11} style={{ color: LX.textMuted, flexShrink: 0 }} />
             </button>
 
-            {searchOpen && (
+            {searchOpen && allowConstellationChange && (
               <div className="absolute top-full left-0 mt-2 rounded-[14px] overflow-hidden z-30"
                 style={{ background: "white", boxShadow: LX.shadow.lg, border: `1px solid ${LX.border}`, width: 244 }}>
                 <div className="flex items-center gap-2 px-3 py-2.5" style={{ borderBottom: `1px solid ${LX.borderSubtle}` }}>
@@ -2577,13 +3024,21 @@ function ConstellationSidebar({ width, onResizeStart, collapsed, onCollapse, con
                             ? <Database size={10} color={cs.color} />
                             : <FileText size={10} color={cs.color} />}
                         </div>
-                        <span className="flex-1 text-[12.5px] font-semibold truncate" style={{ color: c.id === constellation.id ? LX.accent : LX.primary }}>{c.label}</span>
+                        <span className="flex-1 min-w-0 text-[12.5px] font-semibold truncate" style={{ color: c.id === constellation.id ? LX.accent : LX.primary }}>
+                          <ConstellationNameWithSource
+                            label={c.label}
+                            type={c.type}
+                            labelClassName="truncate"
+                          />
+                        </span>
                         {c.id === constellation.id && <Check size={11} style={{ color: LX.accent, flexShrink: 0 }} />}
                       </button>
                     );
                   })}
                 </div>
               </div>
+            )}
+              </>
             )}
           </div>
 
@@ -2878,14 +3333,13 @@ export default function App() {
   const [language, setLanguage] = useState("EN");
   const [assistantMode, setAssistantMode] = useState("Luxia");
   const [showNewChatModal, setShowNewChatModal] = useState(false);
-  const [recentConIds, setRecentConIds] = useState<string[]>(["con1", "con2"]);
   const [sidebarWidth, setSidebarWidth] = useState(296);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const counterRef = useRef(200);
 
-  const activeData = chats.find(c => c.id === activeChat);
-  const activeConstellation = CONSTELLATIONS.find(c => c.id === activeData?.constellationId) ?? CONSTELLATIONS[0];
+  const activeData = chats.find((c) => c.id === activeChat);
+  const activeConstellation = resolveChatConstellation(activeData);
   const messages = chatMessages[activeChat] ?? [];
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
@@ -2903,13 +3357,18 @@ export default function App() {
     setShowNewChatModal(true);
   }
 
-  function handleNewChatCreate(constellationId: string) {
+  function handleNewChatCreate(payload: NewChatPayload) {
     const id = `c${Date.now()}`;
     const n = chats.length + 1;
-    setChats(p => [...p, { id, label: `Chat ${n}`, constellationId }]);
-    setChatMessages(p => ({ ...p, [id]: [] }));
+    setChats((p) => [...p, {
+      id,
+      label: `Chat ${n}`,
+      chatType: payload.chatType,
+      projectId: payload.projectId,
+      constellationId: payload.constellationId,
+    }]);
+    setChatMessages((p) => ({ ...p, [id]: [] }));
     setActiveChat(id);
-    setRecentConIds(p => [constellationId, ...p.filter(x => x !== constellationId)].slice(0, 3));
     setShowNewChatModal(false);
   }
 
@@ -2920,7 +3379,9 @@ export default function App() {
   }
 
   function handleConstellationChange(conId: string) {
-    setChats(p => p.map(c => c.id === activeChat ? { ...c, constellationId: conId } : c));
+    const active = chats.find((c) => c.id === activeChat);
+    if (!active || active.chatType !== "constellation") return;
+    setChats((p) => p.map((c) => c.id === activeChat ? { ...c, constellationId: conId } : c));
   }
 
   function handleSend(text?: string) {
@@ -2937,7 +3398,6 @@ export default function App() {
         id: aid, role: "ai", timestamp: now,
         content: "I have searched the connected constellation for your query.\n\nHere is what I found based on the available sources.",
         sources: [{ id: `${aid}s1`, label: "Document A" }],
-        reasoning: ["Analysed query", "Searched connected sources", "Composed response"],
       },
       ],
     }));
@@ -2950,8 +3410,8 @@ export default function App() {
       <div className="flex flex-col flex-1 overflow-hidden min-w-0">
         <PageHeader
           chatLabel={activeData?.label ?? "Chat 1"}
-          constellationLabel={activeConstellation.label}
-          onRenameChat={(name) => setChats(p => p.map(c => c.id === activeChat ? { ...c, label: name } : c))}
+          chat={activeData ?? INITIAL_CHATS[0]}
+          onRenameChat={(name) => setChats((p) => p.map((c) => c.id === activeChat ? { ...c, label: name } : c))}
           onDeleteChat={handleCloseChat.bind(null, activeChat)}
         />
 
@@ -2966,7 +3426,7 @@ export default function App() {
         <div className="flex flex-1 overflow-hidden min-h-0">
           {/* Chat */}
           <div className="flex flex-col flex-1 overflow-hidden min-w-0">
-            <div className="flex-1 overflow-y-auto px-10 py-6">
+            <div className="flex-1 overflow-y-auto overflow-x-hidden min-w-0 px-10 py-6">
               {messages.length === 0
                 ? <EmptyState onPrompt={handleSend} />
                 : <>
@@ -2987,23 +3447,25 @@ export default function App() {
 
           {/* Constellation Sidebar — keyed so it resets when constellation changes */}
           <ConstellationSidebar
-            key={activeConstellation.id}
+            key={`${activeData?.id ?? "chat"}-${activeConstellation.id}`}
             width={sidebarWidth}
             onResizeStart={handleSidebarResizeStart}
             collapsed={sidebarCollapsed}
-            onCollapse={() => setSidebarCollapsed(p => !p)}
+            onCollapse={() => setSidebarCollapsed((p) => !p)}
             constellation={activeConstellation}
             allConstellations={CONSTELLATIONS}
             onConstellationChange={handleConstellationChange}
+            projectId={activeData?.projectId ?? PROJECTS[0].id}
+            allowConstellationChange={activeData?.chatType === "constellation"}
+            isGalaxyChat={activeData?.chatType === "galaxy"}
           />
         </div>
       </div>
 
-      {/* New Chat Modal — constellation must be selected before chat is created */}
+      {/* New Chat Modal */}
       {showNewChatModal && (
         <NewChatModal
-          recentIds={recentConIds}
-          onSelect={handleNewChatCreate}
+          onCreate={handleNewChatCreate}
           onClose={() => setShowNewChatModal(false)}
         />
       )}

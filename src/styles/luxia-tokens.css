@@ -297,8 +297,21 @@
 
   /* Chat composer focus — calm, 1px secondary border + soft ring */
   --luxia-chat-composer-border: var(--luxia-border-default);
-  --luxia-chat-composer-border-focus: var(--luxia-brand-secondary);
-  --luxia-chat-composer-focus-ring: var(--luxia-opacity-brand-secondary-08);
+  --luxia-chat-composer-border-focus: var(--luxia-border-strong);
+  --luxia-chat-composer-focus-ring: transparent;
+
+  /* Composer textarea — 1 line compact, max 2 lines then scroll */
+  --luxia-composer-input-font-size: 15px;
+  --luxia-composer-input-line-height: 1.55;
+  --luxia-composer-input-min-height: 24px;
+  --luxia-composer-input-max-height: 47px;
+  --luxia-composer-wrap-padding-block: 14px;
+  --luxia-composer-shell-min-height: calc(var(--luxia-composer-wrap-padding-block) * 2 + var(--luxia-composer-input-min-height));
+  --luxia-composer-shell-max-height: calc(var(--luxia-composer-wrap-padding-block) * 2 + var(--luxia-composer-input-max-height));
+  --luxia-composer-text-inset-left: 28px;
+  --luxia-composer-text-inset-right: 12px;
+  --luxia-composer-mode-gap: 8px;
+  --luxia-composer-mode-inset-right: 20px;
 
   /* ── Typography ────────────────────────────────────── */
   --luxia-font-family: "Nunito", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -551,20 +564,34 @@
 }
 
 /**
+ * Safe wrapping for chat messages, sources, links, and composer input.
+ */
+.luxia-chat-text {
+  max-width: 100%;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/**
  * Chat composer input shell.
  * Focus indicator lives on the outer surface (focus-within), not a heavy ring on the textarea.
  */
 .luxia-chat-composer {
   display: flex;
   align-items: center;
-  gap: 8px;
   flex: 1;
-  min-height: 52px;
-  padding-inline: 20px;
+  min-width: 0;
+  max-width: 100%;
+  min-height: var(--luxia-composer-shell-min-height);
+  max-height: var(--luxia-composer-shell-max-height);
+  padding-inline: 0;
+  overflow: hidden;
   border: 1px solid var(--luxia-chat-composer-border);
   border-radius: var(--luxia-radius-pill);
   background: var(--luxia-surface);
   box-shadow: none;
+  box-sizing: border-box;
   transition: border-color 160ms ease, box-shadow 160ms ease;
 }
 
@@ -574,21 +601,72 @@
   box-shadow: 0 0 0 3px var(--luxia-chat-composer-focus-ring);
 }
 
+/* Rectangular text-safe zone — text never enters the pill’s curved caps */
+.luxia-chat-composer__text-safe {
+  flex: 1;
+  min-width: 0;
+  max-height: var(--luxia-composer-shell-max-height);
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  box-sizing: border-box;
+  padding-block: var(--luxia-composer-wrap-padding-block);
+  padding-left: var(--luxia-composer-text-inset-left);
+  padding-right: var(--luxia-composer-text-inset-right);
+}
+
+.luxia-chat-composer__mode {
+  flex-shrink: 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  align-self: stretch;
+  box-sizing: border-box;
+  padding-left: var(--luxia-composer-mode-gap);
+  padding-right: var(--luxia-composer-mode-inset-right);
+}
+
 .luxia-chat-composer__input {
   flex: 1;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   resize: none;
+  overflow-y: hidden;
+  overflow-x: hidden;
   outline: none;
   border: none !important;
   background: transparent;
   box-shadow: none !important;
-  min-height: 24px;
-  max-height: 140px;
-  padding-block: 14px;
+  min-height: var(--luxia-composer-input-min-height);
+  max-height: var(--luxia-composer-input-max-height);
+  margin: 0;
+  padding: 0;
   font-family: var(--luxia-font-family);
-  font-size: 15px;
-  line-height: 1.55;
+  font-size: var(--luxia-composer-input-font-size);
+  line-height: var(--luxia-composer-input-line-height);
   font-weight: 400;
   color: var(--luxia-brand-primary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.55) transparent;
+}
+
+.luxia-chat-composer__input::-webkit-scrollbar {
+  width: 6px;
+}
+
+.luxia-chat-composer__input::-webkit-scrollbar-track {
+  background: transparent;
+  margin-block: 6px;
+}
+
+.luxia-chat-composer__input::-webkit-scrollbar-thumb {
+  background-color: rgba(148, 163, 184, 0.55);
+  border-radius: 999px;
 }
 
 .luxia-chat-composer__input::placeholder {
