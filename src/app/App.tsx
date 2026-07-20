@@ -483,27 +483,71 @@ function SidebarBrandBackground() {
   return null;
 }
 
+// ─── Left sidebar layout ──────────────────────────────────────
+const SIDEBAR_WIDTH_EXPANDED = 280;
+const SIDEBAR_WIDTH_COLLAPSED = 76;
+const SIDEBAR_TOGGLE_SIZE = 42;
+const SIDEBAR_TOGGLE_INSET = SIDEBAR_TOGGLE_SIZE / 2;
+const LEFT_NAV_COLLAPSED_STORAGE_KEY = "luxia-left-nav-collapsed";
+
+function readLeftNavCollapsedPreference(): boolean {
+  try {
+    return localStorage.getItem(LEFT_NAV_COLLAPSED_STORAGE_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
 // ─── Nav Item ─────────────────────────────────────────────────
-function NavItem({ icon: Icon, label, active, badge, chevron }: {
+function NavItem({ icon: Icon, label, active, badge, chevron, collapsed }: {
   icon: React.FC<{ size?: number; color?: string }>;
-  label: string; active?: boolean; badge?: number; chevron?: boolean;
+  label: string; active?: boolean; badge?: number; chevron?: boolean; collapsed?: boolean;
 }) {
-  return (
+  const button = (
     <button
-      className="w-full flex items-center gap-3 px-3.5 h-[40px] rounded-[10px] transition-all text-left group"
+      type="button"
+      aria-label={collapsed ? label : undefined}
+      className={`w-full flex items-center rounded-[10px] transition-all group ${
+        collapsed ? "justify-center h-[40px] px-0" : "gap-3 px-3.5 h-[40px] text-left"
+      }`}
       style={{ background: active ? "rgba(255,255,255,0.12)" : "transparent" }}
       onMouseEnter={(e) => { if (!active) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.06)"; }}
       onMouseLeave={(e) => { if (!active) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
     >
-      <Icon size={16} color={active ? "white" : "rgba(255,255,255,0.55)"} />
-      <span className="flex-1 text-[13.5px] truncate"
-        style={{ color: active ? "white" : "rgba(255,255,255,0.7)", fontWeight: active ? 700 : 500, letterSpacing: active ? "-0.01em" : "0" }}>
-        {label}
+      <span className="relative flex-shrink-0">
+        <Icon size={16} color={active ? "white" : "rgba(255,255,255,0.55)"} />
+        {collapsed && badge ? (
+          <span
+            className="absolute -top-1 -right-1 min-w-[14px] h-[14px] px-0.5 rounded-full text-[9px] font-bold flex items-center justify-center"
+            style={{ background: LX.error, color: "white" }}
+          >
+            {badge}
+          </span>
+        ) : null}
       </span>
-      {badge && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: LX.error, color: "white" }}>{badge}</span>}
-      {chevron && <ChevronRight size={12} color={active ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.22)"} />}
+      {!collapsed ? (
+        <>
+          <span className="flex-1 text-[13.5px] truncate"
+            style={{ color: active ? "white" : "rgba(255,255,255,0.7)", fontWeight: active ? 700 : 500, letterSpacing: active ? "-0.01em" : "0" }}>
+            {label}
+          </span>
+          {badge ? <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: LX.error, color: "white" }}>{badge}</span> : null}
+          {chevron ? <ChevronRight size={12} color={active ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.22)"} /> : null}
+        </>
+      ) : null}
     </button>
   );
+
+  if (collapsed) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>{button}</TooltipTrigger>
+        <TooltipContent side="right" sideOffset={8}>{label}</TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  return button;
 }
 
 // ─── Official Luxia Logo ──────────────────────────────────────
@@ -563,51 +607,148 @@ function SidebarStarDecoration() {
 }
 
 // ─── Left Navigation ──────────────────────────────────────────
-function LeftNav() {
+function SidebarCollapseToggle({
+  collapsed,
+  onToggle,
+}: {
+  collapsed: boolean;
+  onToggle: () => void;
+}) {
   return (
-    <aside className="relative flex flex-col w-[280px] flex-shrink-0 h-full overflow-hidden"
-      style={{ background: LX.gradient.nav }}>
-      <SidebarStarDecoration />
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+      aria-expanded={!collapsed}
+      className="absolute flex items-center justify-center rounded-full outline-none transition-shadow hover:shadow-[var(--luxia-shadow-md)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--luxia-border-focus)]"
+      style={{
+        top: SIDEBAR_BRAND_TOP + SIDEBAR_LOGO_HEIGHT / 2 - SIDEBAR_TOGGLE_INSET,
+        right: -SIDEBAR_TOGGLE_INSET,
+        width: SIDEBAR_TOGGLE_SIZE,
+        height: SIDEBAR_TOGGLE_SIZE,
+        zIndex: 50,
+        background: "var(--luxia-surface)",
+        border: "1px solid var(--luxia-border-default)",
+        boxShadow: "var(--luxia-shadow-sm)",
+        color: "var(--luxia-brand-primary)",
+      }}
+    >
+      {collapsed ? <ChevronRight size={18} strokeWidth={2.2} /> : <ChevronLeft size={18} strokeWidth={2.2} />}
+    </button>
+  );
+}
+
+function LeftNav({
+  collapsed,
+  onToggleCollapsed,
+}: {
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
+}) {
+  const navPadding = collapsed ? "px-2" : "px-3";
+
+  return (
+    <aside
+      className="relative flex-shrink-0 h-full"
+      style={{
+        width: collapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_EXPANDED,
+        transition: "width 200ms ease",
+        overflow: "visible",
+      }}
+    >
       <div
-        className="relative z-[2] flex-shrink-0"
-        style={{ paddingTop: SIDEBAR_BRAND_TOP, paddingLeft: SIDEBAR_BRAND_LEFT, paddingBottom: 24 }}
+        className="relative flex flex-col h-full overflow-hidden"
+        style={{ background: LX.gradient.nav, width: "100%" }}
       >
-        <LuxiaLogo />
-      </div>
-      <nav className="relative z-[2] px-3 space-y-px">
-        {NAV_TOP_ITEMS.map(({ icon, label, badge }) => (
-          <NavItem key={label} icon={icon} label={label} badge={badge} />
-        ))}
-      </nav>
-      <div className="relative z-[2] mx-4 my-4" style={{ height: 1, background: "rgba(255,255,255,0.07)" }} />
-      <div className="relative z-[2] px-3">
-        <p className="px-3 mb-1.5 text-[10px] font-semibold tracking-[0.12em] uppercase"
-          style={{ color: "rgba(150,219,251,0.55)" }}>
-          Project Name 1
-        </p>
-        <nav className="space-y-px">
-          {NAV_PROJECT_ITEMS.map(({ icon, label, active }) => (
-            <NavItem key={label} icon={icon} label={label} active={active} chevron />
+        {!collapsed ? <SidebarStarDecoration /> : null}
+
+        <div
+          className={`relative z-[2] flex-shrink-0 ${collapsed ? "flex justify-center" : ""}`}
+          style={{
+            paddingTop: SIDEBAR_BRAND_TOP,
+            paddingLeft: collapsed ? 0 : SIDEBAR_BRAND_LEFT,
+            paddingRight: collapsed ? 0 : SIDEBAR_BRAND_LEFT,
+            paddingBottom: 24,
+          }}
+        >
+          {collapsed ? (
+            <div aria-label="Luxia" role="img">
+              <LuxiaStarLogo size={26} />
+            </div>
+          ) : (
+            <LuxiaLogo />
+          )}
+        </div>
+
+        <nav className={`relative z-[2] ${navPadding} space-y-px`}>
+          {NAV_TOP_ITEMS.map(({ icon, label }) => (
+            <NavItem key={label} icon={icon} label={label} collapsed={collapsed} />
           ))}
         </nav>
-      </div>
-      <div className="relative flex-1" />
-      <div className="relative z-[2] px-3 pb-2 space-y-px pt-3" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
-        {NAV_BOTTOM_ITEMS.map(({ icon, label }) => (
-          <NavItem key={label} icon={icon} label={label} />
-        ))}
-      </div>
-      <div className="relative z-[2] flex items-center gap-2.5 px-4 py-3.5" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
-        <div className="w-8 h-8 rounded-[8px] flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0"
-          style={{ background: "linear-gradient(135deg, #5BC8F5 0%, #2C7A9E 100%)" }}>
-          HR
+
+        <div
+          className={`relative z-[2] my-4 ${collapsed ? "mx-2" : "mx-4"}`}
+          style={{ height: 1, background: "rgba(255,255,255,0.07)" }}
+        />
+
+        <div className={`relative z-[2] ${navPadding}`}>
+          {!collapsed ? (
+            <p className="px-3 mb-1.5 text-[10px] font-semibold tracking-[0.12em] uppercase"
+              style={{ color: "rgba(150,219,251,0.55)" }}>
+              Project Name 1
+            </p>
+          ) : null}
+          <nav className="space-y-px">
+            {NAV_PROJECT_ITEMS.map(({ icon, label, active }) => (
+              <NavItem key={label} icon={icon} label={label} active={active} chevron={!collapsed} collapsed={collapsed} />
+            ))}
+          </nav>
         </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-white text-[12.5px] font-semibold truncate leading-tight">Hoda Roshani</p>
-          <p className="text-[11px] truncate leading-tight" style={{ color: "rgba(255,255,255,0.4)" }}>Administrator</p>
+
+        <div className="relative flex-1" />
+
+        <div
+          className={`relative z-[2] ${navPadding} pb-2 space-y-px pt-3`}
+          style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
+        >
+          {NAV_BOTTOM_ITEMS.map(({ icon, label }) => (
+            <NavItem key={label} icon={icon} label={label} collapsed={collapsed} />
+          ))}
         </div>
-        <ChevronRight size={12} color="rgba(255,255,255,0.25)" />
+
+        {collapsed ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div
+                className="relative z-[2] flex items-center justify-center px-2 py-3.5"
+                style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
+              >
+                <div className="w-8 h-8 rounded-[8px] flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0"
+                  style={{ background: "linear-gradient(135deg, #5BC8F5 0%, #2C7A9E 100%)" }}>
+                  HR
+                </div>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="right" sideOffset={8}>
+              Hoda Roshani — Administrator
+            </TooltipContent>
+          </Tooltip>
+        ) : (
+          <div className="relative z-[2] flex items-center gap-2.5 px-4 py-3.5" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+            <div className="w-8 h-8 rounded-[8px] flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0"
+              style={{ background: "linear-gradient(135deg, #5BC8F5 0%, #2C7A9E 100%)" }}>
+              HR
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-white text-[12.5px] font-semibold truncate leading-tight">Hoda Roshani</p>
+              <p className="text-[11px] truncate leading-tight" style={{ color: "rgba(255,255,255,0.4)" }}>Administrator</p>
+            </div>
+            <ChevronRight size={12} color="rgba(255,255,255,0.25)" />
+          </div>
+        )}
       </div>
+
+      <SidebarCollapseToggle collapsed={collapsed} onToggle={onToggleCollapsed} />
     </aside>
   );
 }
@@ -3335,8 +3476,17 @@ export default function App() {
   const [showNewChatModal, setShowNewChatModal] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(296);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [leftNavCollapsed, setLeftNavCollapsed] = useState(readLeftNavCollapsedPreference);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const counterRef = useRef(200);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(LEFT_NAV_COLLAPSED_STORAGE_KEY, String(leftNavCollapsed));
+    } catch {
+      /* ignore storage errors */
+    }
+  }, [leftNavCollapsed]);
 
   const activeData = chats.find((c) => c.id === activeChat);
   const activeConstellation = resolveChatConstellation(activeData);
@@ -3405,7 +3555,10 @@ export default function App() {
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: "#FAFDFF" }}>
-      <LeftNav />
+      <LeftNav
+        collapsed={leftNavCollapsed}
+        onToggleCollapsed={() => setLeftNavCollapsed((prev) => !prev)}
+      />
 
       <div className="flex flex-col flex-1 overflow-hidden min-w-0">
         <PageHeader
