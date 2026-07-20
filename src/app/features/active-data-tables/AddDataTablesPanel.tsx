@@ -32,8 +32,8 @@ export function AddDataTablesPanel({
     });
 
     return (
-        <div className="flex h-full flex-col">
-            <div className="flex items-center justify-between gap-3 border-b px-0 pb-4" style={{ borderColor: LX.border }}>
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <div className="flex-shrink-0 flex items-center justify-between gap-3 border-b px-0 pb-4" style={{ borderColor: LX.border }}>
                 <div>
                     <h4 className="text-[14px] font-extrabold" style={{ color: LX.primary }}>Add data table</h4>
                     <p className="mt-0.5 text-[12px]" style={{ color: LX.textMuted }}>Select from the available catalog.</p>
@@ -43,12 +43,12 @@ export function AddDataTablesPanel({
                 </Button>
             </div>
 
-            <div className="mt-4 flex items-center gap-2 rounded-[14px] border px-3 py-2" style={{ borderColor: LX.border, background: LX.surface }}>
+            <div className="mt-4 flex-shrink-0 flex items-center gap-2 rounded-[14px] border px-3 py-2" style={{ borderColor: LX.border, background: LX.surface }}>
                 <Search size={14} style={{ color: LX.textMuted }} />
                 <Input value={query} onChange={(e) => onQueryChange(e.target.value)} placeholder="Search tables to add..." className="h-8 border-0 bg-transparent px-0 text-[13px] shadow-none focus-visible:ring-0" aria-label="Search available tables" />
             </div>
 
-            <div className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+            <div className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto pb-4 pr-1">
                 {filtered.length === 0 ? (
                     <div className="rounded-[14px] border border-dashed px-4 py-8 text-center text-[13px]" style={{ borderColor: LX.border, color: LX.textMuted }}>
                         No tables match your search.
@@ -82,7 +82,7 @@ export function AddDataTablesPanel({
                 })}
             </div>
 
-            <div className="mt-4 flex items-center justify-end gap-2">
+            <div className="mt-4 flex-shrink-0 flex items-center justify-end gap-2">
                 <Button variant="secondary" className="rounded-full px-4" onClick={onBack}>Cancel</Button>
                 <Button className="rounded-full px-4" disabled={selectedIds.length === 0} onClick={onConfirm}>
                     <Plus size={14} />Add selected

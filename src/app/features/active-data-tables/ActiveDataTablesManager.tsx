@@ -139,24 +139,28 @@ export function ActiveDataTablesManager({
     return (
         <>
             <Dialog open={open} onOpenChange={(next) => { if (!next) requestClose(); }}>
-                <DialogContent hideCloseButton className="overflow-hidden p-0" style={{ width: "min(92vw, 1200px)", maxWidth: "min(92vw, 1200px)", height: "88vh", maxHeight: "88vh" }}>
-                    <div className="flex h-full flex-col">
-                        <DialogHeader className="border-b px-6 py-5 text-left" style={{ borderColor: LX.border }}>
-                            <div className="flex items-start gap-3">
-                                <div className="min-w-0 flex-1">
-                                    <DialogTitle className="text-[18px] font-extrabold" style={{ color: LX.primary }}>Active Data Tables</DialogTitle>
-                                    <DialogDescription className="sr-only">Manage which data tables are available to this constellation.</DialogDescription>
-                                    <p className="mt-1 text-[12px]" style={{ color: LX.textMuted }}>Manage tables available to this constellation.</p>
-                                </div>
-                                <button type="button" onClick={requestClose} className="flex h-9 w-9 items-center justify-center rounded-full border transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2" style={{ borderColor: LX.border, color: LX.textMuted }} aria-label="Close active data tables manager">
-                                    <X size={15} />
-                                </button>
+                <DialogContent
+                    hideCloseButton
+                    className="flex max-h-[calc(100vh-48px)] flex-col gap-0 overflow-hidden p-0"
+                    style={{ width: "min(92vw, 1200px)", maxWidth: "min(92vw, 1200px)" }}
+                >
+                    <DialogHeader className="flex-shrink-0 border-b px-6 py-5 text-left" style={{ borderColor: LX.border }}>
+                        <div className="flex items-start gap-3">
+                            <div className="min-w-0 flex-1">
+                                <DialogTitle className="text-[18px] font-extrabold" style={{ color: LX.primary }}>Active Data Tables</DialogTitle>
+                                <DialogDescription className="sr-only">Manage which data tables are available to this constellation.</DialogDescription>
+                                <p className="mt-1 text-[12px]" style={{ color: LX.textMuted }}>Manage tables available to this constellation.</p>
                             </div>
-                        </DialogHeader>
+                            <button type="button" onClick={requestClose} className="flex h-9 w-9 items-center justify-center rounded-full border transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2" style={{ borderColor: LX.border, color: LX.textMuted }} aria-label="Close active data tables manager">
+                                <X size={15} />
+                            </button>
+                        </div>
+                    </DialogHeader>
 
-                        <div className="flex flex-1 min-h-0 flex-col px-6 py-5">
-                            {!addMode ? (
-                                <>
+                    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                        {!addMode ? (
+                            <>
+                                <div className="flex-shrink-0 px-6 pt-5">
                                     <div className="flex flex-wrap items-center gap-2">
                                         <div className="flex min-w-0 flex-1 items-center gap-2 rounded-[14px] border px-3 py-2" style={{ borderColor: LX.border }}>
                                             <Search size={14} style={{ color: LX.textMuted }} />
@@ -166,8 +170,10 @@ export function ActiveDataTablesManager({
                                             <Plus size={14} />Add data table
                                         </Button>
                                     </div>
+                                </div>
 
-                                    <div className="mt-4 flex-1 min-h-0 overflow-auto rounded-[18px] border" style={{ borderColor: LX.border }}>
+                                <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4 pb-6">
+                                    <div className="overflow-hidden rounded-[18px] border" style={{ borderColor: LX.border }}>
                                         <Table className="min-w-full table-fixed">
                                             <TableHeader>
                                                 <TableRow style={{ background: LX.subtle }}>
@@ -253,18 +259,10 @@ export function ActiveDataTablesManager({
                                             </TableBody>
                                         </Table>
                                     </div>
-
-                                    <div className="border-t px-0 pt-4" style={{ borderColor: LX.border }}>
-                                        <div className="flex items-center justify-between gap-3">
-                                            <span className="text-[12px]" style={{ color: LX.textMuted }}>{activeCount} active tables</span>
-                                            <div className="flex items-center gap-2">
-                                                <Button variant="secondary" className="rounded-full px-4" onClick={requestClose}>Cancel</Button>
-                                                <Button className="rounded-full px-4" disabled={!dirty} onClick={save}>Save changes</Button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </>
-                            ) : (
+                                </div>
+                            </>
+                        ) : (
+                            <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-6 py-5">
                                 <AddDataTablesPanel
                                     catalog={catalog}
                                     activeTables={draft}
@@ -275,9 +273,21 @@ export function ActiveDataTablesManager({
                                     onBack={() => setAddMode(false)}
                                     onConfirm={addSelectedTables}
                                 />
-                            )}
-                        </div>
+                            </div>
+                        )}
                     </div>
+
+                    {!addMode ? (
+                        <div className="flex-shrink-0 border-t px-6 py-4" style={{ borderColor: LX.border, background: LX.surface }}>
+                            <div className="flex items-center justify-between gap-3">
+                                <span className="text-[12px]" style={{ color: LX.textMuted }}>{activeCount} active tables</span>
+                                <div className="flex items-center gap-2">
+                                    <Button variant="secondary" className="rounded-full px-4" onClick={requestClose}>Cancel</Button>
+                                    <Button className="rounded-full px-4" disabled={!dirty} onClick={save}>Save changes</Button>
+                                </div>
+                            </div>
+                        </div>
+                    ) : null}
                 </DialogContent>
             </Dialog>
             <AlertDialog open={discardConfirmOpen} onOpenChange={setDiscardConfirmOpen}>
