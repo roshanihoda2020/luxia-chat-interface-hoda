@@ -61,9 +61,9 @@ export function EditTableDetailsDialog({
                         <DialogHeader className="border-b px-6 py-5 text-left" style={{ borderColor: LX.border }}>
                             <div className="flex items-start gap-3">
                                 <div className="min-w-0 flex-1">
-                                    <DialogTitle className="text-[18px] font-extrabold" style={{ color: LX.primary }}>Edit table details</DialogTitle>
+                                    <DialogTitle className="luxia-type-title-modal" style={{ color: LX.primary }}>Edit table details</DialogTitle>
                                     <DialogDescription className="sr-only">Change the display name and description for this active data table.</DialogDescription>
-                                    <p className="mt-1 text-[12px]" style={{ color: LX.textMuted }}>Change the display name and description.</p>
+                                    <p className="mt-1 luxia-type-metadata" style={{ color: LX.textMuted }}>Change the display name and description.</p>
                                 </div>
                                 <button type="button" onClick={requestClose} className="flex h-9 w-9 items-center justify-center rounded-full border transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2" style={{ borderColor: LX.border, color: LX.textMuted }} aria-label="Close edit table details">
                                     <X size={15} />
@@ -73,17 +73,17 @@ export function EditTableDetailsDialog({
 
                         <div className="space-y-4 px-6 py-5">
                             <div>
-                                <label className="mb-1.5 block text-[13px] font-semibold" style={{ color: LX.primary }}>Original database table</label>
+                                <label className="mb-1.5 block luxia-type-label-form" style={{ color: LX.primary }}>Original database table</label>
                                 <Input value={table.originalName} readOnly style={{ background: LX.subtle }} />
-                                <p className="mt-1 text-[12px]" style={{ color: LX.textMuted }}>{table.sourceDatabase}</p>
+                                <p className="mt-1 luxia-type-metadata" style={{ color: LX.textMuted }}>{table.sourceDatabase}</p>
                             </div>
                             <div>
-                                <label className="mb-1.5 block text-[13px] font-semibold" style={{ color: LX.primary }}>Display name</label>
+                                <label className="mb-1.5 block luxia-type-label-form" style={{ color: LX.primary }}>Display name</label>
                                 <Input value={draftName} onChange={(e) => setDraftName(e.target.value)} aria-invalid={!isValid} />
-                                {!isValid && <p className="mt-1 text-[12px]" style={{ color: LX.error }}>Display name cannot be empty.</p>}
+                                {!isValid && <p className="mt-1 luxia-type-metadata" style={{ color: LX.error }}>Display name cannot be empty.</p>}
                             </div>
                             <div>
-                                <label className="mb-1.5 block text-[13px] font-semibold" style={{ color: LX.primary }}>Description</label>
+                                <label className="mb-1.5 block luxia-type-label-form" style={{ color: LX.primary }}>Description</label>
                                 <Textarea value={draftDescription} onChange={(e) => setDraftDescription(e.target.value)} rows={5} />
                             </div>
                         </div>

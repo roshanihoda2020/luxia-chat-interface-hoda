@@ -31,12 +31,12 @@ export function ExtraContextFileRow({
         >
             <FileText size={14} color={LX.secondary} className="flex-shrink-0" aria-hidden />
             <div className="min-w-0 flex-1">
-                <p className="truncate text-[13px] font-semibold" style={{ color: LX.primary, textDecoration: isMarked ? "line-through" : "none" }}>
+                <p className="truncate luxia-type-body-dense-strong" style={{ color: LX.primary, textDecoration: isMarked ? "line-through" : "none" }}>
                     {file.name}
                 </p>
-                {meta ? <p className="mt-0.5 truncate text-[11px]" style={{ color: LX.textMuted }}>{meta}</p> : null}
-                {isUploading ? <p className="mt-0.5 text-[11px]" style={{ color: LX.textMuted }}>Uploading…</p> : null}
-                {isFailed ? <p className="mt-0.5 text-[11px]" style={{ color: LX.error }}>Upload failed. Try again.</p> : null}
+                {meta ? <p className="mt-0.5 truncate luxia-type-caption" style={{ color: LX.textMuted }}>{meta}</p> : null}
+                {isUploading ? <p className="mt-0.5 luxia-type-caption" style={{ color: LX.textMuted }}>Uploading…</p> : null}
+                {isFailed ? <p className="mt-0.5 luxia-type-caption" style={{ color: LX.error }}>Upload failed. Try again.</p> : null}
             </div>
             <div className="flex flex-shrink-0 items-center gap-1">
                 <Tooltip>

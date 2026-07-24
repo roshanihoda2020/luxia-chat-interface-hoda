@@ -10,7 +10,7 @@ function Textarea({ className, ...props }: React.ComponentProps<"textarea">) {
         "placeholder:text-muted-foreground",
         "border-[var(--luxia-border-default)] bg-[var(--luxia-surface)] text-[var(--luxia-text-primary)]",
         "flex field-sizing-content min-h-16 w-full rounded-[var(--luxia-radius-8)] border px-3.5 py-2.5",
-        "text-[14px] leading-5 font-normal outline-none resize-y",
+        "luxia-type-input-value outline-none resize-y",
         "disabled:cursor-not-allowed disabled:opacity-50",
         "transition-[border-color,box-shadow] duration-160",
         "hover:border-[var(--luxia-border-strong)]",

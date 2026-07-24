@@ -94,7 +94,7 @@ export function TableRowMenu({
                         type="button"
                         disabled={disableMoveUp || !onMoveUp}
                         onClick={() => onMoveUp && runAction(onMoveUp)}
-                        className="flex w-full cursor-pointer items-center gap-2 rounded-[10px] px-3 py-2 text-left text-[13px] font-semibold outline-none whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-40"
+                        className="flex w-full cursor-pointer items-center gap-2 rounded-[10px] px-3 py-2 text-left luxia-type-body-dense-strong outline-none whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-40"
                         style={{ color: LX.primary }}
                     >
                         <ArrowUp size={14} />Move up
@@ -103,7 +103,7 @@ export function TableRowMenu({
                         type="button"
                         disabled={disableMoveDown || !onMoveDown}
                         onClick={() => onMoveDown && runAction(onMoveDown)}
-                        className="flex w-full cursor-pointer items-center gap-2 rounded-[10px] px-3 py-2 text-left text-[13px] font-semibold outline-none whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-40"
+                        className="flex w-full cursor-pointer items-center gap-2 rounded-[10px] px-3 py-2 text-left luxia-type-body-dense-strong outline-none whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-40"
                         style={{ color: LX.primary }}
                     >
                         <ArrowDown size={14} />Move down
@@ -114,7 +114,7 @@ export function TableRowMenu({
             <button
                 type="button"
                 onClick={() => runAction(onView)}
-                className="flex w-full cursor-pointer items-center gap-2 rounded-[10px] px-3 py-2 text-left text-[13px] font-semibold outline-none whitespace-nowrap"
+                className="flex w-full cursor-pointer items-center gap-2 rounded-[10px] px-3 py-2 text-left luxia-type-body-dense-strong outline-none whitespace-nowrap"
                 style={{ color: LX.primary }}
             >
                 <Eye size={14} />View data
@@ -122,7 +122,7 @@ export function TableRowMenu({
             <button
                 type="button"
                 onClick={() => runAction(onEditDetails)}
-                className="flex w-full cursor-pointer items-center gap-2 rounded-[10px] px-3 py-2 text-left text-[13px] font-semibold outline-none whitespace-nowrap"
+                className="flex w-full cursor-pointer items-center gap-2 rounded-[10px] px-3 py-2 text-left luxia-type-body-dense-strong outline-none whitespace-nowrap"
                 style={{ color: LX.primary }}
             >
                 <PencilLine size={14} />Edit table details
@@ -130,7 +130,7 @@ export function TableRowMenu({
             <button
                 type="button"
                 onClick={() => runAction(onConfigureColumns)}
-                className="flex w-full cursor-pointer items-center gap-2 rounded-[10px] px-3 py-2 text-left text-[13px] font-semibold outline-none whitespace-nowrap"
+                className="flex w-full cursor-pointer items-center gap-2 rounded-[10px] px-3 py-2 text-left luxia-type-body-dense-strong outline-none whitespace-nowrap"
                 style={{ color: LX.primary }}
             >
                 <Columns3 size={14} />Configure columns
@@ -139,7 +139,7 @@ export function TableRowMenu({
             <button
                 type="button"
                 onClick={() => runAction(onRemove)}
-                className="flex w-full cursor-pointer items-center gap-2 rounded-[10px] px-3 py-2 text-left text-[13px] font-semibold outline-none whitespace-nowrap"
+                className="flex w-full cursor-pointer items-center gap-2 rounded-[10px] px-3 py-2 text-left luxia-type-body-dense-strong outline-none whitespace-nowrap"
                 style={{ color: LX.error }}
             >
                 <Trash2 size={14} />Remove from constellation

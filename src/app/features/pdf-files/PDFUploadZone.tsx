@@ -48,13 +48,13 @@ export function PDFUploadZone({
                 onKeyDown={(e) => { if ((e.key === "Enter" || e.key === " ") && !uploading) { e.preventDefault(); inputRef.current?.click(); } }}
             >
                 <Upload size={compact ? 12 : 16} style={{ color: dragOver ? LX.secondary : LX.textMuted }} />
-                <p className={`font-semibold ${compact ? "text-[11px]" : "text-[13px]"}`} style={{ color: LX.primary }}>
+                <p className={`font-semibold ${compact ? "luxia-type-caption" : "luxia-type-body-dense"}`} style={{ color: LX.primary }}>
                     {compact ? "Drop files or click to upload" : "Drop PDF files here or click to upload"}
                 </p>
-                {!compact ? <p className="text-[11px]" style={{ color: LX.textMuted }}>PDF only · Up to 10 MB</p> : null}
+                {!compact ? <p className="luxia-type-caption" style={{ color: LX.textMuted }}>PDF only · Up to 10 MB</p> : null}
             </div>
-            {uploading ? <p className="text-[11px]" style={{ color: LX.textMuted }}>Uploading…</p> : null}
-            {error ? <p className="text-[11px]" role="alert" style={{ color: LX.error }}>{error}</p> : null}
+            {uploading ? <p className="luxia-type-caption" style={{ color: LX.textMuted }}>Uploading…</p> : null}
+            {error ? <p className="luxia-type-caption" role="alert" style={{ color: LX.error }}>{error}</p> : null}
             <input ref={inputRef} type="file" className="hidden" accept=".pdf,application/pdf" onChange={(e) => handleFile(e.target.files?.[0] ?? null)} />
         </div>
     );

@@ -16,9 +16,9 @@ function MappingReadOnlySide({
 }) {
     return (
         <div className="min-w-0 rounded-[12px] border px-3 py-2.5" style={{ borderColor: LX.border, background: LX.subtle }}>
-            <p className="text-[11px] font-semibold" style={{ color: LX.textMuted }}>{label}</p>
-            <p className="mt-1 truncate text-[13px] font-semibold" style={{ color: LX.primary }}>{table}</p>
-            <p className="truncate text-[12px] font-medium" style={{ color: LX.textSecondary }}>{column}</p>
+            <p className="luxia-type-caption" style={{ color: LX.textMuted }}>{label}</p>
+            <p className="mt-1 truncate luxia-type-body-dense-strong" style={{ color: LX.primary }}>{table}</p>
+            <p className="truncate luxia-type-metadata" style={{ color: LX.textSecondary }}>{column}</p>
         </div>
     );
 }
@@ -38,11 +38,11 @@ export function ViewRelationshipDialog({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-[min(92vw,560px)] rounded-[16px]">
                 <DialogHeader>
-                    <DialogTitle className="text-[16px] font-extrabold">{relationshipName(item)}</DialogTitle>
+                    <DialogTitle className="luxia-type-title-panel">{relationshipName(item)}</DialogTitle>
                 </DialogHeader>
 
                 <div className="space-y-3">
-                    <p className="text-[12px] font-medium" style={{ color: LX.textSecondary }}>
+                    <p className="luxia-type-metadata" style={{ color: LX.textSecondary }}>
                         Type: <span className="font-semibold" style={{ color: LX.primary }}>{item.type}</span>
                     </p>
 
@@ -58,8 +58,8 @@ export function ViewRelationshipDialog({
                     </div>
 
                     <div className="flex items-center justify-between rounded-[12px] border px-3 py-2.5" style={{ borderColor: LX.border, background: LX.subtle }}>
-                        <span className="text-[13px] font-semibold" style={{ color: LX.primary }}>Active</span>
-                        <span className="text-[13px] font-semibold" style={{ color: item.active ? LX.success : LX.textMuted }}>
+                        <span className="luxia-type-body-dense-strong" style={{ color: LX.primary }}>Active</span>
+                        <span className="luxia-type-body-dense-strong" style={{ color: item.active ? LX.success : LX.textMuted }}>
                             {item.active ? "On" : "Off"}
                         </span>
                     </div>

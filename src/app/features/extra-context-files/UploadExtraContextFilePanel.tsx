@@ -77,8 +77,8 @@ export function UploadExtraContextFilePanel({
                 }}
             >
                 <Upload size={18} style={{ color: dragOver ? LX.secondary : LX.textMuted }} />
-                <p className="text-[13px] font-semibold" style={{ color: LX.primary }}>Drag files here or click to upload</p>
-                <p className="text-[12px]" style={{ color: LX.textMuted }}>PDF, DOCX, PPTX, MD, or TXT</p>
+                <p className="luxia-type-body-dense-strong" style={{ color: LX.primary }}>Drag files here or click to upload</p>
+                <p className="luxia-type-metadata" style={{ color: LX.textMuted }}>PDF, DOCX, PPTX, MD, or TXT</p>
                 <input
                     ref={inputRef}
                     type="file"
@@ -91,8 +91,8 @@ export function UploadExtraContextFilePanel({
             {selectedFile ? (
                 <div className="flex items-center gap-2 rounded-[12px] border px-3 py-2.5" style={{ borderColor: LX.border, background: LX.surface }}>
                     <div className="min-w-0 flex-1">
-                        <p className="truncate text-[13px] font-semibold" style={{ color: LX.primary }}>{selectedFile.name}</p>
-                        <p className="text-[11px]" style={{ color: LX.textMuted }}>{formatFileSize(selectedFile.size)}</p>
+                        <p className="truncate luxia-type-body-dense-strong" style={{ color: LX.primary }}>{selectedFile.name}</p>
+                        <p className="luxia-type-caption" style={{ color: LX.textMuted }}>{formatFileSize(selectedFile.size)}</p>
                     </div>
                     <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-full" aria-label="Remove selected file" onClick={() => pickFile(null)}>
                         <X size={14} style={{ color: LX.textMuted }} />
@@ -100,8 +100,8 @@ export function UploadExtraContextFilePanel({
                 </div>
             ) : null}
 
-            {error ? <p className="text-[12px]" style={{ color: LX.error }} role="alert">{error}</p> : null}
-            {uploading ? <p className="text-[12px]" style={{ color: LX.textMuted }}>Uploading…</p> : null}
+            {error ? <p className="luxia-type-metadata" style={{ color: LX.error }} role="alert">{error}</p> : null}
+            {uploading ? <p className="luxia-type-metadata" style={{ color: LX.textMuted }}>Uploading…</p> : null}
 
             <div className="flex items-center justify-end gap-2">
                 <Button type="button" variant="secondary" className="rounded-full px-4" onClick={onCancel}>Cancel</Button>

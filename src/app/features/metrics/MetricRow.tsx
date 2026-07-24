@@ -28,9 +28,9 @@ export function MetricRow({
             </div>
 
             <div className="min-w-0 flex-1">
-                <p className="truncate text-[13px] font-semibold" style={{ color: LX.primary }}>{item.name}</p>
+                <p className="truncate luxia-type-body-dense-strong" style={{ color: LX.primary }}>{item.name}</p>
                 {item.description ? (
-                    <p className="truncate text-[11px]" style={{ color: LX.textMuted }}>{item.description}</p>
+                    <p className="truncate luxia-type-caption" style={{ color: LX.textMuted }}>{item.description}</p>
                 ) : null}
             </div>
 

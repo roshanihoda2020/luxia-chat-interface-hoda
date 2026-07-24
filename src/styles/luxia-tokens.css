@@ -300,11 +300,11 @@
   --luxia-chat-composer-border-focus: var(--luxia-border-strong);
   --luxia-chat-composer-focus-ring: transparent;
 
-  /* Composer textarea — 1 line compact, max 2 lines then scroll */
-  --luxia-composer-input-font-size: 15px;
-  --luxia-composer-input-line-height: 1.55;
-  --luxia-composer-input-min-height: 24px;
-  --luxia-composer-input-max-height: 47px;
+  /* Composer textarea — Body/Small (14/20); shell heights still driven by line box */
+  --luxia-composer-input-font-size: 14px;
+  --luxia-composer-input-line-height: 20px;
+  --luxia-composer-input-min-height: 20px;
+  --luxia-composer-input-max-height: 40px;
   --luxia-composer-wrap-padding-block: 14px;
   --luxia-composer-shell-min-height: calc(var(--luxia-composer-wrap-padding-block) * 2 + var(--luxia-composer-input-min-height));
   --luxia-composer-shell-max-height: calc(var(--luxia-composer-wrap-padding-block) * 2 + var(--luxia-composer-input-max-height));
@@ -670,8 +670,9 @@
 }
 
 .luxia-chat-composer__input::placeholder {
-  font-style: italic;
-  color: var(--luxia-neutral-400);
+  font-style: normal;
+  font-weight: 400;
+  color: var(--luxia-text-muted);
 }
 
 .luxia-chat-composer__input:focus,

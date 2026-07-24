@@ -9,7 +9,7 @@ export interface MetricFormValues {
 }
 
 function FieldLabel({ children }: { children: string }) {
-    return <p className="mb-1.5 text-[11px] font-semibold" style={{ color: LX.textMuted }}>{children}</p>;
+    return <p className="mb-1.5 luxia-type-caption" style={{ color: LX.textMuted }}>{children}</p>;
 }
 
 export function MetricForm({
@@ -52,7 +52,7 @@ export function MetricForm({
                     onChange={(event) => update({ sqlExpression: event.target.value })}
                     placeholder="Enter SQL expression"
                     rows={6}
-                    className="min-h-[140px] resize-y rounded-[12px] font-mono text-[12px] leading-relaxed"
+                    className="min-h-[140px] resize-y rounded-[12px] font-mono luxia-type-metadata leading-relaxed"
                     aria-label="SQL expression"
                 />
             </div>

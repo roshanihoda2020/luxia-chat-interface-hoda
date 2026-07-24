@@ -45,7 +45,7 @@ function RelationshipFormDialog({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-[min(92vw,560px)] rounded-[16px]">
                 <DialogHeader>
-                    <DialogTitle className="text-[16px] font-extrabold">
+                    <DialogTitle className="luxia-type-title-panel">
                         {mode === "add" ? "Add relationship" : "Edit relationship"}
                     </DialogTitle>
                 </DialogHeader>

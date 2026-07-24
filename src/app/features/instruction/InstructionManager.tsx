@@ -80,8 +80,8 @@ export function InstructionManager({
                                     <Cpu size={18} color={LX.secondary} />
                                 </div>
                                 <div className="min-w-0 flex-1">
-                                    <DialogTitle className="text-[18px] font-extrabold" style={{ color: LX.primary }}>Instruction</DialogTitle>
-                                    <DialogDescription className="mt-1 text-[12px]" style={{ color: LX.textMuted }}>Changes are local until saved.</DialogDescription>
+                                    <DialogTitle className="luxia-type-title-modal" style={{ color: LX.primary }}>Instruction</DialogTitle>
+                                    <DialogDescription className="mt-1 luxia-type-metadata" style={{ color: LX.textMuted }}>Changes are local until saved.</DialogDescription>
                                 </div>
                                 <Tooltip>
                                     <TooltipTrigger asChild>
@@ -108,13 +108,13 @@ export function InstructionManager({
                                         onChange={(event) => handleTextChange(event.target.value)}
                                         placeholder="Write instructions for this constellation…"
                                         rows={12}
-                                        className="min-h-[220px] resize-y rounded-[12px] pb-8 text-[14px] leading-relaxed"
+                                        className="min-h-[220px] resize-y rounded-[12px] pb-8 luxia-type-body-small"
                                         aria-label="Instruction text"
                                         aria-describedby="instruction-char-count"
                                     />
                                     <p
                                         id="instruction-char-count"
-                                        className="pointer-events-none absolute bottom-2.5 right-3 text-[11px] font-medium"
+                                        className="pointer-events-none absolute bottom-2.5 right-3 luxia-type-caption"
                                         style={{ color: LX.textMuted }}
                                         aria-live="polite"
                                     >
@@ -125,9 +125,9 @@ export function InstructionManager({
                         </div>
 
                         <div className="flex-shrink-0 border-t px-6 py-4" style={{ borderColor: LX.border }}>
-                            {saveError ? <p className="mb-3 text-[12px]" role="alert" style={{ color: LX.error }}>{saveError}</p> : null}
+                            {saveError ? <p className="mb-3 luxia-type-metadata" role="alert" style={{ color: LX.error }}>{saveError}</p> : null}
                             <div className="flex items-center justify-between gap-3">
-                                <span className="text-[12px]" style={{ color: LX.textMuted }}>
+                                <span className="luxia-type-metadata" style={{ color: LX.textMuted }}>
                                     {dirty ? "Unsaved changes" : ""}
                                 </span>
                                 <div className="flex items-center gap-2">

@@ -117,8 +117,8 @@ export function ExtraContextFilesManager({
                                     <FolderOpen size={18} color={LX.secondary} />
                                 </div>
                                 <div className="min-w-0 flex-1">
-                                    <DialogTitle className="text-[18px] font-extrabold" style={{ color: LX.primary }}>Extra Context Files</DialogTitle>
-                                    <DialogDescription className="mt-1 text-[12px]" style={{ color: LX.textMuted }}>Changes are local until saved.</DialogDescription>
+                                    <DialogTitle className="luxia-type-title-modal" style={{ color: LX.primary }}>Extra Context Files</DialogTitle>
+                                    <DialogDescription className="mt-1 luxia-type-metadata" style={{ color: LX.textMuted }}>Changes are local until saved.</DialogDescription>
                                 </div>
                                 <Tooltip>
                                     <TooltipTrigger asChild>
@@ -138,7 +138,7 @@ export function ExtraContextFilesManager({
                                     value={search}
                                     onChange={(event) => setSearch(event.target.value)}
                                     placeholder="Search extra context files…"
-                                    className="h-8 border-0 bg-transparent px-0 text-[13px] shadow-none focus-visible:ring-0"
+                                    className="h-8 border-0 bg-transparent px-0 luxia-type-input-search-dense shadow-none focus-visible:ring-0"
                                     aria-label="Search extra context files"
                                 />
                                 {search ? (
@@ -154,13 +154,13 @@ export function ExtraContextFilesManager({
                                 <div className="flex flex-col items-center justify-center py-12 text-center">
                                     {search ? (
                                         <>
-                                            <p className="text-[14px] font-semibold" style={{ color: LX.primary }}>No files match your search.</p>
-                                            <p className="mt-1 text-[13px]" style={{ color: LX.textMuted }}>Try another file name.</p>
+                                            <p className="luxia-type-body-small-strong" style={{ color: LX.primary }}>No files match your search.</p>
+                                            <p className="mt-1 luxia-type-body-dense" style={{ color: LX.textMuted }}>Try another file name.</p>
                                         </>
                                     ) : (
                                         <>
-                                            <p className="text-[14px] font-extrabold" style={{ color: LX.primary }}>No extra context files yet</p>
-                                            <p className="mt-1 text-[13px]" style={{ color: LX.textMuted }}>Add files to provide additional context.</p>
+                                            <p className="luxia-type-title-component" style={{ color: LX.primary }}>No extra context files yet</p>
+                                            <p className="mt-1 luxia-type-body-dense" style={{ color: LX.textMuted }}>Add files to provide additional context.</p>
                                             <Button type="button" className="mt-4 rounded-full px-4" onClick={() => setAddOpen(true)}>
                                                 <Plus size={14} />Add files
                                             </Button>
@@ -187,9 +187,9 @@ export function ExtraContextFilesManager({
                                     <Plus size={14} />Add files
                                 </Button>
                             ) : null}
-                            {saveError ? <p className="mb-3 text-[12px]" style={{ color: LX.error }} role="alert">{saveError}</p> : null}
+                            {saveError ? <p className="mb-3 luxia-type-metadata" style={{ color: LX.error }} role="alert">{saveError}</p> : null}
                             <div className="flex items-center justify-between gap-3">
-                                <span className="text-[12px]" style={{ color: LX.textMuted }}>
+                                <span className="luxia-type-metadata" style={{ color: LX.textMuted }}>
                                     {count} {count === 1 ? "item" : "items"}{dirty ? " · Unsaved changes" : ""}
                                 </span>
                                 <div className="flex items-center gap-2">

@@ -61,13 +61,13 @@ export function ManagePDFFilesDialog({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="flex max-h-[min(88vh,640px)] flex-col overflow-hidden p-0" style={{ width: "min(92vw, 560px)", maxWidth: "min(92vw, 560px)" }}>
                 <DialogHeader className="border-b px-6 py-4 text-left" style={{ borderColor: LX.border }}>
-                    <DialogTitle className="text-[16px] font-extrabold">Manage Files</DialogTitle>
+                    <DialogTitle className="luxia-type-title-panel">Manage Files</DialogTitle>
                 </DialogHeader>
 
                 <div className="flex min-h-0 flex-1 flex-col gap-3 px-6 py-4">
                     <div className="flex items-center gap-2 rounded-[14px] border px-3 py-2" style={{ borderColor: LX.border, background: LX.subtle }}>
                         <Search size={14} style={{ color: LX.textMuted }} />
-                        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search files…" className="h-8 border-0 bg-transparent px-0 text-[13px] shadow-none focus-visible:ring-0" aria-label="Search available files" />
+                        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search files…" className="h-8 border-0 bg-transparent px-0 luxia-type-input-search-dense shadow-none focus-visible:ring-0" aria-label="Search available files" />
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -77,7 +77,7 @@ export function ManagePDFFilesDialog({
 
                     <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
                         {filtered.length === 0 ? (
-                            <p className="py-8 text-center text-[13px]" style={{ color: LX.textMuted }}>No files match your search.</p>
+                            <p className="py-8 text-center luxia-type-body-dense" style={{ color: LX.textMuted }}>No files match your search.</p>
                         ) : filtered.map((file) => {
                             const checked = selected.includes(file.id);
                             return (
@@ -90,8 +90,8 @@ export function ManagePDFFilesDialog({
                                 >
                                     <Checkbox checked={checked} className="mt-0.5" aria-hidden tabIndex={-1} />
                                     <div className="min-w-0 flex-1">
-                                        <p className="truncate text-[13px] font-semibold" style={{ color: LX.primary }}>{file.name}</p>
-                                        <p className="mt-0.5 text-[11px]" style={{ color: LX.textMuted }}>{file.sizeLabel}</p>
+                                        <p className="truncate luxia-type-body-dense-strong" style={{ color: LX.primary }}>{file.name}</p>
+                                        <p className="mt-0.5 luxia-type-caption" style={{ color: LX.textMuted }}>{file.sizeLabel}</p>
                                     </div>
                                 </button>
                             );

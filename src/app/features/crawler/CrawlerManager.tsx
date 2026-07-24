@@ -80,8 +80,8 @@ export function CrawlerManager({ open, state, onCommit, onCancel }: {
                             <div className="flex items-start gap-3">
                                 <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-[12px]" style={{ background: LX.blueT10 }}><Globe size={18} color={LX.secondary} /></div>
                                 <div className="min-w-0 flex-1">
-                                    <DialogTitle className="text-[18px] font-extrabold" style={{ color: LX.primary }}>Crawler URL Data</DialogTitle>
-                                    <DialogDescription className="mt-1 text-[12px]" style={{ color: LX.textMuted }}>Changes are local until saved.</DialogDescription>
+                                    <DialogTitle className="luxia-type-title-modal" style={{ color: LX.primary }}>Crawler URL Data</DialogTitle>
+                                    <DialogDescription className="mt-1 luxia-type-metadata" style={{ color: LX.textMuted }}>Changes are local until saved.</DialogDescription>
                                 </div>
                                 <Tooltip><TooltipTrigger asChild><Button type="button" variant="outline" size="icon" className="h-9 w-9 rounded-full" aria-label="Close crawler manager" onClick={requestClose}><X size={15} style={{ color: LX.textMuted }} /></Button></TooltipTrigger><TooltipContent sideOffset={6}>Close</TooltipContent></Tooltip>
                             </div>
@@ -90,7 +90,7 @@ export function CrawlerManager({ open, state, onCommit, onCancel }: {
                         <div className="flex-shrink-0 border-b px-6 py-3" style={{ borderColor: LX.border }}>
                             <div className="flex items-center gap-2 rounded-[14px] border px-3 py-2" style={{ borderColor: LX.border, background: LX.subtle }}>
                                 <Search size={14} style={{ color: LX.textMuted }} />
-                                <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search crawler URL data…" className="h-8 border-0 bg-transparent px-0 text-[13px] shadow-none focus-visible:ring-0" aria-label="Search crawler URLs" />
+                                <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search crawler URL data…" className="h-8 border-0 bg-transparent px-0 luxia-type-input-search-dense shadow-none focus-visible:ring-0" aria-label="Search crawler URLs" />
                                 {search ? <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-full" aria-label="Clear search" onClick={() => setSearch("")}><X size={12} style={{ color: LX.textMuted }} /></Button> : null}
                             </div>
                         </div>
@@ -98,7 +98,7 @@ export function CrawlerManager({ open, state, onCommit, onCancel }: {
                         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
                             {filtered.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center py-12 text-center">
-                                    <p className="text-[14px] font-semibold" style={{ color: LX.primary }}>{search ? "No crawler URLs match your search." : "No crawler URLs yet"}</p>
+                                    <p className="luxia-type-body-small-strong" style={{ color: LX.primary }}>{search ? "No crawler URLs match your search." : "No crawler URLs yet"}</p>
                                     {!search ? <Button type="button" className="mt-4 rounded-full px-4" onClick={() => setAddOpen(true)}><Plus size={14} />Add URL</Button> : null}
                                 </div>
                             ) : (
@@ -112,17 +112,17 @@ export function CrawlerManager({ open, state, onCommit, onCancel }: {
                             {filtered.length > 0 ? <Button type="button" variant="outline" className="mb-3 w-full rounded-full" onClick={() => setAddOpen(true)}><Plus size={14} />Add URL</Button> : null}
                             <div className="mb-4 space-y-2 rounded-[12px] border px-3 py-2.5" style={{ borderColor: LX.border, background: LX.subtle }}>
                                 <div className="flex items-center justify-between gap-3">
-                                    <span className="text-[13px] font-semibold" style={{ color: LX.primary }}>Crawler Mode</span>
+                                    <span className="luxia-type-body-dense-strong" style={{ color: LX.primary }}>Crawler Mode</span>
                                     <Switch checked={draft.settings.crawlerMode} onCheckedChange={(crawlerMode) => setDraft((c) => ({ ...c, settings: { ...c.settings, crawlerMode } }))} aria-label="Crawler mode" className="data-[state=checked]:bg-[#30214E]" />
                                 </div>
                                 <div className="flex items-center justify-between gap-3">
-                                    <span className="text-[13px] font-semibold" style={{ color: LX.primary }}>Use Crawler Cache</span>
+                                    <span className="luxia-type-body-dense-strong" style={{ color: LX.primary }}>Use Crawler Cache</span>
                                     <Switch checked={draft.settings.useCrawlerCache} onCheckedChange={(useCrawlerCache) => setDraft((c) => ({ ...c, settings: { ...c.settings, useCrawlerCache } }))} aria-label="Use crawler cache" className="data-[state=checked]:bg-[#30214E]" />
                                 </div>
                             </div>
-                            {saveError ? <p className="mb-3 text-[12px]" role="alert" style={{ color: LX.error }}>{saveError}</p> : null}
+                            {saveError ? <p className="mb-3 luxia-type-metadata" role="alert" style={{ color: LX.error }}>{saveError}</p> : null}
                             <div className="flex items-center justify-between gap-3">
-                                <span className="text-[12px]" style={{ color: LX.textMuted }}>{count} {count === 1 ? "item" : "items"}{dirty ? " · Unsaved changes" : ""}</span>
+                                <span className="luxia-type-metadata" style={{ color: LX.textMuted }}>{count} {count === 1 ? "item" : "items"}{dirty ? " · Unsaved changes" : ""}</span>
                                 <div className="flex items-center gap-2">
                                     <Button type="button" variant="secondary" className="rounded-full px-4" onClick={requestClose}>Cancel</Button>
                                     <Button type="button" className="min-w-[132px] rounded-full px-4" disabled={!dirty || saving} onClick={save}>{saving ? "Saving…" : "Save Changes"}</Button>

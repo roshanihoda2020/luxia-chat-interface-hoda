@@ -27,8 +27,8 @@ export function ExtraContextFilePreview({
                     <DrawerHeader className="border-b px-6 py-5 text-left" style={{ borderColor: LX.border }}>
                         <div className="flex items-start gap-3">
                             <div className="min-w-0 flex-1">
-                                <DrawerTitle className="truncate text-[18px] font-extrabold" style={{ color: LX.primary }}>{file.name}</DrawerTitle>
-                                {meta ? <DrawerDescription className="mt-1 text-[12px]" style={{ color: LX.textMuted }}>{meta}</DrawerDescription> : null}
+                                <DrawerTitle className="truncate luxia-type-title-modal" style={{ color: LX.primary }}>{file.name}</DrawerTitle>
+                                {meta ? <DrawerDescription className="mt-1 luxia-type-metadata" style={{ color: LX.textMuted }}>{meta}</DrawerDescription> : null}
                             </div>
                             <Tooltip>
                                 <TooltipTrigger asChild>
@@ -42,15 +42,15 @@ export function ExtraContextFilePreview({
                     </DrawerHeader>
                     <div className="flex-1 overflow-auto px-6 py-5">
                         {canPreview ? (
-                            <div className="rounded-[14px] border p-4 text-[13px] leading-[1.7]" style={{ borderColor: LX.border, background: LX.subtle, color: LX.textSecondary }}>
+                            <div className="rounded-[14px] border p-4 luxia-type-body-dense" style={{ borderColor: LX.border, background: LX.subtle, color: LX.textSecondary }}>
                                 <p className="font-bold" style={{ color: LX.primary }}>{file.name}</p>
                                 <p className="mt-2">Preview content for this file would appear here when connected to your document store.</p>
                             </div>
                         ) : (
                             <div className="flex h-full min-h-[200px] flex-col items-center justify-center rounded-[14px] border border-dashed px-6 py-10 text-center" style={{ borderColor: LX.border }}>
                                 <FileText size={28} style={{ color: `${LX.textMuted}66` }} />
-                                <h3 className="mt-3 text-[16px] font-extrabold" style={{ color: LX.primary }}>Preview unavailable</h3>
-                                <p className="mt-2 max-w-[320px] text-[13px]" style={{ color: LX.textMuted }}>This file type cannot be previewed here.</p>
+                                <h3 className="mt-3 luxia-type-title-panel" style={{ color: LX.primary }}>Preview unavailable</h3>
+                                <p className="mt-2 max-w-[320px] luxia-type-body-dense" style={{ color: LX.textMuted }}>This file type cannot be previewed here.</p>
                             </div>
                         )}
                     </div>

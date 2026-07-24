@@ -42,7 +42,7 @@ function MappingSide({
 
     return (
         <div className="min-w-0 space-y-2">
-            <p className="text-[11px] font-semibold" style={{ color: LX.textMuted }}>{label}</p>
+            <p className="luxia-type-caption" style={{ color: LX.textMuted }}>{label}</p>
             <Select value={table || undefined} onValueChange={onTableChange}>
                 <SelectTrigger className="w-full rounded-[12px]" aria-label={tableLabel}>
                     <SelectValue placeholder="Select table" />
@@ -67,8 +67,8 @@ function MappingSide({
                     ))}
                 </SelectContent>
             </Select>
-            {loading ? <p className="text-[11px]" style={{ color: LX.textMuted }}>Loading columns…</p> : null}
-            {error ? <p className="text-[11px]" style={{ color: LX.error }} role="alert">Could not load columns. Try again.</p> : null}
+            {loading ? <p className="luxia-type-caption" style={{ color: LX.textMuted }}>Loading columns…</p> : null}
+            {error ? <p className="luxia-type-caption" style={{ color: LX.error }} role="alert">Could not load columns. Try again.</p> : null}
         </div>
     );
 }
@@ -188,7 +188,7 @@ export function RelationshipForm({
             </div>
 
             <div className="flex items-center justify-between rounded-[12px] border px-3 py-2.5" style={{ borderColor: LX.border, background: LX.subtle }}>
-                <span className="text-[13px] font-semibold" style={{ color: LX.primary }}>Active</span>
+                <span className="luxia-type-body-dense-strong" style={{ color: LX.primary }}>Active</span>
                 <Switch
                     checked={values.active}
                     onCheckedChange={(active) => update({ active })}

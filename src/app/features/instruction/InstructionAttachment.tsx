@@ -54,8 +54,8 @@ export function InstructionAttachment({
                 <div className="flex items-center gap-2 rounded-[12px] border px-3 py-2.5" style={{ borderColor: LX.border, background: LX.subtle }}>
                     <FileText size={14} style={{ color: LX.secondary }} className="flex-shrink-0" />
                     <div className="min-w-0 flex-1">
-                        <p className="truncate text-[13px] font-semibold" style={{ color: LX.primary }}>{attachment.name}</p>
-                        <p className="text-[11px]" style={{ color: LX.textMuted }}>{attachment.sizeLabel}</p>
+                        <p className="truncate luxia-type-body-dense-strong" style={{ color: LX.primary }}>{attachment.name}</p>
+                        <p className="luxia-type-caption" style={{ color: LX.textMuted }}>{attachment.sizeLabel}</p>
                     </div>
                     <Tooltip>
                         <TooltipTrigger asChild>
@@ -74,8 +74,8 @@ export function InstructionAttachment({
                         <TooltipContent sideOffset={6}>Remove</TooltipContent>
                     </Tooltip>
                 </div>
-                {uploading ? <p className="text-[12px]" style={{ color: LX.textMuted }}>Uploading…</p> : null}
-                {error ? <p className="text-[12px]" role="alert" style={{ color: LX.error }}>{error}</p> : null}
+                {uploading ? <p className="luxia-type-metadata" style={{ color: LX.textMuted }}>Uploading…</p> : null}
+                {error ? <p className="luxia-type-metadata" role="alert" style={{ color: LX.error }}>{error}</p> : null}
                 <input ref={inputRef} type="file" className="hidden" accept={INSTRUCTION_ACCEPT} onChange={(event) => handleFile(event.target.files?.[0] ?? null)} />
             </div>
         );
@@ -108,11 +108,11 @@ export function InstructionAttachment({
                 }}
             >
                 <Upload size={16} style={{ color: dragOver ? LX.secondary : LX.textMuted }} />
-                <p className="text-[13px] font-semibold" style={{ color: LX.primary }}>Drop a file here, or click to attach</p>
-                <p className="text-[11px]" style={{ color: LX.textMuted }}>Up to 10 MB · PDF, DOCX, ODT, TXT, or MD</p>
+                <p className="luxia-type-body-dense-strong" style={{ color: LX.primary }}>Drop a file here, or click to attach</p>
+                <p className="luxia-type-caption" style={{ color: LX.textMuted }}>Up to 10 MB · PDF, DOCX, ODT, TXT, or MD</p>
             </div>
-            {uploading ? <p className="text-[12px]" style={{ color: LX.textMuted }}>Uploading…</p> : null}
-            {error ? <p className="text-[12px]" role="alert" style={{ color: LX.error }}>{error}</p> : null}
+            {uploading ? <p className="luxia-type-metadata" style={{ color: LX.textMuted }}>Uploading…</p> : null}
+            {error ? <p className="luxia-type-metadata" role="alert" style={{ color: LX.error }}>{error}</p> : null}
             <input ref={inputRef} type="file" className="hidden" accept={INSTRUCTION_ACCEPT} onChange={(event) => handleFile(event.target.files?.[0] ?? null)} />
         </div>
     );

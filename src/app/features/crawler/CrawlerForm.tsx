@@ -27,11 +27,11 @@ export function CrawlerForm({
         <div className="space-y-3">
             <div>
                 <Input value={values.url} onChange={(e) => update({ url: e.target.value })} placeholder="https://example.com" className="rounded-[12px]" aria-label="URL" aria-invalid={urlInvalid} />
-                {urlInvalid ? <p className="mt-1 text-[11px]" role="alert" style={{ color: LX.error }}>Enter a valid http:// or https:// URL.</p> : null}
+                {urlInvalid ? <p className="mt-1 luxia-type-caption" role="alert" style={{ color: LX.error }}>Enter a valid http:// or https:// URL.</p> : null}
             </div>
-            <Textarea value={values.description} onChange={(e) => update({ description: e.target.value })} placeholder="Description" rows={3} className="resize-y rounded-[12px] text-[13px]" aria-label="Description" />
+            <Textarea value={values.description} onChange={(e) => update({ description: e.target.value })} placeholder="Description" rows={3} className="resize-y rounded-[12px] luxia-type-body-dense" aria-label="Description" />
             <div className="flex items-center justify-between rounded-[12px] border px-3 py-2.5" style={{ borderColor: LX.border, background: LX.subtle }}>
-                <span className="text-[13px] font-semibold" style={{ color: LX.primary }}>Exact Search</span>
+                <span className="luxia-type-body-dense-strong" style={{ color: LX.primary }}>Exact Search</span>
                 <Switch checked={values.exactSearch} onCheckedChange={(exactSearch) => update({ exactSearch })} aria-label="Exact search" className="data-[state=checked]:bg-[#30214E]" />
             </div>
         </div>

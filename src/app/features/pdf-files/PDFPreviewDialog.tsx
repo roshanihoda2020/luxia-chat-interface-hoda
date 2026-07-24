@@ -18,17 +18,17 @@ export function PDFPreviewDialog({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-[min(92vw,560px)] rounded-[16px]">
                 <DialogHeader>
-                    <DialogTitle className="text-[16px] font-extrabold">{file.name}</DialogTitle>
+                    <DialogTitle className="luxia-type-title-panel">{file.name}</DialogTitle>
                 </DialogHeader>
-                <p className="text-[12px]" style={{ color: LX.textMuted }}>{file.sizeLabel}</p>
+                <p className="luxia-type-metadata" style={{ color: LX.textMuted }}>{file.sizeLabel}</p>
                 <div className="mt-3 flex min-h-[200px] items-center justify-center rounded-[12px] border px-4 py-8 text-center" style={{ borderColor: LX.border, background: LX.subtle }}>
                     {file.previewable ? (
-                        <p className="text-[13px] font-medium" style={{ color: LX.textSecondary }}>PDF preview placeholder</p>
+                        <p className="luxia-type-body-dense-strong" style={{ color: LX.textSecondary }}>PDF preview placeholder</p>
                     ) : (
                         <>
                             <div>
-                                <p className="text-[14px] font-semibold" style={{ color: LX.primary }}>Preview unavailable</p>
-                                <p className="mt-1 text-[13px]" style={{ color: LX.textMuted }}>This PDF cannot be previewed here.</p>
+                                <p className="luxia-type-body-small-strong" style={{ color: LX.primary }}>Preview unavailable</p>
+                                <p className="mt-1 luxia-type-body-dense" style={{ color: LX.textMuted }}>This PDF cannot be previewed here.</p>
                             </div>
                         </>
                     )}

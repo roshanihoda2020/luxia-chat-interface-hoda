@@ -43,7 +43,7 @@ function TabsTrigger({
       data-slot="tabs-trigger"
       className={cn(
         "data-[state=active]:bg-[var(--luxia-surface)] data-[state=active]:text-[var(--luxia-brand-primary)] data-[state=active]:shadow-[var(--luxia-shadow-xs)]",
-        "text-[var(--luxia-text-secondary)] inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center gap-1.5 rounded-[var(--luxia-radius-8)] border border-transparent px-2 py-1 text-sm font-semibold whitespace-nowrap transition-[color,box-shadow,background]",
+        "text-[var(--luxia-text-secondary)] inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center gap-1.5 rounded-[var(--luxia-radius-8)] border border-transparent px-2 py-1 luxia-type-body-small font-semibold whitespace-nowrap transition-[color,box-shadow,background]",
         "focus-visible:shadow-[0_0_0_3px_var(--luxia-opacity-brand-secondary-32)] focus-visible:outline-none",
         "disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className,

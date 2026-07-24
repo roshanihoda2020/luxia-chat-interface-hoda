@@ -90,9 +90,9 @@ export function ConfigureColumnsDialog({
                         <DialogHeader className="border-b px-6 py-5 text-left" style={{ borderColor: LX.border }}>
                             <div className="flex items-start gap-3">
                                 <div className="min-w-0 flex-1">
-                                    <DialogTitle className="text-[18px] font-extrabold" style={{ color: LX.primary }}>Configure columns</DialogTitle>
+                                    <DialogTitle className="luxia-type-title-modal" style={{ color: LX.primary }}>Configure columns</DialogTitle>
                                     <DialogDescription className="sr-only">Control visibility, display names, types, descriptions, and value context for columns.</DialogDescription>
-                                    <p className="mt-1 text-[12px]" style={{ color: LX.textMuted }}>Control visibility, display names, types, descriptions, and value context.</p>
+                                    <p className="mt-1 luxia-type-metadata" style={{ color: LX.textMuted }}>Control visibility, display names, types, descriptions, and value context.</p>
                                 </div>
                                 <button type="button" onClick={requestClose} className="flex h-9 w-9 items-center justify-center rounded-full border transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2" style={{ borderColor: LX.border, color: LX.textMuted }} aria-label="Close configure columns">
                                     <X size={15} />
@@ -104,29 +104,29 @@ export function ConfigureColumnsDialog({
                             <div className="flex min-h-0 flex-1 flex-col border-r px-6 py-5" style={{ borderColor: LX.border }}>
                                 <div className="flex flex-wrap items-center gap-2">
                                     <div className="flex min-w-0 flex-1 items-center gap-2 rounded-[14px] border px-3 py-2" style={{ borderColor: LX.border, background: LX.surface }}>
-                                        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search columns..." className="h-8 border-0 bg-transparent px-0 text-[13px] shadow-none focus-visible:ring-0" aria-label="Search columns" />
+                                        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search columns..." className="h-8 border-0 bg-transparent px-0 luxia-type-input-search-dense shadow-none focus-visible:ring-0" aria-label="Search columns" />
                                     </div>
                                 </div>
 
                                 {hasInvalidColumns ? (
-                                    <p className="mt-3 text-[12px]" style={{ color: LX.error }}>Fix the highlighted display names before saving.</p>
+                                    <p className="mt-3 luxia-type-metadata" style={{ color: LX.error }}>Fix the highlighted display names before saving.</p>
                                 ) : null}
 
                                 <div className="mt-4 flex-1 min-h-0 overflow-auto rounded-[18px] border" style={{ borderColor: LX.border }}>
                                     <Table>
                                         <TableHeader>
                                             <TableRow style={{ background: LX.subtle }}>
-                                                <TableHead className="sticky top-0 z-10 w-[88px] text-[11px] uppercase tracking-[0.12em]" style={{ background: LX.subtle, color: LX.textSecondary }}>Active</TableHead>
-                                                <TableHead className="sticky top-0 z-10 min-w-[240px] text-[11px] uppercase tracking-[0.12em]" style={{ background: LX.subtle, color: LX.textSecondary }}>Column</TableHead>
-                                                <TableHead className="sticky top-0 z-10 min-w-[120px] text-[11px] uppercase tracking-[0.12em]" style={{ background: LX.subtle, color: LX.textSecondary }}>Type</TableHead>
-                                                <TableHead className="sticky top-0 z-10 min-w-[220px] text-[11px] uppercase tracking-[0.12em]" style={{ background: LX.subtle, color: LX.textSecondary }}>Description</TableHead>
-                                                <TableHead className="sticky top-0 z-10 min-w-[140px] text-[11px] uppercase tracking-[0.12em]" style={{ background: LX.subtle, color: LX.textSecondary }}>Value context</TableHead>
-                                                <TableHead className="sticky top-0 z-10 w-[84px] text-[11px] uppercase tracking-[0.12em]" style={{ background: LX.subtle, color: LX.textSecondary }}>Actions</TableHead>
+                                                <TableHead className="sticky top-0 z-10 w-[88px] luxia-type-table-header-dense" style={{ background: LX.subtle, color: LX.textSecondary }}>Active</TableHead>
+                                                <TableHead className="sticky top-0 z-10 min-w-[240px] luxia-type-table-header-dense" style={{ background: LX.subtle, color: LX.textSecondary }}>Column</TableHead>
+                                                <TableHead className="sticky top-0 z-10 min-w-[120px] luxia-type-table-header-dense" style={{ background: LX.subtle, color: LX.textSecondary }}>Type</TableHead>
+                                                <TableHead className="sticky top-0 z-10 min-w-[220px] luxia-type-table-header-dense" style={{ background: LX.subtle, color: LX.textSecondary }}>Description</TableHead>
+                                                <TableHead className="sticky top-0 z-10 min-w-[140px] luxia-type-table-header-dense" style={{ background: LX.subtle, color: LX.textSecondary }}>Value context</TableHead>
+                                                <TableHead className="sticky top-0 z-10 w-[84px] luxia-type-table-header-dense" style={{ background: LX.subtle, color: LX.textSecondary }}>Actions</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
                                             {filteredColumns.length === 0 ? (
-                                                <TableRow><TableCell colSpan={6} className="py-12 text-center text-[13px]" style={{ color: LX.textMuted }}>No columns match your search.</TableCell></TableRow>
+                                                <TableRow><TableCell colSpan={6} className="py-12 text-center luxia-type-body-dense" style={{ color: LX.textMuted }}>No columns match your search.</TableCell></TableRow>
                                             ) : filteredColumns.map((column) => {
                                                 const invalid = column.displayName.trim().length === 0;
                                                 return (
@@ -143,12 +143,12 @@ export function ConfigureColumnsDialog({
                                                         <TableCell><Switch checked={column.active} onCheckedChange={(next) => setDraftColumns((current) => current.map((item) => item.id === column.id ? { ...item, active: next } : item))} aria-label={`${column.displayName} active state`} /></TableCell>
                                                         <TableCell>
                                                             <div className="min-w-0">
-                                                                <Tooltip><TooltipTrigger asChild><p className="truncate text-[13px] font-semibold" style={{ color: LX.primary }}>{column.displayName}</p></TooltipTrigger><TooltipContent sideOffset={6}>{column.displayName}</TooltipContent></Tooltip>
-                                                                <p className="truncate text-[11px]" style={{ color: LX.textMuted }}>Original: {column.originalName}</p>
+                                                                <Tooltip><TooltipTrigger asChild><p className="truncate luxia-type-body-dense-strong" style={{ color: LX.primary }}>{column.displayName}</p></TooltipTrigger><TooltipContent sideOffset={6}>{column.displayName}</TooltipContent></Tooltip>
+                                                                <p className="truncate luxia-type-caption" style={{ color: LX.textMuted }}>Original: {column.originalName}</p>
                                                             </div>
                                                         </TableCell>
-                                                        <TableCell className="text-[13px]" style={{ color: LX.primary }}>{column.type}</TableCell>
-                                                        <TableCell><p className="max-w-[280px] truncate text-[13px]" style={{ color: LX.textMuted }}>{column.description || "No description"}</p></TableCell>
+                                                        <TableCell className="luxia-type-table-cell-dense" style={{ color: LX.primary }}>{column.type}</TableCell>
+                                                        <TableCell><p className="max-w-[280px] truncate luxia-type-table-cell-dense" style={{ color: LX.textMuted }}>{column.description || "No description"}</p></TableCell>
                                                         <TableCell><Switch checked={column.valueContext} onCheckedChange={(next) => setDraftColumns((current) => current.map((item) => item.id === column.id ? { ...item, valueContext: next } : item))} aria-label={`${column.displayName} value context`} /></TableCell>
                                                         <TableCell>
                                                             <Tooltip>
@@ -173,43 +173,43 @@ export function ConfigureColumnsDialog({
                                     <div className="flex h-full min-h-0 flex-col">
                                         <div className="mt-4 min-h-0 flex-1 space-y-4 overflow-auto pr-1">
                                             <div>
-                                                <label className="mb-1.5 block text-[13px] font-semibold" style={{ color: LX.primary }}>Display name</label>
+                                                <label className="mb-1.5 block luxia-type-label-form" style={{ color: LX.primary }}>Display name</label>
                                                 <Input value={selectedColumn.displayName} onChange={(e) => patchSelectedColumn({ displayName: e.target.value })} aria-invalid={selectedColumn.displayName.trim().length === 0} />
-                                                {selectedColumn.displayName.trim().length === 0 && <p className="mt-1 text-[12px]" style={{ color: LX.error }}>Display name cannot be empty.</p>}
+                                                {selectedColumn.displayName.trim().length === 0 && <p className="mt-1 luxia-type-metadata" style={{ color: LX.error }}>Display name cannot be empty.</p>}
                                             </div>
                                             <div>
-                                                <label className="mb-1.5 block text-[13px] font-semibold" style={{ color: LX.primary }}>Original field name</label>
+                                                <label className="mb-1.5 block luxia-type-label-form" style={{ color: LX.primary }}>Original field name</label>
                                                 <Input value={selectedColumn.originalName} readOnly style={{ background: LX.subtle }} />
                                             </div>
                                             <div>
-                                                <label className="mb-1.5 block text-[13px] font-semibold" style={{ color: LX.primary }}>Type</label>
+                                                <label className="mb-1.5 block luxia-type-label-form" style={{ color: LX.primary }}>Type</label>
                                                 <Select value={selectedColumn.type} onValueChange={(value) => patchSelectedColumn({ type: value as DataTableColumn["type"] })}>
                                                     <SelectTrigger><SelectValue /></SelectTrigger>
                                                     <SelectContent>{(["Text", "Number", "Date", "Boolean", "Currency", "Enum"] as DataTableColumn["type"][]).map((type) => <SelectItem key={type} value={type}>{type}</SelectItem>)}</SelectContent>
                                                 </Select>
                                             </div>
                                             <div>
-                                                <label className="mb-1.5 block text-[13px] font-semibold" style={{ color: LX.primary }}>Description</label>
+                                                <label className="mb-1.5 block luxia-type-label-form" style={{ color: LX.primary }}>Description</label>
                                                 <Textarea rows={4} value={selectedColumn.description} onChange={(e) => patchSelectedColumn({ description: e.target.value })} />
                                             </div>
                                             <div>
-                                                <label className="mb-1.5 block text-[13px] font-semibold" style={{ color: LX.primary }}>Language</label>
+                                                <label className="mb-1.5 block luxia-type-label-form" style={{ color: LX.primary }}>Language</label>
                                                 <Select value={selectedColumn.language} onValueChange={(value) => patchSelectedColumn({ language: value })}>
                                                     <SelectTrigger><SelectValue /></SelectTrigger>
                                                     <SelectContent>{COLUMN_LANGUAGES.map((language) => <SelectItem key={language} value={language}>{language}</SelectItem>)}</SelectContent>
                                                 </Select>
                                             </div>
                                             <div className="flex items-center justify-between gap-3 rounded-[14px] border px-4 py-3" style={{ borderColor: LX.border }}>
-                                                <p className="text-[13px] font-semibold" style={{ color: LX.primary }}>Active</p>
+                                                <p className="luxia-type-body-dense-strong" style={{ color: LX.primary }}>Active</p>
                                                 <Switch checked={selectedColumn.active} onCheckedChange={(next) => patchSelectedColumn({ active: next })} aria-label="Active toggle" />
                                             </div>
                                             <div className="flex items-center justify-between gap-3 rounded-[14px] border px-4 py-3" style={{ borderColor: LX.border }}>
-                                                <p className="text-[13px] font-semibold" style={{ color: LX.primary }}>Value context</p>
+                                                <p className="luxia-type-body-dense-strong" style={{ color: LX.primary }}>Value context</p>
                                                 <Switch checked={selectedColumn.valueContext} onCheckedChange={(next) => patchSelectedColumn({ valueContext: next })} aria-label="Value context toggle" />
                                             </div>
                                         </div>
                                     </div>
-                                ) : <div className="flex h-full items-center justify-center rounded-[18px] border border-dashed px-6 py-10 text-center text-[13px]" style={{ borderColor: LX.border, color: LX.textMuted }}>Select a column to edit its details.</div>}
+                                ) : <div className="flex h-full items-center justify-center rounded-[18px] border border-dashed px-6 py-10 text-center luxia-type-body-dense" style={{ borderColor: LX.border, color: LX.textMuted }}>Select a column to edit its details.</div>}
                             </div>
                         </div>
 

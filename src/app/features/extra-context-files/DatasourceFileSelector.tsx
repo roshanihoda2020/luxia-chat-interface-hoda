@@ -35,12 +35,12 @@ export function DatasourceFileSelector({
         <div className="flex min-h-0 flex-1 flex-col gap-3">
             <div className="flex items-center gap-2 rounded-[14px] border px-3 py-2" style={{ borderColor: LX.border, background: LX.surface }}>
                 <Search size={14} style={{ color: LX.textMuted }} />
-                <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search datasource files…" className="h-8 border-0 bg-transparent px-0 text-[13px] shadow-none focus-visible:ring-0" aria-label="Search datasource files" />
+                <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search datasource files…" className="h-8 border-0 bg-transparent px-0 luxia-type-input-search-dense shadow-none focus-visible:ring-0" aria-label="Search datasource files" />
             </div>
 
             <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
                 {filtered.length === 0 ? (
-                    <p className="py-8 text-center text-[13px]" style={{ color: LX.textMuted }}>No files match your search.</p>
+                    <p className="py-8 text-center luxia-type-body-dense" style={{ color: LX.textMuted }}>No files match your search.</p>
                 ) : filtered.map((file) => {
                     const isAdded = linkedNames.has(file.name);
                     const checked = selected.includes(file.id);
@@ -61,10 +61,10 @@ export function DatasourceFileSelector({
                             <Checkbox checked={checked} disabled={isAdded} className="mt-0.5" aria-hidden tabIndex={-1} />
                             <div className="min-w-0 flex-1">
                                 <div className="flex items-center gap-2">
-                                    <span className="truncate text-[13px] font-semibold" style={{ color: LX.primary }}>{file.name}</span>
-                                    {isAdded ? <span className="text-[11px] font-semibold" style={{ color: LX.textMuted }}>Already added</span> : null}
+                                    <span className="truncate luxia-type-body-dense-strong" style={{ color: LX.primary }}>{file.name}</span>
+                                    {isAdded ? <span className="luxia-type-caption" style={{ color: LX.textMuted }}>Already added</span> : null}
                                 </div>
-                                <p className="mt-0.5 text-[11px]" style={{ color: LX.textMuted }}>{file.fileType}{file.sizeLabel ? ` · ${file.sizeLabel}` : ""}</p>
+                                <p className="mt-0.5 luxia-type-caption" style={{ color: LX.textMuted }}>{file.fileType}{file.sizeLabel ? ` · ${file.sizeLabel}` : ""}</p>
                             </div>
                         </button>
                     );

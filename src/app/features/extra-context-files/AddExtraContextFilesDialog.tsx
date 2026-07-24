@@ -37,7 +37,7 @@ export function AddExtraContextFilesDialog({
                 <DialogHeader className="border-b px-6 py-5 text-left" style={{ borderColor: LX.border }}>
                     <div className="flex items-start gap-3">
                         <div className="min-w-0 flex-1">
-                            <DialogTitle className="text-[18px] font-extrabold" style={{ color: LX.primary }}>Add files</DialogTitle>
+                            <DialogTitle className="luxia-type-title-modal" style={{ color: LX.primary }}>Add files</DialogTitle>
                             <DialogDescription className="sr-only">Upload a file or add from datasource.</DialogDescription>
                         </div>
                         <Tooltip>
@@ -54,8 +54,8 @@ export function AddExtraContextFilesDialog({
                 <div className="px-6 py-5">
                     <Tabs value={tab} onValueChange={setTab}>
                         <TabsList className="mb-4 h-9 rounded-[10px] p-1" style={{ background: LX.subtle, border: `1px solid ${LX.border}` }}>
-                            <TabsTrigger value="upload" className="rounded-[8px] px-4 text-[12px] font-bold data-[state=active]:bg-white">Upload File</TabsTrigger>
-                            <TabsTrigger value="datasource" className="rounded-[8px] px-4 text-[12px] font-bold data-[state=active]:bg-white">Add From Datasource</TabsTrigger>
+                            <TabsTrigger value="upload" className="rounded-[8px] px-4 luxia-type-metadata data-[state=active]:bg-white">Upload File</TabsTrigger>
+                            <TabsTrigger value="datasource" className="rounded-[8px] px-4 luxia-type-metadata data-[state=active]:bg-white">Add From Datasource</TabsTrigger>
                         </TabsList>
                         <TabsContent value="upload" className="mt-0">
                             <UploadExtraContextFilePanel

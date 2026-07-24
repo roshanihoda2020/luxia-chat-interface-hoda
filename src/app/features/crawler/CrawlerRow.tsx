@@ -20,9 +20,9 @@ export function CrawlerRow({
                 <Globe size={14} style={{ color: LX.secondary }} />
             </div>
             <div className="min-w-0 flex-1">
-                <p className="truncate text-[13px] font-semibold" style={{ color: LX.primary }}>{item.url}</p>
-                {item.description ? <p className="truncate text-[11px]" style={{ color: LX.textMuted }}>{item.description}</p> : null}
-                {item.exactSearch ? <p className="truncate text-[10px] font-medium" style={{ color: LX.textMuted }}>Exact search on</p> : null}
+                <p className="truncate luxia-type-body-dense-strong" style={{ color: LX.primary }}>{item.url}</p>
+                {item.description ? <p className="truncate luxia-type-caption" style={{ color: LX.textMuted }}>{item.description}</p> : null}
+                {item.exactSearch ? <p className="truncate luxia-type-caption" style={{ color: LX.textMuted }}>Exact search on</p> : null}
             </div>
             <CrawlerMenu onView={onView} onEdit={onEdit} onRemove={onRemove} />
         </div>

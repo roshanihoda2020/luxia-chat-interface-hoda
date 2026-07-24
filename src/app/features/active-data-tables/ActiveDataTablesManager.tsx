@@ -147,9 +147,9 @@ export function ActiveDataTablesManager({
                     <DialogHeader className="flex-shrink-0 border-b px-6 py-5 text-left" style={{ borderColor: LX.border }}>
                         <div className="flex items-start gap-3">
                             <div className="min-w-0 flex-1">
-                                <DialogTitle className="text-[18px] font-extrabold" style={{ color: LX.primary }}>Active Data Tables</DialogTitle>
+                                <DialogTitle className="luxia-type-title-modal" style={{ color: LX.primary }}>Active Data Tables</DialogTitle>
                                 <DialogDescription className="sr-only">Manage which data tables are available to this constellation.</DialogDescription>
-                                <p className="mt-1 text-[12px]" style={{ color: LX.textMuted }}>Manage tables available to this constellation.</p>
+                                <p className="mt-1 luxia-type-metadata" style={{ color: LX.textMuted }}>Manage tables available to this constellation.</p>
                             </div>
                             <button type="button" onClick={requestClose} className="flex h-9 w-9 items-center justify-center rounded-full border transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2" style={{ borderColor: LX.border, color: LX.textMuted }} aria-label="Close active data tables manager">
                                 <X size={15} />
@@ -164,7 +164,7 @@ export function ActiveDataTablesManager({
                                     <div className="flex flex-wrap items-center gap-2">
                                         <div className="flex min-w-0 flex-1 items-center gap-2 rounded-[14px] border px-3 py-2" style={{ borderColor: LX.border }}>
                                             <Search size={14} style={{ color: LX.textMuted }} />
-                                            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search data tables..." className="h-8 border-0 bg-transparent px-0 text-[13px] shadow-none focus-visible:ring-0" aria-label="Search data tables" />
+                                            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search data tables..." className="h-8 border-0 bg-transparent px-0 luxia-type-input-search-dense shadow-none focus-visible:ring-0" aria-label="Search data tables" />
                                         </div>
                                         <Button variant="outline" className="rounded-full px-4" onClick={() => setAddMode(true)}>
                                             <Plus size={14} />Add data table
@@ -177,17 +177,17 @@ export function ActiveDataTablesManager({
                                         <Table className="min-w-full table-fixed">
                                             <TableHeader>
                                                 <TableRow style={{ background: LX.subtle }}>
-                                                    <TableHead className="sticky top-0 z-10 w-[42px] text-[11px] uppercase tracking-[0.12em]" style={{ background: LX.subtle, color: LX.textSecondary }}> </TableHead>
-                                                    <TableHead className="sticky top-0 z-10 min-w-[260px] text-[11px] uppercase tracking-[0.12em]" style={{ background: LX.subtle, color: LX.textSecondary }}>Table</TableHead>
-                                                    <TableHead className="sticky top-0 z-10 min-w-[240px] text-[11px] uppercase tracking-[0.12em]" style={{ background: LX.subtle, color: LX.textSecondary }}>Source / metadata</TableHead>
-                                                    <TableHead className="sticky top-0 z-10 w-[110px] text-[11px] uppercase tracking-[0.12em]" style={{ background: LX.subtle, color: LX.textSecondary }}>Active</TableHead>
-                                                    <TableHead className="sticky top-0 z-10 w-[92px] text-[11px] uppercase tracking-[0.12em]" style={{ background: LX.subtle, color: LX.textSecondary }}>Actions</TableHead>
+                                                    <TableHead className="sticky top-0 z-10 w-[42px] luxia-type-table-header-dense" style={{ background: LX.subtle, color: LX.textSecondary }}> </TableHead>
+                                                    <TableHead className="sticky top-0 z-10 min-w-[260px] luxia-type-table-header-dense" style={{ background: LX.subtle, color: LX.textSecondary }}>Table</TableHead>
+                                                    <TableHead className="sticky top-0 z-10 min-w-[240px] luxia-type-table-header-dense" style={{ background: LX.subtle, color: LX.textSecondary }}>Source / metadata</TableHead>
+                                                    <TableHead className="sticky top-0 z-10 w-[110px] luxia-type-table-header-dense" style={{ background: LX.subtle, color: LX.textSecondary }}>Active</TableHead>
+                                                    <TableHead className="sticky top-0 z-10 w-[92px] luxia-type-table-header-dense" style={{ background: LX.subtle, color: LX.textSecondary }}>Actions</TableHead>
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
                                                 {filtered.length === 0 ? (
                                                     <TableRow>
-                                                        <TableCell colSpan={5} className="py-12 text-center text-[13px]" style={{ color: LX.textMuted }}>
+                                                        <TableCell colSpan={5} className="py-12 text-center luxia-type-body-dense" style={{ color: LX.textMuted }}>
                                                             {search.trim() ? "No data tables match your search." : "No tables available in this constellation."}
                                                         </TableCell>
                                                     </TableRow>
@@ -212,16 +212,16 @@ export function ActiveDataTablesManager({
                                                                     <div className="min-w-0">
                                                                         <Tooltip>
                                                                             <TooltipTrigger asChild>
-                                                                                <span className="min-w-0 truncate text-[13px] font-bold" style={{ color: LX.primary }}>{table.displayName}</span>
+                                                                                <span className="min-w-0 truncate luxia-type-body-dense-strong" style={{ color: LX.primary }}>{table.displayName}</span>
                                                                             </TooltipTrigger>
                                                                             <TooltipContent sideOffset={6}>{table.displayName}</TooltipContent>
                                                                         </Tooltip>
                                                                     </div>
-                                                                    <p className="mt-0.5 truncate text-[11px]" style={{ color: LX.textMuted }}>{table.originalName}</p>
+                                                                    <p className="mt-0.5 truncate luxia-type-caption" style={{ color: LX.textMuted }}>{table.originalName}</p>
                                                                 </button>
                                                             </TableCell>
                                                             <TableCell>
-                                                                <div className="min-w-0 text-[12px]" style={{ color: LX.textMuted }}>
+                                                                <div className="min-w-0 luxia-type-metadata" style={{ color: LX.textMuted }}>
                                                                     <Tooltip>
                                                                         <TooltipTrigger asChild>
                                                                             <p className="truncate">{table.sourceDatabase}</p>
@@ -280,7 +280,7 @@ export function ActiveDataTablesManager({
                     {!addMode ? (
                         <div className="flex-shrink-0 border-t px-6 py-4" style={{ borderColor: LX.border, background: LX.surface }}>
                             <div className="flex items-center justify-between gap-3">
-                                <span className="text-[12px]" style={{ color: LX.textMuted }}>{activeCount} active tables</span>
+                                <span className="luxia-type-metadata" style={{ color: LX.textMuted }}>{activeCount} active tables</span>
                                 <div className="flex items-center gap-2">
                                     <Button variant="secondary" className="rounded-full px-4" onClick={requestClose}>Cancel</Button>
                                     <Button className="rounded-full px-4" disabled={!dirty} onClick={save}>Save changes</Button>

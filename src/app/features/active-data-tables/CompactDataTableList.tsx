@@ -38,7 +38,7 @@ export function CompactDataTableList({
         <div style={CARD}>
             <div className="flex items-center gap-1.5 px-[14px] py-3">
                 <Table2 size={14} color={LX.secondary} className="flex-shrink-0" />
-                <span className="flex-1 truncate text-[14px] font-semibold leading-5" style={{ color: LX.primary }}>Active Data Tables</span>
+                <span className="flex-1 truncate luxia-type-title-component" style={{ color: LX.primary }}>Active Data Tables</span>
                 <Tooltip>
                     <TooltipTrigger asChild>
                         <button className={BTN_ICON} aria-label="Open active data tables manager"
@@ -65,7 +65,7 @@ export function CompactDataTableList({
                     <div className="flex items-center gap-1.5 px-2.5 h-[28px] rounded-[7px] mt-2 mb-1" style={{ border: `1px solid ${LX.border}`, background: LX.subtle }}>
                         <Search size={10} style={{ color: LX.textMuted }} />
                         <input value={search} onChange={(e) => onSearchChange(e.target.value)} placeholder="Search…"
-                            className="flex-1 bg-transparent text-[11px] outline-none" style={{ color: LX.primary }} />
+                            className="flex-1 bg-transparent luxia-type-caption outline-none" style={{ color: LX.primary }} />
                         {search && (
                             <button type="button" onClick={() => onSearchChange("")} className="outline-none">
                                 <X size={9} style={{ color: LX.textMuted }} />
@@ -74,7 +74,7 @@ export function CompactDataTableList({
                     </div>
 
                     {filtered.length === 0 ? (
-                        <p className="px-2 py-2 text-[11px]" style={{ color: LX.textMuted }}>
+                        <p className="px-2 py-2 luxia-type-caption" style={{ color: LX.textMuted }}>
                             {search ? "No matches." : "No tables yet."}
                         </p>
                     ) : (
@@ -87,7 +87,7 @@ export function CompactDataTableList({
                                 <Table2 size={10} color={LX.secondary} className="flex-shrink-0" />
                                 <Tooltip>
                                     <TooltipTrigger asChild>
-                                        <span className="flex-1 min-w-0 truncate text-[11px] font-medium select-none" style={{ color: LX.primary }}>
+                                        <span className="flex-1 min-w-0 truncate luxia-type-caption select-none" style={{ color: LX.primary }}>
                                             {table.displayName}
                                         </span>
                                     </TooltipTrigger>
@@ -106,7 +106,7 @@ export function CompactDataTableList({
                     )}
 
                     <button type="button" onClick={onOpenManager}
-                        className="mt-1 w-full flex items-center gap-1.5 px-2 py-1.5 rounded-[7px] text-[11px] font-semibold transition-colors outline-none"
+                        className="mt-1 w-full flex items-center gap-1.5 px-2 py-1.5 rounded-[7px] luxia-type-caption transition-colors outline-none"
                         style={{ color: LX.textMuted }}
                         onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.borderSubtle; }}
                         onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>

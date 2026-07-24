@@ -38,7 +38,7 @@ export function InstructionSection({
             <div className="overflow-visible rounded-[14px]" style={{ background: LX.surface, border: `1px solid ${LX.border}`, boxShadow: LX.shadow.xs }}>
                 <div className="flex items-center gap-1.5 px-[14px] py-3">
                     <Cpu size={14} color={LX.secondary} className="flex-shrink-0" />
-                    <span className="flex-1 truncate text-[14px] font-semibold leading-5" style={{ color: LX.primary }}>Instruction</span>
+                    <span className="flex-1 truncate luxia-type-body-small-strong leading-5" style={{ color: LX.primary }}>Instruction</span>
                     <Tooltip>
                         <TooltipTrigger asChild>
                             <button type="button"
@@ -70,13 +70,13 @@ export function InstructionSection({
                 {isOpen ? (
                     <div className="px-3 pb-3">
                         <p
-                            className="line-clamp-3 text-[11px] leading-relaxed"
+                            className="line-clamp-3 luxia-type-caption leading-relaxed"
                             style={{ color: data.text.trim() ? LX.textSecondary : LX.textMuted }}
                         >
                             {preview}
                         </p>
                         {data.attachment ? (
-                            <p className="mt-1.5 truncate text-[10px] font-semibold" style={{ color: LX.textMuted }}>
+                            <p className="mt-1.5 truncate luxia-type-caption" style={{ color: LX.textMuted }}>
                                 {data.attachment.name}
                             </p>
                         ) : null}

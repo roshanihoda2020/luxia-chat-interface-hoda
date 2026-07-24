@@ -32,10 +32,10 @@ export function RelationshipRow({
             </div>
 
             <div className="min-w-0 flex-1">
-                <p className="truncate text-[13px] font-semibold" style={{ color: LX.primary }}>
+                <p className="truncate luxia-type-body-dense-strong" style={{ color: LX.primary }}>
                     {relationshipName(item)}
                 </p>
-                <p className="truncate text-[11px]" style={{ color: LX.textMuted }}>
+                <p className="truncate luxia-type-caption" style={{ color: LX.textMuted }}>
                     {relationshipSummary(item)}
                 </p>
             </div>

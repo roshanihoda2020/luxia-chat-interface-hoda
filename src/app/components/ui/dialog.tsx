@@ -143,7 +143,7 @@ function DialogTitle({
     <DialogPrimitive.Title
       data-slot="dialog-title"
       className={cn(
-        "text-lg leading-none font-semibold",
+        "luxia-type-title-modal",
         className,
       )}
       {...props}
@@ -158,7 +158,7 @@ function DialogDescription({
   return (
     <DialogPrimitive.Description
       data-slot="dialog-description"
-      className={cn("text-muted-foreground text-sm", className)}
+      className={cn("text-muted-foreground luxia-type-body-dense", className)}
       {...props}
     />
   );

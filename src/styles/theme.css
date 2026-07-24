@@ -11,7 +11,8 @@
   --font-weight-extrabold: 800;
 
   --font-weight-normal: var(--font-weight-regular);
-  --font-weight-medium: var(--font-weight-bold);
+  /* Luxia has no 500 — map Tailwind font-medium → 600 */
+  --font-weight-medium: var(--font-weight-semibold);
 
   /* Semantic light theme → canonical Luxia tokens */
   --background: var(--luxia-background);
@@ -147,6 +148,11 @@
 
 @theme inline {
   --font-sans: var(--font-family);
+  --font-weight-medium: 600;
+  --font-weight-normal: 400;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-weight-extrabold: 800;
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -286,9 +292,9 @@
 
   label {
     font-family: var(--font-family);
-    font-size: 0.875rem;
+    font-size: 13px;
     font-weight: var(--font-weight-semibold);
-    line-height: 1.25rem;
+    line-height: 18px;
   }
 
   button {
@@ -299,18 +305,18 @@
   textarea,
   select {
     font-family: var(--font-family);
-    font-size: 0.875rem;
+    font-size: 14px;
     font-weight: var(--font-weight-regular);
-    line-height: 1.25rem;
+    line-height: 20px;
   }
 
   input::placeholder,
   textarea::placeholder {
     font-family: var(--font-family);
-    font-size: 0.875rem;
-    font-style: italic;
+    font-size: 14px;
+    font-style: normal;
     font-weight: var(--font-weight-regular);
-    line-height: 1.25rem;
+    line-height: 20px;
     color: var(--luxia-text-muted);
   }
 
@@ -356,114 +362,320 @@
   }
 }
 
-/* Exact reusable Luxia typography classes */
+/**
+ * Canonical Luxia typography — exact semantic names shared with the Design System.
+ * Prefer these classes over arbitrary text-[Npx] / font-* utilities.
+ */
 @layer components {
+  .luxia-type-display-h1,
   .typography-display-h1 {
-    font-size: 2.5rem;
-    font-weight: var(--font-weight-extrabold);
-    line-height: 3rem;
+    font-family: var(--font-family);
+    font-size: 40px;
+    line-height: 48px;
+    font-weight: 800;
   }
 
+  .luxia-type-heading-h2,
   .typography-heading-h2 {
-    font-size: 2rem;
-    font-weight: var(--font-weight-bold);
-    line-height: 2.5rem;
+    font-family: var(--font-family);
+    font-size: 32px;
+    line-height: 40px;
+    font-weight: 700;
   }
 
+  .luxia-type-heading-h3,
   .typography-heading-h3 {
-    font-size: 1.5rem;
-    font-weight: var(--font-weight-bold);
-    line-height: 2rem;
+    font-family: var(--font-family);
+    font-size: 24px;
+    line-height: 32px;
+    font-weight: 700;
   }
 
+  .luxia-type-heading-h4,
   .typography-heading-h4 {
-    font-size: 1.25rem;
-    font-weight: var(--font-weight-bold);
-    line-height: 1.75rem;
+    font-family: var(--font-family);
+    font-size: 20px;
+    line-height: 28px;
+    font-weight: 700;
   }
 
+  .luxia-type-title-page {
+    font-family: var(--font-family);
+    font-size: 32px;
+    line-height: 40px;
+    font-weight: 700;
+  }
+
+  .luxia-type-title-modal {
+    font-family: var(--font-family);
+    font-size: 18px;
+    line-height: 24px;
+    font-weight: 800;
+  }
+
+  .luxia-type-title-card {
+    font-family: var(--font-family);
+    font-size: 18px;
+    line-height: 24px;
+    font-weight: 700;
+  }
+
+  .luxia-type-title-panel {
+    font-family: var(--font-family);
+    font-size: 16px;
+    line-height: 24px;
+    font-weight: 700;
+  }
+
+  .luxia-type-title-component {
+    font-family: var(--font-family);
+    font-size: 14px;
+    line-height: 20px;
+    font-weight: 700;
+  }
+
+  .luxia-type-body-large,
   .typography-body-large {
-    font-size: 1.125rem;
-    font-weight: var(--font-weight-regular);
-    line-height: 1.5rem;
+    font-family: var(--font-family);
+    font-size: 18px;
+    line-height: 24px;
+    font-weight: 400;
   }
 
+  .luxia-type-body-large-strong,
   .typography-body-large-bold {
-    font-size: 1.125rem;
-    font-weight: var(--font-weight-bold);
-    line-height: 1.5rem;
+    font-family: var(--font-family);
+    font-size: 18px;
+    line-height: 24px;
+    font-weight: 700;
   }
 
-  .typography-body-large-extrabold {
-    font-size: 1.125rem;
-    font-weight: var(--font-weight-extrabold);
-    line-height: 1.5rem;
-  }
-
+  .luxia-type-body-default,
   .typography-body-medium {
-    font-size: 1rem;
-    font-weight: var(--font-weight-regular);
-    line-height: 1.5rem;
+    font-family: var(--font-family);
+    font-size: 16px;
+    line-height: 24px;
+    font-weight: 400;
   }
 
+  .luxia-type-body-default-strong,
   .typography-body-medium-bold {
-    font-size: 1rem;
-    font-weight: var(--font-weight-bold);
-    line-height: 1.5rem;
+    font-family: var(--font-family);
+    font-size: 16px;
+    line-height: 24px;
+    font-weight: 700;
+  }
+
+  .luxia-type-body-small,
+  .typography-body-small {
+    font-family: var(--font-family);
+    font-size: 14px;
+    line-height: 20px;
+    font-weight: 400;
+  }
+
+  .luxia-type-body-small-strong,
+  .typography-body-small-bold {
+    font-family: var(--font-family);
+    font-size: 14px;
+    line-height: 20px;
+    font-weight: 700;
+  }
+
+  .luxia-type-body-dense {
+    font-family: var(--font-family);
+    font-size: 13px;
+    line-height: 18px;
+    font-weight: 400;
+  }
+
+  .luxia-type-body-dense-strong {
+    font-family: var(--font-family);
+    font-size: 13px;
+    line-height: 18px;
+    font-weight: 600;
+  }
+
+  .luxia-type-label-form {
+    font-family: var(--font-family);
+    font-size: 13px;
+    line-height: 18px;
+    font-weight: 600;
+  }
+
+  .luxia-type-label-small {
+    font-family: var(--font-family);
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: 600;
+  }
+
+  .luxia-type-input-value {
+    font-family: var(--font-family);
+    font-size: 14px;
+    line-height: 20px;
+    font-weight: 400;
+  }
+
+  .luxia-type-input-search-dense {
+    font-family: var(--font-family);
+    font-size: 13px;
+    line-height: 18px;
+    font-weight: 400;
+  }
+
+  .luxia-type-button-default,
+  .typography-button-default {
+    font-family: var(--font-family);
+    font-size: 13px;
+    line-height: 18px;
+    font-weight: 600;
+  }
+
+  .luxia-type-button-compact,
+  .typography-button-compact {
+    font-family: var(--font-family);
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: 600;
+  }
+
+  .luxia-type-button-large,
+  .typography-button-large {
+    font-family: var(--font-family);
+    font-size: 14px;
+    line-height: 20px;
+    font-weight: 600;
+  }
+
+  .luxia-type-caption,
+  .typography-label-caption {
+    font-family: var(--font-family);
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: 600;
+  }
+
+  .luxia-type-metadata {
+    font-family: var(--font-family);
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: 600;
+  }
+
+  .luxia-type-badge {
+    font-family: var(--font-family);
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: 600;
+  }
+
+  .luxia-type-tooltip {
+    font-family: var(--font-family);
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: 400;
+  }
+
+  .luxia-type-nav-sidebar {
+    font-family: var(--font-family);
+    font-size: 14px;
+    line-height: 20px;
+    font-weight: 700;
+  }
+
+  .luxia-type-profile-secondary {
+    font-family: var(--font-family);
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: 600;
+  }
+
+  .luxia-type-table-header {
+    font-family: var(--font-family);
+    font-size: 14px;
+    line-height: 20px;
+    font-weight: 700;
+  }
+
+  .luxia-type-table-cell {
+    font-family: var(--font-family);
+    font-size: 14px;
+    line-height: 20px;
+    font-weight: 400;
+  }
+
+  .luxia-type-table-header-dense {
+    font-family: var(--font-family);
+    font-size: 11px;
+    line-height: 16px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .luxia-type-table-cell-dense {
+    font-family: var(--font-family);
+    font-size: 13px;
+    line-height: 18px;
+    font-weight: 400;
+  }
+
+  .luxia-type-overline-data {
+    font-family: var(--font-family);
+    font-size: 11px;
+    line-height: 16px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .luxia-type-overline-form {
+    font-family: var(--font-family);
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .luxia-type-overline-brand {
+    font-family: var(--font-family);
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  /* Legacy aliases */
+  .typography-body-large-extrabold {
+    font-family: var(--font-family);
+    font-size: 18px;
+    line-height: 24px;
+    font-weight: 800;
   }
 
   .typography-body-medium-extrabold {
-    font-size: 1rem;
-    font-weight: var(--font-weight-extrabold);
-    line-height: 1.25rem;
-  }
-
-  .typography-body-small {
-    font-size: 0.875rem;
-    font-weight: var(--font-weight-regular);
-    line-height: 1.25rem;
-  }
-
-  .typography-body-small-bold {
-    font-size: 0.875rem;
-    font-weight: var(--font-weight-bold);
-    line-height: 1.25rem;
+    font-family: var(--font-family);
+    font-size: 16px;
+    line-height: 24px;
+    font-weight: 800;
   }
 
   .typography-body-small-extrabold {
-    font-size: 0.875rem;
-    font-weight: var(--font-weight-extrabold);
-    line-height: 1.125rem;
+    font-family: var(--font-family);
+    font-size: 14px;
+    line-height: 20px;
+    font-weight: 800;
   }
 
   .typography-label-placeholder {
-    font-size: 0.875rem;
-    font-style: italic;
-    font-weight: var(--font-weight-regular);
-    line-height: 1.25rem;
-  }
-
-  .typography-label-caption {
-    font-size: 0.75rem;
-    font-weight: var(--font-weight-semibold);
-    line-height: 1rem;
-  }
-
-  .typography-button-default {
-    font-size: 13px;
-    font-weight: var(--font-weight-semibold);
-    line-height: 18px;
-  }
-
-  .typography-button-compact {
-    font-size: 12px;
-    font-weight: var(--font-weight-semibold);
-    line-height: 16px;
-  }
-
-  .typography-button-large {
+    font-family: var(--font-family);
     font-size: 14px;
-    font-weight: var(--font-weight-semibold);
     line-height: 20px;
+    font-weight: 400;
+    font-style: normal;
+    color: var(--luxia-text-muted);
   }
 }

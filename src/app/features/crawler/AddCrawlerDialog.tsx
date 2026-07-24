@@ -17,7 +17,7 @@ function CrawlerFormDialog({ open, onOpenChange, mode, initialValues, onSubmit }
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-[min(92vw,480px)] rounded-[16px]">
                 <DialogHeader>
-                    <DialogTitle className="text-[16px] font-extrabold">{mode === "add" ? "Add crawler URL" : "Edit crawler URL"}</DialogTitle>
+                    <DialogTitle className="luxia-type-title-panel">{mode === "add" ? "Add crawler URL" : "Edit crawler URL"}</DialogTitle>
                 </DialogHeader>
                 <CrawlerForm values={values} onChange={setValues} />
                 <DialogFooter className="gap-2 sm:gap-2">

@@ -123,7 +123,7 @@ export function RelationshipMenu({
                 type="button"
                 role="menuitem"
                 onClick={() => runAction(onView)}
-                className="flex w-full cursor-pointer items-center gap-2 rounded-[10px] px-3 py-2 text-left text-[13px] font-semibold outline-none whitespace-nowrap focus-visible:ring-2 focus-visible:ring-offset-1"
+                className="flex w-full cursor-pointer items-center gap-2 rounded-[10px] px-3 py-2 text-left luxia-type-body-dense-strong outline-none whitespace-nowrap focus-visible:ring-2 focus-visible:ring-offset-1"
                 style={{ color: LX.primary }}
             >
                 <Eye size={14} />View
@@ -132,7 +132,7 @@ export function RelationshipMenu({
                 type="button"
                 role="menuitem"
                 onClick={() => runAction(onEdit)}
-                className="flex w-full cursor-pointer items-center gap-2 rounded-[10px] px-3 py-2 text-left text-[13px] font-semibold outline-none whitespace-nowrap focus-visible:ring-2 focus-visible:ring-offset-1"
+                className="flex w-full cursor-pointer items-center gap-2 rounded-[10px] px-3 py-2 text-left luxia-type-body-dense-strong outline-none whitespace-nowrap focus-visible:ring-2 focus-visible:ring-offset-1"
                 style={{ color: LX.primary }}
             >
                 <PencilLine size={14} />Edit
@@ -142,7 +142,7 @@ export function RelationshipMenu({
                 type="button"
                 role="menuitem"
                 onClick={() => runAction(onRemove)}
-                className="flex w-full cursor-pointer items-center gap-2 rounded-[10px] px-3 py-2 text-left text-[13px] font-semibold outline-none whitespace-nowrap focus-visible:ring-2 focus-visible:ring-offset-1"
+                className="flex w-full cursor-pointer items-center gap-2 rounded-[10px] px-3 py-2 text-left luxia-type-body-dense-strong outline-none whitespace-nowrap focus-visible:ring-2 focus-visible:ring-offset-1"
                 style={{ color: LX.error }}
             >
                 <Trash2 size={14} />Remove

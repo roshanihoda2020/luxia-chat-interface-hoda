@@ -35,8 +35,8 @@ export function AddDataTablesPanel({
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <div className="flex-shrink-0 flex items-center justify-between gap-3 border-b px-0 pb-4" style={{ borderColor: LX.border }}>
                 <div>
-                    <h4 className="text-[14px] font-extrabold" style={{ color: LX.primary }}>Add data table</h4>
-                    <p className="mt-0.5 text-[12px]" style={{ color: LX.textMuted }}>Select from the available catalog.</p>
+                    <h4 className="luxia-type-title-component" style={{ color: LX.primary }}>Add data table</h4>
+                    <p className="mt-0.5 luxia-type-metadata" style={{ color: LX.textMuted }}>Select from the available catalog.</p>
                 </div>
                 <Button type="button" variant="outline" size="sm" className="rounded-full px-3" onClick={onBack}>
                     Back
@@ -45,12 +45,12 @@ export function AddDataTablesPanel({
 
             <div className="mt-4 flex-shrink-0 flex items-center gap-2 rounded-[14px] border px-3 py-2" style={{ borderColor: LX.border, background: LX.surface }}>
                 <Search size={14} style={{ color: LX.textMuted }} />
-                <Input value={query} onChange={(e) => onQueryChange(e.target.value)} placeholder="Search tables to add..." className="h-8 border-0 bg-transparent px-0 text-[13px] shadow-none focus-visible:ring-0" aria-label="Search available tables" />
+                <Input value={query} onChange={(e) => onQueryChange(e.target.value)} placeholder="Search tables to add..." className="h-8 border-0 bg-transparent px-0 luxia-type-input-search-dense shadow-none focus-visible:ring-0" aria-label="Search available tables" />
             </div>
 
             <div className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto pb-4 pr-1">
                 {filtered.length === 0 ? (
-                    <div className="rounded-[14px] border border-dashed px-4 py-8 text-center text-[13px]" style={{ borderColor: LX.border, color: LX.textMuted }}>
+                    <div className="rounded-[14px] border border-dashed px-4 py-8 text-center luxia-type-body-dense" style={{ borderColor: LX.border, color: LX.textMuted }}>
                         No tables match your search.
                     </div>
                 ) : filtered.map((table) => {
@@ -72,10 +72,10 @@ export function AddDataTablesPanel({
                         >
                             <div className="min-w-0 flex-1">
                                 <div className="flex items-center gap-2 min-w-0">
-                                    <span className="min-w-0 flex-1 truncate text-[13px] font-bold" style={{ color: LX.primary }}>{table.displayName}</span>
-                                    {isAdded ? <span className="text-[11px] font-semibold" style={{ color: LX.textMuted }}>Already added</span> : selected ? <span className="text-[11px] font-semibold" style={{ color: LX.textMuted }}>Selected</span> : null}
+                                    <span className="min-w-0 flex-1 truncate luxia-type-body-dense-strong" style={{ color: LX.primary }}>{table.displayName}</span>
+                                    {isAdded ? <span className="luxia-type-caption" style={{ color: LX.textMuted }}>Already added</span> : selected ? <span className="luxia-type-caption" style={{ color: LX.textMuted }}>Selected</span> : null}
                                 </div>
-                                <p className="mt-0.5 text-[11px]" style={{ color: LX.textMuted }}>{compactMeta(table)}</p>
+                                <p className="mt-0.5 luxia-type-caption" style={{ color: LX.textMuted }}>{compactMeta(table)}</p>
                             </div>
                         </button>
                     );

@@ -20,8 +20,8 @@ export function PDFFileRow({
                 <FileText size={14} style={{ color: LX.secondary }} />
             </div>
             <div className="min-w-0 flex-1">
-                <p className="truncate text-[13px] font-semibold" style={{ color: LX.primary }}>{item.name}</p>
-                <p className="truncate text-[11px]" style={{ color: LX.textMuted }}>{metadata}</p>
+                <p className="truncate luxia-type-body-dense-strong" style={{ color: LX.primary }}>{item.name}</p>
+                <p className="truncate luxia-type-caption" style={{ color: LX.textMuted }}>{metadata}</p>
             </div>
             <PDFFileMenu onView={onView} onRemove={onRemove} />
         </div>
