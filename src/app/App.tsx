@@ -275,7 +275,7 @@ function ConstellationNameWithSource({
   badgeClassName?: string;
 }) {
   return (
-    <span className={`inline-flex min-w-0 max-w-full items-center gap-1 ${className}`}>
+    <span className={`inline-flex min-w-0 max-w-full items-center gap-1 ${className}`} title={label}>
       <span className={`min-w-0 overflow-hidden text-ellipsis whitespace-nowrap ${labelClassName}`}>{label}</span>
       <ConstellationSourceBadge type={type} className={`flex-shrink-0 ${badgeClassName}`} />
     </span>
@@ -491,6 +491,15 @@ const SIDEBAR_WIDTH_COLLAPSED = 76;
 const SIDEBAR_TOGGLE_SIZE = 42;
 const SIDEBAR_TOGGLE_INSET = SIDEBAR_TOGGLE_SIZE / 2;
 const LEFT_NAV_COLLAPSED_STORAGE_KEY = "luxia-left-nav-collapsed";
+/** Below 1600px CSS width, left nav defaults to collapsed without overwriting saved preference. */
+const LEFT_NAV_NARROW_BREAKPOINT = 1600;
+/** At or below 1280px CSS width, right inspector defaults to collapsed without overwriting user toggle. */
+const INSPECTOR_NARROW_BREAKPOINT = 1280;
+const INSPECTOR_WIDTH_DEFAULT = 288;
+const INSPECTOR_WIDTH_MIN = 260;
+const INSPECTOR_WIDTH_HARD_MAX = 360;
+const CHAT_MIN_USABLE_WIDTH = 480;
+const INSPECTOR_COLLAPSED_WIDTH = 50;
 
 function readLeftNavCollapsedPreference(): boolean {
   try {
@@ -498,6 +507,16 @@ function readLeftNavCollapsedPreference(): boolean {
   } catch {
     return false;
   }
+}
+
+function clampInspectorWidth(width: number, viewportWidth: number, leftNavWidth: number) {
+  const maxByChat = Math.max(
+    INSPECTOR_WIDTH_MIN,
+    viewportWidth - leftNavWidth - CHAT_MIN_USABLE_WIDTH,
+  );
+  const maxByViewportShare = Math.floor(viewportWidth * 0.26);
+  const maxWidth = Math.min(INSPECTOR_WIDTH_HARD_MAX, maxByViewportShare, maxByChat);
+  return Math.max(INSPECTOR_WIDTH_MIN, Math.min(maxWidth, width));
 }
 
 // ─── Nav Item ─────────────────────────────────────────────────
@@ -558,7 +577,9 @@ function NavItem({ icon: Icon, label, active, badge, chevron, collapsed }: {
 const SIDEBAR_LOGO_WIDTH = 119.66;
 const SIDEBAR_LOGO_HEIGHT = 46.64;
 const SIDEBAR_BRAND_LEFT = 24;
-const SIDEBAR_BRAND_TOP = 24;
+/** Fixed desktop brand inset — same at all viewport heights (no height-responsive density). */
+const SIDEBAR_BRAND_TOP = 16;
+const SIDEBAR_BRAND_BOTTOM = 12;
 
 // Decorative background star — approved Figma scale/placement (expanded sidebar only).
 const SIDEBAR_STAR_WIDTH = 538.11;
@@ -651,7 +672,7 @@ function LeftNav({
 
   return (
     <aside
-      className="relative flex-shrink-0 h-full"
+      className="relative h-full min-h-0 flex-shrink-0"
       style={{
         width: collapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_EXPANDED,
         transition: "width 200ms ease",
@@ -659,18 +680,19 @@ function LeftNav({
       }}
     >
       <div
-        className="relative flex flex-col h-full overflow-hidden"
+        className="relative flex h-full min-h-0 flex-col overflow-hidden"
         style={{ background: LX.gradient.nav, width: "100%" }}
       >
         {!collapsed ? <SidebarStarDecoration /> : null}
 
+        {/* Brand — flex-shrink: 0; fixed density (no height-based scaling) */}
         <div
           className={`relative z-[2] flex-shrink-0 ${collapsed ? "flex justify-center" : ""}`}
           style={{
             paddingTop: SIDEBAR_BRAND_TOP,
             paddingLeft: collapsed ? 0 : SIDEBAR_BRAND_LEFT,
             paddingRight: collapsed ? 0 : SIDEBAR_BRAND_LEFT,
-            paddingBottom: 24,
+            paddingBottom: SIDEBAR_BRAND_BOTTOM,
           }}
         >
           {collapsed ? (
@@ -682,47 +704,49 @@ function LeftNav({
           )}
         </div>
 
-        <nav className={`relative z-[2] ${navPadding} space-y-px`}>
-          {NAV_TOP_ITEMS.map(({ icon, label }) => (
-            <NavItem key={label} icon={icon} label={label} collapsed={collapsed} />
-          ))}
-        </nav>
-
-        <div
-          className={`relative z-[2] my-4 ${collapsed ? "mx-2" : "mx-4"}`}
-          style={{ height: 1, background: "rgba(255,255,255,0.07)" }}
-        />
-
-        <div className={`relative z-[2] ${navPadding}`}>
-          {!collapsed ? (
-            <p className="px-3 mb-1.5 luxia-type-overline-data"
-              style={{ color: "rgba(150,219,251,0.55)" }}>
-              Project Name 1
-            </p>
-          ) : null}
-          <nav className="space-y-px">
-            {NAV_PROJECT_ITEMS.map(({ icon, label, active }) => (
-              <NavItem key={label} icon={icon} label={label} active={active} chevron={!collapsed} collapsed={collapsed} />
+        {/* Navigation — overflow-y:auto only as safety fallback; no forced scrollbar */}
+        <div className="relative z-[2] min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
+          <nav className={`${navPadding} space-y-px`}>
+            {NAV_TOP_ITEMS.map(({ icon, label }) => (
+              <NavItem key={label} icon={icon} label={label} collapsed={collapsed} />
             ))}
           </nav>
+
+          <div
+            className={`my-2.5 ${collapsed ? "mx-2" : "mx-4"}`}
+            style={{ height: 1, background: "rgba(255,255,255,0.07)" }}
+          />
+
+          <div className={navPadding}>
+            {!collapsed ? (
+              <p className="px-3 mb-1 luxia-type-overline-data"
+                style={{ color: "rgba(150,219,251,0.55)" }}>
+                Project Name 1
+              </p>
+            ) : null}
+            <nav className="space-y-px">
+              {NAV_PROJECT_ITEMS.map(({ icon, label, active }) => (
+                <NavItem key={label} icon={icon} label={label} active={active} chevron={!collapsed} collapsed={collapsed} />
+              ))}
+            </nav>
+          </div>
+
+          <div
+            className={`${navPadding} space-y-px pb-1 pt-2`}
+            style={{ borderTop: "1px solid rgba(255,255,255,0.07)", marginTop: 8 }}
+          >
+            {NAV_BOTTOM_ITEMS.map(({ icon, label }) => (
+              <NavItem key={label} icon={icon} label={label} collapsed={collapsed} />
+            ))}
+          </div>
         </div>
 
-        <div className="relative flex-1" />
-
-        <div
-          className={`relative z-[2] ${navPadding} pb-2 space-y-px pt-3`}
-          style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
-        >
-          {NAV_BOTTOM_ITEMS.map(({ icon, label }) => (
-            <NavItem key={label} icon={icon} label={label} collapsed={collapsed} />
-          ))}
-        </div>
-
+        {/* Profile footer — flex-shrink: 0, outside scroll region */}
         {collapsed ? (
           <Tooltip>
             <TooltipTrigger asChild>
               <div
-                className="relative z-[2] flex items-center justify-center px-2 py-3.5"
+                className="relative z-[2] flex flex-shrink-0 items-center justify-center px-2 py-2.5"
                 style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
               >
                 <div className="w-8 h-8 rounded-[8px] flex items-center justify-center text-white luxia-type-caption flex-shrink-0"
@@ -736,7 +760,10 @@ function LeftNav({
             </TooltipContent>
           </Tooltip>
         ) : (
-          <div className="relative z-[2] flex items-center gap-2.5 px-4 py-3.5" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+          <div
+            className="relative z-[2] flex flex-shrink-0 items-center gap-2.5 px-4 py-2.5"
+            style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
+          >
             <div className="w-8 h-8 rounded-[8px] flex items-center justify-center text-white luxia-type-caption flex-shrink-0"
               style={{ background: "linear-gradient(135deg, #5BC8F5 0%, #2C7A9E 100%)" }}>
               HR
@@ -775,7 +802,7 @@ function ChatTabBar({ chats, activeId, onSelect, onNew, onClose, onPin, onRename
   }, []);
 
   return (
-    <div className="flex items-center gap-1.5 px-6 py-2.5 overflow-x-auto flex-shrink-0"
+    <div className="flex items-center gap-1.5 px-6 py-2 overflow-x-auto flex-shrink-0"
       style={{ borderBottom: `1px solid ${LX.border}` }}>
       {chats.map((chat) => {
         const isActive = chat.id === activeId;
@@ -1433,33 +1460,17 @@ function PageHeader({ chatLabel, chat, onRenameChat, onDeleteChat }: {
   ];
 
   return (
-    <div className="flex-shrink-0 flex items-start justify-between gap-6 px-10 pt-6 pb-3">
+    <div className="flex-shrink-0 flex items-start justify-between gap-6 px-10 pt-4 pb-2">
       <div className="min-w-0 flex-1">
-        <h1 className="luxia-type-title-page truncate mb-1.5" style={{ color: LX.primary }}>
+        <h1 className="luxia-type-title-page truncate mb-1" style={{ color: LX.primary }}>
           {chatLabel}
         </h1>
-        <div className="mb-1.5 flex flex-wrap items-center gap-2">
-          {chat.chatType === "galaxy" ? (
-            <span className="inline-flex items-center gap-1.5 luxia-type-metadata" style={{ color: LX.textSecondary }}>
-              <Network size={12} style={{ color: LX.secondary }} />
-              Galaxy chat
-            </span>
-          ) : constellation ? (
-            <span className="inline-flex items-center gap-1.5 luxia-type-metadata" style={{ color: LX.textSecondary }}>
-              <ConstellationNameWithSource
-                label={constellation.label}
-                type={constellation.type}
-                labelClassName="font-semibold"
-              />
-            </span>
-          ) : null}
-        </div>
-        <nav className="flex items-center gap-1.5 flex-wrap">
+        <nav className="flex items-center gap-1.5 flex-wrap" aria-label="Breadcrumb">
           {crumbs.map((crumb, i) => {
             const isLast = i === crumbs.length - 1;
             return (
               <span key={i} className="flex items-center gap-1.5">
-                {i > 0 && <span style={{ color: LX.borderStrong, fontSize: 12 }}>/</span>}
+                {i > 0 && <span className="luxia-type-metadata" style={{ color: LX.borderStrong }}>/</span>}
                 <span className="luxia-type-metadata" style={{
                   color: isLast ? LX.primary : "#697077",
                   fontWeight: isLast ? 600 : 400,
@@ -1470,9 +1481,9 @@ function PageHeader({ chatLabel, chat, onRenameChat, onDeleteChat }: {
         </nav>
       </div>
 
-      {/* Options button */}
+      {/* Options button — aligned with title row */}
       <button ref={btnRef} onClick={menuOpen ? () => setMenuOpen(false) : openMenu}
-        className="flex-shrink-0 flex items-center gap-2 h-[38px] px-5 rounded-full luxia-type-body-dense-strong text-white transition-opacity hover:opacity-90 outline-none mt-1"
+        className="flex-shrink-0 flex items-center gap-2 h-[38px] px-5 rounded-full luxia-type-body-dense-strong text-white transition-opacity hover:opacity-90 outline-none"
         style={{ background: LX.gradient.button, boxShadow: "0 2px 10px rgba(48,33,78,0.18)" }}>
         <Settings2 size={14} />
         Options
@@ -1872,7 +1883,7 @@ function PromptComposer({ value, onChange, onSend, language, onLanguageChange, c
   }, [value]);
 
   return (
-    <div className="flex-shrink-0 min-w-0 max-w-full w-full px-8 pb-7 pt-2">
+    <div className="flex-shrink-0 min-w-0 max-w-full w-full px-8 pb-5 pt-2">
       {/* Main input row */}
       <div className="flex items-center gap-5 min-w-0 max-w-full">
         {/* Language selector — left of input */}
@@ -2933,6 +2944,287 @@ function KBSidebarSection({ entries, isOpen, onToggle, onExpand, onAdd, onView, 
   );
 }
 
+// ─── Constellation Selector (portal dropdown) ─────────────────
+const CONSTELLATION_MENU_ID = "luxia-constellation-selector-listbox";
+const CONSTELLATION_MENU_WIDTH = 244;
+const CONSTELLATION_MENU_MIN_WIDTH = 220;
+const CONSTELLATION_MENU_GAP = 8;
+
+function ConstellationSelector({
+  constellation,
+  options,
+  onChange,
+  disabled = false,
+  forceClosed = false,
+}: {
+  constellation: Constellation;
+  options: Constellation[];
+  onChange: (id: string) => void;
+  disabled?: boolean;
+  forceClosed?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [searchQ, setSearchQ] = useState("");
+  const [menuPos, setMenuPos] = useState<{ top?: number; bottom?: number; left: number; width: number } | null>(null);
+  const [focusIndex, setFocusIndex] = useState(-1);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
+
+  const filtered = useMemo(
+    () => options.filter((c) => c.label.toLowerCase().includes(searchQ.toLowerCase())),
+    [options, searchQ],
+  );
+
+  const closeMenu = useCallback((restoreFocus = false) => {
+    setOpen(false);
+    setSearchQ("");
+    setMenuPos(null);
+    setFocusIndex(-1);
+    if (restoreFocus) triggerRef.current?.focus();
+  }, []);
+
+  const positionMenu = useCallback(() => {
+    const trigger = triggerRef.current;
+    if (!trigger) return;
+    const r = trigger.getBoundingClientRect();
+    const width = Math.max(
+      CONSTELLATION_MENU_MIN_WIDTH,
+      Math.min(CONSTELLATION_MENU_WIDTH, window.innerWidth - 16),
+    );
+    let left = r.left;
+    if (left + width > window.innerWidth - 8) left = Math.max(8, window.innerWidth - width - 8);
+    if (left < 8) left = 8;
+
+    const estimatedHeight = Math.min(280, 52 + Math.max(filtered.length, 1) * 44 + 8);
+    const spaceBelow = window.innerHeight - r.bottom - CONSTELLATION_MENU_GAP;
+    const spaceAbove = r.top - CONSTELLATION_MENU_GAP;
+    const openUpward = spaceBelow < Math.min(220, estimatedHeight) && spaceAbove > spaceBelow;
+
+    if (openUpward) {
+      setMenuPos({
+        bottom: window.innerHeight - r.top + CONSTELLATION_MENU_GAP,
+        left,
+        width,
+      });
+    } else {
+      setMenuPos({
+        top: r.bottom + CONSTELLATION_MENU_GAP,
+        left,
+        width,
+      });
+    }
+  }, [filtered.length]);
+
+  function openMenu() {
+    if (disabled) return;
+    positionMenu();
+    setOpen(true);
+    setFocusIndex(-1);
+  }
+
+  useEffect(() => {
+    if (forceClosed) closeMenu(false);
+  }, [forceClosed, closeMenu]);
+
+  useEffect(() => {
+    if (!open) return;
+    const frame = window.requestAnimationFrame(() => searchRef.current?.focus());
+    return () => window.cancelAnimationFrame(frame);
+  }, [open]);
+
+  useEffect(() => {
+    setFocusIndex(-1);
+  }, [searchQ]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    function onPointerDown(e: PointerEvent) {
+      const target = e.target as Node;
+      if (triggerRef.current?.contains(target)) return;
+      if (menuRef.current?.contains(target)) return;
+      closeMenu(false);
+    }
+
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        closeMenu(true);
+        return;
+      }
+      if (filtered.length === 0) return;
+
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setFocusIndex((prev) => {
+          const next = prev < filtered.length - 1 ? prev + 1 : 0;
+          optionRefs.current[next]?.focus();
+          return next;
+        });
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setFocusIndex((prev) => {
+          const next = prev <= 0 ? filtered.length - 1 : prev - 1;
+          optionRefs.current[next]?.focus();
+          return next;
+        });
+      } else if (e.key === "Home") {
+        e.preventDefault();
+        setFocusIndex(0);
+        optionRefs.current[0]?.focus();
+      } else if (e.key === "End") {
+        e.preventDefault();
+        const last = filtered.length - 1;
+        setFocusIndex(last);
+        optionRefs.current[last]?.focus();
+      } else if (e.key === "Enter" && focusIndex >= 0 && filtered[focusIndex]) {
+        e.preventDefault();
+        onChange(filtered[focusIndex].id);
+        closeMenu(true);
+      }
+    }
+
+    function onReposition() {
+      positionMenu();
+    }
+
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    window.addEventListener("resize", onReposition);
+    window.addEventListener("scroll", onReposition, true);
+
+    const resizeObserver = typeof ResizeObserver !== "undefined"
+      ? new ResizeObserver(() => onReposition())
+      : null;
+    if (triggerRef.current) resizeObserver?.observe(triggerRef.current);
+    const inspectorEl = triggerRef.current?.closest("aside");
+    if (inspectorEl) resizeObserver?.observe(inspectorEl);
+
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("resize", onReposition);
+      window.removeEventListener("scroll", onReposition, true);
+      resizeObserver?.disconnect();
+    };
+  }, [open, filtered, focusIndex, closeMenu, onChange, positionMenu]);
+
+  function selectConstellation(id: string) {
+    onChange(id);
+    closeMenu(true);
+  }
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={CONSTELLATION_MENU_ID}
+        disabled={disabled}
+        onClick={() => (open ? closeMenu(false) : openMenu())}
+        className="flex w-full min-w-0 max-w-full items-center gap-1.5 overflow-hidden luxia-type-body-dense-strong transition-opacity hover:opacity-75 disabled:cursor-default disabled:opacity-100 outline-none"
+        style={{ color: LX.primary }}
+      >
+        <ConstellationNameWithSource
+          label={constellation.label}
+          type={constellation.type}
+          className="min-w-0 flex-1"
+          labelClassName="luxia-type-body-dense-strong"
+        />
+        <ChevronDown size={11} className="flex-shrink-0" style={{ color: LX.textMuted }} />
+      </button>
+
+      {open && menuPos && ReactDOM.createPortal(
+        <div
+          ref={menuRef}
+          className="fixed z-[9999] rounded-[14px] overflow-hidden"
+          style={{
+            top: menuPos.top,
+            bottom: menuPos.bottom,
+            left: menuPos.left,
+            width: menuPos.width,
+            background: "white",
+            boxShadow: LX.shadow.lg,
+            border: `1px solid ${LX.border}`,
+          }}
+        >
+          <div
+            className="flex items-center gap-2 px-3 py-2.5"
+            style={{ borderBottom: `1px solid ${LX.borderSubtle}` }}
+          >
+            <Search size={12} style={{ color: LX.textMuted, flexShrink: 0 }} aria-hidden="true" />
+            <input
+              ref={searchRef}
+              value={searchQ}
+              onChange={(e) => setSearchQ(e.target.value)}
+              placeholder="Search constellations…"
+              aria-label="Search constellations"
+              aria-controls={CONSTELLATION_MENU_ID}
+              className="flex-1 outline-none luxia-type-body-dense bg-transparent"
+              style={{ color: LX.primary }}
+            />
+          </div>
+          <div
+            id={CONSTELLATION_MENU_ID}
+            role="listbox"
+            aria-label="Constellations"
+            className="py-1 max-h-[200px] overflow-y-auto"
+          >
+            {filtered.length === 0 ? (
+              <p className="px-4 py-3 luxia-type-metadata" style={{ color: LX.textMuted }}>No results</p>
+            ) : (
+              filtered.map((c, index) => {
+                const cs = CONSTELLATION_STYLE[c.type];
+                const selected = c.id === constellation.id;
+                const focused = index === focusIndex;
+                return (
+                  <button
+                    key={c.id}
+                    ref={(el) => { optionRefs.current[index] = el; }}
+                    type="button"
+                    role="option"
+                    aria-selected={selected}
+                    tabIndex={focused ? 0 : -1}
+                    onClick={() => selectConstellation(c.id)}
+                    onMouseEnter={() => setFocusIndex(index)}
+                    className="w-full flex items-center gap-2.5 px-3 py-2.5 transition-colors text-left outline-none"
+                    style={{ background: focused ? LX.subtle : "transparent" }}
+                  >
+                    <div
+                      className="w-5 h-5 rounded-[5px] flex items-center justify-center flex-shrink-0"
+                      style={{ background: cs.bg, border: `1px solid ${cs.border}` }}
+                    >
+                      {c.type === "database"
+                        ? <Database size={10} color={cs.color} />
+                        : <FileText size={10} color={cs.color} />}
+                    </div>
+                    <span
+                      className="flex-1 min-w-0 luxia-type-profile-secondary truncate"
+                      style={{ color: selected ? LX.accent : LX.primary }}
+                    >
+                      <ConstellationNameWithSource
+                        label={c.label}
+                        type={c.type}
+                        labelClassName="truncate"
+                      />
+                    </span>
+                    {selected ? <Check size={11} style={{ color: LX.accent, flexShrink: 0 }} /> : null}
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>,
+        document.body,
+      )}
+    </>
+  );
+}
+
 // ─── Constellation Sidebar ────────────────────────────────────
 function ConstellationSidebar({
   width,
@@ -2966,11 +3258,6 @@ function ConstellationSidebar({
   const [openSections, setOpenSections] = useState<Record<SectionId, boolean>>(
     Object.fromEntries(sectionIds.map((id, i) => [id, i < 2])) as Record<SectionId, boolean>
   );
-
-  // Constellation search dropdown
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [searchQ, setSearchQ] = useState("");
-  const searchRef = useRef<HTMLInputElement>(null);
 
   // Description expand
   const [descExpanded, setDescExpanded] = useState(false);
@@ -3039,16 +3326,6 @@ function ConstellationSidebar({
     }, 600);
   }
 
-  useEffect(() => {
-    if (searchOpen) searchRef.current?.focus();
-  }, [searchOpen]);
-
-  useEffect(() => {
-    const close = () => setSearchOpen(false);
-    window.addEventListener("click", close);
-    return () => window.removeEventListener("click", close);
-  }, []);
-
   function updateItems(sid: SectionId, next: string[]) {
     setItems(prev => ({ ...prev, [sid]: next }));
   }
@@ -3062,14 +3339,15 @@ function ConstellationSidebar({
     setDragSrc(null); setDragOver(null);
   }
 
-  const filtered = allConstellations.filter(
-    (c) => c.projectId === projectId && c.label.toLowerCase().includes(searchQ.toLowerCase()),
+  const projectConstellations = useMemo(
+    () => allConstellations.filter((c) => c.projectId === projectId),
+    [allConstellations, projectId],
   );
 
   if (collapsed) {
     return (
-      <aside className="flex flex-col items-center py-3 gap-2 flex-shrink-0"
-        style={{ width: 50, background: LX.subtle, borderLeft: `1px solid ${LX.border}` }}>
+      <aside className="flex h-full min-h-0 flex-shrink-0 flex-col items-center gap-2 overflow-hidden py-3"
+        style={{ width: INSPECTOR_COLLAPSED_WIDTH, background: LX.subtle, borderLeft: `1px solid ${LX.border}` }}>
         <button onClick={onCollapse}
           className="w-7 h-7 flex items-center justify-center rounded-[7px] transition-colors mb-1"
           style={{ border: `1px solid ${LX.border}`, background: "white" }}
@@ -3093,7 +3371,7 @@ function ConstellationSidebar({
   }
 
   return (
-    <aside className="relative flex flex-col flex-shrink-0"
+    <aside className="relative flex h-full min-h-0 flex-shrink-0 flex-col overflow-hidden"
       style={{ width, background: "#F6F9FC", borderLeft: `1px solid ${LX.border}` }}>
 
       {/* Resize handle */}
@@ -3102,15 +3380,14 @@ function ConstellationSidebar({
       </div>
 
       {/* Header — constellation selector + description preview */}
-      <div className="relative flex-shrink-0 overflow-hidden px-4 pt-4 pb-3.5" style={{ borderBottom: `1px solid ${LX.border}` }}>
+      <div className="relative flex-shrink-0 overflow-hidden px-4 pt-3 pb-2.5" style={{ borderBottom: `1px solid ${LX.border}` }}>
         <div className="flex min-w-0 items-center gap-2 overflow-hidden">
           <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-[6px]"
             style={{ background: "rgba(142,99,235,0.10)" }}>
             <Sparkles size={12} color={LX.secondary} />
           </div>
 
-          {/* Searchable selector / galaxy context — takes remaining width only */}
-          <div className="relative min-w-0 flex-1 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div className="relative min-w-0 flex-1 overflow-hidden">
             {isGalaxyChat ? (
               <div className="min-w-0 overflow-hidden">
                 <div className="flex min-w-0 items-center gap-1.5 luxia-type-body-dense-strong" style={{ color: LX.primary }}>
@@ -3122,67 +3399,13 @@ function ConstellationSidebar({
                 </p>
               </div>
             ) : (
-              <>
-            <button
-              type="button"
-              onClick={() => allowConstellationChange && setSearchOpen(!searchOpen)}
-              disabled={!allowConstellationChange}
-              className="flex w-full min-w-0 max-w-full items-center gap-1.5 overflow-hidden luxia-type-body-dense-strong transition-opacity hover:opacity-75 disabled:cursor-default disabled:opacity-100"
-              style={{ color: LX.primary }}
-            >
-              <ConstellationNameWithSource
-                label={constellation.label}
-                type={constellation.type}
-                className="min-w-0 flex-1"
-                labelClassName="luxia-type-body-dense-strong"
+              <ConstellationSelector
+                constellation={constellation}
+                options={projectConstellations}
+                onChange={onConstellationChange}
+                disabled={!allowConstellationChange}
+                forceClosed={collapsed}
               />
-              <ChevronDown size={11} className="flex-shrink-0" style={{ color: LX.textMuted }} />
-            </button>
-
-            {searchOpen && allowConstellationChange && (
-              <div className="absolute top-full left-0 mt-2 rounded-[14px] overflow-hidden z-30"
-                style={{ background: "white", boxShadow: LX.shadow.lg, border: `1px solid ${LX.border}`, width: 244 }}>
-                <div className="flex items-center gap-2 px-3 py-2.5" style={{ borderBottom: `1px solid ${LX.borderSubtle}` }}>
-                  <Search size={12} style={{ color: LX.textMuted, flexShrink: 0 }} />
-                  <input ref={searchRef} value={searchQ}
-                    onChange={(e) => setSearchQ(e.target.value)}
-                    placeholder="Search constellations…"
-                    className="flex-1 outline-none luxia-type-body-dense bg-transparent"
-                    style={{ color: LX.primary }} />
-                </div>
-                <div className="py-1 max-h-[200px] overflow-y-auto">
-                  {filtered.length === 0 ? (
-                    <p className="px-4 py-3 luxia-type-metadata" style={{ color: LX.textMuted }}>No results</p>
-                  ) : filtered.map((c) => {
-                    const cs = CONSTELLATION_STYLE[c.type];
-                    return (
-                      <button key={c.id}
-                        onClick={() => { onConstellationChange(c.id); setSearchOpen(false); setSearchQ(""); }}
-                        className="w-full flex items-center gap-2.5 px-3 py-2.5 transition-colors text-left"
-                        style={{ background: "transparent" }}
-                        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.subtle; }}
-                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
-                        <div className="w-5 h-5 rounded-[5px] flex items-center justify-center flex-shrink-0"
-                          style={{ background: cs.bg, border: `1px solid ${cs.border}` }}>
-                          {c.type === "database"
-                            ? <Database size={10} color={cs.color} />
-                            : <FileText size={10} color={cs.color} />}
-                        </div>
-                        <span className="flex-1 min-w-0 luxia-type-profile-secondary truncate" style={{ color: c.id === constellation.id ? LX.accent : LX.primary }}>
-                          <ConstellationNameWithSource
-                            label={c.label}
-                            type={c.type}
-                            labelClassName="truncate"
-                          />
-                        </span>
-                        {c.id === constellation.id && <Check size={11} style={{ color: LX.accent, flexShrink: 0 }} />}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-              </>
             )}
           </div>
 
@@ -3196,7 +3419,7 @@ function ConstellationSidebar({
         </div>
 
         {/* Description preview */}
-        <div className="mt-2.5 pl-[32px]">
+        <div className="mt-2 pl-[32px]">
           <p className="luxia-type-caption"
             style={{
               color: LX.textMuted,
@@ -3215,8 +3438,8 @@ function ConstellationSidebar({
         </div>
       </div>
 
-      {/* Sections */}
-      <div className="flex-1 overflow-y-auto py-3 px-3 space-y-2">
+      {/* Sections — independent scroll; min-h-0 keeps footer visible */}
+      <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-3 py-2.5 space-y-2">
         {sectionIds.map((sid) => {
           const meta = SECTION_META[sid];
           const Icon = meta.icon;
@@ -3379,8 +3602,8 @@ function ConstellationSidebar({
         })}
       </div>
 
-      {/* Footer */}
-      <div className="flex-shrink-0 px-4 py-4" style={{ borderTop: `1px solid ${LX.border}`, background: "white" }}>
+      {/* Footer — flex-shrink:0 sticky in column flow (not fixed overlay) */}
+      <div className="flex-shrink-0 px-4 py-3" style={{ borderTop: `1px solid ${LX.border}`, background: "white" }}>
         {constellationFeedback ? (
           <p className="mb-2 text-center luxia-type-caption" role="status"
             style={{ color: constellationFeedback.type === "error" ? LX.error : LX.success }}>
@@ -3477,19 +3700,61 @@ export default function App() {
   const [language, setLanguage] = useState("EN");
   const [assistantMode, setAssistantMode] = useState("Luxia");
   const [showNewChatModal, setShowNewChatModal] = useState(false);
-  const [sidebarWidth, setSidebarWidth] = useState(296);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [leftNavCollapsed, setLeftNavCollapsed] = useState(readLeftNavCollapsedPreference);
+  const [sidebarWidth, setSidebarWidth] = useState(INSPECTOR_WIDTH_DEFAULT);
+  const [sidebarCollapsedPreference, setSidebarCollapsedPreference] = useState(false);
+  const [leftNavCollapsedPreference, setLeftNavCollapsedPreference] = useState(readLeftNavCollapsedPreference);
+  /** Session-only expand while below narrow breakpoint — does not write to localStorage. */
+  const [leftNavExpandedDespiteNarrow, setLeftNavExpandedDespiteNarrow] = useState(false);
+  /** Session-only expand while below inspector narrow breakpoint. */
+  const [inspectorExpandedDespiteNarrow, setInspectorExpandedDespiteNarrow] = useState(false);
+  const [viewportWidth, setViewportWidth] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth : 1920
+  );
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const counterRef = useRef(200);
 
+  const isLeftNavNarrow = viewportWidth < LEFT_NAV_NARROW_BREAKPOINT;
+  const isInspectorNarrow = viewportWidth <= INSPECTOR_NARROW_BREAKPOINT;
+
+  const leftNavCollapsed = isLeftNavNarrow
+    ? !leftNavExpandedDespiteNarrow
+    : leftNavCollapsedPreference;
+
+  const sidebarCollapsed = isInspectorNarrow
+    ? !inspectorExpandedDespiteNarrow
+    : sidebarCollapsedPreference;
+
+  const leftNavWidth = leftNavCollapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_EXPANDED;
+  const clampedInspectorWidth = clampInspectorWidth(sidebarWidth, viewportWidth, leftNavWidth);
+
   useEffect(() => {
     try {
-      localStorage.setItem(LEFT_NAV_COLLAPSED_STORAGE_KEY, String(leftNavCollapsed));
+      localStorage.setItem(LEFT_NAV_COLLAPSED_STORAGE_KEY, String(leftNavCollapsedPreference));
     } catch {
       /* ignore storage errors */
     }
-  }, [leftNavCollapsed]);
+  }, [leftNavCollapsedPreference]);
+
+  useEffect(() => {
+    function onResize() {
+      setViewportWidth(window.innerWidth);
+    }
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  useEffect(() => {
+    if (!isLeftNavNarrow) setLeftNavExpandedDespiteNarrow(false);
+  }, [isLeftNavNarrow]);
+
+  useEffect(() => {
+    if (!isInspectorNarrow) setInspectorExpandedDespiteNarrow(false);
+  }, [isInspectorNarrow]);
+
+  useEffect(() => {
+    setSidebarWidth((prev) => clampInspectorWidth(prev, viewportWidth, leftNavWidth));
+  }, [viewportWidth, leftNavWidth]);
 
   const activeData = chats.find((c) => c.id === activeChat);
   const activeConstellation = resolveChatConstellation(activeData);
@@ -3499,11 +3764,35 @@ export default function App() {
 
   function handleSidebarResizeStart(e: React.MouseEvent) {
     e.preventDefault();
-    const startX = e.clientX, startW = sidebarWidth;
-    function onMove(ev: MouseEvent) { setSidebarWidth(Math.max(220, Math.min(560, startW + startX - ev.clientX))); }
-    function onUp() { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); }
+    const startX = e.clientX;
+    const startW = clampedInspectorWidth;
+    function onMove(ev: MouseEvent) {
+      const next = startW + startX - ev.clientX;
+      const navW = leftNavCollapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_EXPANDED;
+      setSidebarWidth(clampInspectorWidth(next, window.innerWidth, navW));
+    }
+    function onUp() {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    }
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
+  }
+
+  function handleLeftNavToggle() {
+    if (isLeftNavNarrow) {
+      setLeftNavExpandedDespiteNarrow((prev) => !prev);
+      return;
+    }
+    setLeftNavCollapsedPreference((prev) => !prev);
+  }
+
+  function handleInspectorCollapseToggle() {
+    if (isInspectorNarrow) {
+      setInspectorExpandedDespiteNarrow((prev) => !prev);
+      return;
+    }
+    setSidebarCollapsedPreference((prev) => !prev);
   }
 
   function handleNewChat() {
@@ -3557,13 +3846,13 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden" style={{ background: "#FAFDFF" }}>
+    <div className="flex h-dvh max-h-dvh overflow-hidden" style={{ background: "#FAFDFF" }}>
       <LeftNav
         collapsed={leftNavCollapsed}
-        onToggleCollapsed={() => setLeftNavCollapsed((prev) => !prev)}
+        onToggleCollapsed={handleLeftNavToggle}
       />
 
-      <div className="flex flex-col flex-1 overflow-hidden min-w-0">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <PageHeader
           chatLabel={activeData?.label ?? "Chat 1"}
           chat={activeData ?? INITIAL_CHATS[0]}
@@ -3579,10 +3868,10 @@ export default function App() {
           onRename={(id, label) => setChats(p => p.map(c => c.id === id ? { ...c, label } : c))}
         />
 
-        <div className="flex flex-1 overflow-hidden min-h-0">
-          {/* Chat */}
-          <div className="flex flex-col flex-1 overflow-hidden min-w-0">
-            <div className="flex-1 overflow-y-auto overflow-x-hidden min-w-0 px-10 py-6">
+        <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
+          {/* Chat — dominant flexible column */}
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden" style={{ minWidth: 0 }}>
+            <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-10 py-5">
               {messages.length === 0
                 ? <EmptyState onPrompt={handleSend} />
                 : <>
@@ -3592,7 +3881,7 @@ export default function App() {
                       ? <UserBubble key={msg.id} message={msg} />
                       : <AICard key={msg.id} message={msg} />
                   )}
-                  <div ref={messagesEndRef} />
+                  <div ref={messagesEndRef} className="h-2 flex-shrink-0" aria-hidden="true" />
                 </>}
             </div>
             <PromptComposer value={inputValue} onChange={setInputValue} onSend={() => handleSend()}
@@ -3604,10 +3893,10 @@ export default function App() {
           {/* Constellation Sidebar — keyed so it resets when constellation changes */}
           <ConstellationSidebar
             key={`${activeData?.id ?? "chat"}-${activeConstellation.id}`}
-            width={sidebarWidth}
+            width={clampedInspectorWidth}
             onResizeStart={handleSidebarResizeStart}
             collapsed={sidebarCollapsed}
-            onCollapse={() => setSidebarCollapsed((p) => !p)}
+            onCollapse={handleInspectorCollapseToggle}
             constellation={activeConstellation}
             allConstellations={CONSTELLATIONS}
             onConstellationChange={handleConstellationChange}
