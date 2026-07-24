@@ -1,9 +1,10 @@
 import { ChevronDown, FileText, Maximize2, Plus, Search, X } from "lucide-react";
+import { useRef, useState } from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/app/components/ui/tooltip";
 import { PDFFileMenu } from "./PDFFileMenu";
-import { PDFUploadZone, fileToPdfRecord } from "./PDFUploadZone";
 import { LX } from "./tokens";
 import type { PDFFileRecord } from "./types";
+import { PDF_MAX_BYTES, isPdfFile } from "./utils";
 
 const CARD = { background: "white", border: `1px solid ${LX.border}`, boxShadow: "0 1px 3px rgba(15,23,42,.05)", borderRadius: 12 };
 const BTN_ICON = "w-8 h-8 flex items-center justify-center rounded-[8px] transition-colors outline-none flex-shrink-0";
@@ -31,9 +32,27 @@ export function CompactPDFList({
     onRemove: (id: string) => void;
     onUpload: (file: File) => void;
 }) {
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [uploadError, setUploadError] = useState<string | null>(null);
+
     const visible = files.filter((f) => !f.markedForRemoval);
     const lowered = search.trim().toLowerCase();
     const filtered = visible.filter((f) => f.name.toLowerCase().includes(lowered));
+
+    function handlePickedFile(file: File | null) {
+        if (!file) return;
+        setUploadError(null);
+        if (!isPdfFile(file.name)) {
+            setUploadError("This file type is not supported.");
+            return;
+        }
+        if (file.size > PDF_MAX_BYTES) {
+            setUploadError("File must be 10 MB or smaller.");
+            return;
+        }
+        onUpload(file);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+    }
 
     return (
         <div style={CARD}>
@@ -95,16 +114,27 @@ export function CompactPDFList({
                         ))
                     )}
 
-                    <div className="mt-1.5">
-                        <PDFUploadZone compact onUpload={(file) => onUpload(file)} />
-                    </div>
-                    <button type="button" onClick={onOpenManager}
+                    {uploadError ? (
+                        <p className="px-2 py-1 luxia-type-caption" role="alert" style={{ color: LX.error }}>{uploadError}</p>
+                    ) : null}
+
+                    <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
                         className="mt-1 w-full flex items-center gap-1.5 px-2 py-1.5 rounded-[7px] luxia-type-caption transition-colors outline-none"
                         style={{ color: LX.textMuted }}
                         onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.borderSubtle; }}
-                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
+                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                    >
                         <Plus size={10} />Add files
                     </button>
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        className="hidden"
+                        accept=".pdf,application/pdf"
+                        onChange={(e) => handlePickedFile(e.target.files?.[0] ?? null)}
+                    />
                 </div>
             )}
         </div>

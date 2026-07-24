@@ -584,8 +584,7 @@ const SIDEBAR_BRAND_BOTTOM = 12;
 // Decorative background star — approved Figma scale/placement (expanded sidebar only).
 const SIDEBAR_STAR_WIDTH = 538.11;
 const SIDEBAR_STAR_HEIGHT = 674.69;
-const SIDEBAR_STAR_INTERSECTION_X = 170;
-const SIDEBAR_STAR_INTERSECTION_Y = 185;
+const SIDEBAR_STAR_INTERSECTION_X = 174;
 
 function LuxiaLogo() {
   return (
@@ -606,10 +605,10 @@ function SidebarStarDecoration() {
       className="pointer-events-none select-none absolute z-0"
       style={{
         left: SIDEBAR_STAR_INTERSECTION_X,
-        bottom: SIDEBAR_STAR_INTERSECTION_Y,
+        top: "81%",
         width: SIDEBAR_STAR_WIDTH,
         height: SIDEBAR_STAR_HEIGHT,
-        transform: "translate(-50%, 50%) rotate(10deg)",
+        transform: "translate(-50%, -50%) rotate(10deg)",
         transformOrigin: "center",
         opacity: 0.4,
       }}
