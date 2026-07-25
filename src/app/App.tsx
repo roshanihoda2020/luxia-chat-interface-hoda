@@ -39,7 +39,7 @@ import {
   type GalaxySessionState,
 } from "@/app/features/galaxy";
 import { LX } from "@/app/features/active-data-tables/tokens";
-import { IC, IC_BTN_ICON, icHoverOff, icHoverOn } from "@/app/features/active-data-tables/inspectorTheme";
+import { IC, IC_BTN_ICON, IC_BTN_OPEN, icHoverOff, icHoverOn, icOpenActiveOn } from "@/app/features/active-data-tables/inspectorTheme";
 import { Button } from "@/app/components/ui/button";
 import { Badge } from "@/app/components/ui/badge";
 import { Label } from "@/app/components/ui/label";
@@ -54,7 +54,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/app/components/ui/tooltip";
 import {
   ChevronDown, ChevronRight, ChevronLeft,
-  Plus, X, Pin, Copy, Bookmark, Maximize2,
+  Plus, X, Pin, Copy, Bookmark, SquareArrowOutUpRight,
   FileText, Database, Globe, BookOpen, FolderOpen, Cpu,
   Send, Mic, Eye, Upload, GripVertical,
   Trash2, Check, Edit3, BarChart3, Table2,
@@ -3022,15 +3022,17 @@ function KBSidebarSection({ entries, isOpen, onToggle, onExpand, onAdd, onView, 
         <span className="flex-1 luxia-type-title-component truncate" style={{ color: IC.textPrimary }}>Knowledge Base</span>
         <Tooltip>
           <TooltipTrigger asChild>
-            <button onClick={(e) => { e.stopPropagation(); onExpand(); }}
-              className={IC_BTN_ICON}
+            <button type="button" onClick={(e) => { e.stopPropagation(); onExpand(); }}
+              className={IC_BTN_OPEN}
               aria-label="Manage knowledge base"
               onMouseEnter={icHoverOn}
-              onMouseLeave={icHoverOff}>
-              <Maximize2 size={15} style={{ color: IC.textMuted }} />
+              onMouseLeave={icHoverOff}
+              onMouseDown={icOpenActiveOn}
+              onMouseUp={icHoverOn}>
+              <SquareArrowOutUpRight size={14} strokeWidth={2} style={{ color: IC.textMuted }} />
             </button>
           </TooltipTrigger>
-          <TooltipContent sideOffset={6}>Manage</TooltipContent>
+          <TooltipContent sideOffset={6}>Open expanded editor</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
@@ -3281,16 +3283,18 @@ function ConstellationSelector({
         aria-controls={CONSTELLATION_MENU_ID}
         disabled={disabled}
         onClick={() => (open ? closeMenu(false) : openMenu())}
-        className="flex w-full min-w-0 max-w-full items-center gap-1.5 overflow-hidden luxia-type-body-dense-strong transition-opacity hover:opacity-75 disabled:cursor-default disabled:opacity-100 outline-none"
+        className="inline-flex max-w-full min-w-0 items-center gap-2 overflow-hidden luxia-type-body-dense-strong transition-opacity hover:opacity-75 disabled:cursor-default disabled:opacity-100 outline-none"
         style={{ color: IC.textPrimary }}
       >
         <ConstellationNameWithSource
           label={constellation.label}
           type={constellation.type}
-          className="min-w-0 flex-1"
+          className="min-w-0"
           labelClassName="luxia-type-body-dense-strong"
         />
-        <ChevronDown size={11} className="flex-shrink-0" style={{ color: IC.textMuted }} />
+        <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center" aria-hidden>
+          <ChevronDown size={11} style={{ color: IC.textMuted }} />
+        </span>
       </button>
 
       {open && menuPos && ReactDOM.createPortal(
@@ -3653,7 +3657,7 @@ function ConstellationSidebar({
                 onClick={onCollapse}
                 aria-label="Collapse sidebar"
                 aria-expanded={true}
-                className="mt-px ml-1 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-[7px] outline-none focus-visible:outline-none"
+                className="ml-auto mt-px flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-[7px] outline-none focus-visible:outline-none"
                 style={{
                   background: "rgba(255, 255, 255, 0.05)",
                   color: IC.textMuted,
@@ -3825,11 +3829,14 @@ function ConstellationSidebar({
               <div className="flex items-center gap-1.5 px-[14px] py-3">
                 <FallbackIcon size={14} color={IC.iconAccent} className="flex-shrink-0" />
                 <span className="flex-1 luxia-type-title-component truncate" style={{ color: IC.textPrimary }}>{SECTION_META[fallbackSid].label}</span>
-                <button onClick={(e) => { e.stopPropagation(); setModalSection(fallbackSid); }} title="Open in workspace"
-                  className={IC_BTN_ICON}
+                <button type="button" onClick={(e) => { e.stopPropagation(); setModalSection(fallbackSid); }} title="Open expanded editor"
+                  className={IC_BTN_OPEN}
+                  aria-label="Open expanded editor"
                   onMouseEnter={icHoverOn}
-                  onMouseLeave={icHoverOff}>
-                  <Maximize2 size={15} style={{ color: IC.textMuted }} />
+                  onMouseLeave={icHoverOff}
+                  onMouseDown={icOpenActiveOn}
+                  onMouseUp={icHoverOn}>
+                  <SquareArrowOutUpRight size={14} strokeWidth={2} style={{ color: IC.textMuted }} />
                 </button>
                 <button onClick={() => setOpenSections(p => ({ ...p, [fallbackSid]: !p[fallbackSid] }))}
                   className={IC_BTN_ICON}

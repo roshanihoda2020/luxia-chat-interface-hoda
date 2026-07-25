@@ -623,7 +623,7 @@ export function GalaxyActivityPanel({
                 <button
                   type="button"
                   onClick={onCollapse}
-                  aria-label="Collapse Galaxy Intelligence"
+                  aria-label="Collapse sidebar"
                   aria-expanded={true}
                   className="mt-px flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-[7px] outline-none focus-visible:outline-none"
                   style={{
@@ -652,7 +652,7 @@ export function GalaxyActivityPanel({
                   <ChevronRight size={15} strokeWidth={2.2} aria-hidden />
                 </button>
               </TooltipTrigger>
-              <TooltipContent side="left">Collapse Galaxy Intelligence</TooltipContent>
+              <TooltipContent side="left">Collapse sidebar</TooltipContent>
             </Tooltip>
           ) : null}
         </header>

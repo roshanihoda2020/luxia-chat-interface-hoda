@@ -1,7 +1,7 @@
-import { ChevronDown, Globe, Maximize2, Plus } from "lucide-react";
+import { ChevronDown, Globe, Plus, SquareArrowOutUpRight } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/app/components/ui/tooltip";
 import { CrawlerMenu } from "./CrawlerMenu";
-import { IC, IC_BTN_ICON, IC_CARD, icHoverOff, icHoverOn } from "../active-data-tables/inspectorTheme";
+import { IC, IC_BTN_ICON, IC_BTN_OPEN, IC_CARD, icHoverOff, icHoverOn, icOpenActiveOn } from "../active-data-tables/inspectorTheme";
 import type { CrawlerEntry } from "./types";
 
 
@@ -31,13 +31,14 @@ export function CompactCrawlerList({
                 <span className="flex-1 truncate luxia-type-title-component" style={{ color: IC.textPrimary }}>Crawler URL Data</span>
                 <Tooltip>
                     <TooltipTrigger asChild>
-                        <button className={IC_BTN_ICON} aria-label="Manage crawler URLs"
+                        <button type="button" className={IC_BTN_OPEN} aria-label="Manage crawler URLs"
                             onClick={(e) => { e.stopPropagation(); onOpenManager(); }}
-                            onMouseEnter={icHoverOn} onMouseLeave={icHoverOff}>
-                            <Maximize2 size={15} style={{ color: IC.textMuted }} />
+                            onMouseEnter={icHoverOn} onMouseLeave={icHoverOff}
+                            onMouseDown={icOpenActiveOn} onMouseUp={icHoverOn}>
+                            <SquareArrowOutUpRight size={14} strokeWidth={2} style={{ color: IC.textMuted }} />
                         </button>
                     </TooltipTrigger>
-                    <TooltipContent sideOffset={6}>Manage</TooltipContent>
+                    <TooltipContent sideOffset={6}>Open expanded editor</TooltipContent>
                 </Tooltip>
                 <Tooltip>
                     <TooltipTrigger asChild>

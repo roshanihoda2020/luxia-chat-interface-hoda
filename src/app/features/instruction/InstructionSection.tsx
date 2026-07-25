@@ -1,7 +1,7 @@
-import { ChevronDown, Cpu, Maximize2 } from "lucide-react";
+import { ChevronDown, Cpu, SquareArrowOutUpRight } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/app/components/ui/tooltip";
-import { IC, IC_BTN_ICON, IC_CARD, icHoverOff, icHoverOn } from "@/app/features/active-data-tables/inspectorTheme";
+import { IC, IC_BTN_ICON, IC_BTN_OPEN, IC_CARD, icHoverOff, icHoverOn, icOpenActiveOn } from "@/app/features/active-data-tables/inspectorTheme";
 import { INSTRUCTION_MAX_CHARS } from "./constants";
 import { InstructionManager } from "./InstructionManager";
 import type { InstructionData } from "./types";
@@ -53,16 +53,18 @@ export function InstructionSection({
                         <TooltipTrigger asChild>
                             <button
                                 type="button"
-                                className={IC_BTN_ICON}
+                                className={IC_BTN_OPEN}
                                 aria-label="Manage instruction"
                                 onClick={(e) => { e.stopPropagation(); setManagerOpen(true); }}
                                 onMouseEnter={icHoverOn}
                                 onMouseLeave={icHoverOff}
+                                onMouseDown={icOpenActiveOn}
+                                onMouseUp={icHoverOn}
                             >
-                                <Maximize2 size={15} style={{ color: IC.textMuted }} />
+                                <SquareArrowOutUpRight size={14} strokeWidth={2} style={{ color: IC.textMuted }} />
                             </button>
                         </TooltipTrigger>
-                        <TooltipContent sideOffset={6}>Manage</TooltipContent>
+                        <TooltipContent sideOffset={6}>Open expanded editor</TooltipContent>
                     </Tooltip>
                     <Tooltip>
                         <TooltipTrigger asChild>

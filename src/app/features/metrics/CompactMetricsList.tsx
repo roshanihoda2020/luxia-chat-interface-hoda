@@ -1,6 +1,6 @@
-import { BarChart3, ChevronDown, Maximize2, Plus, Search, X } from "lucide-react";
+import { BarChart3, ChevronDown, Plus, Search, SquareArrowOutUpRight, X } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/app/components/ui/tooltip";
-import { IC, IC_BTN_ICON, IC_CARD, icHoverOff, icHoverOn } from "../active-data-tables/inspectorTheme";
+import { IC, IC_BTN_ICON, IC_BTN_OPEN, IC_CARD, icHoverOff, icHoverOn, icOpenActiveOn } from "../active-data-tables/inspectorTheme";
 import type { MetricRecord } from "./types";
 
 
@@ -30,13 +30,14 @@ export function CompactMetricsList({
                 <span className="flex-1 truncate luxia-type-title-component" style={{ color: IC.textPrimary }}>Metrics</span>
                 <Tooltip>
                     <TooltipTrigger asChild>
-                        <button className={IC_BTN_ICON} aria-label="Manage metrics"
+                        <button type="button" className={IC_BTN_OPEN} aria-label="Manage metrics"
                             onClick={(e) => { e.stopPropagation(); onOpenManager(); }}
-                            onMouseEnter={icHoverOn} onMouseLeave={icHoverOff}>
-                            <Maximize2 size={15} style={{ color: IC.textMuted }} />
+                            onMouseEnter={icHoverOn} onMouseLeave={icHoverOff}
+                            onMouseDown={icOpenActiveOn} onMouseUp={icHoverOn}>
+                            <SquareArrowOutUpRight size={14} strokeWidth={2} style={{ color: IC.textMuted }} />
                         </button>
                     </TooltipTrigger>
-                    <TooltipContent sideOffset={6}>Manage</TooltipContent>
+                    <TooltipContent sideOffset={6}>Open expanded editor</TooltipContent>
                 </Tooltip>
                 <Tooltip>
                     <TooltipTrigger asChild>

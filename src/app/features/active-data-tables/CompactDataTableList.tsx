@@ -1,6 +1,6 @@
-import { ChevronDown, Maximize2, Plus, Search, Table2, X } from "lucide-react";
+import { ChevronDown, Plus, Search, SquareArrowOutUpRight, Table2, X } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/app/components/ui/tooltip";
-import { IC, IC_BTN_ICON, IC_CARD, icHoverOff, icHoverOn } from "./inspectorTheme";
+import { IC, IC_BTN_ICON, IC_BTN_OPEN, IC_CARD, icHoverOff, icHoverOn, icOpenActiveOn } from "./inspectorTheme";
 import type { DataTableRecord } from "./types";
 import { TableRowMenu } from "./TableRowMenu";
 
@@ -37,13 +37,14 @@ export function CompactDataTableList({
                 <span className="flex-1 truncate luxia-type-title-component" style={{ color: IC.textPrimary }}>Active Data Tables</span>
                 <Tooltip>
                     <TooltipTrigger asChild>
-                        <button className={IC_BTN_ICON} aria-label="Open active data tables manager"
+                        <button type="button" className={IC_BTN_OPEN} aria-label="Open active data tables manager"
                             onClick={(e) => { e.stopPropagation(); onOpenManager(); }}
-                            onMouseEnter={icHoverOn} onMouseLeave={icHoverOff}>
-                            <Maximize2 size={15} style={{ color: IC.textMuted }} />
+                            onMouseEnter={icHoverOn} onMouseLeave={icHoverOff}
+                            onMouseDown={icOpenActiveOn} onMouseUp={icHoverOn}>
+                            <SquareArrowOutUpRight size={14} strokeWidth={2} style={{ color: IC.textMuted }} />
                         </button>
                     </TooltipTrigger>
-                    <TooltipContent sideOffset={6}>Manage</TooltipContent>
+                    <TooltipContent sideOffset={6}>Open expanded editor</TooltipContent>
                 </Tooltip>
                 <Tooltip>
                     <TooltipTrigger asChild>

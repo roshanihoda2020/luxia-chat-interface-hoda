@@ -51,10 +51,20 @@ export const IC_CARD: CSSProperties = {
 export const IC_BTN_ICON =
   "w-8 h-8 flex items-center justify-center rounded-[8px] transition-colors outline-none flex-shrink-0";
 
+/** Ghost control for “open expanded editor” — lighter than collapse chevron. */
+export const IC_BTN_OPEN =
+  "h-7 w-7 flex items-center justify-center rounded-full border-0 bg-transparent outline-none flex-shrink-0 cursor-pointer transition-[background-color] duration-150";
+
+export const IC_OPEN_ACTIVE = "rgba(255, 255, 255, 0.10)";
+
 export function icHoverOn(e: { currentTarget: EventTarget | null }) {
   (e.currentTarget as HTMLElement).style.background = IC.hover;
 }
 
 export function icHoverOff(e: { currentTarget: EventTarget | null }) {
   (e.currentTarget as HTMLElement).style.background = "transparent";
+}
+
+export function icOpenActiveOn(e: { currentTarget: EventTarget | null }) {
+  (e.currentTarget as HTMLElement).style.background = IC_OPEN_ACTIVE;
 }

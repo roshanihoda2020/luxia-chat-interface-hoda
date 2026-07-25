@@ -1,6 +1,6 @@
-import { ChevronDown, Eye, FolderOpen, Maximize2, Plus, Search, Trash2, X } from "lucide-react";
+import { ChevronDown, Eye, FolderOpen, Plus, Search, SquareArrowOutUpRight, Trash2, X } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/app/components/ui/tooltip";
-import { IC, IC_BTN_ICON, IC_CARD, icHoverOff, icHoverOn } from "../active-data-tables/inspectorTheme";
+import { IC, IC_BTN_ICON, IC_BTN_OPEN, IC_CARD, icHoverOff, icHoverOn, icOpenActiveOn } from "../active-data-tables/inspectorTheme";
 import { LX } from "./tokens";
 import type { ExtraContextFile } from "./types";
 
@@ -34,13 +34,14 @@ export function CompactContextFileList({
                 <span className="flex-1 truncate luxia-type-title-component" style={{ color: IC.textPrimary }}>Extra Context Files</span>
                 <Tooltip>
                     <TooltipTrigger asChild>
-                        <button className={IC_BTN_ICON} aria-label="Manage extra context files"
+                        <button type="button" className={IC_BTN_OPEN} aria-label="Manage extra context files"
                             onClick={(e) => { e.stopPropagation(); onOpenManager(); }}
-                            onMouseEnter={icHoverOn} onMouseLeave={icHoverOff}>
-                            <Maximize2 size={15} style={{ color: IC.textMuted }} />
+                            onMouseEnter={icHoverOn} onMouseLeave={icHoverOff}
+                            onMouseDown={icOpenActiveOn} onMouseUp={icHoverOn}>
+                            <SquareArrowOutUpRight size={14} strokeWidth={2} style={{ color: IC.textMuted }} />
                         </button>
                     </TooltipTrigger>
-                    <TooltipContent sideOffset={6}>Manage</TooltipContent>
+                    <TooltipContent sideOffset={6}>Open expanded editor</TooltipContent>
                 </Tooltip>
                 <Tooltip>
                     <TooltipTrigger asChild>

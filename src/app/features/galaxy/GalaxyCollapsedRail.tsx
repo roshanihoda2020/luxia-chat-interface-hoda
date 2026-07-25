@@ -44,7 +44,7 @@ export function GalaxyCollapsedRail({
           <button
             type="button"
             onClick={onExpand}
-            aria-label="Open Galaxy Intelligence"
+            aria-label="Expand sidebar"
             aria-expanded={false}
             className="relative flex min-h-0 flex-1 flex-col items-center overflow-hidden outline-none focus-visible:outline-none"
             style={{
@@ -100,7 +100,7 @@ export function GalaxyCollapsedRail({
             )}
           </button>
         </TooltipTrigger>
-        <TooltipContent side="left">Open Galaxy Intelligence</TooltipContent>
+        <TooltipContent side="left">Expand sidebar</TooltipContent>
       </Tooltip>
     </div>
   );
