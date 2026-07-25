@@ -16,11 +16,14 @@ export function InstructionManager({
     data,
     onCommit,
     onCancel,
+    showAttachment = true,
 }: {
     open: boolean;
     data: InstructionData;
     onCommit: (next: InstructionData) => void;
     onCancel: () => void;
+    /** When false, hides file attachment (e.g. Galaxy Instruction). Default true for PDF/DB. */
+    showAttachment?: boolean;
 }) {
     const [draft, setDraft] = useState<InstructionData>(data);
     const [discardOpen, setDiscardOpen] = useState(false);
@@ -96,11 +99,13 @@ export function InstructionManager({
 
                         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
                             <div className="space-y-4">
-                                <InstructionAttachment
-                                    attachment={draft.attachment}
-                                    onAttach={(attachment) => setDraft((current) => ({ ...current, attachment }))}
-                                    onRemove={() => setDraft((current) => ({ ...current, attachment: null }))}
-                                />
+                                {showAttachment ? (
+                                    <InstructionAttachment
+                                        attachment={draft.attachment}
+                                        onAttach={(attachment) => setDraft((current) => ({ ...current, attachment }))}
+                                        onRemove={() => setDraft((current) => ({ ...current, attachment: null }))}
+                                    />
+                                ) : null}
 
                                 <div className="relative">
                                     <Textarea

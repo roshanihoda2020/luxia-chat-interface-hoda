@@ -12,6 +12,7 @@ import {
   Route,
   Search,
   SlidersHorizontal,
+  SquareArrowOutUpRight,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -27,6 +28,9 @@ import {
   type GalaxySessionState,
 } from "./constants";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/app/components/ui/tooltip";
+import { IC_BTN_OPEN, IC, icHoverOff, icHoverOn, icOpenActiveOn } from "@/app/features/active-data-tables/inspectorTheme";
+import { InstructionManager } from "@/app/features/instruction/InstructionManager";
+import { INSTRUCTION_MAX_CHARS } from "@/app/features/instruction/constants";
 
 export type { GalaxyControlRouteOption };
 
@@ -371,6 +375,7 @@ export function GalaxyActivityPanel({
 }) {
   const [instruction, setInstruction] = useState(GALAXY_DEFAULT_INSTRUCTION);
   const [savedInstruction, setSavedInstruction] = useState(GALAXY_DEFAULT_INSTRUCTION);
+  const [instructionManagerOpen, setInstructionManagerOpen] = useState(false);
   const [savedDescription, setSavedDescription] = useState(GALAXY_DEFAULT_DESCRIPTION);
   const [draftDescription, setDraftDescription] = useState(GALAXY_DEFAULT_DESCRIPTION);
   const [editingDescription, setEditingDescription] = useState(false);
@@ -391,6 +396,10 @@ export function GalaxyActivityPanel({
   const descriptionTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   const dirty = instruction !== savedInstruction;
+  const instructionEditorData = useMemo(
+    () => ({ text: instruction, attachment: null as null }),
+    [instruction],
+  );
   const descriptionDirty = draftDescription !== savedDescription;
   const descriptionCanSave = draftDescription.trim().length > 0 && descriptionDirty;
   const isManualMode = session.routeMode === "manual";
@@ -523,6 +532,11 @@ export function GalaxyActivityPanel({
       setSavedInstruction(instruction);
       setSaving(false);
     }, 400);
+  }
+
+  function handleInstructionChange(value: string) {
+    if (value.length > INSTRUCTION_MAX_CHARS) return;
+    setInstruction(value);
   }
 
   const isManualFlow = session.selectionSource === "manual";
@@ -1572,7 +1586,7 @@ export function GalaxyActivityPanel({
               }}
             >
               <div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
                   <SlidersHorizontal
                     size={15}
                     strokeWidth={2}
@@ -1581,11 +1595,32 @@ export function GalaxyActivityPanel({
                     style={{ color: GC.instructionIcon }}
                   />
                   <h3
-                    className="luxia-type-body-dense-strong"
+                    className="min-w-0 flex-1 luxia-type-body-dense-strong"
                     style={{ color: GC.instructionTitle, fontWeight: 600, letterSpacing: "-0.01em" }}
                   >
                     Instruction
                   </h3>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        className={IC_BTN_OPEN}
+                        aria-label="Open full editor"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setInstructionManagerOpen(true);
+                        }}
+                        onMouseEnter={icHoverOn}
+                        onMouseLeave={icHoverOff}
+                        onMouseDown={icOpenActiveOn}
+                        onMouseUp={icHoverOn}
+                        data-galaxy-instruction-open="true"
+                      >
+                        <SquareArrowOutUpRight size={14} strokeWidth={2} style={{ color: IC.textMuted }} />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent sideOffset={6}>Open full editor</TooltipContent>
+                  </Tooltip>
                 </div>
                 <p
                   className="luxia-type-caption"
@@ -1597,7 +1632,7 @@ export function GalaxyActivityPanel({
 
               <textarea
                 value={instruction}
-                onChange={(e) => setInstruction(e.target.value)}
+                onChange={(e) => handleInstructionChange(e.target.value)}
                 onFocus={() => setFocused(true)}
                 onBlur={() => setFocused(false)}
                 onKeyDown={(e) => {
@@ -1674,6 +1709,14 @@ export function GalaxyActivityPanel({
           </section>
         </div>
       </aside>
+
+      <InstructionManager
+        open={instructionManagerOpen}
+        data={instructionEditorData}
+        showAttachment={false}
+        onCommit={(next) => handleInstructionChange(next.text)}
+        onCancel={() => setInstructionManagerOpen(false)}
+      />
     </div>
   );
 }

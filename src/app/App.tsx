@@ -44,13 +44,7 @@ import { Button } from "@/app/components/ui/button";
 import { Badge } from "@/app/components/ui/badge";
 import { Label } from "@/app/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/app/components/ui/radio-group";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/app/components/ui/select";
+import { SearchableSelect } from "@/app/components/ui/searchable-select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/app/components/ui/tooltip";
 import {
   ChevronDown, ChevronRight, ChevronLeft,
@@ -394,29 +388,26 @@ function ResponseInsightsContent({ insights }: { insights: ResponseInsights }) {
 
 // ─── Data ─────────────────────────────────────────────────────
 const PROJECTS: Project[] = [
-  { id: "proj1", label: "Project Name 1" },
-  { id: "proj2", label: "Financial Analytics" },
-  {
-    id: "proj3",
-    label: "Enterprise Multi-Region Credit Policy and Regulatory Compliance Workspace",
-  },
+  { id: "proj1", label: "Project 01" },
+  { id: "proj2", label: "Project 02" },
+  { id: "proj3", label: "Project 03" },
 ];
 
 const CONSTELLATIONS: Constellation[] = [
   {
-    id: "con1", label: "Customer Records", type: "database", projectId: "proj1",
+    id: "con1", label: "Constellation 01", type: "database", projectId: "proj1",
     description: "Connects structured data tables, relationship graphs, and metrics for analytical queries and reporting.",
   },
   {
-    id: "con2", label: "Financial Documents", type: "pdf", projectId: "proj1",
+    id: "con2", label: "Constellation 02", type: "pdf", projectId: "proj1",
     description: "Indexes PDF documents and crawled web pages for semantic search and content summarisation.",
   },
   {
-    id: "con3", label: "Operations Database", type: "database", projectId: "proj1",
+    id: "con3", label: "Constellation 03", type: "database", projectId: "proj1",
     description: "Operational database with real-time event streams, KPI dashboards, and usage analytics.",
   },
   {
-    id: "con4", label: "Quarterly Reports", type: "pdf", projectId: "proj2",
+    id: "con4", label: "Constellation 04", type: "pdf", projectId: "proj2",
     description: "Archived quarterly financial PDFs and supporting disclosure documents.",
   },
 ];
@@ -1068,6 +1059,25 @@ function NewChatModal({
     [projectId],
   );
 
+  const projectOptions = useMemo(
+    () => PROJECTS.map((project) => ({ value: project.id, label: project.label })),
+    [],
+  );
+
+  const constellationOptions = useMemo(
+    () => projectConstellations.map((constellation) => ({
+      value: constellation.id,
+      label: constellation.label,
+      content: (
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="truncate">{constellation.label}</span>
+          <ConstellationSourceBadge type={constellation.type} />
+        </span>
+      ),
+    })),
+    [projectConstellations],
+  );
+
   useEffect(() => {
     if (chatType !== "constellation") return;
     setConstellationId((current) => {
@@ -1091,7 +1101,9 @@ function NewChatModal({
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
+      if (e.key !== "Escape") return;
+      if (document.querySelector("[data-searchable-select-open='true']")) return;
+      onClose();
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
@@ -1159,18 +1171,15 @@ function NewChatModal({
             <Label htmlFor="create-chat-project" className="mb-2 block luxia-type-label-form" style={{ color: LX.primary }}>
               Project
             </Label>
-            <Select value={projectId} onValueChange={setProjectId}>
-              <SelectTrigger id="create-chat-project" className="w-full">
-                <SelectValue placeholder="Select a project" />
-              </SelectTrigger>
-              <SelectContent>
-                {PROJECTS.map((project) => (
-                  <SelectItem key={project.id} value={project.id}>
-                    {project.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              id="create-chat-project"
+              value={projectId}
+              onValueChange={setProjectId}
+              options={projectOptions}
+              placeholder="Search or select a project"
+              emptyText="No projects found"
+              noResultsText="No projects found"
+            />
             {chatType === "galaxy" ? (
               <p className="mt-2 luxia-type-metadata" style={{ color: LX.textMuted }}>
                 Galaxy automatically uses the available constellations inside the selected project.
@@ -1183,25 +1192,18 @@ function NewChatModal({
               <Label htmlFor="create-chat-constellation" className="mb-2 block luxia-type-label-form" style={{ color: LX.primary }}>
                 Constellation
               </Label>
-              <Select
+              <SearchableSelect
+                id="create-chat-constellation"
                 value={constellationId}
                 onValueChange={setConstellationId}
+                options={constellationOptions}
+                placeholder={projectConstellations.length === 0
+                  ? "No constellations available"
+                  : "Search or select a constellation"}
+                emptyText="No constellations available"
+                noResultsText="No constellations found"
                 disabled={projectConstellations.length === 0}
-              >
-                <SelectTrigger id="create-chat-constellation" className="w-full">
-                  <SelectValue placeholder={projectConstellations.length ? "Select a constellation" : "No constellations in this project"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {projectConstellations.map((constellation) => (
-                    <SelectItem key={constellation.id} value={constellation.id}>
-                      <span className="flex items-center gap-2 min-w-0">
-                        <span className="truncate">{constellation.label}</span>
-                        <ConstellationSourceBadge type={constellation.type} />
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              />
               {projectConstellations.length === 0 ? (
                 <p className="mt-2 luxia-type-metadata" style={{ color: LX.textMuted }}>
                   This project has no constellations yet.
