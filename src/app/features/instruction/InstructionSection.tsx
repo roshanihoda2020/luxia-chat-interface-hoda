@@ -54,7 +54,7 @@ export function InstructionSection({
                             <button
                                 type="button"
                                 className={IC_BTN_OPEN}
-                                aria-label="Manage instruction"
+                                aria-label="Open full editor"
                                 onClick={(e) => { e.stopPropagation(); setManagerOpen(true); }}
                                 onMouseEnter={icHoverOn}
                                 onMouseLeave={icHoverOff}
@@ -64,7 +64,7 @@ export function InstructionSection({
                                 <SquareArrowOutUpRight size={14} strokeWidth={2} style={{ color: IC.textMuted }} />
                             </button>
                         </TooltipTrigger>
-                        <TooltipContent sideOffset={6}>Open expanded editor</TooltipContent>
+                        <TooltipContent sideOffset={6}>Open full editor</TooltipContent>
                     </Tooltip>
                     <Tooltip>
                         <TooltipTrigger asChild>

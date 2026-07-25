@@ -21,7 +21,7 @@ export const IC = {
   hover: "rgba(255, 255, 255, 0.06)",
   selected: "rgba(142, 99, 235, 0.14)",
   focusRing: "0 0 0 2px rgba(142, 99, 235, 0.28)",
-  shellShadow: "0 16px 40px rgba(8, 5, 18, 0.28)",
+  shellShadow: "var(--luxia-galaxy-shell-shadow)",
   cardShadow: "0 2px 8px rgba(8, 5, 18, 0.14)",
   radiusShell: "var(--luxia-radius-24)",
   radiusCard: 14,

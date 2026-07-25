@@ -31,14 +31,14 @@ export function CompactCrawlerList({
                 <span className="flex-1 truncate luxia-type-title-component" style={{ color: IC.textPrimary }}>Crawler URL Data</span>
                 <Tooltip>
                     <TooltipTrigger asChild>
-                        <button type="button" className={IC_BTN_OPEN} aria-label="Manage crawler URLs"
+                        <button type="button" className={IC_BTN_OPEN} aria-label="Open full editor"
                             onClick={(e) => { e.stopPropagation(); onOpenManager(); }}
                             onMouseEnter={icHoverOn} onMouseLeave={icHoverOff}
                             onMouseDown={icOpenActiveOn} onMouseUp={icHoverOn}>
                             <SquareArrowOutUpRight size={14} strokeWidth={2} style={{ color: IC.textMuted }} />
                         </button>
                     </TooltipTrigger>
-                    <TooltipContent sideOffset={6}>Open expanded editor</TooltipContent>
+                    <TooltipContent sideOffset={6}>Open full editor</TooltipContent>
                 </Tooltip>
                 <Tooltip>
                     <TooltipTrigger asChild>

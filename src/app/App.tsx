@@ -3011,7 +3011,7 @@ function KBSidebarSection({ entries, isOpen, onToggle, onExpand, onAdd, onView, 
           <TooltipTrigger asChild>
             <button type="button" onClick={(e) => { e.stopPropagation(); onExpand(); }}
               className={IC_BTN_OPEN}
-              aria-label="Manage knowledge base"
+              aria-label="Open full editor"
               onMouseEnter={icHoverOn}
               onMouseLeave={icHoverOff}
               onMouseDown={icOpenActiveOn}
@@ -3019,7 +3019,7 @@ function KBSidebarSection({ entries, isOpen, onToggle, onExpand, onAdd, onView, 
               <SquareArrowOutUpRight size={14} strokeWidth={2} style={{ color: IC.textMuted }} />
             </button>
           </TooltipTrigger>
-          <TooltipContent sideOffset={6}>Open expanded editor</TooltipContent>
+          <TooltipContent sideOffset={6}>Open full editor</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
@@ -3810,9 +3810,9 @@ function ConstellationSidebar({
               <div className="flex items-center gap-1.5 px-[14px] py-3">
                 <FallbackIcon size={14} color={IC.iconAccent} className="flex-shrink-0" />
                 <span className="flex-1 luxia-type-title-component truncate" style={{ color: IC.textPrimary }}>{SECTION_META[fallbackSid].label}</span>
-                <button type="button" onClick={(e) => { e.stopPropagation(); setModalSection(fallbackSid); }} title="Open expanded editor"
+                <button type="button" onClick={(e) => { e.stopPropagation(); setModalSection(fallbackSid); }} title="Open full editor"
                   className={IC_BTN_OPEN}
-                  aria-label="Open expanded editor"
+                  aria-label="Open full editor"
                   onMouseEnter={icHoverOn}
                   onMouseLeave={icHoverOff}
                   onMouseDown={icOpenActiveOn}

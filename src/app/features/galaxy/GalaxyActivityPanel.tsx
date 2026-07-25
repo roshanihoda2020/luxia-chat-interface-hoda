@@ -94,7 +94,7 @@ const GC = {
   shell: "var(--luxia-galaxy-shell)",
   shellGradient: "var(--luxia-gradient-galaxy-panel)",
   shellBorder: "rgba(255, 255, 255, 0.06)",
-  shellShadow: "0 16px 40px rgba(8, 5, 18, 0.28)",
+  shellShadow: "var(--luxia-galaxy-shell-shadow)",
 
   header: "var(--luxia-galaxy-header)",
   headerDivider: "rgba(255, 255, 255, 0.07)",

@@ -361,11 +361,16 @@
   );
   --luxia-gradient-galaxy-panel: linear-gradient(
     180deg,
-    #1C1536 0%,
-    #14102A 50%,
-    #100C22 100%
+    #1E173A 0%,
+    #16122E 44%,
+    #131028 100%
   );
-  --luxia-galaxy-shell: #14102A;
+  --luxia-galaxy-shell: #16122E;
+  --luxia-galaxy-shell-shadow:
+    0 20px 48px rgba(8, 5, 18, 0.30),
+    0 8px 18px rgba(8, 5, 18, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    inset 0 0 28px rgba(6, 4, 14, 0.26);
   --luxia-galaxy-header: #1A1432;
 
   --luxia-galaxy-surface-quiet: #251A38;

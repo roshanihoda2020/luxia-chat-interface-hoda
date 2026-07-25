@@ -7,7 +7,7 @@ const RAIL = {
   shell: "var(--luxia-galaxy-shell)",
   shellGradient: "var(--luxia-gradient-galaxy-panel)",
   shellBorder: "rgba(255, 255, 255, 0.06)",
-  shellShadow: "0 16px 40px rgba(8, 5, 18, 0.28)",
+  shellShadow: "var(--luxia-galaxy-shell-shadow)",
   iconWell: "var(--luxia-galaxy-surface-raised)",
   active: "var(--luxia-purple-50)",
   icon: "rgba(255, 255, 255, 0.88)",

@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Inspector Capsule — Shared Material Variants A / B / C</title>
+  <style>
+    :root {
+      /* Existing Luxia shell family only — no new hues */
+      --shell-deep: #14102A;
+      --shell: #16122E;
+      --shell-soft: #181430;
+      --header: #1A1432;
+      --card: #252044;
+      --card-border: rgba(255, 255, 255, 0.08);
+      --shell-border: rgba(255, 255, 255, 0.06);
+      --text: #ffffff;
+      --text-secondary: rgba(255, 255, 255, 0.70);
+      --accent: #8E63EB;
+      --page: #f4f2f8;
+      --page-ink: #30214E;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Nunito", system-ui, -apple-system, sans-serif;
+      background: var(--page);
+      color: var(--page-ink);
+      min-height: 100vh;
+      padding: 28px 24px 48px;
+    }
+
+    .intro {
+      max-width: 1200px;
+      margin: 0 auto 24px;
+    }
+    .intro h1 {
+      margin: 0 0 6px;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    .intro p {
+      margin: 0;
+      font-size: 13px;
+      line-height: 1.5;
+      color: #64748B;
+      max-width: 78ch;
+    }
+    .intro .note {
+      margin-top: 10px;
+      font-size: 12px;
+      color: #697077;
+    }
+    .intro .scope {
+      margin-top: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #7652C4;
+    }
+
+    .grid {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 22px;
+      align-items: start;
+    }
+    @media (max-width: 980px) {
+      .grid { grid-template-columns: 1fr; max-width: 360px; }
+    }
+
+    .column {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .meta h2 {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 700;
+    }
+    .meta .tag {
+      display: inline-block;
+      margin-top: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #7652C4;
+    }
+    .meta p {
+      margin: 8px 0 0;
+      font-size: 12px;
+      line-height: 1.45;
+      color: #64748B;
+    }
+
+    /*
+      Shared structure — identical across variants.
+      Material depth is only on .capsule + ::before/::after layers.
+      Cards stay at current elevation.
+    */
+    .capsule {
+      position: relative;
+      width: 100%;
+      max-width: 320px;
+      height: 430px;
+      border-radius: 24px;
+      border: 1px solid var(--shell-border);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      isolation: isolate;
+    }
+
+    /* Deeper outer shell base */
+    .capsule-base {
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background: var(--shell-deep);
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    /* Softer inner material surface */
+    .capsule-material {
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background: var(--shell);
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    .capsule-content {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      min-height: 0;
+    }
+
+    .capsule-header {
+      flex-shrink: 0;
+      padding: 14px 16px 12px;
+      background: var(--header);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .title-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .icon {
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      background: rgba(142, 99, 235, 0.14);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .icon span {
+      width: 8px;
+      height: 8px;
+      border-radius: 2px;
+      background: var(--accent);
+    }
+    .capsule-header h3 {
+      margin: 0;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .capsule-header .desc {
+      margin: 8px 0 0 32px;
+      font-size: 11px;
+      line-height: 1.4;
+      color: var(--text-secondary);
+    }
+
+    .capsule-body {
+      flex: 1;
+      min-height: 0;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .card {
+      border-radius: 14px;
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      padding: 12px 14px;
+      box-shadow: 0 2px 8px rgba(8, 5, 18, 0.14);
+    }
+    .card .label {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text);
+      margin: 0 0 6px;
+    }
+    .card .line {
+      height: 8px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.08);
+      margin-bottom: 6px;
+    }
+    .card .line.short { width: 62%; }
+    .card .line.mid { width: 84%; }
+
+    .recipe {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 10px;
+      line-height: 1.5;
+      color: #475569;
+      background: #fff;
+      border: 1px solid #E2E8F0;
+      border-radius: 10px;
+      padding: 10px 12px;
+      white-space: pre-wrap;
+    }
+
+    /* ═══════════════════════════════════════════
+       Variant A — Soft Ambient Capsule
+       Gentle ambient light, soft depth, quiet vignette
+       ═══════════════════════════════════════════ */
+    .variant-a {
+      box-shadow:
+        0 18px 44px rgba(8, 5, 18, 0.26),
+        0 6px 14px rgba(8, 5, 18, 0.12);
+    }
+    .variant-a .capsule-material {
+      background:
+        radial-gradient(
+          120% 80% at 50% 38%,
+          rgba(255, 255, 255, 0.028) 0%,
+          rgba(255, 255, 255, 0) 55%
+        ),
+        var(--shell);
+      box-shadow:
+        inset 0 0 36px rgba(6, 4, 14, 0.20),
+        inset 0 0 18px rgba(6, 4, 14, 0.14),
+        inset 0 1px 0 rgba(255, 255, 255, 0.035);
+    }
+
+    /* ═══════════════════════════════════════════
+       Variant B — Sculpted Capsule
+       Stronger edge shaping / molded volume
+       ═══════════════════════════════════════════ */
+    .variant-b {
+      box-shadow:
+        0 20px 48px rgba(8, 5, 18, 0.28),
+        0 8px 16px rgba(8, 5, 18, 0.14);
+    }
+    .variant-b .capsule-material {
+      background:
+        radial-gradient(
+          110% 70% at 50% 32%,
+          rgba(255, 255, 255, 0.022) 0%,
+          rgba(255, 255, 255, 0) 50%
+        ),
+        var(--shell);
+      box-shadow:
+        inset 0 0 42px rgba(4, 2, 12, 0.32),
+        inset 0 0 16px rgba(4, 2, 12, 0.22),
+        inset 0 1px 0 rgba(255, 255, 255, 0.055),
+        inset 0 -20px 28px rgba(4, 2, 12, 0.16);
+    }
+
+    /* ═══════════════════════════════════════════
+       Variant C — Precision Enterprise
+       Almost invisible lighting; premium restraint
+       ═══════════════════════════════════════════ */
+    .variant-c {
+      box-shadow:
+        0 16px 40px rgba(8, 5, 18, 0.24),
+        0 4px 12px rgba(8, 5, 18, 0.10);
+    }
+    .variant-c .capsule-material {
+      background:
+        radial-gradient(
+          130% 90% at 50% 40%,
+          rgba(255, 255, 255, 0.016) 0%,
+          rgba(255, 255, 255, 0) 58%
+        ),
+        var(--shell);
+      box-shadow:
+        inset 0 0 28px rgba(6, 4, 14, 0.18),
+        inset 0 0 12px rgba(6, 4, 14, 0.10),
+        inset 0 1px 0 rgba(255, 255, 255, 0.028);
+    }
+  </style>
+</head>
+<body>
+  <div class="intro">
+    <h1>Shared Inspector Capsule — material variants</h1>
+    <p>
+      Live Galaxy / PDF / Database / Chat inspectors are unchanged.
+      These previews share one capsule structure; only layered surface rendering differs.
+      Cards keep current elevation so they rest inside the material rather than float.
+    </p>
+    <p class="scope">Applies to: Galaxy · PDF · Database · Chat inspectors (shared shell tokens)</p>
+    <p class="note">Compare side by side, then reply with A, B, or C to apply.</p>
+  </div>
+
+  <div class="grid">
+    <!-- A -->
+    <div class="column">
+      <div class="meta">
+        <h2>Variant A</h2>
+        <div class="tag">Soft Ambient Capsule</div>
+        <p>Subtle ambient lighting, gentle perimeter depth, quiet center lift. Softest molded read.</p>
+      </div>
+      <div class="capsule variant-a" aria-label="Variant A Soft Ambient Capsule">
+        <div class="capsule-base" aria-hidden="true"></div>
+        <div class="capsule-material" aria-hidden="true"></div>
+        <div class="capsule-content">
+          <div class="capsule-header">
+            <div class="title-row">
+              <div class="icon"><span></span></div>
+              <h3>Constellation 01</h3>
+            </div>
+            <p class="desc">Shared capsule preview — soft ambient material.</p>
+          </div>
+          <div class="capsule-body">
+            <div class="card"><p class="label">Instruction</p><div class="line mid"></div><div class="line short"></div></div>
+            <div class="card"><p class="label">Active Data Table</p><div class="line mid"></div><div class="line short"></div></div>
+            <div class="card"><p class="label">PDF Files</p><div class="line mid"></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="recipe">outer: #14102A
+inner: #16122E + whisper center lift
+inset: soft ambient 36 / 18
+top edge: 3.5%
+outer float: dual soft</div>
+    </div>
+
+    <!-- B -->
+    <div class="column">
+      <div class="meta">
+        <h2>Variant B</h2>
+        <div class="tag">Sculpted Capsule</div>
+        <p>Slightly stronger edge vignette and volume shaping. More carved, still restrained.</p>
+      </div>
+      <div class="capsule variant-b" aria-label="Variant B Sculpted Capsule">
+        <div class="capsule-base" aria-hidden="true"></div>
+        <div class="capsule-material" aria-hidden="true"></div>
+        <div class="capsule-content">
+          <div class="capsule-header">
+            <div class="title-row">
+              <div class="icon"><span></span></div>
+              <h3>Constellation 01</h3>
+            </div>
+            <p class="desc">Shared capsule preview — sculpted volume.</p>
+          </div>
+          <div class="capsule-body">
+            <div class="card"><p class="label">Instruction</p><div class="line mid"></div><div class="line short"></div></div>
+            <div class="card"><p class="label">Active Data Table</p><div class="line mid"></div><div class="line short"></div></div>
+            <div class="card"><p class="label">PDF Files</p><div class="line mid"></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="recipe">outer: #14102A
+inner: #16122E + soft center lift
+inset: stronger edge 42 / 16
+top + bottom falloff
+outer float: deeper dual</div>
+    </div>
+
+    <!-- C -->
+    <div class="column">
+      <div class="meta">
+        <h2>Variant C</h2>
+        <div class="tag">Precision Enterprise</div>
+        <p>Almost invisible lighting. Maximum refinement — depth felt more than seen.</p>
+      </div>
+      <div class="capsule variant-c" aria-label="Variant C Precision Enterprise">
+        <div class="capsule-base" aria-hidden="true"></div>
+        <div class="capsule-material" aria-hidden="true"></div>
+        <div class="capsule-content">
+          <div class="capsule-header">
+            <div class="title-row">
+              <div class="icon"><span></span></div>
+              <h3>Constellation 01</h3>
+            </div>
+            <p class="desc">Shared capsule preview — precision material.</p>
+          </div>
+          <div class="capsule-body">
+            <div class="card"><p class="label">Instruction</p><div class="line mid"></div><div class="line short"></div></div>
+            <div class="card"><p class="label">Active Data Table</p><div class="line mid"></div><div class="line short"></div></div>
+            <div class="card"><p class="label">PDF Files</p><div class="line mid"></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="recipe">outer: #14102A
+inner: #16122E + near-invisible lift
+inset: 28 / 12 only
+top edge: 2.8%
+outer float: quieter dual</div>
+    </div>
+  </div>
+</body>
+</html>
