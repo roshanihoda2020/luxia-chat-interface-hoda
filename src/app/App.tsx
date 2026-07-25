@@ -18,6 +18,26 @@ import { MetricsSection } from "@/app/features/metrics/MetricsSection";
 import { PDFFilesSection } from "@/app/features/pdf-files/PDFFilesSection";
 import { CrawlerSection } from "@/app/features/crawler/CrawlerSection";
 import { RelationshipSection } from "@/app/features/relationship/RelationshipSection";
+import {
+  GalaxyActivityPanel,
+  GalaxyCollapsedRail,
+  GalaxyEmptyState,
+  GalaxyProvenanceRow,
+  GalaxyRouteSelector,
+  GALAXY_COLLAPSED_WIDTH,
+  GALAXY_MOCK_ANSWER,
+  GALAXY_MOCK_CANDIDATES,
+  GALAXY_MOCK_CONSTELLATIONS_CHECKED,
+  GALAXY_MOCK_MATCHED,
+  GALAXY_MOCK_SOURCES,
+  GALAXY_PANEL_OUTER_GAP,
+  buildGalaxyRouteCatalog,
+  createIdleGalaxySession,
+  type GalaxyMatchedConstellation,
+  type GalaxyRoutingMeta,
+  type GalaxyRoutingPhase,
+  type GalaxySessionState,
+} from "@/app/features/galaxy";
 import { LX } from "@/app/features/active-data-tables/tokens";
 import { Button } from "@/app/components/ui/button";
 import { Badge } from "@/app/components/ui/badge";
@@ -212,6 +232,7 @@ type ResponseInsights = {
 interface Message {
   id: string; role: "user" | "ai"; content: string; timestamp: string;
   sources?: Source[]; insights?: ResponseInsights;
+  galaxy?: GalaxyRoutingMeta;
 }
 interface Chat {
   id: string;
@@ -370,6 +391,10 @@ function ResponseInsightsContent({ insights }: { insights: ResponseInsights }) {
 const PROJECTS: Project[] = [
   { id: "proj1", label: "Project Name 1" },
   { id: "proj2", label: "Financial Analytics" },
+  {
+    id: "proj3",
+    label: "Enterprise Multi-Region Credit Policy and Regulatory Compliance Workspace",
+  },
 ];
 
 const CONSTELLATIONS: Constellation[] = [
@@ -394,6 +419,7 @@ const CONSTELLATIONS: Constellation[] = [
 const INITIAL_CHATS: Chat[] = [
   { id: "c1", label: "Chat 1", chatType: "constellation", projectId: "proj1", constellationId: "con1" },
   { id: "c2", label: "Chat 2", chatType: "constellation", projectId: "proj1", constellationId: "con2" },
+  { id: "g1", label: "Galaxy Chat", chatType: "galaxy", projectId: "proj1" },
 ];
 
 const MESSAGES_C1: Message[] = [
@@ -501,6 +527,16 @@ const INSPECTOR_WIDTH_HARD_MAX = 360;
 const CHAT_MIN_USABLE_WIDTH = 480;
 const INSPECTOR_COLLAPSED_WIDTH = 50;
 
+/** Galaxy Activity panel — independent of Constellation inspector widths. */
+const GALAXY_WIDTH_DEFAULT = 360;
+const GALAXY_WIDTH_MIN = 340;
+const GALAXY_WIDTH_PREFERRED_LARGE = 380;
+const GALAXY_WIDTH_HARD_MAX = 420;
+const GALAXY_WIDTH_LARGE_BREAKPOINT = 1440;
+const GALAXY_OUTER_CHROME = GALAXY_PANEL_OUTER_GAP * 2;
+/** Below this width, Galaxy Intelligence defaults to the collapsed rail to keep chat usable. */
+const GALAXY_NARROW_BREAKPOINT = 1280;
+
 function readLeftNavCollapsedPreference(): boolean {
   try {
     return localStorage.getItem(LEFT_NAV_COLLAPSED_STORAGE_KEY) === "true";
@@ -517,6 +553,22 @@ function clampInspectorWidth(width: number, viewportWidth: number, leftNavWidth:
   const maxByViewportShare = Math.floor(viewportWidth * 0.26);
   const maxWidth = Math.min(INSPECTOR_WIDTH_HARD_MAX, maxByViewportShare, maxByChat);
   return Math.max(INSPECTOR_WIDTH_MIN, Math.min(maxWidth, width));
+}
+
+function preferredGalaxyWidth(viewportWidth: number) {
+  return viewportWidth >= GALAXY_WIDTH_LARGE_BREAKPOINT
+    ? GALAXY_WIDTH_PREFERRED_LARGE
+    : GALAXY_WIDTH_DEFAULT;
+}
+
+function clampGalaxyWidth(width: number, viewportWidth: number, leftNavWidth: number) {
+  const maxByChat = Math.max(
+    GALAXY_WIDTH_MIN,
+    viewportWidth - leftNavWidth - CHAT_MIN_USABLE_WIDTH - GALAXY_OUTER_CHROME,
+  );
+  const maxByViewportShare = Math.floor(viewportWidth * 0.31);
+  const maxWidth = Math.min(GALAXY_WIDTH_HARD_MAX, maxByViewportShare, maxByChat);
+  return Math.max(GALAXY_WIDTH_MIN, Math.min(maxWidth, width));
 }
 
 // ─── Nav Item ─────────────────────────────────────────────────
@@ -810,20 +862,32 @@ function ChatTabBar({ chats, activeId, onSelect, onNew, onClose, onPin, onRename
           : null;
         const style = con ? CONSTELLATION_STYLE[con.type] : null;
 
+        const isGalaxyTab = chat.chatType === "galaxy";
+        const galaxyProject = isGalaxyTab
+          ? (PROJECTS.find((p) => p.id === chat.projectId)?.label ?? "Project")
+          : null;
+        const tabLabel = isGalaxyTab ? galaxyProject! : chat.label;
+
         return (
           <div key={chat.id} className="relative flex-shrink-0 group"
             onContextMenu={(e) => { e.preventDefault(); setMenu({ id: chat.id, x: e.clientX, y: e.clientY }); }}>
             <button onClick={() => onSelect(chat.id)}
               className="flex items-center gap-2 px-3.5 h-[36px] rounded-[10px] luxia-type-body-dense transition-all"
               style={{
-                background: style ? (isActive ? style.activeBg : style.bg) : (isActive ? LX.subtle : "transparent"),
-                border: `1px solid ${style ? (isActive ? style.activeBorder : style.border) : (isActive ? LX.borderStrong : LX.border)}`,
+                background: isGalaxyTab
+                  ? (isActive ? "rgba(48,33,78,0.05)" : "transparent")
+                  : style ? (isActive ? style.activeBg : style.bg) : (isActive ? LX.subtle : "transparent"),
+                border: `1px solid ${
+                  isGalaxyTab
+                    ? (isActive ? LX.borderStrong : LX.border)
+                    : style ? (isActive ? style.activeBorder : style.border) : (isActive ? LX.borderStrong : LX.border)
+                }`,
                 color: isActive ? LX.primary : LX.muted,
                 fontWeight: isActive ? 800 : 600,
                 boxShadow: isActive ? LX.shadow.sm : "none",
               }}>
-              {chat.pinned && <Pin size={10} style={{ color: style?.color ?? LX.accent }} />}
-              {chat.chatType === "galaxy" && <Network size={11} style={{ color: LX.secondary, flexShrink: 0 }} />}
+              {chat.pinned && <Pin size={10} style={{ color: isGalaxyTab ? LX.secondary : (style?.color ?? LX.accent) }} />}
+              {isGalaxyTab && <Network size={11} style={{ color: LX.secondary, flexShrink: 0 }} />}
               {renaming === chat.id ? (
                 <input ref={renameRef} value={renameVal}
                   onChange={(e) => setRenameVal(e.target.value)}
@@ -836,7 +900,7 @@ function ChatTabBar({ chats, activeId, onSelect, onNew, onClose, onPin, onRename
                   style={{ color: LX.primary }} onClick={(e) => e.stopPropagation()} />
               ) : (
                 <span className="flex items-center gap-[6px] min-w-0 items-baseline">
-                  <span className="truncate select-none" style={{ maxWidth: 110 }}>{chat.label}</span>
+                  <span className="truncate select-none" style={{ maxWidth: 140 }} title={tabLabel}>{tabLabel}</span>
                   {con ? (
                     <span
                       className="luxia-type-overline-data shrink-0"
@@ -1458,11 +1522,20 @@ function PageHeader({ chatLabel, chat, onRenameChat, onDeleteChat }: {
     { label: "Delete chat", icon: Trash2, action: () => act("delete"), destructive: true, divider: true },
   ];
 
+  const isGalaxy = chat.chatType === "galaxy";
+  const headerTitle = isGalaxy ? "Galaxy Chat" : chatLabel;
+
   return (
-    <div className="flex-shrink-0 flex items-start justify-between gap-6 px-10 pt-4 pb-2">
+    <div
+      className="flex-shrink-0 flex items-start justify-between gap-6 px-10 pt-4 pb-2"
+      style={isGalaxy ? {
+        background: "#FAFAFC",
+        borderBottom: "1px solid #E8EAF2",
+      } : undefined}
+    >
       <div className="min-w-0 flex-1">
-        <h1 className="luxia-type-title-page truncate mb-1" style={{ color: LX.primary }}>
-          {chatLabel}
+        <h1 className="mb-1 min-w-0 truncate luxia-type-title-page" style={{ color: LX.primary }}>
+          {headerTitle}
         </h1>
         <nav className="flex items-center gap-1.5 flex-wrap" aria-label="Breadcrumb">
           {crumbs.map((crumb, i) => {
@@ -1596,9 +1669,20 @@ function SourceFooter({
 }
 
 // ─── AI Card ──────────────────────────────────────────────────
-function AICard({ message }: { message: Message }) {
+function AICard({
+  message,
+  onOpenGalaxyConstellation,
+  onViewGalaxyActivity,
+}: {
+  message: Message;
+  onOpenGalaxyConstellation?: () => void;
+  onViewGalaxyActivity?: () => void;
+}) {
   const [hover, setHover] = useState(false);
   const insights = getResponseInsights(message.content, message.insights);
+  const galaxy = message.galaxy;
+  const showAnswerBody = !galaxy || galaxy.phase === "answering" || galaxy.phase === "complete";
+  const showStandardFooter = !galaxy && (message.sources || insights);
 
   return (
     <div className="flex gap-3 mb-7 min-w-0 max-w-full" onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
@@ -1613,8 +1697,20 @@ function AICard({ message }: { message: Message }) {
         </div>
         <div className="px-5 py-4 rounded-[16px] min-w-0 overflow-hidden"
           style={{ background: "white", border: "1px solid #EAF0F6", boxShadow: "0 6px 18px rgba(15,23,42,0.08)" }}>
-          <div className="luxia-chat-text" style={{ color: LX.primary }}>{renderContent(message.content)}</div>
-          {(message.sources || insights) ? (
+          {galaxy && galaxy.phase !== "complete" ? (
+            <GalaxyProvenanceRow meta={galaxy} />
+          ) : null}
+          {showAnswerBody && message.content ? (
+            <div className="luxia-chat-text" style={{ color: LX.primary }}>{renderContent(message.content)}</div>
+          ) : null}
+          {galaxy && galaxy.phase === "complete" ? (
+            <GalaxyProvenanceRow
+              meta={galaxy}
+              onViewActivity={onViewGalaxyActivity}
+              onOpenConstellation={onOpenGalaxyConstellation}
+            />
+          ) : null}
+          {showStandardFooter ? (
             <SourceFooter
               sources={message.sources}
               insights={insights ?? undefined}
@@ -1859,14 +1955,38 @@ function ResponseTypeDropdown({ constellationType }: { constellationType: Conste
 const COMPOSER_INPUT_MIN_HEIGHT = 20;
 const COMPOSER_INPUT_MAX_HEIGHT = 40;
 
-function PromptComposer({ value, onChange, onSend, language, onLanguageChange, constellationType, assistantMode, onModeChange }: {
+function PromptComposer({
+  value,
+  onChange,
+  onSend,
+  language,
+  onLanguageChange,
+  constellationType,
+  assistantMode,
+  onModeChange,
+  focusKey,
+  chatType,
+  galaxyRoute,
+}: {
   value: string; onChange: (v: string) => void; onSend: () => void;
   language: string; onLanguageChange: (c: string) => void;
   constellationType: ConstellationType;
   assistantMode: string; onModeChange: (m: string) => void;
+  focusKey?: string;
+  chatType: ChatScope;
+  galaxyRoute?: {
+    routeMode: "auto" | "manual";
+    pendingManual: GalaxyMatchedConstellation | null;
+    options: Array<{ id: string; label: string; type: "PDF" | "DB" }>;
+    onSelectAuto: () => void;
+    onSelectManual: (option: { id: string; label: string; type: "PDF" | "DB" }) => void;
+    onClearManual: () => void;
+  };
 }) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const hasText = value.trim().length > 0;
+  const isConstellationChat = chatType === "constellation";
+  const isGalaxyChat = chatType === "galaxy";
 
   useEffect(() => {
     const el = ref.current;
@@ -1881,15 +2001,29 @@ function PromptComposer({ value, onChange, onSend, language, onLanguageChange, c
     el.style.overflowY = contentHeight > COMPOSER_INPUT_MAX_HEIGHT ? "auto" : "hidden";
   }, [value]);
 
+  useEffect(() => {
+    if (!focusKey) return;
+    const frame = window.requestAnimationFrame(() => ref.current?.focus());
+    return () => window.cancelAnimationFrame(frame);
+  }, [focusKey]);
+
   return (
-    <div className="flex-shrink-0 min-w-0 max-w-full w-full px-8 pb-5 pt-2">
-      {/* Main input row */}
+    <div
+      className="flex-shrink-0 min-w-0 max-w-full w-full px-8 pb-5 pt-2"
+      style={isGalaxyChat ? {
+        background: "linear-gradient(180deg, transparent 0%, rgba(15,23,42,0.02) 100%)",
+      } : undefined}
+    >
       <div className="flex items-center gap-5 min-w-0 max-w-full">
-        {/* Language selector — left of input */}
         <LanguageSelector lang={language} onChange={onLanguageChange} />
 
-        {/* Input surface — focus ring owned by .luxia-chat-composer:focus-within */}
-        <div className="luxia-chat-composer">
+        <div
+          className="luxia-chat-composer"
+          style={isGalaxyChat ? {
+            borderColor: "#E8EAF2",
+            background: "#FFFFFF",
+          } : undefined}
+        >
           <div className="luxia-chat-composer__text-safe">
             <textarea
               ref={ref}
@@ -1902,12 +2036,13 @@ function PromptComposer({ value, onChange, onSend, language, onLanguageChange, c
               aria-label="Message"
             />
           </div>
-          <div className="luxia-chat-composer__mode">
-            <AssistantModeDropdown mode={assistantMode} onChange={onModeChange} />
-          </div>
+          {isConstellationChat ? (
+            <div className="luxia-chat-composer__mode">
+              <AssistantModeDropdown mode={assistantMode} onChange={onModeChange} />
+            </div>
+          ) : null}
         </div>
 
-        {/* Voice button */}
         <button
           type="button"
           className="flex-shrink-0 w-[46px] h-[46px] flex items-center justify-center rounded-full transition-all hover:opacity-85 outline-none"
@@ -1920,7 +2055,6 @@ function PromptComposer({ value, onChange, onSend, language, onLanguageChange, c
           <Mic size={18} color="white" />
         </button>
 
-        {/* Send button */}
         <button
           type="button"
           onClick={onSend}
@@ -1936,10 +2070,22 @@ function PromptComposer({ value, onChange, onSend, language, onLanguageChange, c
         </button>
       </div>
 
-      {/* Below-input row: response type */}
-      <div className="mt-2 min-w-0 max-w-full" style={{ paddingLeft: "calc(2.25rem + 20px + 28px)" }}>
-        <ResponseTypeDropdown constellationType={constellationType} />
-      </div>
+      {isConstellationChat ? (
+        <div className="mt-2 min-w-0 max-w-full" style={{ paddingLeft: "calc(2.25rem + 20px + 28px)" }}>
+          <ResponseTypeDropdown constellationType={constellationType} />
+        </div>
+      ) : null}
+
+      {isGalaxyChat && galaxyRoute ? (
+        <GalaxyRouteSelector
+          routeMode={galaxyRoute.routeMode}
+          pendingManual={galaxyRoute.pendingManual}
+          options={galaxyRoute.options}
+          onSelectAuto={galaxyRoute.onSelectAuto}
+          onSelectManual={galaxyRoute.onSelectManual}
+          onClearManual={galaxyRoute.onClearManual}
+        />
+      ) : null}
     </div>
   );
 }
@@ -3699,7 +3845,18 @@ export default function App() {
   const [language, setLanguage] = useState("EN");
   const [assistantMode, setAssistantMode] = useState("Luxia");
   const [showNewChatModal, setShowNewChatModal] = useState(false);
+  const [galaxySessions, setGalaxySessions] = useState<Record<string, GalaxySessionState>>(() => ({
+    g1: createIdleGalaxySession("Project Name 1"),
+  }));
   const [sidebarWidth, setSidebarWidth] = useState(INSPECTOR_WIDTH_DEFAULT);
+  const [galaxyPanelWidth, setGalaxyPanelWidth] = useState(() =>
+    typeof window !== "undefined" ? preferredGalaxyWidth(window.innerWidth) : GALAXY_WIDTH_DEFAULT,
+  );
+  const [galaxyPanelCollapsed, setGalaxyPanelCollapsed] = useState(false);
+  const [galaxyPanelContentOpaque, setGalaxyPanelContentOpaque] = useState(true);
+  const [galaxyExpandedDespiteNarrow, setGalaxyExpandedDespiteNarrow] = useState(false);
+  const galaxyManualCollapseRef = useRef(false);
+  const galaxyExpandSignalSeenRef = useRef(0);
   const [sidebarCollapsedPreference, setSidebarCollapsedPreference] = useState(false);
   const [leftNavCollapsedPreference, setLeftNavCollapsedPreference] = useState(readLeftNavCollapsedPreference);
   /** Session-only expand while below narrow breakpoint — does not write to localStorage. */
@@ -3725,6 +3882,14 @@ export default function App() {
 
   const leftNavWidth = leftNavCollapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_EXPANDED;
   const clampedInspectorWidth = clampInspectorWidth(sidebarWidth, viewportWidth, leftNavWidth);
+  const clampedGalaxyWidth = clampGalaxyWidth(galaxyPanelWidth, viewportWidth, leftNavWidth);
+  const isGalaxyNarrow = viewportWidth <= GALAXY_NARROW_BREAKPOINT;
+  const renderedGalaxyCollapsed = isGalaxyNarrow
+    ? !galaxyExpandedDespiteNarrow
+    : galaxyPanelCollapsed;
+  const renderedGalaxyOuterWidth = renderedGalaxyCollapsed
+    ? GALAXY_COLLAPSED_WIDTH + GALAXY_OUTER_CHROME
+    : clampedGalaxyWidth + GALAXY_OUTER_CHROME;
 
   useEffect(() => {
     try {
@@ -3752,7 +3917,12 @@ export default function App() {
   }, [isInspectorNarrow]);
 
   useEffect(() => {
+    if (!isGalaxyNarrow) setGalaxyExpandedDespiteNarrow(false);
+  }, [isGalaxyNarrow]);
+
+  useEffect(() => {
     setSidebarWidth((prev) => clampInspectorWidth(prev, viewportWidth, leftNavWidth));
+    setGalaxyPanelWidth((prev) => clampGalaxyWidth(prev, viewportWidth, leftNavWidth));
   }, [viewportWidth, leftNavWidth]);
 
   const activeData = chats.find((c) => c.id === activeChat);
@@ -3778,6 +3948,54 @@ export default function App() {
     window.addEventListener("mouseup", onUp);
   }
 
+  function handleGalaxyResizeStart(e: React.MouseEvent) {
+    e.preventDefault();
+    if (renderedGalaxyCollapsed) return;
+    const startX = e.clientX;
+    const startW = clampedGalaxyWidth;
+    function onMove(ev: MouseEvent) {
+      const next = startW + startX - ev.clientX;
+      const navW = leftNavCollapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_EXPANDED;
+      setGalaxyPanelWidth(clampGalaxyWidth(next, window.innerWidth, navW));
+    }
+    function onUp() {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    }
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  }
+
+  function expandGalaxyIntelligencePanel(options?: { force?: boolean }) {
+    const force = options?.force === true;
+    if (force) galaxyManualCollapseRef.current = false;
+    if (!force && galaxyManualCollapseRef.current) return;
+
+    const wasCollapsed = isGalaxyNarrow
+      ? !galaxyExpandedDespiteNarrow
+      : galaxyPanelCollapsed;
+
+    setGalaxyPanelCollapsed(false);
+    if (isGalaxyNarrow) setGalaxyExpandedDespiteNarrow(true);
+
+    if (wasCollapsed) {
+      setGalaxyPanelContentOpaque(false);
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => setGalaxyPanelContentOpaque(true));
+      });
+    } else {
+      setGalaxyPanelContentOpaque(true);
+    }
+  }
+
+  function collapseGalaxyIntelligencePanel() {
+    galaxyManualCollapseRef.current = true;
+    setGalaxyPanelContentOpaque(false);
+    if (isGalaxyNarrow) setGalaxyExpandedDespiteNarrow(false);
+    setGalaxyPanelCollapsed(true);
+    window.setTimeout(() => setGalaxyPanelContentOpaque(true), 180);
+  }
+
   function handleLeftNavToggle() {
     if (isLeftNavNarrow) {
       setLeftNavExpandedDespiteNarrow((prev) => !prev);
@@ -3801,14 +4019,21 @@ export default function App() {
   function handleNewChatCreate(payload: NewChatPayload) {
     const id = `c${Date.now()}`;
     const n = chats.length + 1;
+    const galaxyCount = chats.filter((c) => c.chatType === "galaxy").length;
+    const projectName = PROJECTS.find((p) => p.id === payload.projectId)?.label ?? "Project";
     setChats((p) => [...p, {
       id,
-      label: `Chat ${n}`,
+      label: payload.chatType === "galaxy"
+        ? (galaxyCount === 0 ? "Galaxy Chat" : `Galaxy Chat ${galaxyCount + 1}`)
+        : `Chat ${n}`,
       chatType: payload.chatType,
       projectId: payload.projectId,
       constellationId: payload.constellationId,
     }]);
     setChatMessages((p) => ({ ...p, [id]: [] }));
+    if (payload.chatType === "galaxy") {
+      setGalaxySessions((p) => ({ ...p, [id]: createIdleGalaxySession(projectName) }));
+    }
     setActiveChat(id);
     setShowNewChatModal(false);
   }
@@ -3816,6 +4041,11 @@ export default function App() {
   function handleCloseChat(id: string) {
     if (chats.length <= 1) return;
     setChats(p => p.filter(c => c.id !== id));
+    setGalaxySessions((p) => {
+      const next = { ...p };
+      delete next[id];
+      return next;
+    });
     if (activeChat === id) setActiveChat(chats.filter(c => c.id !== id).at(-1)!.id);
   }
 
@@ -3825,27 +4055,300 @@ export default function App() {
     setChats((p) => p.map((c) => c.id === activeChat ? { ...c, constellationId: conId } : c));
   }
 
+  function updateGalaxySession(chatId: string, patch: Partial<GalaxySessionState>) {
+    setGalaxySessions((prev) => {
+      const current = prev[chatId] ?? createIdleGalaxySession(
+        PROJECTS.find((p) => p.id === chats.find((c) => c.id === chatId)?.projectId)?.label ?? "Project",
+      );
+      return { ...prev, [chatId]: { ...current, ...patch } };
+    });
+  }
+
+  function patchGalaxyMessage(chatId: string, messageId: string, patch: Partial<Message>) {
+    setChatMessages((prev) => ({
+      ...prev,
+      [chatId]: (prev[chatId] ?? []).map((msg) =>
+        msg.id === messageId
+          ? {
+              ...msg,
+              ...patch,
+              galaxy: patch.galaxy
+                ? { ...(msg.galaxy as GalaxyRoutingMeta), ...patch.galaxy }
+                : msg.galaxy,
+            }
+          : msg,
+      ),
+    }));
+  }
+
   function handleSend(text?: string) {
     const content = (text ?? inputValue).trim();
     if (!content) return;
     setInputValue("");
     const now = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
     const uid = `u${counterRef.current++}`, aid = `a${counterRef.current++}`;
-    setChatMessages(p => ({
+    const chatId = activeChat;
+    const active = chats.find((c) => c.id === chatId);
+    const isGalaxy = active?.chatType === "galaxy";
+    const projectName = PROJECTS.find((p) => p.id === active?.projectId)?.label ?? "Project";
+
+    if (!isGalaxy) {
+      setChatMessages(p => ({
+        ...p,
+        [chatId]: [...(p[chatId] ?? []),
+        { id: uid, role: "user", content, timestamp: now },
+        {
+          id: aid, role: "ai", timestamp: now,
+          content: "I have searched the connected constellation for your query.\n\nHere is what I found based on the available sources.",
+          sources: [{ id: `${aid}s1`, label: "Document A" }],
+        },
+        ],
+      }));
+      return;
+    }
+
+    const session = galaxySessions[chatId] ?? createIdleGalaxySession(projectName);
+    const isManual = session.routeMode === "manual" && session.pendingManualId;
+    const manualOption = isManual
+      ? CONSTELLATIONS.find((c) => c.id === session.pendingManualId)
+      : null;
+    const matched: GalaxyMatchedConstellation = manualOption
+      ? {
+          id: manualOption.id,
+          label: manualOption.label,
+          type: getConstellationSourceLabel(manualOption.type),
+        }
+      : GALAXY_MOCK_MATCHED;
+
+    galaxyManualCollapseRef.current = false;
+    expandGalaxyIntelligencePanel({ force: true });
+
+    const baseGalaxy: GalaxyRoutingMeta = {
+      projectName,
+      phase: "searching",
+      matched,
+      selectionSource: isManual ? "manual" : "auto",
+      constellationsChecked: GALAXY_MOCK_CONSTELLATIONS_CHECKED,
+    };
+
+    updateGalaxySession(chatId, {
+      status: "searching",
+      activityLabel: isManual
+        ? `Searching ${matched.label}`
+        : `Searching ${projectName}`,
+      candidates: [],
+      selected: isManual ? matched : null,
+      selectionSource: isManual ? "manual" : null,
+      sources: [],
+      focusSection: "activity",
+      routeMode: "auto",
+      pendingManualId: null,
+    });
+
+    setChatMessages((p) => ({
       ...p,
-      [activeChat]: [...(p[activeChat] ?? []),
-      { id: uid, role: "user", content, timestamp: now },
-      {
-        id: aid, role: "ai", timestamp: now,
-        content: "I have searched the connected constellation for your query.\n\nHere is what I found based on the available sources.",
-        sources: [{ id: `${aid}s1`, label: "Document A" }],
-      },
+      [chatId]: [
+        ...(p[chatId] ?? []),
+        { id: uid, role: "user", content, timestamp: now },
+        { id: aid, role: "ai", content: "", timestamp: now, galaxy: baseGalaxy },
       ],
     }));
+
+    if (isManual) {
+      window.setTimeout(() => {
+        updateGalaxySession(chatId, {
+          status: "answering",
+          activityLabel: "Generating answer",
+          selected: matched,
+          selectionSource: "manual",
+        });
+        patchGalaxyMessage(chatId, aid, {
+          content: GALAXY_MOCK_ANSWER,
+          galaxy: { ...baseGalaxy, phase: "answering" },
+        });
+      }, 700);
+      window.setTimeout(() => {
+        updateGalaxySession(chatId, {
+          status: "complete",
+          activityLabel: "Answer complete",
+          selected: matched,
+          selectionSource: "manual",
+          sources: GALAXY_MOCK_SOURCES,
+          focusSection: "sources",
+        });
+        patchGalaxyMessage(chatId, aid, {
+          content: GALAXY_MOCK_ANSWER,
+          sources: GALAXY_MOCK_SOURCES.map((s) => ({ id: `${aid}-${s.id}`, label: s.label })),
+          galaxy: { ...baseGalaxy, phase: "complete" },
+        });
+      }, 1800);
+      return;
+    }
+
+    const phases: Array<{ phase: GalaxyRoutingPhase; delay: number }> = [
+      { phase: "finding", delay: 700 },
+      { phase: "matched", delay: 1500 },
+      { phase: "answering", delay: 2300 },
+      { phase: "complete", delay: 3200 },
+    ];
+
+    phases.forEach(({ phase, delay }) => {
+      window.setTimeout(() => {
+        if (phase === "finding") {
+          updateGalaxySession(chatId, {
+            status: "matching",
+            activityLabel: "Comparing relevant matches",
+            candidates: GALAXY_MOCK_CANDIDATES,
+          });
+          patchGalaxyMessage(chatId, aid, { galaxy: { ...baseGalaxy, phase } });
+          return;
+        }
+        if (phase === "matched") {
+          updateGalaxySession(chatId, {
+            status: "matching",
+            activityLabel: "Best match found",
+            candidates: GALAXY_MOCK_CANDIDATES,
+            selected: matched,
+            selectionSource: "auto",
+            focusSection: "selected",
+          });
+          patchGalaxyMessage(chatId, aid, { galaxy: { ...baseGalaxy, phase } });
+          return;
+        }
+        if (phase === "answering") {
+          updateGalaxySession(chatId, {
+            status: "answering",
+            activityLabel: "Generating answer",
+            selected: matched,
+            selectionSource: "auto",
+            candidates: GALAXY_MOCK_CANDIDATES,
+          });
+          patchGalaxyMessage(chatId, aid, {
+            content: GALAXY_MOCK_ANSWER,
+            galaxy: { ...baseGalaxy, phase },
+          });
+          return;
+        }
+        updateGalaxySession(chatId, {
+          status: "complete",
+          activityLabel: "Answer complete",
+          selected: matched,
+          selectionSource: "auto",
+          candidates: GALAXY_MOCK_CANDIDATES,
+          sources: GALAXY_MOCK_SOURCES,
+          focusSection: "sources",
+        });
+        patchGalaxyMessage(chatId, aid, {
+          content: GALAXY_MOCK_ANSWER,
+          sources: GALAXY_MOCK_SOURCES.map((s) => ({ id: `${aid}-${s.id}`, label: s.label })),
+          galaxy: { ...baseGalaxy, phase: "complete" },
+        });
+      }, delay);
+    });
   }
 
+  function handleOpenGalaxyConstellation() {
+    expandGalaxyIntelligencePanel({ force: true });
+    const session = galaxySessions[activeChat];
+    const matchedId = session?.selected?.id ?? GALAXY_MOCK_MATCHED.id;
+    const match = CONSTELLATIONS.find((c) => c.id === matchedId);
+    if (!match) return;
+    const existing = chats.find(
+      (c) => c.chatType === "constellation" && c.constellationId === match.id,
+    );
+    if (existing) {
+      setActiveChat(existing.id);
+      return;
+    }
+    const id = `c${Date.now()}`;
+    setChats((p) => [...p, {
+      id,
+      label: match.label,
+      chatType: "constellation",
+      projectId: match.projectId,
+      constellationId: match.id,
+    }]);
+    setChatMessages((p) => ({ ...p, [id]: [] }));
+    setActiveChat(id);
+  }
+
+  function handleViewGalaxyActivity() {
+    expandGalaxyIntelligencePanel({ force: true });
+    const session = galaxySessions[activeChat];
+    const focusSection = session?.selected && (
+      session.status === "matching" ||
+      session.status === "answering" ||
+      session.status === "complete"
+    )
+      ? "selected"
+      : "activity";
+    updateGalaxySession(activeChat, {
+      expandSignal: (session?.expandSignal ?? 0) + 1,
+      focusSection,
+    });
+  }
+
+  const activeGalaxySession = activeData?.chatType === "galaxy"
+    ? (galaxySessions[activeChat] ?? createIdleGalaxySession(
+        PROJECTS.find((p) => p.id === activeData.projectId)?.label ?? "Project",
+      ))
+    : null;
+
+  useEffect(() => {
+    if (!activeGalaxySession) return;
+
+    const signal = activeGalaxySession.expandSignal;
+    if (signal > galaxyExpandSignalSeenRef.current) {
+      galaxyExpandSignalSeenRef.current = signal;
+      expandGalaxyIntelligencePanel({ force: true });
+      return;
+    }
+
+    const { status, selected, focusSection } = activeGalaxySession;
+    const working =
+      status === "searching" ||
+      status === "matching" ||
+      status === "answering";
+    const hasBestMatch = Boolean(selected) && (
+      status === "matching" ||
+      status === "answering" ||
+      status === "complete"
+    );
+
+    if (working || hasBestMatch || focusSection) {
+      expandGalaxyIntelligencePanel();
+    }
+  }, [
+    activeGalaxySession?.status,
+    activeGalaxySession?.selected?.id,
+    activeGalaxySession?.expandSignal,
+    activeGalaxySession?.focusSection,
+  ]);
+
+  const galaxyProjectName = PROJECTS.find((p) => p.id === (activeData?.projectId ?? PROJECTS[0].id))?.label
+    ?? "Project";
+
+  const galaxyRouteOptions = useMemo(() => {
+    const seeds = getProjectConstellations(activeData?.projectId ?? PROJECTS[0].id).map((c) => ({
+      id: c.id,
+      label: c.label,
+      type: getConstellationSourceLabel(c.type) as "PDF" | "DB",
+    }));
+    return buildGalaxyRouteCatalog(galaxyProjectName, seeds);
+  }, [activeData?.projectId, galaxyProjectName]);
+
+  const pendingManual = activeGalaxySession?.pendingManualId
+    ? (() => {
+        const found = galaxyRouteOptions.find((o) => o.id === activeGalaxySession.pendingManualId);
+        return found ? { id: found.id, label: found.label, type: found.type } : null;
+      })()
+    : null;
+
   return (
-    <div className="flex h-dvh max-h-dvh overflow-hidden" style={{ background: "#FAFDFF" }}>
+    <div
+      className="flex h-dvh max-h-dvh overflow-hidden"
+      style={{ background: activeData?.chatType === "galaxy" ? "#FAFAFC" : "#FAFDFF" }}
+    >
       <LeftNav
         collapsed={leftNavCollapsed}
         onToggleCollapsed={handleLeftNavToggle}
@@ -3868,17 +4371,35 @@ export default function App() {
         />
 
         <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
-          {/* Chat — dominant flexible column */}
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden" style={{ minWidth: 0 }}>
+          <div
+            className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+            style={{ minWidth: 0 }}
+          >
             <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-10 py-5">
               {messages.length === 0
-                ? <EmptyState onPrompt={handleSend} />
+                ? (activeData?.chatType === "galaxy"
+                  ? (
+                    <GalaxyEmptyState
+                      projectName={PROJECTS.find((p) => p.id === activeData.projectId)?.label ?? "Project"}
+                      onPrompt={handleSend}
+                    />
+                  )
+                  : <EmptyState onPrompt={handleSend} />)
                 : <>
                   <DateSeparator label="Today" />
                   {messages.map(msg =>
                     msg.role === "user"
                       ? <UserBubble key={msg.id} message={msg} />
-                      : <AICard key={msg.id} message={msg} />
+                      : <AICard
+                          key={msg.id}
+                          message={msg}
+                          onOpenGalaxyConstellation={
+                            activeData?.chatType === "galaxy" ? handleOpenGalaxyConstellation : undefined
+                          }
+                          onViewGalaxyActivity={
+                            activeData?.chatType === "galaxy" ? handleViewGalaxyActivity : undefined
+                          }
+                        />
                   )}
                   <div ref={messagesEndRef} className="h-2 flex-shrink-0" aria-hidden="true" />
                 </>}
@@ -3886,27 +4407,90 @@ export default function App() {
             <PromptComposer value={inputValue} onChange={setInputValue} onSend={() => handleSend()}
               language={language} onLanguageChange={setLanguage}
               constellationType={activeConstellation.type}
-              assistantMode={assistantMode} onModeChange={setAssistantMode} />
+              assistantMode={assistantMode} onModeChange={setAssistantMode}
+              chatType={activeData?.chatType ?? "constellation"}
+              focusKey={activeData?.chatType === "galaxy" ? activeChat : undefined}
+              galaxyRoute={activeGalaxySession ? {
+                routeMode: activeGalaxySession.routeMode,
+                pendingManual,
+                options: galaxyRouteOptions,
+                onSelectAuto: () => updateGalaxySession(activeChat, {
+                  routeMode: "auto",
+                  pendingManualId: null,
+                }),
+                onSelectManual: (option) => updateGalaxySession(activeChat, {
+                  routeMode: "manual",
+                  pendingManualId: option.id,
+                }),
+                onClearManual: () => updateGalaxySession(activeChat, {
+                  routeMode: "auto",
+                  pendingManualId: null,
+                }),
+              } : undefined}
+            />
           </div>
 
-          {/* Constellation Sidebar — keyed so it resets when constellation changes */}
-          <ConstellationSidebar
-            key={`${activeData?.id ?? "chat"}-${activeConstellation.id}`}
-            width={clampedInspectorWidth}
-            onResizeStart={handleSidebarResizeStart}
-            collapsed={sidebarCollapsed}
-            onCollapse={handleInspectorCollapseToggle}
-            constellation={activeConstellation}
-            allConstellations={CONSTELLATIONS}
-            onConstellationChange={handleConstellationChange}
-            projectId={activeData?.projectId ?? PROJECTS[0].id}
-            allowConstellationChange={activeData?.chatType === "constellation"}
-            isGalaxyChat={activeData?.chatType === "galaxy"}
-          />
+          {activeData?.chatType === "galaxy" && activeGalaxySession ? (
+            <div
+              className="flex h-full min-h-0 flex-shrink-0 flex-col self-stretch overflow-hidden"
+              style={{
+                width: renderedGalaxyOuterWidth,
+                transition: "width 220ms ease-out",
+              }}
+              data-galaxy-shell="true"
+            >
+              {renderedGalaxyCollapsed ? (
+                <GalaxyCollapsedRail
+                  status={activeGalaxySession.status}
+                  onExpand={() => expandGalaxyIntelligencePanel({ force: true })}
+                />
+              ) : (
+                <GalaxyActivityPanel
+                  key={activeData.id}
+                  session={activeGalaxySession}
+                  width={clampedGalaxyWidth}
+                  routeOptions={galaxyRouteOptions}
+                  pendingManual={pendingManual}
+                  onResizeStart={handleGalaxyResizeStart}
+                  onOpenConstellation={handleOpenGalaxyConstellation}
+                  onCollapse={collapseGalaxyIntelligencePanel}
+                  contentOpacity={galaxyPanelContentOpaque ? 1 : 0}
+                  onSelectAuto={() => updateGalaxySession(activeChat, {
+                    routeMode: "auto",
+                    pendingManualId: null,
+                  })}
+                  onEnterSpecific={() => updateGalaxySession(activeChat, {
+                    routeMode: "manual",
+                  })}
+                  onSelectManual={(option) => updateGalaxySession(activeChat, {
+                    routeMode: "manual",
+                    pendingManualId: option.id,
+                  })}
+                  onClearManual={() => updateGalaxySession(activeChat, {
+                    routeMode: "manual",
+                    pendingManualId: null,
+                  })}
+                />
+              )}
+            </div>
+          ) : (
+            <ConstellationSidebar
+              key={`${activeData?.id ?? "chat"}-${activeConstellation.id}`}
+              width={clampedInspectorWidth}
+              onResizeStart={handleSidebarResizeStart}
+              collapsed={sidebarCollapsed}
+              onCollapse={handleInspectorCollapseToggle}
+              constellation={activeConstellation}
+              allConstellations={CONSTELLATIONS}
+              onConstellationChange={handleConstellationChange}
+              projectId={activeData?.projectId ?? PROJECTS[0].id}
+              allowConstellationChange={activeData?.chatType === "constellation"}
+              isGalaxyChat={false}
+            />
+          )}
         </div>
       </div>
 
-      {/* New Chat Modal */}
       {showNewChatModal && (
         <NewChatModal
           onCreate={handleNewChatCreate}

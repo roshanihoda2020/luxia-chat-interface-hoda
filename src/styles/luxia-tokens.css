@@ -364,6 +364,55 @@
     #110B24 45%,
     #080512 100%
   );
+  /**
+   * Galaxy Intelligence panel shell — same dark family as left navigation
+   * (#1C1336 → #110B24 → #080512), softened so it continues the sidebar
+   * without copying the nav gradient or descending to near-black.
+   */
+  --luxia-gradient-galaxy-panel: linear-gradient(
+    180deg,
+    #1C1536 0%,
+    #14102A 50%,
+    #100C22 100%
+  );
+  /**
+   * Galaxy Intelligence surfaces — sidebar color composition principles:
+   * dark base family, white-translucency lifts, purple DNA from active/star
+   * (#30214E, #7652C4, #8E63EB). Solid tones only — no star, no nav copy.
+   */
+  --luxia-galaxy-shell: #14102A;
+  --luxia-galaxy-header: #1A1432;
+
+  /* Layer: shell → Instruction → field → Insights / Best Match (hero) */
+  --luxia-galaxy-surface-quiet: #251A38;
+  --luxia-galaxy-surface: #252044;
+  --luxia-galaxy-surface-input: #2C274C;
+  /* Instruction editable field — one step above Instruction container */
+  --luxia-galaxy-surface-instruction-field: #382A52;
+  --luxia-galaxy-surface-nested: #1E1A38;
+  --luxia-galaxy-surface-raised: #2E2850;
+  /* Richer purple from star / active family — visual focal point */
+  --luxia-galaxy-surface-insights: #3A2E5E;
+  --luxia-galaxy-surface-elevated: #45366C;
+  --luxia-galaxy-surface-insights-hover: #4A3C74;
+
+  /**
+   * Galaxy disabled controls — muted blue–purple from sidebar DNA.
+   * Same geometry as primary; lower saturation/contrast only.
+   */
+  --luxia-galaxy-disabled-surface: #433A62;
+  --luxia-galaxy-disabled-border: rgba(150, 219, 251, 0.16);
+  --luxia-galaxy-disabled-text: rgba(218, 203, 248, 0.72);
+
+  /**
+   * Galaxy secondary actions (Cancel) — dark solid, sidebar-inspired.
+   * Same geometry as primary; lower priority, no gradient.
+   */
+  --luxia-galaxy-btn-secondary-surface: #2A2142;
+  --luxia-galaxy-btn-secondary-border: rgba(255, 255, 255, 0.12);
+  --luxia-galaxy-btn-secondary-text: rgba(255, 255, 255, 0.88);
+  --luxia-galaxy-btn-secondary-hover: #342A50;
+
   --luxia-gradient-secondary-tertiary: linear-gradient(
     90deg,
     #8E63EB 0%,
@@ -682,4 +731,27 @@
   border: none !important;
   border-color: transparent !important;
   box-shadow: none !important;
+}
+
+/* Galaxy Intelligence panel — minimal, content-quiet scrollbar */
+.galaxy-panel-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
+}
+
+.galaxy-panel-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.galaxy-panel-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.galaxy-panel-scroll::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+}
+
+.galaxy-panel-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.26);
 }
