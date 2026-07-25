@@ -72,7 +72,6 @@ const OUTER_GAP = GALAXY_PANEL_OUTER_GAP;
 const COLLAPSE_MS = 200;
 const TRANSITION = "background-color 140ms ease, box-shadow 140ms ease, opacity 140ms ease, border-color 140ms ease";
 const EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
-/** Shared radii / cadence — keep every surface related. */
 const R = {
   panel: "var(--luxia-radius-24)",
   card: 14,
@@ -91,13 +90,6 @@ const SPACE = {
   stack: 16,
 } as const;
 
-/**
- * Galaxy Intelligence color system — left sidebar as canonical reference.
- *
- * Same visual DNA as LeftNav (dark base, white-translucency hover/active,
- * purple accent family, tertiary blue sparingly) without copying layout,
- * nav gradient, or star art.
- */
 const GC = {
   shell: "var(--luxia-galaxy-shell)",
   shellGradient: "var(--luxia-gradient-galaxy-panel)",
@@ -105,17 +97,14 @@ const GC = {
   shellShadow: "0 16px 40px rgba(8, 5, 18, 0.28)",
 
   header: "var(--luxia-galaxy-header)",
-  /** Match left-nav hairlines */
   headerDivider: "rgba(255, 255, 255, 0.07)",
 
   page: "transparent",
-  /** Calm mid lift — shared nested surfaces */
   card: "var(--luxia-galaxy-surface)",
   cardBorder: "rgba(255, 255, 255, 0.06)",
   cardShadow: "0 2px 8px rgba(8, 5, 18, 0.14)",
   cardShadowRaised: "0 8px 20px rgba(8, 5, 18, 0.22)",
 
-  /** Galaxy Insights — richer purple (star / active family) */
   insightsOuter: "var(--luxia-galaxy-surface-insights)",
   insightsBorder: "rgba(142, 99, 235, 0.14)",
   insightsHeader: "var(--luxia-galaxy-surface-elevated)",
@@ -131,15 +120,12 @@ const GC = {
   dropdown: "var(--luxia-galaxy-header)",
   searchField: "var(--luxia-galaxy-surface-input)",
   searchBorder: "rgba(255, 255, 255, 0.07)",
-  /** Same soft lift as inactive nav hover */
   rowHover: "rgba(255, 255, 255, 0.06)",
-  /** Soft purple select — related to active, not glowing */
   rowSelected: "rgba(142, 99, 235, 0.14)",
 
   activity: "var(--luxia-galaxy-surface-nested)",
   activityBorder: "rgba(255, 255, 255, 0.06)",
   activityRow: "var(--luxia-galaxy-surface-raised)",
-  /** Soft step up — same restrained lift philosophy as nav hover */
   activityRowHover: "var(--luxia-galaxy-surface-insights)",
 
   bestMatch: "var(--luxia-galaxy-surface-elevated)",
@@ -150,23 +136,19 @@ const GC = {
   sourcesBorder: "rgba(255, 255, 255, 0.06)",
   sourceRowHover: "var(--luxia-galaxy-surface-raised)",
 
-  /** Instruction — distinct quiet plum (sidebar hover/active family), below Insights */
   instruction: "var(--luxia-galaxy-surface-quiet)",
   instructionBorder: "rgba(255, 255, 255, 0.08)",
   instructionShadow: "none",
   instructionTitle: "rgba(255, 255, 255, 0.92)",
   instructionIcon: "var(--luxia-purple-30)",
   instructionHelper: "rgba(255, 255, 255, 0.62)",
-  /** Instruction editable field — clearer than container, quieter than Insights */
   instructionField: "var(--luxia-galaxy-surface-instruction-field)",
   instructionFieldBorder: "rgba(255, 255, 255, 0.09)",
   instructionFieldHoverBorder: "rgba(255, 255, 255, 0.14)",
-  /** Description / search editable surfaces */
   textarea: "var(--luxia-galaxy-surface-input)",
   textareaBorder: "rgba(255, 255, 255, 0.08)",
   textareaHoverBorder: "rgba(255, 255, 255, 0.12)",
 
-  /** Opacity hierarchy aligned with LeftNav */
   textPrimary: "#FFFFFF",
   textHeading: "#FFFFFF",
   textSecondary: "rgba(255, 255, 255, 0.70)",
@@ -180,14 +162,12 @@ const GC = {
   textDisabled: "var(--luxia-galaxy-disabled-text)",
   textPlaceholder: "rgba(255, 255, 255, 0.40)",
   textHelper: "rgba(255, 255, 255, 0.70)",
-  /** Echo left-nav Project Name overline (tertiary @ 55%) */
   textSubtitle: "rgba(150, 219, 251, 0.55)",
   textQuietTitle: "rgba(255, 255, 255, 0.70)",
   textSourceTitle: "rgba(255, 255, 255, 0.92)",
   textSourceMeta: "rgba(255, 255, 255, 0.55)",
   textSourcePages: "rgba(255, 255, 255, 0.40)",
   chevron: "rgba(255, 255, 255, 0.55)",
-  /** Section icons — match LeftNav inactive icon opacity */
   iconSection: "rgba(255, 255, 255, 0.55)",
   iconSectionActive: "var(--luxia-purple-50)",
   iconSectionHover: "rgba(255, 255, 255, 0.78)",
@@ -208,23 +188,19 @@ const GC = {
   scrollThumb: "rgba(255, 255, 255, 0.14)",
   scrollThumbHover: "rgba(255, 255, 255, 0.22)",
   saveEnabledBg: "var(--luxia-gradient-button)",
-  /** Semantic disabled — muted purple DNA, same geometry as primary */
   disabledSurface: "var(--luxia-galaxy-disabled-surface)",
   disabledBorder: "var(--luxia-galaxy-disabled-border)",
   disabledText: "var(--luxia-galaxy-disabled-text)",
   /** @deprecated use disabledSurface */
   saveDisabledBg: "var(--luxia-galaxy-disabled-surface)",
-  /** Secondary action (Cancel) — dark solid sidebar family */
   btnSecondarySurface: "var(--luxia-galaxy-btn-secondary-surface)",
   btnSecondaryBorder: "var(--luxia-galaxy-btn-secondary-border)",
   btnSecondaryText: "var(--luxia-galaxy-btn-secondary-text)",
   btnSecondaryHover: "var(--luxia-galaxy-btn-secondary-hover)",
-  /** LeftNav hover philosophy — soft white lift, never bright/glowing */
   hoverSurface: "rgba(255, 255, 255, 0.06)",
   hoverLift: "none",
 } as const;
 
-/** Shared Galaxy action geometry — one button family for Description / Instruction. */
 const GALAXY_BTN_CLASS =
   "inline-flex h-8 flex-shrink-0 items-center justify-center px-3.5 luxia-type-caption outline-none focus-visible:ring-2 focus-visible:ring-[rgba(142,99,235,0.35)]";
 const GALAXY_BTN_RADIUS = R.control;
@@ -679,7 +655,6 @@ export function GalaxyActivityPanel({
             background: GC.page,
           }}
         >
-          {/* Description — lightweight editable purpose (not Instruction) */}
           <section
             className="group/desc pt-5"
             style={{ paddingBottom: SPACE.sectionLoose }}
@@ -834,7 +809,6 @@ export function GalaxyActivityPanel({
             )}
           </section>
 
-          {/* Galaxy Insights — live explainability */}
           <section className="pt-0.5" style={{ paddingBottom: SPACE.sectionLoose }} aria-label="Galaxy Insights">
             <div
               className="overflow-hidden"
@@ -919,7 +893,6 @@ export function GalaxyActivityPanel({
                       paddingBottom: transparencyOpen ? SPACE.nestPad : 0,
                     }}
                   >
-                    {/* Routing */}
                     <div>
                       <SectionLabel>Routing</SectionLabel>
                       <div
@@ -1215,7 +1188,6 @@ export function GalaxyActivityPanel({
                       </div>
                     </div>
 
-                    {/* Activity */}
                     <div
                       ref={activityRef}
                       tabIndex={-1}
@@ -1565,7 +1537,6 @@ export function GalaxyActivityPanel({
             </div>
           </section>
 
-          {/* Instruction — persistent configuration, not an accordion */}
           <section
             ref={instructionRef}
             tabIndex={-1}

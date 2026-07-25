@@ -1,8 +1,3 @@
-/**
- * Feature-level Luxia token aliases.
- * Values map to the canonical CSS variables in src/styles/luxia-tokens.css.
- * Kept as concrete hex/rgba for inline style usage while staying in sync with the DS.
- */
 export const LX = {
   primary: "#30214E",
   primaryDark: "#281B41",
@@ -29,7 +24,6 @@ export const LX = {
     button: "linear-gradient(87.081deg, #30214E 45.623%, #8E63EB 112.38%)",
     primary: "linear-gradient(84.18deg, #30214E 38.5%, #8E63EB 96.68%)",
     nav: "linear-gradient(180deg, #1C1336 0%, #110B24 45%, #080512 100%)",
-    /** Softened navigation-family wash for Galaxy Intelligence shell only — not a nav copy. */
     galaxyPanel: "var(--luxia-gradient-galaxy-panel)",
     secondaryTertiary: "linear-gradient(90deg, #8E63EB 0%, #96DBFB 100%)",
   },

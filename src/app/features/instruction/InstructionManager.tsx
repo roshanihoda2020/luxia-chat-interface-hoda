@@ -22,7 +22,6 @@ export function InstructionManager({
     data: InstructionData;
     onCommit: (next: InstructionData) => void;
     onCancel: () => void;
-    /** When false, hides file attachment (e.g. Galaxy Instruction). Default true for PDF/DB. */
     showAttachment?: boolean;
 }) {
     const [draft, setDraft] = useState<InstructionData>(data);

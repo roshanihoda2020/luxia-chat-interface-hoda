@@ -1,8 +1,6 @@
 export type GalaxyActivityStatus = "ready" | "searching" | "matching" | "answering" | "complete";
 
-/** Outer padding around the Galaxy Intelligence panel shell (matches expanded margins). */
 export const GALAXY_PANEL_OUTER_GAP = 14;
-/** Collapsed Galaxy Intelligence rail content width (excluding outer gap). */
 export const GALAXY_COLLAPSED_WIDTH = 52;
 
 export type GalaxyRouteMode = "auto" | "manual";
@@ -36,7 +34,6 @@ export type GalaxySource = {
   pages?: string;
 };
 
-/** Shared routing payload on AI messages (compact transcript summary). */
 export type GalaxyRoutingMeta = {
   projectName: string;
   phase: GalaxyRoutingPhase;
@@ -62,7 +59,6 @@ export type GalaxySessionState = {
 export const GALAXY_DEFAULT_INSTRUCTION =
   "Answer using official financial policy only.\nPrefer latest approved documentation.\nIgnore archived reports.";
 
-/** Short project-specific Galaxy purpose — distinct from Instruction (behavior). */
 export const GALAXY_DEFAULT_DESCRIPTION =
   "Routes questions across this project's knowledge to find the most relevant constellation and verified sources.";
 
@@ -126,7 +122,6 @@ export type GalaxyControlRouteOption = {
   projectName?: string;
 };
 
-/** Builds a large Galaxy routing catalog with short sequential placeholder names. */
 export function buildGalaxyRouteCatalog(
   _projectName: string,
   _seeds: Array<{ id: string; label: string; type: "PDF" | "DB" }> = [],

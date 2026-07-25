@@ -1,7 +1,3 @@
-/**
- * Compact constellation inspector (PDF / Database) visual theme.
- * Reuses approved Galaxy Intelligence tokens — styling only.
- */
 import type { CSSProperties } from "react";
 
 export const IC = {
@@ -51,7 +47,6 @@ export const IC_CARD: CSSProperties = {
 export const IC_BTN_ICON =
   "w-8 h-8 flex items-center justify-center rounded-[8px] transition-colors outline-none flex-shrink-0";
 
-/** Ghost control for “open expanded editor” — lighter than collapse chevron. */
 export const IC_BTN_OPEN =
   "h-7 w-7 flex items-center justify-center rounded-full border-0 bg-transparent outline-none flex-shrink-0 cursor-pointer transition-[background-color] duration-150";
 

@@ -111,7 +111,6 @@ function FlagCircle({ flagUrl, label, size = 24 }: { flagUrl: string; label: str
 type SectionId = "kb" | "dataTable" | "contextFiles" | "relationship" | "metrics" | "instr" | "pdfFiles" | "crawler";
 type ConstellationType = "database" | "pdf";
 
-/** Lucide-compatible icon props used across constellation section chrome. */
 type SectionIcon = LucideIcon;
 
 const SECTION_META: Record<SectionId, { label: string; icon: SectionIcon }> = {
@@ -513,23 +512,19 @@ const SIDEBAR_WIDTH_COLLAPSED = 76;
 const SIDEBAR_TOGGLE_SIZE = 42;
 const SIDEBAR_TOGGLE_INSET = SIDEBAR_TOGGLE_SIZE / 2;
 const LEFT_NAV_COLLAPSED_STORAGE_KEY = "luxia-left-nav-collapsed";
-/** Below 1600px CSS width, left nav defaults to collapsed without overwriting saved preference. */
 const LEFT_NAV_NARROW_BREAKPOINT = 1600;
-/** At or below 1280px CSS width, right inspector defaults to collapsed without overwriting user toggle. */
 const INSPECTOR_NARROW_BREAKPOINT = 1280;
 const INSPECTOR_WIDTH_DEFAULT = 288;
 const INSPECTOR_WIDTH_MIN = 260;
 const INSPECTOR_WIDTH_HARD_MAX = 360;
 const CHAT_MIN_USABLE_WIDTH = 480;
 
-/** Galaxy Activity panel — independent of Constellation inspector widths. */
 const GALAXY_WIDTH_DEFAULT = 360;
 const GALAXY_WIDTH_MIN = 340;
 const GALAXY_WIDTH_PREFERRED_LARGE = 380;
 const GALAXY_WIDTH_HARD_MAX = 420;
 const GALAXY_WIDTH_LARGE_BREAKPOINT = 1440;
 const GALAXY_OUTER_CHROME = GALAXY_PANEL_OUTER_GAP * 2;
-/** Below this width, Galaxy Intelligence defaults to the collapsed rail to keep chat usable. */
 const GALAXY_NARROW_BREAKPOINT = 1280;
 
 function readLeftNavCollapsedPreference(): boolean {
@@ -619,16 +614,12 @@ function NavItem({ icon: Icon, label, active, badge, chevron, collapsed }: {
 }
 
 // ─── Official Luxia Logo ──────────────────────────────────────
-// Uses the exact Luxia-Star.svg brand asset (wordmark + star mark).
-// Approved expanded-sidebar dimensions: 119.66 × 46.64px (SVG viewBox 120 × 47).
 const SIDEBAR_LOGO_WIDTH = 119.66;
 const SIDEBAR_LOGO_HEIGHT = 46.64;
 const SIDEBAR_BRAND_LEFT = 24;
-/** Fixed desktop brand inset — same at all viewport heights (no height-responsive density). */
 const SIDEBAR_BRAND_TOP = 16;
 const SIDEBAR_BRAND_BOTTOM = 12;
 
-// Decorative background star — approved Figma scale/placement (expanded sidebar only).
 const SIDEBAR_STAR_WIDTH = 538.11;
 const SIDEBAR_STAR_HEIGHT = 674.69;
 const SIDEBAR_STAR_INTERSECTION_X = 174;
@@ -731,7 +722,6 @@ function LeftNav({
       >
         {!collapsed ? <SidebarStarDecoration /> : null}
 
-        {/* Brand — flex-shrink: 0; fixed density (no height-based scaling) */}
         <div
           className={`relative z-[2] flex-shrink-0 ${collapsed ? "flex justify-center" : ""}`}
           style={{
@@ -750,7 +740,6 @@ function LeftNav({
           )}
         </div>
 
-        {/* Navigation — overflow-y:auto only as safety fallback; no forced scrollbar */}
         <div className="relative z-[2] min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
           <nav className={`${navPadding} space-y-px`}>
             {NAV_TOP_ITEMS.map(({ icon, label }) => (
@@ -787,7 +776,6 @@ function LeftNav({
           </div>
         </div>
 
-        {/* Profile footer — flex-shrink: 0, outside scroll region */}
         {collapsed ? (
           <Tooltip>
             <TooltipTrigger asChild>
@@ -828,7 +816,7 @@ function LeftNav({
   );
 }
 
-// ─── Chat Tab Bar — premium rounded-card style ────────────────
+// ─── Chat Tab Bar ─────────────────────────────────────────────
 function ChatTabBar({ chats, activeId, onSelect, onNew, onClose, onPin, onRename }: {
   chats: Chat[]; activeId: string;
   onSelect: (id: string) => void; onNew: () => void;
@@ -917,7 +905,6 @@ function ChatTabBar({ chats, activeId, onSelect, onNew, onClose, onPin, onRename
         );
       })}
 
-      {/* New Chat — opens create chat modal */}
       <button onClick={onNew}
         className="flex items-center justify-center w-[30px] h-[30px] rounded-[8px] flex-shrink-0 transition-all hover:opacity-80"
         style={{ border: `1.5px dashed ${LX.border}` }}
@@ -1559,7 +1546,6 @@ function PageHeader({ chatLabel, chat, onRenameChat, onDeleteChat }: {
         </nav>
       </div>
 
-      {/* Options button — aligned with title row */}
       <button ref={btnRef} onClick={menuOpen ? () => setMenuOpen(false) : openMenu}
         className="flex-shrink-0 flex items-center gap-2 h-[38px] px-5 rounded-full luxia-type-body-dense-strong text-white transition-opacity hover:opacity-90 outline-none"
         style={{ background: LX.gradient.button, boxShadow: "0 2px 10px rgba(48,33,78,0.18)" }}>
@@ -1567,7 +1553,6 @@ function PageHeader({ chatLabel, chat, onRenameChat, onDeleteChat }: {
         Options
       </button>
 
-      {/* Options menu — portal */}
       {menuOpen && menuPos && ReactDOM.createPortal(
         <div ref={menuRef} className="fixed z-[9999] rounded-[12px] overflow-hidden py-1.5"
           style={{
@@ -2329,7 +2314,7 @@ function SectionWorkspaceModal({ sectionId, items, instruction, onSave, onClose 
           </button>
         </div>
 
-        {/* Search bar (non-instruction sections) */}
+        {/* Search bar */}
         {!isInstr && (
           <div className="flex items-center gap-2 px-6 py-3 flex-shrink-0" style={{ borderBottom: `1px solid ${LX.border}` }}>
             <Search size={13} style={{ color: LX.muted }} />
@@ -2557,7 +2542,7 @@ function KBEntryModal({ mode: initialMode, entry, onSave, onAdd, onClose }: {
                 style={{ border: `1px solid ${answer ? LX.secondary : LX.border}`, color: LX.primary, background: LX.subtle }} />
             )}
           </div>
-          {/* Advanced / Response Type */}
+          {/* Advanced */}
           <div>
             <button onClick={() => !isView && setAdvanced(p => !p)}
               className="flex items-center gap-1.5 luxia-type-metadata transition-opacity"
@@ -3420,7 +3405,6 @@ function ConstellationSidebar({
     Object.fromEntries(sectionIds.map((id) => [id, false])) as Record<SectionId, boolean>
   );
 
-  // Description expand
   const [descExpanded, setDescExpanded] = useState(false);
 
   // Modal / confirm / preview
@@ -3612,12 +3596,10 @@ function ConstellationSidebar({
       }}
     >
 
-      {/* Resize handle */}
       <div className="absolute left-0 top-0 h-full w-[5px] z-20 cursor-col-resize group" onMouseDown={onResizeStart}>
         <div className="absolute inset-y-0 left-0 w-[3px] group-hover:bg-[var(--luxia-brand-secondary)]/30 transition-colors" />
       </div>
 
-      {/* Header — constellation selector + description preview */}
       <div
         className="relative flex-shrink-0 overflow-hidden px-4 pt-3 pb-2.5"
         style={{ background: IC.header, borderBottom: `1px solid ${IC.borderSubtle}` }}
@@ -3688,7 +3670,6 @@ function ConstellationSidebar({
           </Tooltip>
         </div>
 
-        {/* Description preview */}
         <div className="mt-2 pl-[32px]">
           <p
             className="luxia-type-caption"
@@ -3712,7 +3693,6 @@ function ConstellationSidebar({
         </div>
       </div>
 
-      {/* Sections — independent scroll; min-h-0 keeps footer visible */}
       <div
         className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-3 py-2.5 space-y-2 galaxy-panel-scroll"
         style={{ scrollbarWidth: "thin", scrollbarColor: `${IC.scrollThumb} transparent` }}
@@ -3827,7 +3807,6 @@ function ConstellationSidebar({
           return (
             <div key={fallbackSid} className="overflow-hidden rounded-[14px]"
               style={{ background: IC.card, border: `1px solid ${IC.border}`, boxShadow: IC.cardShadow }}>
-              {/* Section header */}
               <div className="flex items-center gap-1.5 px-[14px] py-3">
                 <FallbackIcon size={14} color={IC.iconAccent} className="flex-shrink-0" />
                 <span className="flex-1 luxia-type-title-component truncate" style={{ color: IC.textPrimary }}>{SECTION_META[fallbackSid].label}</span>
@@ -3847,7 +3826,6 @@ function ConstellationSidebar({
                   <ChevronDown size={15} style={{ color: IC.textMuted, transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 160ms ease" }} />
                 </button>
               </div>
-              {/* Section body */}
               {isOpen && (
                 <div className="px-2 pb-2.5" style={{ borderTop: `1px solid ${IC.borderSubtle}` }}>
                   {isInstr ? (
@@ -3886,7 +3864,6 @@ function ConstellationSidebar({
         })}
       </div>
 
-      {/* Footer — flex-shrink:0 sticky in column flow (not fixed overlay) */}
       <div className="flex-shrink-0 px-4 py-3" style={{ borderTop: `1px solid ${IC.borderSubtle}`, background: IC.header }}>
         {constellationFeedback ? (
           <p className="mb-2 text-center luxia-type-caption" role="status"
@@ -3942,7 +3919,6 @@ function ConstellationSidebar({
         />
       )}
 
-      {/* KB modals — portaled to document.body; kept outside capsule overflow */}
       {kbWorkspaceOpen && (
         <KBWorkspaceModal
           entries={kbEntries}
@@ -4005,9 +3981,7 @@ export default function App() {
   const galaxyExpandSignalSeenRef = useRef(0);
   const [sidebarCollapsedPreference, setSidebarCollapsedPreference] = useState(false);
   const [leftNavCollapsedPreference, setLeftNavCollapsedPreference] = useState(readLeftNavCollapsedPreference);
-  /** Session-only expand while below narrow breakpoint — does not write to localStorage. */
   const [leftNavExpandedDespiteNarrow, setLeftNavExpandedDespiteNarrow] = useState(false);
-  /** Session-only expand while below inspector narrow breakpoint. */
   const [inspectorExpandedDespiteNarrow, setInspectorExpandedDespiteNarrow] = useState(false);
   const [viewportWidth, setViewportWidth] = useState(() =>
     typeof window !== "undefined" ? window.innerWidth : 1920

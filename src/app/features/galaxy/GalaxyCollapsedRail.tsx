@@ -3,7 +3,6 @@ import type { GalaxyActivityStatus } from "./constants";
 import { GALAXY_COLLAPSED_WIDTH, GALAXY_PANEL_OUTER_GAP } from "./constants";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/app/components/ui/tooltip";
 
-/** Collapsed rail — same Luxia galaxy shell family as the expanded panel. */
 const RAIL = {
   shell: "var(--luxia-galaxy-shell)",
   shellGradient: "var(--luxia-gradient-galaxy-panel)",

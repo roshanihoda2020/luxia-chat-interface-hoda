@@ -16,7 +16,6 @@ import { cn } from "./utils";
 export type SearchableSelectOption = {
   value: string;
   label: string;
-  /** Optional custom row content (defaults to label). */
   content?: React.ReactNode;
 };
 
@@ -50,11 +49,8 @@ export function SearchableSelect({
   onValueChange: (value: string) => void;
   options: SearchableSelectOption[];
   placeholder: string;
-  /** Placeholder inside the open search field. Defaults to `placeholder`. */
   searchPlaceholder?: string;
-  /** Shown when the option list itself is empty (e.g. no constellations in project). */
   emptyText?: string;
-  /** Shown when search yields no matches. */
   noResultsText?: string;
   disabled?: boolean;
   className?: string;

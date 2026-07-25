@@ -1,8 +1,3 @@
-/**
- * Canonical Luxia Design System token layer.
- * Single source of truth for colors, opacity, typography scales,
- * spacing, radius, shadows, and gradients.
- */
 :root {
   /* ── Brand ─────────────────────────────────────────── */
   --luxia-brand-primary: #30214E;
@@ -295,12 +290,12 @@
   --luxia-chat-nav-hover: var(--luxia-state-hover);
   --luxia-chat-nav-active: var(--luxia-state-selected);
 
-  /* Chat composer focus — calm, 1px secondary border + soft ring */
+  /* Chat composer focus */
   --luxia-chat-composer-border: var(--luxia-border-default);
   --luxia-chat-composer-border-focus: var(--luxia-border-strong);
   --luxia-chat-composer-focus-ring: transparent;
 
-  /* Composer textarea — Body/Small (14/20); shell heights still driven by line box */
+  /* Composer textarea */
   --luxia-composer-input-font-size: 14px;
   --luxia-composer-input-line-height: 20px;
   --luxia-composer-input-min-height: 20px;
@@ -364,50 +359,29 @@
     #110B24 45%,
     #080512 100%
   );
-  /**
-   * Galaxy Intelligence panel shell — same dark family as left navigation
-   * (#1C1336 → #110B24 → #080512), softened so it continues the sidebar
-   * without copying the nav gradient or descending to near-black.
-   */
   --luxia-gradient-galaxy-panel: linear-gradient(
     180deg,
     #1C1536 0%,
     #14102A 50%,
     #100C22 100%
   );
-  /**
-   * Galaxy Intelligence surfaces — sidebar color composition principles:
-   * dark base family, white-translucency lifts, purple DNA from active/star
-   * (#30214E, #7652C4, #8E63EB). Solid tones only — no star, no nav copy.
-   */
   --luxia-galaxy-shell: #14102A;
   --luxia-galaxy-header: #1A1432;
 
-  /* Layer: shell → Instruction → field → Insights / Best Match (hero) */
   --luxia-galaxy-surface-quiet: #251A38;
   --luxia-galaxy-surface: #252044;
   --luxia-galaxy-surface-input: #2C274C;
-  /* Instruction editable field — one step above Instruction container */
   --luxia-galaxy-surface-instruction-field: #382A52;
   --luxia-galaxy-surface-nested: #1E1A38;
   --luxia-galaxy-surface-raised: #2E2850;
-  /* Richer purple from star / active family — visual focal point */
   --luxia-galaxy-surface-insights: #3A2E5E;
   --luxia-galaxy-surface-elevated: #45366C;
   --luxia-galaxy-surface-insights-hover: #4A3C74;
 
-  /**
-   * Galaxy disabled controls — muted blue–purple from sidebar DNA.
-   * Same geometry as primary; lower saturation/contrast only.
-   */
   --luxia-galaxy-disabled-surface: #433A62;
   --luxia-galaxy-disabled-border: rgba(150, 219, 251, 0.16);
   --luxia-galaxy-disabled-text: rgba(218, 203, 248, 0.72);
 
-  /**
-   * Galaxy secondary actions (Cancel) — dark solid, sidebar-inspired.
-   * Same geometry as primary; lower priority, no gradient.
-   */
   --luxia-galaxy-btn-secondary-surface: #2A2142;
   --luxia-galaxy-btn-secondary-border: rgba(255, 255, 255, 0.12);
   --luxia-galaxy-btn-secondary-text: rgba(255, 255, 255, 0.88);
@@ -420,7 +394,7 @@
   );
 }
 
-/* Shared Luxia button primitives (consumed by ui/button.tsx) */
+/* Shared Luxia button primitives */
 .luxia-button {
   display: inline-flex;
   align-items: center;
@@ -612,9 +586,6 @@
   }
 }
 
-/**
- * Safe wrapping for chat messages, sources, links, and composer input.
- */
 .luxia-chat-text {
   max-width: 100%;
   white-space: pre-wrap;
@@ -622,10 +593,6 @@
   word-break: break-word;
 }
 
-/**
- * Chat composer input shell.
- * Focus indicator lives on the outer surface (focus-within), not a heavy ring on the textarea.
- */
 .luxia-chat-composer {
   display: flex;
   align-items: center;
@@ -733,7 +700,6 @@
   box-shadow: none !important;
 }
 
-/* Galaxy Intelligence panel — minimal, content-quiet scrollbar */
 .galaxy-panel-scroll {
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
