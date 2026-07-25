@@ -30,7 +30,13 @@ export function activeRelationshipCount(items: RelationshipRecord[]): number {
     return items.filter((item) => !item.markedForRemoval).length;
 }
 
-export function isRelationshipValid(item: Pick<RelationshipRecord, "type" | "fromTable" | "fromColumn" | "toTable" | "toColumn">): boolean {
+export function isRelationshipValid(item: {
+  type: string;
+  fromTable: string;
+  fromColumn: string;
+  toTable: string;
+  toColumn: string;
+}): boolean {
     return Boolean(item.type && item.fromTable && item.fromColumn && item.toTable && item.toColumn);
 }
 

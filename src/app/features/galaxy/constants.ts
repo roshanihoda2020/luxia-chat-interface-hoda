@@ -107,12 +107,17 @@ export const GALAXY_MOCK_CONSTELLATIONS_CHECKED = 24;
 export const GALAXY_ROUTE_RESULT_LIMIT = 50;
 export const GALAXY_MOCK_ROUTE_OPTION_COUNT = 1000;
 
-export const GALAXY_OVERVIEW_SCOPE = {
+export const GALAXY_OVERVIEW_SCOPE: {
+  pdfs: number;
+  databases: number;
+  constellations: number;
+  connectedResources: number;
+} = {
   pdfs: 42,
   databases: 8,
   constellations: GALAXY_MOCK_ROUTE_OPTION_COUNT,
   connectedResources: 42,
-} as const;
+};
 
 export type GalaxyControlRouteOption = {
   id: string;

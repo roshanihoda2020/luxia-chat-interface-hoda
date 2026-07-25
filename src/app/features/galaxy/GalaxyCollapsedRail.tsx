@@ -74,7 +74,15 @@ export function GalaxyCollapsedRail({
             data-galaxy-panel="intelligence-collapsed"
           >
             <span
-              className="mt-4 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-[10px]"
+              className="mt-4 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[8px]"
+              style={{ background: RAIL.btn }}
+              aria-hidden
+            >
+              <ChevronLeft size={16} style={{ color: RAIL.chevron }} strokeWidth={2.2} />
+            </span>
+
+            <span
+              className="mt-3 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-[10px]"
               style={{ background: RAIL.iconWell }}
               aria-hidden
             >
@@ -90,14 +98,6 @@ export function GalaxyCollapsedRail({
             ) : (
               <span className="mt-3 h-2 w-2 flex-shrink-0" aria-hidden />
             )}
-
-            <span
-              className="mt-auto mb-4 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[8px]"
-              style={{ background: RAIL.btn }}
-              aria-hidden
-            >
-              <ChevronLeft size={16} style={{ color: RAIL.chevron }} strokeWidth={2.2} />
-            </span>
           </button>
         </TooltipTrigger>
         <TooltipContent side="left">Open Galaxy Intelligence</TooltipContent>

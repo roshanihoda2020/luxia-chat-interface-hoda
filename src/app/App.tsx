@@ -39,6 +39,7 @@ import {
   type GalaxySessionState,
 } from "@/app/features/galaxy";
 import { LX } from "@/app/features/active-data-tables/tokens";
+import { IC, IC_BTN_ICON, icHoverOff, icHoverOn } from "@/app/features/active-data-tables/inspectorTheme";
 import { Button } from "@/app/components/ui/button";
 import { Badge } from "@/app/components/ui/badge";
 import { Label } from "@/app/components/ui/label";
@@ -62,6 +63,7 @@ import {
   Sparkles, MessageSquare, Network, Star,
   RefreshCw, Search, MoreHorizontal, Wand2,
   AlignLeft, Layers, Settings2, Pencil, Share2, List, FileBarChart2,
+  type LucideIcon,
 } from "lucide-react";
 
 // ─── Constellation type style tokens (tab cards + indicators) ──
@@ -115,7 +117,10 @@ function FlagCircle({ flagUrl, label, size = 24 }: { flagUrl: string; label: str
 type SectionId = "kb" | "dataTable" | "contextFiles" | "relationship" | "metrics" | "instr" | "pdfFiles" | "crawler";
 type ConstellationType = "database" | "pdf";
 
-const SECTION_META: Record<SectionId, { label: string; icon: React.FC<{ size?: number; color?: string }> }> = {
+/** Lucide-compatible icon props used across constellation section chrome. */
+type SectionIcon = LucideIcon;
+
+const SECTION_META: Record<SectionId, { label: string; icon: SectionIcon }> = {
   kb: { label: "Knowledge Base", icon: BookOpen },
   dataTable: { label: "Active Data Table", icon: Table2 },
   contextFiles: { label: "Extra Context Files", icon: FolderOpen },
@@ -525,7 +530,6 @@ const INSPECTOR_WIDTH_DEFAULT = 288;
 const INSPECTOR_WIDTH_MIN = 260;
 const INSPECTOR_WIDTH_HARD_MAX = 360;
 const CHAT_MIN_USABLE_WIDTH = 480;
-const INSPECTOR_COLLAPSED_WIDTH = 50;
 
 /** Galaxy Activity panel — independent of Constellation inspector widths. */
 const GALAXY_WIDTH_DEFAULT = 360;
@@ -573,7 +577,7 @@ function clampGalaxyWidth(width: number, viewportWidth: number, leftNavWidth: nu
 
 // ─── Nav Item ─────────────────────────────────────────────────
 function NavItem({ icon: Icon, label, active, badge, chevron, collapsed }: {
-  icon: React.FC<{ size?: number; color?: string }>;
+  icon: LucideIcon;
   label: string; active?: boolean; badge?: number; chevron?: boolean; collapsed?: boolean;
 }) {
   const button = (
@@ -1514,7 +1518,7 @@ function PageHeader({ chatLabel, chat, onRenameChat, onDeleteChat }: {
 
   function act(d: typeof dialog) { setMenuOpen(false); setDialog(d); }
 
-  const menuItems: Array<{ label: string; icon: React.FC<{ size?: number; color?: string; strokeWidth?: number }>; action: () => void; destructive?: boolean; divider?: boolean }> = [
+  const menuItems: Array<{ label: string; icon: LucideIcon; action: () => void; destructive?: boolean; divider?: boolean }> = [
     { label: "Rename", icon: Pencil, action: () => act("rename") },
     { label: "Share", icon: Share2, action: () => act("share") },
     { label: "Share List", icon: List, action: () => act("shareList") },
@@ -2092,7 +2096,7 @@ function PromptComposer({
 
 // ─── Sidebar small item ───────────────────────────────────────
 function SidebarListItem({ label, icon: Icon, onView, onRemove, draggable: isDraggable, onDragStart, onDragOver, onDrop, onDragEnd, dragOver }: {
-  label: string; icon: React.FC<{ size?: number; color?: string }>;
+  label: string; icon: SectionIcon;
   onView?: () => void; onRemove: () => void;
   draggable?: boolean; onDragStart?: () => void; onDragOver?: (e: React.DragEvent) => void;
   onDrop?: () => void; onDragEnd?: () => void; dragOver?: boolean;
@@ -2164,8 +2168,8 @@ function SidebarListItem({ label, icon: Icon, onView, onRemove, draggable: isDra
 function ConfirmRemoveDialog({ label, onConfirm, onCancel }: {
   label: string; onConfirm: () => void; onCancel: () => void;
 }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onCancel}>
+  return ReactDOM.createPortal(
+    <div className="fixed inset-0 z-[9990] flex items-center justify-center" onClick={onCancel}>
       <div className="absolute inset-0" style={{ background: "rgba(16,5,32,0.3)", backdropFilter: "blur(3px)" }} />
       <div className="relative rounded-[20px] p-7 w-[380px]"
         style={{ background: "white", boxShadow: "0 12px 32px rgba(15,23,42,0.14)" }}
@@ -2193,16 +2197,17 @@ function ConfirmRemoveDialog({ label, onConfirm, onCancel }: {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
 // ─── Item Preview Modal ────────────────────────────────────────
 function ItemPreviewModal({ label, icon: Icon, onClose }: {
-  label: string; icon: React.FC<{ size?: number; color?: string }>; onClose: () => void;
+  label: string; icon: SectionIcon; onClose: () => void;
 }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
+  return ReactDOM.createPortal(
+    <div className="fixed inset-0 z-[9990] flex items-center justify-center" onClick={onClose}>
       <div className="absolute inset-0 bg-black/30" style={{ backdropFilter: "blur(2px)" }} />
       <div className="relative rounded-[20px] w-[560px] max-h-[70vh] overflow-hidden flex flex-col"
         style={{ background: "white", boxShadow: LX.shadow.xl }} onClick={(e) => e.stopPropagation()}>
@@ -2229,7 +2234,8 @@ function ItemPreviewModal({ label, icon: Icon, onClose }: {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -2295,8 +2301,8 @@ function SectionWorkspaceModal({ sectionId, items, instruction, onSave, onClose 
     ? JSON.stringify(pendingItems) !== JSON.stringify(items)
     : pendingInstr !== instruction;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
+  return ReactDOM.createPortal(
+    <div className="fixed inset-0 z-[9990] flex items-center justify-center" onClick={onClose}>
       <div className="absolute inset-0" style={{ background: "rgba(16,5,32,0.35)", backdropFilter: "blur(4px)" }} />
       <div className="relative w-[700px] max-h-[84vh] rounded-[20px] overflow-hidden flex flex-col"
         style={{ background: "white", boxShadow: "0 12px 32px rgba(15,23,42,0.14)" }}
@@ -2447,7 +2453,8 @@ function SectionWorkspaceModal({ sectionId, items, instruction, onSave, onClose 
           onClose={() => setPreviewIdx(null)}
         />
       )}
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -2494,8 +2501,8 @@ function KBEntryModal({ mode: initialMode, entry, onSave, onAdd, onClose }: {
   const title = isAdd ? "Add Knowledge Entry" : isView ? "Knowledge Entry" : "Edit Knowledge Entry";
   const submitLabel = isAdd ? "Add" : "Save Changes";
 
-  return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center" onClick={onClose}>
+  return ReactDOM.createPortal(
+    <div className="fixed inset-0 z-[9990] flex items-center justify-center" onClick={onClose}>
       <div className="absolute inset-0 bg-black/35" style={{ backdropFilter: "blur(3px)" }} />
       <div className="relative rounded-[24px] w-[600px] max-h-[90vh] flex flex-col overflow-hidden"
         style={{ background: LX.surface, boxShadow: LX.shadow.xl }} onClick={(e) => e.stopPropagation()}>
@@ -2626,7 +2633,8 @@ function KBEntryModal({ mode: initialMode, entry, onSave, onAdd, onClose }: {
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -2658,8 +2666,8 @@ function AutoKBModal({ constellationLabel, onAdd, onClose }: {
 
   const selectedEntries = generated.filter(e => selected.has(e.id));
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
+  return ReactDOM.createPortal(
+    <div className="fixed inset-0 z-[9990] flex items-center justify-center" onClick={onClose}>
       <div className="absolute inset-0 bg-black/35" style={{ backdropFilter: "blur(3px)" }} />
       <div className="relative rounded-[24px] w-[640px] max-h-[86vh] flex flex-col overflow-hidden"
         style={{ background: LX.surface, boxShadow: LX.shadow.xl }} onClick={(e) => e.stopPropagation()}>
@@ -2766,7 +2774,8 @@ function AutoKBModal({ constellationLabel, onAdd, onClose }: {
           </Button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -2805,9 +2814,9 @@ function KBWorkspaceModal({ entries, constellationLabel, onSave, onClose }: {
 
   const hasChanges = JSON.stringify(pending) !== JSON.stringify(entries);
 
-  return (
+  return ReactDOM.createPortal(
     <>
-      <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
+      <div className="fixed inset-0 z-[9990] flex items-center justify-center" onClick={onClose}>
         <div className="absolute inset-0 bg-black/40" style={{ backdropFilter: "blur(4px)" }} />
         <div className="relative w-[760px] max-h-[88vh] rounded-[24px] overflow-hidden flex flex-col"
           style={{ background: LX.surface, boxShadow: LX.shadow.xl }} onClick={(e) => e.stopPropagation()}>
@@ -2989,7 +2998,8 @@ function KBWorkspaceModal({ entries, constellationLabel, onSave, onClose }: {
           onClose={() => setAddOpen(false)} />
       )}
       {autoOpen && <AutoKBModal constellationLabel={constellationLabel} onAdd={(es) => setPending(p => [...p, ...es])} onClose={() => setAutoOpen(false)} />}
-    </>
+    </>,
+    document.body,
   );
 }
 
@@ -3004,20 +3014,20 @@ function KBSidebarSection({ entries, isOpen, onToggle, onExpand, onAdd, onView, 
   const filtered = entries.filter(e => e.question.toLowerCase().includes(searchQ.toLowerCase()));
 
   return (
-    <div className="rounded-[12px] overflow-hidden"
-      style={{ background: "white", border: `1px solid ${LX.border}`, boxShadow: "0 2px 8px rgba(15,23,42,0.06)" }}>
+    <div className="overflow-hidden rounded-[14px]"
+      style={{ background: IC.card, border: `1px solid ${IC.border}`, boxShadow: IC.cardShadow }}>
       {/* Header */}
       <div className="flex items-center gap-1.5 px-[14px] py-3">
-        <BookOpen size={14} color={LX.secondary} className="flex-shrink-0" />
-        <span className="flex-1 luxia-type-title-component truncate" style={{ color: LX.primary }}>Knowledge Base</span>
+        <BookOpen size={14} color={IC.iconAccent} className="flex-shrink-0" />
+        <span className="flex-1 luxia-type-title-component truncate" style={{ color: IC.textPrimary }}>Knowledge Base</span>
         <Tooltip>
           <TooltipTrigger asChild>
             <button onClick={(e) => { e.stopPropagation(); onExpand(); }}
-              className="w-8 h-8 flex items-center justify-center rounded-[8px] transition-colors outline-none flex-shrink-0"
+              className={IC_BTN_ICON}
               aria-label="Manage knowledge base"
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.state.secondary08; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
-              <Maximize2 size={15} style={{ color: LX.textMuted }} />
+              onMouseEnter={icHoverOn}
+              onMouseLeave={icHoverOff}>
+              <Maximize2 size={15} style={{ color: IC.textMuted }} />
             </button>
           </TooltipTrigger>
           <TooltipContent sideOffset={6}>Manage</TooltipContent>
@@ -3025,11 +3035,11 @@ function KBSidebarSection({ entries, isOpen, onToggle, onExpand, onAdd, onView, 
         <Tooltip>
           <TooltipTrigger asChild>
             <button onClick={onToggle}
-              className="w-8 h-8 flex items-center justify-center rounded-[8px] transition-colors outline-none flex-shrink-0"
+              className={IC_BTN_ICON}
               aria-label={isOpen ? "Collapse" : "Expand"}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.state.secondary08; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
-              <ChevronDown size={15} style={{ color: LX.textMuted, transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 160ms ease" }} />
+              onMouseEnter={icHoverOn}
+              onMouseLeave={icHoverOff}>
+              <ChevronDown size={15} style={{ color: IC.textMuted, transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 160ms ease" }} />
             </button>
           </TooltipTrigger>
           <TooltipContent sideOffset={6}>{isOpen ? "Collapse" : "Expand"}</TooltipContent>
@@ -3037,24 +3047,24 @@ function KBSidebarSection({ entries, isOpen, onToggle, onExpand, onAdd, onView, 
       </div>
 
       {isOpen && (
-        <div className="px-2 pb-2.5" style={{ borderTop: `1px solid ${LX.borderSubtle}` }}>
+        <div className="px-2 pb-2.5" style={{ borderTop: `1px solid ${IC.borderSubtle}` }}>
           {/* Search */}
           <div className="flex items-center gap-1.5 px-2.5 h-[28px] rounded-[7px] mt-2 mb-1"
-            style={{ border: `1px solid ${LX.border}`, background: LX.subtle }}>
-            <Search size={10} style={{ color: LX.textMuted }} />
+            style={{ border: `1px solid ${IC.border}`, background: IC.input }}>
+            <Search size={10} style={{ color: IC.textMuted }} />
             <input value={searchQ} onChange={(e) => setSearchQ(e.target.value)}
               placeholder="Search…"
-              className="flex-1 outline-none luxia-type-caption bg-transparent" style={{ color: LX.primary }} />
+              className="flex-1 outline-none luxia-type-caption bg-transparent" style={{ color: IC.textPrimary }} />
             {searchQ && (
               <button onClick={() => setSearchQ("")} className="w-4 h-4 flex items-center justify-center outline-none">
-                <X size={9} style={{ color: LX.textMuted }} />
+                <X size={9} style={{ color: IC.textMuted }} />
               </button>
             )}
           </div>
 
           {/* Entry rows */}
           {filtered.length === 0 ? (
-            <p className="px-2 py-2 luxia-type-caption" style={{ color: LX.textMuted }}>
+            <p className="px-2 py-2 luxia-type-caption" style={{ color: IC.textMuted }}>
               {searchQ ? "No matches." : "No entries yet."}
             </p>
           ) : (
@@ -3062,10 +3072,10 @@ function KBSidebarSection({ entries, isOpen, onToggle, onExpand, onAdd, onView, 
               <div key={entry.id}
                 className="flex items-center gap-1.5 px-2 py-1.5 rounded-[7px] relative"
                 style={{ background: "transparent" }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.borderSubtle; }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = IC.hover; }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
-                <BookOpen size={10} color={LX.secondary} className="flex-shrink-0" />
-                <span className="flex-1 luxia-type-caption truncate" style={{ color: LX.primary }}>{entry.question}</span>
+                <BookOpen size={10} color={IC.iconAccent} className="flex-shrink-0" />
+                <span className="flex-1 luxia-type-caption truncate" style={{ color: IC.textPrimary }}>{entry.question}</span>
                 <KBEntryMenu
                   onView={() => onView(entry.id)}
                   onEdit={() => onEdit(entry.id)}
@@ -3078,8 +3088,8 @@ function KBSidebarSection({ entries, isOpen, onToggle, onExpand, onAdd, onView, 
           {/* Add Entry */}
           <button onClick={onAdd}
             className="mt-1 w-full flex items-center gap-1.5 px-2 py-1.5 rounded-[7px] luxia-type-caption transition-colors outline-none"
-            style={{ color: LX.textMuted }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.borderSubtle; }}
+            style={{ color: IC.textMuted }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = IC.hover; }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
             <Plus size={10} />Add Entry
           </button>
@@ -3272,7 +3282,7 @@ function ConstellationSelector({
         disabled={disabled}
         onClick={() => (open ? closeMenu(false) : openMenu())}
         className="flex w-full min-w-0 max-w-full items-center gap-1.5 overflow-hidden luxia-type-body-dense-strong transition-opacity hover:opacity-75 disabled:cursor-default disabled:opacity-100 outline-none"
-        style={{ color: LX.primary }}
+        style={{ color: IC.textPrimary }}
       >
         <ConstellationNameWithSource
           label={constellation.label}
@@ -3280,7 +3290,7 @@ function ConstellationSelector({
           className="min-w-0 flex-1"
           labelClassName="luxia-type-body-dense-strong"
         />
-        <ChevronDown size={11} className="flex-shrink-0" style={{ color: LX.textMuted }} />
+        <ChevronDown size={11} className="flex-shrink-0" style={{ color: IC.textMuted }} />
       </button>
 
       {open && menuPos && ReactDOM.createPortal(
@@ -3401,7 +3411,7 @@ function ConstellationSidebar({
   const [items, setItems] = useState<Record<SectionId, string[]>>(initItems);
   const [instruction, setInstruction] = useState(SECTION_INSTRUCTION[constellation.type]);
   const [openSections, setOpenSections] = useState<Record<SectionId, boolean>>(
-    Object.fromEntries(sectionIds.map((id, i) => [id, i < 2])) as Record<SectionId, boolean>
+    Object.fromEntries(sectionIds.map((id) => [id, false])) as Record<SectionId, boolean>
   );
 
   // Description expand
@@ -3491,33 +3501,110 @@ function ConstellationSidebar({
 
   if (collapsed) {
     return (
-      <aside className="flex h-full min-h-0 flex-shrink-0 flex-col items-center gap-2 overflow-hidden py-3"
-        style={{ width: INSPECTOR_COLLAPSED_WIDTH, background: LX.subtle, borderLeft: `1px solid ${LX.border}` }}>
-        <button onClick={onCollapse}
-          className="w-7 h-7 flex items-center justify-center rounded-[7px] transition-colors mb-1"
-          style={{ border: `1px solid ${LX.border}`, background: "white" }}
-          title="Expand sidebar">
-          <ChevronLeft size={13} style={{ color: LX.textMuted }} />
-        </button>
-        {sectionIds.map((id) => {
-          const Icon = SECTION_META[id].icon;
-          return (
-            <button key={id} onClick={onCollapse} title={SECTION_META[id].label}
-              className="w-8 h-8 flex items-center justify-center rounded-[8px] transition-colors"
-              style={{ border: `1px solid ${LX.border}`, background: "white" }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = LX.secondary; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = LX.border; }}>
-              <Icon size={14} color={LX.accent} />
-            </button>
-          );
-        })}
-      </aside>
+      <div
+        className="flex h-full min-h-0 flex-shrink-0 flex-col self-stretch"
+        style={{
+          width: GALAXY_COLLAPSED_WIDTH + GALAXY_PANEL_OUTER_GAP * 2,
+          padding: GALAXY_PANEL_OUTER_GAP,
+          boxSizing: "border-box",
+        }}
+        data-luxia-inspector="capsule-collapsed"
+      >
+        <aside
+          className="relative flex min-h-0 flex-1 flex-col items-center overflow-hidden outline-none"
+          style={{
+            width: GALAXY_COLLAPSED_WIDTH,
+            minWidth: GALAXY_COLLAPSED_WIDTH,
+            minHeight: 40,
+            borderRadius: "var(--luxia-radius-24)",
+            backgroundColor: IC.shell,
+            backgroundImage: IC.shellGradient,
+            border: `1px solid ${IC.shellBorder}`,
+            boxShadow: IC.shellShadow,
+            transition: "filter 140ms ease, box-shadow 140ms ease",
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLElement).style.filter = "brightness(1.06)";
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLElement).style.filter = "none";
+          }}
+        >
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={onCollapse}
+                aria-label="Expand sidebar"
+                aria-expanded={false}
+                className="mt-4 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[8px] outline-none focus-visible:outline-none"
+                style={{ background: IC.controlBg }}
+                onFocus={(e) => {
+                  (e.currentTarget as HTMLElement).style.boxShadow = IC.focusRing;
+                }}
+                onBlur={(e) => {
+                  (e.currentTarget as HTMLElement).style.boxShadow = "none";
+                }}
+              >
+                <ChevronLeft size={16} style={{ color: IC.textMuted }} strokeWidth={2.2} />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="left">Expand sidebar</TooltipContent>
+          </Tooltip>
+
+          <div className="mt-3 flex flex-col items-center gap-3">
+            {sectionIds.map((id) => {
+              const Icon = SECTION_META[id].icon;
+              return (
+                <Tooltip key={id}>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={onCollapse}
+                      aria-label={SECTION_META[id].label}
+                      className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-[10px] outline-none focus-visible:outline-none"
+                      style={{ background: IC.raised }}
+                      onFocus={(e) => {
+                        (e.currentTarget as HTMLElement).style.boxShadow = IC.focusRing;
+                      }}
+                      onBlur={(e) => {
+                        (e.currentTarget as HTMLElement).style.boxShadow = "none";
+                      }}
+                    >
+                      <Icon size={18} color="rgba(255, 255, 255, 0.88)" strokeWidth={2} />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="left">{SECTION_META[id].label}</TooltipContent>
+                </Tooltip>
+              );
+            })}
+          </div>
+        </aside>
+      </div>
     );
   }
 
   return (
-    <aside className="relative flex h-full min-h-0 flex-shrink-0 flex-col overflow-hidden"
-      style={{ width, background: "#F6F9FC", borderLeft: `1px solid ${LX.border}` }}>
+    <div
+      className="flex h-full min-h-0 flex-shrink-0 flex-col self-stretch"
+      style={{
+        width,
+        padding: IC.gap,
+        boxSizing: "border-box",
+      }}
+      data-luxia-inspector="capsule"
+    >
+    <aside
+      className="relative flex min-h-0 flex-1 flex-col overflow-hidden"
+      style={{
+        width: "100%",
+        borderRadius: IC.radiusShell,
+        backgroundColor: IC.shell,
+        backgroundImage: IC.shellGradient,
+        border: `1px solid ${IC.shellBorder}`,
+        boxShadow: IC.shellShadow,
+      }}
+    >
 
       {/* Resize handle */}
       <div className="absolute left-0 top-0 h-full w-[5px] z-20 cursor-col-resize group" onMouseDown={onResizeStart}>
@@ -3525,21 +3612,26 @@ function ConstellationSidebar({
       </div>
 
       {/* Header — constellation selector + description preview */}
-      <div className="relative flex-shrink-0 overflow-hidden px-4 pt-3 pb-2.5" style={{ borderBottom: `1px solid ${LX.border}` }}>
+      <div
+        className="relative flex-shrink-0 overflow-hidden px-4 pt-3 pb-2.5"
+        style={{ background: IC.header, borderBottom: `1px solid ${IC.borderSubtle}` }}
+      >
         <div className="flex min-w-0 items-center gap-2 overflow-hidden">
-          <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-[6px]"
-            style={{ background: "rgba(142,99,235,0.10)" }}>
-            <Sparkles size={12} color={LX.secondary} />
+          <div
+            className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-[6px]"
+            style={{ background: IC.selected }}
+          >
+            <Sparkles size={12} color={IC.iconAccent} />
           </div>
 
           <div className="relative min-w-0 flex-1 overflow-hidden">
             {isGalaxyChat ? (
               <div className="min-w-0 overflow-hidden">
-                <div className="flex min-w-0 items-center gap-1.5 luxia-type-body-dense-strong" style={{ color: LX.primary }}>
-                  <Network size={12} style={{ color: LX.secondary, flexShrink: 0 }} />
+                <div className="flex min-w-0 items-center gap-1.5 luxia-type-body-dense-strong" style={{ color: IC.textPrimary }}>
+                  <Network size={12} style={{ color: IC.iconAccent, flexShrink: 0 }} />
                   <span className="min-w-0 truncate">Galaxy chat</span>
                 </div>
-                <p className="mt-0.5 truncate luxia-type-caption leading-4" style={{ color: LX.textMuted }}>
+                <p className="mt-0.5 truncate luxia-type-caption leading-4" style={{ color: IC.textMuted }}>
                   Uses all constellations in this project
                 </p>
               </div>
@@ -3554,37 +3646,71 @@ function ConstellationSidebar({
             )}
           </div>
 
-          <button onClick={onCollapse} title="Collapse"
-            className="ml-1 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-[6px] transition-colors"
-            style={{ border: `1px solid ${LX.border}`, background: "white" }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = LX.borderStrong; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = LX.border; }}>
-            <ChevronRight size={12} style={{ color: LX.textMuted }} />
-          </button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={onCollapse}
+                aria-label="Collapse sidebar"
+                aria-expanded={true}
+                className="mt-px ml-1 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-[7px] outline-none focus-visible:outline-none"
+                style={{
+                  background: "rgba(255, 255, 255, 0.05)",
+                  color: IC.textMuted,
+                  transition: "background-color 140ms ease, box-shadow 140ms ease",
+                }}
+                onMouseEnter={(e) => {
+                  const el = e.currentTarget as HTMLElement;
+                  el.style.background = IC.hover;
+                }}
+                onMouseLeave={(e) => {
+                  const el = e.currentTarget as HTMLElement;
+                  el.style.background = "rgba(255, 255, 255, 0.05)";
+                  el.style.boxShadow = "none";
+                }}
+                onFocus={(e) => {
+                  (e.currentTarget as HTMLElement).style.boxShadow = IC.focusRing;
+                }}
+                onBlur={(e) => {
+                  (e.currentTarget as HTMLElement).style.boxShadow = "none";
+                }}
+              >
+                <ChevronRight size={15} strokeWidth={2.2} aria-hidden />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="left">Collapse sidebar</TooltipContent>
+          </Tooltip>
         </div>
 
         {/* Description preview */}
         <div className="mt-2 pl-[32px]">
-          <p className="luxia-type-caption"
+          <p
+            className="luxia-type-caption"
             style={{
-              color: LX.textMuted,
+              color: IC.textSecondary,
               overflow: "hidden",
               display: "-webkit-box",
               WebkitLineClamp: descExpanded ? "unset" : 2,
               WebkitBoxOrient: "vertical",
-            } as React.CSSProperties}>
+            } as React.CSSProperties}
+          >
             {constellation.description}
           </p>
-          <button onClick={() => setDescExpanded(p => !p)}
+          <button
+            onClick={() => setDescExpanded((p) => !p)}
             className="luxia-type-caption mt-0.5 hover:opacity-70 transition-opacity"
-            style={{ color: LX.secondary }}>
+            style={{ color: IC.iconAccent }}
+          >
             {descExpanded ? "Show less" : "Read more"}
           </button>
         </div>
       </div>
 
       {/* Sections — independent scroll; min-h-0 keeps footer visible */}
-      <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-3 py-2.5 space-y-2">
+      <div
+        className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-3 py-2.5 space-y-2 galaxy-panel-scroll"
+        style={{ scrollbarWidth: "thin", scrollbarColor: `${IC.scrollThumb} transparent` }}
+      >
         {sectionIds.map((sid) => {
           const meta = SECTION_META[sid];
           const Icon = meta.icon;
@@ -3686,57 +3812,61 @@ function ConstellationSidebar({
 
           const isInstr = sid === "instr";
           const showDrop = sid === "pdfFiles";
-          const sectionItems = items[sid] ?? [];
+          // Fallback list renderer for any section not handled above.
+          // Cast keeps the generic branch typed after specialized early-returns exhaust SectionId.
+          const fallbackSid = sid as SectionId;
+          const sectionItems: string[] = items[fallbackSid] ?? [];
+          const FallbackIcon = SECTION_META[fallbackSid].icon;
 
           return (
-            <div key={sid} className="rounded-[12px] overflow-hidden"
-              style={{ background: "white", border: `1px solid ${LX.border}`, boxShadow: "0 2px 8px rgba(15,23,42,0.06)" }}>
+            <div key={fallbackSid} className="overflow-hidden rounded-[14px]"
+              style={{ background: IC.card, border: `1px solid ${IC.border}`, boxShadow: IC.cardShadow }}>
               {/* Section header */}
               <div className="flex items-center gap-1.5 px-[14px] py-3">
-                <Icon size={14} color={LX.secondary} className="flex-shrink-0" />
-                <span className="flex-1 luxia-type-title-component truncate" style={{ color: LX.primary }}>{meta.label}</span>
-                <button onClick={(e) => { e.stopPropagation(); setModalSection(sid); }} title="Open in workspace"
-                  className="w-8 h-8 flex items-center justify-center rounded-[8px] transition-colors outline-none"
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.state.secondary08; }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
-                  <Maximize2 size={15} style={{ color: LX.textMuted }} />
+                <FallbackIcon size={14} color={IC.iconAccent} className="flex-shrink-0" />
+                <span className="flex-1 luxia-type-title-component truncate" style={{ color: IC.textPrimary }}>{SECTION_META[fallbackSid].label}</span>
+                <button onClick={(e) => { e.stopPropagation(); setModalSection(fallbackSid); }} title="Open in workspace"
+                  className={IC_BTN_ICON}
+                  onMouseEnter={icHoverOn}
+                  onMouseLeave={icHoverOff}>
+                  <Maximize2 size={15} style={{ color: IC.textMuted }} />
                 </button>
-                <button onClick={() => setOpenSections(p => ({ ...p, [sid]: !p[sid] }))}
-                  className="w-8 h-8 flex items-center justify-center rounded-[8px] transition-colors outline-none"
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.state.secondary08; }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
-                  <ChevronDown size={15} style={{ color: LX.textMuted, transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 160ms ease" }} />
+                <button onClick={() => setOpenSections(p => ({ ...p, [fallbackSid]: !p[fallbackSid] }))}
+                  className={IC_BTN_ICON}
+                  onMouseEnter={icHoverOn}
+                  onMouseLeave={icHoverOff}>
+                  <ChevronDown size={15} style={{ color: IC.textMuted, transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 160ms ease" }} />
                 </button>
               </div>
               {/* Section body */}
               {isOpen && (
-                <div className="px-2 pb-2.5" style={{ borderTop: `1px solid ${LX.borderSubtle}` }}>
+                <div className="px-2 pb-2.5" style={{ borderTop: `1px solid ${IC.borderSubtle}` }}>
                   {isInstr ? (
                     <textarea value={instruction} onChange={(e) => setInstruction(e.target.value)} rows={3}
-                      className="w-full outline-none resize-none luxia-type-metadata p-2.5 rounded-[8px] mt-2 transition-colors"
-                      style={{ color: LX.primary, background: LX.subtle, border: `1px solid ${LX.border}` }}
+                      className="w-full outline-none resize-none luxia-type-metadata p-2.5 rounded-[12px] mt-2 transition-colors"
+                      style={{ color: IC.textPrimary, background: IC.instructionField, border: `1px solid ${IC.border}` }}
                       placeholder="Write instructions…" />
                   ) : (
                     <div className="pt-1.5">
                       {sectionItems.map((item, i) => (
                         <SidebarListItem key={i} label={item}
-                          icon={Icon}
+                          icon={FallbackIcon}
                           draggable
-                          onDragStart={() => setDragSrc({ sid, i })}
-                          onDragOver={() => setDragOver({ sid, i })}
-                          onDrop={() => handleDrop(sid, i)}
+                          onDragStart={() => setDragSrc({ sid: fallbackSid, i })}
+                          onDragOver={() => setDragOver({ sid: fallbackSid, i })}
+                          onDrop={() => handleDrop(fallbackSid, i)}
                           onDragEnd={() => { setDragSrc(null); setDragOver(null); }}
-                          dragOver={dragOver?.sid === sid && dragOver?.i === i && dragSrc?.i !== i}
-                          onView={() => setPreviewItem({ sid, idx: i })}
-                          onRemove={() => setConfirmRemove({ sid, idx: i })} />
+                          dragOver={dragOver?.sid === fallbackSid && dragOver?.i === i && dragSrc?.i !== i}
+                          onView={() => setPreviewItem({ sid: fallbackSid, idx: i })}
+                          onRemove={() => setConfirmRemove({ sid: fallbackSid, idx: i })} />
                       ))}
-                      {showDrop && <FileDropZone onDrop={(names) => updateItems(sid, [...sectionItems, ...names])} />}
-                      <button onClick={() => updateItems(sid, [...sectionItems, sid === "crawler" ? "https://example.com" : `Item ${sectionItems.length + 1}`])}
+                      {showDrop && <FileDropZone onDrop={(names) => updateItems(fallbackSid, [...sectionItems, ...names])} />}
+                      <button onClick={() => updateItems(fallbackSid, [...sectionItems, fallbackSid === "crawler" ? "https://example.com" : `Item ${sectionItems.length + 1}`])}
                         className="w-full flex items-center gap-1.5 px-2 py-1.5 rounded-[7px] luxia-type-caption transition-colors mt-1 outline-none"
-                        style={{ color: LX.textMuted }}
-                        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.borderSubtle; }}
+                        style={{ color: IC.textMuted }}
+                        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = IC.hover; }}
                         onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
-                        <Plus size={11} />{sid === "crawler" ? "Add URL" : "Add item"}
+                        <Plus size={11} />{fallbackSid === "crawler" ? "Add URL" : "Add item"}
                       </button>
                     </div>
                   )}
@@ -3748,7 +3878,7 @@ function ConstellationSidebar({
       </div>
 
       {/* Footer — flex-shrink:0 sticky in column flow (not fixed overlay) */}
-      <div className="flex-shrink-0 px-4 py-3" style={{ borderTop: `1px solid ${LX.border}`, background: "white" }}>
+      <div className="flex-shrink-0 px-4 py-3" style={{ borderTop: `1px solid ${IC.borderSubtle}`, background: IC.header }}>
         {constellationFeedback ? (
           <p className="mb-2 text-center luxia-type-caption" role="status"
             style={{ color: constellationFeedback.type === "error" ? LX.error : LX.success }}>
@@ -3759,12 +3889,19 @@ function ConstellationSidebar({
           type="button"
           disabled={!constellationDirty || constellationSaving}
           onClick={saveConstellation}
-          className="flex h-[38px] w-full items-center justify-center gap-2 rounded-[10px] luxia-type-body-dense-strong text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed outline-none"
-          style={{ background: LX.gradient.button, boxShadow: LX.shadow.sm, opacity: constellationDirty && !constellationSaving ? 1 : 0.4 }}
+          className="flex h-[38px] w-full items-center justify-center gap-2 rounded-[10px] luxia-type-body-dense-strong outline-none disabled:cursor-not-allowed"
+          style={{
+            color: constellationDirty && !constellationSaving ? "#FFFFFF" : IC.disabledText,
+            background: constellationDirty && !constellationSaving ? IC.saveEnabled : IC.disabledSurface,
+            border: `1px solid ${constellationDirty && !constellationSaving ? "transparent" : IC.disabledBorder}`,
+            boxShadow: constellationDirty && !constellationSaving ? "var(--luxia-shadow-sm)" : "none",
+            opacity: 1,
+          }}
         >
           <Check size={13} />{constellationSaving ? "Saving…" : "Save Constellation"}
         </button>
       </div>
+    </aside>
 
       {modalSection && (
         <SectionWorkspaceModal
@@ -3796,7 +3933,7 @@ function ConstellationSidebar({
         />
       )}
 
-      {/* KB modals */}
+      {/* KB modals — portaled to document.body; kept outside capsule overflow */}
       {kbWorkspaceOpen && (
         <KBWorkspaceModal
           entries={kbEntries}
@@ -3832,7 +3969,7 @@ function ConstellationSidebar({
           onCancel={() => setKbConfirmId(null)}
         />
       )}
-    </aside>
+    </div>
   );
 }
 
@@ -4046,7 +4183,10 @@ export default function App() {
       delete next[id];
       return next;
     });
-    if (activeChat === id) setActiveChat(chats.filter(c => c.id !== id).at(-1)!.id);
+    if (activeChat === id) {
+      const remaining = chats.filter(c => c.id !== id);
+      setActiveChat(remaining[remaining.length - 1]!.id);
+    }
   }
 
   function handleConstellationChange(conId: string) {

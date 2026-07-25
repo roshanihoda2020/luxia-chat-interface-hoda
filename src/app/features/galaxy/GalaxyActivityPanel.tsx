@@ -13,6 +13,7 @@ import {
   Search,
   SlidersHorizontal,
   X,
+  type LucideIcon,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import {
@@ -298,7 +299,7 @@ function SectionLabel({
   icon: Icon,
 }: {
   children: React.ReactNode;
-  icon?: React.ComponentType<{ size?: number; strokeWidth?: number; className?: string; style?: CSSProperties; "aria-hidden"?: boolean }>;
+  icon?: LucideIcon;
 }) {
   return (
     <p

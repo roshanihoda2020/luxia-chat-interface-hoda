@@ -83,22 +83,22 @@ export function PDFFilesManager({
             const removedCatalog = current
                 .filter((f) => f.catalogId && !f.markedForRemoval && !selectedCatalogIds.includes(f.catalogId))
                 .map((f) => ({ ...f, markedForRemoval: true }));
-            const newCatalog = selectedCatalogIds
+            const newCatalog: PDFFileRecord[] = selectedCatalogIds
                 .filter((id) => !keptCatalog.some((f) => f.catalogId === id))
-                .map((catalogId) => {
+                .flatMap((catalogId) => {
                     const catalog = PDF_CATALOG.find((f) => f.id === catalogId);
-                    if (!catalog) return null;
-                    return {
+                    if (!catalog) return [];
+                    const record: PDFFileRecord = {
                         id: `pdf-${catalogId}-${Date.now()}`,
                         name: catalog.name,
                         sizeLabel: catalog.sizeLabel,
                         sizeBytes: catalog.sizeBytes,
-                        source: "catalog" as const,
+                        source: "catalog",
                         catalogId,
                         previewable: catalog.previewable,
                     };
-                })
-                .filter((f): f is PDFFileRecord => f !== null);
+                    return [record];
+                });
             return [...uploads, ...keptCatalog, ...newCatalog, ...marked, ...removedCatalog];
         });
     }
