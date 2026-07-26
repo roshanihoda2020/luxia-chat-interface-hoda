@@ -3529,7 +3529,7 @@ function ConstellationSidebar({
       </div>
 
       <div
-        className="relative flex-shrink-0 overflow-hidden px-3 pt-3 pb-2.5"
+        className="relative flex-shrink-0 overflow-hidden px-5 pt-3 pb-2.5"
         style={{ background: IC.header, borderBottom: `1px solid ${IC.headerDivider}` }}
       >
         <div className="flex min-w-0 items-start gap-2 overflow-hidden">
@@ -3619,7 +3619,7 @@ function ConstellationSidebar({
       </div>
 
       <div
-        className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-3 py-2.5 space-y-2 galaxy-panel-scroll"
+        className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-5 pt-5 pb-2.5 space-y-2 galaxy-panel-scroll"
         style={{ scrollbarWidth: "thin", scrollbarColor: `${IC.scrollThumb} transparent` }}
       >
         {sectionIds.map((sid) => {
@@ -3787,7 +3787,7 @@ function ConstellationSidebar({
         })}
       </div>
 
-      <div className="flex-shrink-0 px-4 py-4" style={{ borderTop: `1px solid ${IC.headerDivider}`, background: IC.shell }}>
+      <div className="flex-shrink-0 px-5 py-4" style={{ borderTop: `1px solid ${IC.headerDivider}`, background: IC.shell }}>
         {constellationFeedback ? (
           <p className="mb-2 text-center luxia-type-caption" role="status"
             style={{ color: constellationFeedback.type === "error" ? LX.error : LX.success }}>
@@ -4420,7 +4420,7 @@ export default function App() {
             className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
             style={{ minWidth: 0 }}
           >
-            <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-10 py-5">
+            <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-11 pt-6 pb-5">
               {messages.length === 0
                 ? (activeData?.chatType === "galaxy"
                   ? (
