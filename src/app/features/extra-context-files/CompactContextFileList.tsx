@@ -31,7 +31,7 @@ export function CompactContextFileList({
         <div style={icCardStyle(isOpen)}>
             <div className={IC_CARD_HEADER}>
                 <FolderOpen size={14} color={IC.iconSemantic} className="flex-shrink-0" />
-                <span className="flex-1 truncate luxia-type-title-component" style={{ color: IC.textPrimary }}>Extra Context Files</span>
+                <span className="flex-1 truncate luxia-type-title-component" style={{ color: IC.iconSemantic }}>Extra Context Files</span>
                 <Tooltip>
                     <TooltipTrigger asChild>
                         <button type="button" className={IC_BTN_OPEN} aria-label="Open full editor"

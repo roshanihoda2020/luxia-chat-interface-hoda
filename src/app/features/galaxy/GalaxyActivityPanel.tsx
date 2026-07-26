@@ -148,8 +148,8 @@ const GC = {
   instruction: "var(--luxia-galaxy-surface)",
   instructionBorder: "rgba(255, 255, 255, 0.06)",
   instructionShadow: "0 2px 8px rgba(8, 5, 18, 0.14)",
-  instructionTitle: "rgba(255, 255, 255, 0.92)",
-  instructionIcon: "rgba(255, 255, 255, 0.55)",
+  instructionTitle: "#FFFFFF",
+  instructionIcon: "#FFFFFF",
   instructionHelper: "rgba(255, 255, 255, 0.62)",
   instructionField: IC.input,
   instructionFieldBorder: IC.inputBorder,
@@ -174,12 +174,12 @@ const GC = {
   textPlaceholder: "rgba(255, 255, 255, 0.40)",
   textHelper: "rgba(255, 255, 255, 0.70)",
   textSubtitle: IC.textSubtitle,
-  textQuietTitle: "rgba(255, 255, 255, 0.70)",
+  textQuietTitle: "#FFFFFF",
   textSourceTitle: "rgba(255, 255, 255, 0.78)",
   textSourceMeta: "rgba(255, 255, 255, 0.48)",
   textSourcePages: "rgba(255, 255, 255, 0.36)",
   chevron: "rgba(255, 255, 255, 0.55)",
-  iconSection: "rgba(255, 255, 255, 0.55)",
+  iconSection: "#FFFFFF",
   iconSectionActive: "var(--luxia-purple-50)",
   iconSectionHover: "rgba(255, 255, 255, 0.78)",
   iconSectionQuiet: "rgba(255, 255, 255, 0.40)",
@@ -194,7 +194,7 @@ const GC = {
   pdfBadgeBg: "rgba(150, 219, 251, 0.12)",
   pdfBadgeText: IC.iconPdf,
   dbBadgeBg: "rgba(142, 99, 235, 0.14)",
-  dbBadgeText: IC.textDescDatabase,
+  dbBadgeText: "var(--luxia-purple-20)",
 
   focusRing: "0 0 0 2px rgba(142, 99, 235, 0.28)",
   scrollThumb: "rgba(255, 255, 255, 0.14)",
@@ -347,25 +347,6 @@ const InsightsGroup = forwardRef<
   );
 });
 
-function transparencySummary(
-  session: GalaxySessionState,
-  isManualMode: boolean,
-  pendingManual: GalaxyMatchedConstellation | null,
-): string {
-  const routing = isManualMode
-    ? (pendingManual ? `Specific · ${pendingManual.label}` : "Specific Routing")
-    : "Auto Routing";
-
-  if (session.status === "ready") return `${routing} • Ready`;
-  if (session.status === "searching") return `${routing} • Searching`;
-  if (session.status === "matching") return `${routing} • Matching`;
-  if (session.status === "answering") return `${routing} • Answering`;
-  if (session.status === "complete" && session.selected) {
-    return `Best Match: ${session.selected.label}`;
-  }
-  return `${routing} • Ready`;
-}
-
 export function GalaxyActivityPanel({
   session,
   width,
@@ -468,8 +449,6 @@ export function GalaxyActivityPanel({
     );
     option?.scrollIntoView({ block: "nearest" });
   }, [focusIndex, selectorOpen]);
-
-  const summary = transparencySummary(session, isManualMode, pendingManual);
 
   useEffect(() => {
     if (!session.focusSection) return;
@@ -703,13 +682,25 @@ export function GalaxyActivityPanel({
             borderBottom: `1px solid ${GC.headerDivider}`,
           }}
         >
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1 text-left">
             <h2
-              className="truncate luxia-type-body-dense-strong"
+              className="luxia-type-heading-h4 text-left"
               data-galaxy-title="true"
-              style={{ color: GC.textPrimary, fontWeight: 600, letterSpacing: "-0.01em" }}
+              style={{
+                color: "var(--luxia-text-inverse)",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "flex-start",
+                flex: "0 1 auto",
+                lineHeight: 1.15,
+                whiteSpace: "normal",
+                opacity: 1,
+                margin: 0,
+                textAlign: "left",
+              }}
             >
-              Galaxy Intelligence
+              <span style={{ display: "block" }}>Galaxy</span>
+              <span style={{ display: "block" }}>Intelligence</span>
             </h2>
             <p
               className="mt-1 truncate luxia-type-caption"
@@ -785,8 +776,8 @@ export function GalaxyActivityPanel({
                   style={{ color: GC.iconSection }}
                 />
                 <h3
-                  className="luxia-type-body-dense-strong"
-                  style={{ color: GC.textQuietTitle, fontWeight: 500, letterSpacing: "-0.01em" }}
+                  className="luxia-type-title-component"
+                  style={{ color: GC.textPrimary, fontWeight: 700, letterSpacing: "-0.01em" }}
                 >
                   Description
                 </h3>
@@ -906,7 +897,7 @@ export function GalaxyActivityPanel({
               <p
                 className="luxia-type-caption"
                 style={{
-                  color: GC.textSecondary,
+                  color: GC.textPrimary,
                   fontWeight: 400,
                   lineHeight: 1.55,
                   maxWidth: "100%",
@@ -950,24 +941,16 @@ export function GalaxyActivityPanel({
                 />
                 <div className="min-w-0 flex-1">
                   <p
-                    className="luxia-type-body-dense-strong"
-                    style={{ color: GC.textPrimary, fontWeight: 600, letterSpacing: "-0.01em" }}
+                    className="luxia-type-title-component"
+                    style={{ color: GC.textPrimary, fontWeight: 700, letterSpacing: "-0.01em" }}
                   >
                     Galaxy Insights
                   </p>
-                  {!transparencyOpen ? (
-                    <p
-                      className="mt-1 truncate luxia-type-caption"
-                      data-transparency-summary="true"
-                      style={{ color: GC.textSecondary, fontWeight: 400 }}
-                    >
-                      {summary}
-                    </p>
-                  ) : (
+                  {transparencyOpen ? (
                     <p className="mt-1 luxia-type-caption" style={{ color: GC.textDesc, fontWeight: 400 }}>
                       Routing, matches, and answer provenance
                     </p>
-                  )}
+                  ) : null}
                 </div>
                 <ChevronDown
                   size={15}
@@ -1712,8 +1695,8 @@ export function GalaxyActivityPanel({
                     style={{ color: GC.instructionIcon }}
                   />
                   <h3
-                    className="min-w-0 flex-1 luxia-type-body-dense-strong"
-                    style={{ color: GC.instructionTitle, fontWeight: 600, letterSpacing: "-0.01em" }}
+                    className="min-w-0 flex-1 luxia-type-title-component"
+                    style={{ color: GC.instructionTitle, fontWeight: 700, letterSpacing: "-0.01em" }}
                   >
                     Instruction
                   </h3>

@@ -1,5 +1,4 @@
 import { ChevronLeft, Network } from "lucide-react";
-import type { GalaxyActivityStatus } from "./constants";
 import { GALAXY_COLLAPSED_WIDTH, GALAXY_PANEL_OUTER_GAP } from "./constants";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/app/components/ui/tooltip";
 
@@ -9,26 +8,18 @@ const RAIL = {
   shellBorder: "rgba(255, 255, 255, 0.06)",
   shellShadow: "var(--luxia-galaxy-shell-shadow)",
   iconWell: "var(--luxia-galaxy-surface-raised)",
-  active: "var(--luxia-purple-50)",
-  icon: "rgba(255, 255, 255, 0.88)",
+  icon: "#FFFFFF",
   chevron: "rgba(255, 255, 255, 0.55)",
   btn: "rgba(255, 255, 255, 0.06)",
   focusRing: "0 0 0 2px rgba(142, 99, 235, 0.28)",
 } as const;
 
 export function GalaxyCollapsedRail({
-  status,
   onExpand,
 }: {
-  status?: GalaxyActivityStatus;
+  status?: string;
   onExpand: () => void;
 }) {
-  const isActive =
-    status === "searching" ||
-    status === "matching" ||
-    status === "answering" ||
-    status === "complete";
-
   return (
     <div
       className="flex h-full min-h-0 flex-shrink-0 flex-col self-stretch"
@@ -87,16 +78,6 @@ export function GalaxyCollapsedRail({
             >
               <Network size={18} style={{ color: RAIL.icon }} strokeWidth={2} />
             </span>
-
-            {isActive ? (
-              <span
-                className="mt-3 h-2 w-2 flex-shrink-0 rounded-full"
-                style={{ background: RAIL.active }}
-                aria-hidden
-              />
-            ) : (
-              <span className="mt-3 h-2 w-2 flex-shrink-0" aria-hidden />
-            )}
           </button>
         </TooltipTrigger>
         <TooltipContent side="left">Expand sidebar</TooltipContent>

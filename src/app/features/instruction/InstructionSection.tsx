@@ -48,7 +48,7 @@ export function InstructionSection({
             <div style={icCardStyle(isOpen)}>
                 <div className={IC_CARD_HEADER}>
                     <Cpu size={14} color={IC.iconSemantic} className="flex-shrink-0" />
-                    <span className="flex-1 truncate luxia-type-title-component" style={{ color: IC.textPrimary }}>Instruction</span>
+                    <span className="flex-1 truncate luxia-type-title-component" style={{ color: IC.iconSemantic }}>Instruction</span>
                     <Tooltip>
                         <TooltipTrigger asChild>
                             <button

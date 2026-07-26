@@ -39,7 +39,7 @@ import {
   type GalaxySessionState,
 } from "@/app/features/galaxy";
 import { LX } from "@/app/features/active-data-tables/tokens";
-import { IC, IC_BTN_ICON, IC_BTN_OPEN, IC_CARD_HEADER, IC_INPUT_TEXT, IC_SEARCH_SHELL, IC_SEARCH_SHELL_STYLE, icCardStyle, icHoverOff, icHoverOn, icInspectorAccentStyle, icInspectorDescriptionColor, icOpenActiveOn, icSearchShellBlur, icSearchShellFocus, icSearchShellHoverOff, icSearchShellHoverOn, icTextareaStyle } from "@/app/features/active-data-tables/inspectorTheme";
+import { IC, IC_BTN_ICON, IC_BTN_OPEN, IC_CARD_HEADER, IC_INPUT_TEXT, IC_SEARCH_SHELL, IC_SEARCH_SHELL_STYLE, icCardStyle, icHoverOff, icHoverOn, icInspectorAccentStyle, icInspectorDescriptionColor, icInspectorTitleColor, icOpenActiveOn, icSearchShellBlur, icSearchShellFocus, icSearchShellHoverOff, icSearchShellHoverOn, icTextareaStyle } from "@/app/features/active-data-tables/inspectorTheme";
 import { Button } from "@/app/components/ui/button";
 import { Badge } from "@/app/components/ui/badge";
 import { Label } from "@/app/components/ui/label";
@@ -112,13 +112,13 @@ type SectionIcon = LucideIcon;
 
 const SECTION_META: Record<SectionId, { label: string; icon: SectionIcon }> = {
   kb: { label: "Knowledge Base", icon: BookOpen },
-  dataTable: { label: "Active Data Table", icon: Table2 },
+  dataTable: { label: "Active Data Tables", icon: Table2 },
   contextFiles: { label: "Extra Context Files", icon: FolderOpen },
   relationship: { label: "Relationship", icon: Network },
   metrics: { label: "Metrics", icon: BarChart3 },
   instr: { label: "Instruction", icon: Cpu },
   pdfFiles: { label: "PDF Files", icon: FileText },
-  crawler: { label: "Crawler URL Data", icon: Globe },
+  crawler: { label: "Crawler URLs", icon: Globe },
 };
 
 const CONSTELLATION_SECTIONS: Record<ConstellationType, SectionId[]> = {
@@ -289,8 +289,8 @@ function ConstellationNameWithSource({
   badgeClassName?: string;
 }) {
   return (
-    <span className={`inline-flex min-w-0 max-w-full items-center gap-1 ${className}`} title={label}>
-      <span className={`min-w-0 overflow-hidden text-ellipsis whitespace-nowrap ${labelClassName}`}>{label}</span>
+    <span className={`inline-flex min-w-0 max-w-full items-center justify-start gap-1.5 text-left ${className}`} title={label}>
+      <span className={`min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-left ${labelClassName}`}>{label}</span>
       <ConstellationSourceBadge type={type} className={`flex-shrink-0 ${badgeClassName}`} />
     </span>
   );
@@ -2927,7 +2927,7 @@ function KBSidebarSection({ entries, isOpen, onToggle, onExpand, onAdd, onView, 
       style={icCardStyle(isOpen)}>
       <div className={IC_CARD_HEADER}>
         <BookOpen size={14} color={IC.iconSemantic} className="flex-shrink-0" />
-        <span className="flex-1 luxia-type-title-component truncate" style={{ color: IC.textPrimary }}>Knowledge Base</span>
+        <span className="flex-1 luxia-type-title-component truncate" style={{ color: IC.iconSemantic }}>Knowledge Base</span>
         <Tooltip>
           <TooltipTrigger asChild>
             <button type="button" onClick={(e) => { e.stopPropagation(); onExpand(); }}
@@ -3034,6 +3034,7 @@ function ConstellationSelector({
   const [searchQ, setSearchQ] = useState("");
   const [menuPos, setMenuPos] = useState<{ top?: number; bottom?: number; left: number; width: number } | null>(null);
   const [focusIndex, setFocusIndex] = useState(-1);
+  const [triggerHovered, setTriggerHovered] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -3193,18 +3194,24 @@ function ConstellationSelector({
         aria-controls={CONSTELLATION_MENU_ID}
         disabled={disabled}
         onClick={() => (open ? closeMenu(false) : openMenu())}
-        className="inline-flex max-w-full min-w-0 items-center gap-2 overflow-hidden luxia-type-body-dense-strong transition-opacity hover:opacity-75 disabled:cursor-default disabled:opacity-100 outline-none"
-        style={{ color: IC.textPrimary }}
+        onMouseEnter={() => setTriggerHovered(true)}
+        onMouseLeave={() => setTriggerHovered(false)}
+        className="inline-flex max-w-full min-w-0 items-center justify-start overflow-hidden text-left luxia-type-title-panel disabled:cursor-default disabled:opacity-100 outline-none"
+        style={{ color: "var(--luxia-text-inverse)" }}
       >
         <ConstellationNameWithSource
           label={constellation.label}
           type={constellation.type}
           className="min-w-0"
-          labelClassName="luxia-type-body-dense-strong"
+          labelClassName="luxia-type-title-panel"
         />
-        <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center" aria-hidden>
-          <ChevronDown size={11} style={{ color: IC.textMuted }} />
-        </span>
+        <ChevronDown
+          size={11}
+          strokeWidth={2}
+          aria-hidden
+          className="ml-1 flex-shrink-0 transition-colors"
+          style={{ color: triggerHovered ? "rgba(255, 255, 255, 0.78)" : IC.textMuted }}
+        />
       </button>
 
       {open && menuPos && ReactDOM.createPortal(
@@ -3414,8 +3421,10 @@ function ConstellationSidebar({
           width: GALAXY_COLLAPSED_WIDTH + GALAXY_PANEL_OUTER_GAP * 2,
           padding: GALAXY_PANEL_OUTER_GAP,
           boxSizing: "border-box",
+          ...icInspectorAccentStyle(constellation.type),
         }}
         data-luxia-inspector="capsule-collapsed"
+        data-constellation-type={constellation.type}
       >
         <aside
           className="relative flex min-h-0 flex-1 flex-col items-center overflow-hidden outline-none"
@@ -3478,7 +3487,7 @@ function ConstellationSidebar({
                         (e.currentTarget as HTMLElement).style.boxShadow = "none";
                       }}
                     >
-                      <Icon size={18} color="rgba(255, 255, 255, 0.88)" strokeWidth={2} />
+                      <Icon size={18} color={IC.iconSemantic} strokeWidth={2} />
                     </button>
                   </TooltipTrigger>
                   <TooltipContent side="left">{SECTION_META[id].label}</TooltipContent>
@@ -3520,16 +3529,18 @@ function ConstellationSidebar({
       </div>
 
       <div
-        className="relative flex-shrink-0 overflow-hidden px-4 pt-3 pb-2.5"
+        className="relative flex-shrink-0 overflow-hidden px-3 pt-3 pb-2.5"
         style={{ background: IC.header, borderBottom: `1px solid ${IC.headerDivider}` }}
       >
-        <div className="flex min-w-0 items-center gap-2 overflow-hidden">
-          <div className="relative min-w-0 flex-1 overflow-hidden">
+        <div className="flex min-w-0 items-start gap-2 overflow-hidden">
+          <div className="relative min-w-0 flex-1 overflow-hidden text-left">
             {isGalaxyChat ? (
-              <div className="min-w-0 overflow-hidden">
-                <div className="flex min-w-0 items-center gap-1.5 luxia-type-body-dense-strong" style={{ color: IC.textPrimary }}>
-                  <Network size={12} style={{ color: IC.iconAccent, flexShrink: 0 }} />
-                  <span className="min-w-0 truncate">Galaxy chat</span>
+              <div className="min-w-0 overflow-hidden text-left">
+                <div
+                  className="min-w-0 luxia-type-body-dense-strong text-left"
+                  style={{ color: icInspectorTitleColor("galaxy"), letterSpacing: "-0.01em" }}
+                >
+                  <span className="min-w-0 truncate block text-left">Galaxy chat</span>
                 </div>
                 <p className="mt-0.5 truncate luxia-type-caption leading-4" style={{ color: IC.textSubtitle }}>
                   Uses all constellations in this project
@@ -3586,11 +3597,12 @@ function ConstellationSidebar({
           <p
             className="luxia-type-caption"
             style={{
-              color: isGalaxyChat ? IC.textSubtitle : icInspectorDescriptionColor(constellation.type),
+              color: isGalaxyChat ? IC.textPrimary : icInspectorDescriptionColor(constellation.type),
               overflow: "hidden",
               display: "-webkit-box",
               WebkitLineClamp: descExpanded ? "unset" : 2,
               WebkitBoxOrient: "vertical",
+              lineHeight: 1.45,
             } as React.CSSProperties}
           >
             {constellation.description}
@@ -3598,10 +3610,10 @@ function ConstellationSidebar({
           <button
             type="button"
             onClick={() => setDescExpanded((p) => !p)}
-            className="luxia-type-caption mt-0.5 hover:opacity-70 transition-opacity"
-            style={{ color: IC.textPrimary }}
+            className="luxia-type-caption mt-1 hover:opacity-80 transition-opacity"
+            style={{ color: isGalaxyChat ? IC.textPrimary : IC.iconSemantic }}
           >
-            {descExpanded ? "Show less" : "Read more"}
+            {descExpanded ? "Read less" : "Read more"}
           </button>
         </div>
       </div>
@@ -3720,7 +3732,7 @@ function ConstellationSidebar({
               style={icCardStyle(isOpen)}>
               <div className={IC_CARD_HEADER}>
                 <FallbackIcon size={14} color={IC.iconSemantic} className="flex-shrink-0" />
-                <span className="flex-1 luxia-type-title-component truncate" style={{ color: IC.textPrimary }}>{SECTION_META[fallbackSid].label}</span>
+                <span className="flex-1 luxia-type-title-component truncate" style={{ color: IC.iconSemantic }}>{SECTION_META[fallbackSid].label}</span>
                 <button type="button" onClick={(e) => { e.stopPropagation(); setModalSection(fallbackSid); }} title="Open full editor"
                   className={IC_BTN_OPEN}
                   aria-label="Open full editor"
