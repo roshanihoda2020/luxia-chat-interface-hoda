@@ -3,7 +3,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/app/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/app/components/ui/dialog";
 import { Input } from "@/app/components/ui/input";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/app/components/ui/tooltip";
 import { DiscardPDFChangesDialog } from "./DiscardPDFChangesDialog";
 import { ManagePDFFilesDialog } from "./ManagePDFFilesDialog";
 import { PDFFileRow } from "./PDFFileRow";
@@ -130,14 +129,9 @@ export function PDFFilesManager({
                                     <DialogTitle className="luxia-type-title-modal" style={{ color: LX.primary }}>PDF Files</DialogTitle>
                                     <DialogDescription className="mt-1 luxia-type-metadata" style={{ color: LX.textMuted }}>Changes are local until saved.</DialogDescription>
                                 </div>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Button type="button" variant="outline" size="icon" className="h-9 w-9 rounded-full" aria-label="Close PDF files manager" onClick={requestClose}>
-                                            <X size={15} style={{ color: LX.textMuted }} />
-                                        </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent sideOffset={6}>Close</TooltipContent>
-                                </Tooltip>
+                                <Button type="button" variant="outline" size="icon" className="h-9 w-9 rounded-full" aria-label="Close PDF files manager" onClick={requestClose}>
+                                    <X size={15} style={{ color: LX.textMuted }} />
+                                </Button>
                             </div>
                         </DialogHeader>
 

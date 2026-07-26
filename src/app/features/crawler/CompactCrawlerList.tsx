@@ -1,7 +1,7 @@
 import { ChevronDown, Globe, Plus, SquareArrowOutUpRight } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/app/components/ui/tooltip";
 import { CrawlerMenu } from "./CrawlerMenu";
-import { IC, IC_BTN_ICON, IC_BTN_OPEN, IC_CARD, icHoverOff, icHoverOn, icOpenActiveOn } from "../active-data-tables/inspectorTheme";
+import { IC, IC_BTN_ICON, IC_BTN_OPEN, IC_CARD_HEADER, icCardStyle, icHoverOff, icHoverOn, icOpenActiveOn } from "../active-data-tables/inspectorTheme";
 import type { CrawlerEntry } from "./types";
 
 
@@ -25,9 +25,9 @@ export function CompactCrawlerList({
     const visible = entries.filter((e) => !e.markedForRemoval);
 
     return (
-        <div style={IC_CARD}>
-            <div className="flex items-center gap-1.5 px-[14px] py-3">
-                <Globe size={14} color={IC.iconAccent} className="flex-shrink-0" />
+        <div style={icCardStyle(isOpen)}>
+            <div className={IC_CARD_HEADER}>
+                <Globe size={14} color={IC.iconSemantic} className="flex-shrink-0" />
                 <span className="flex-1 truncate luxia-type-title-component" style={{ color: IC.textPrimary }}>Crawler URL Data</span>
                 <Tooltip>
                     <TooltipTrigger asChild>
@@ -63,7 +63,7 @@ export function CompactCrawlerList({
                                     style={{ background: "transparent" }}
                                     onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = IC.hover; }}
                                     onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
-                                    <Globe size={10} color={IC.iconAccent} className="flex-shrink-0" />
+                                    <Globe size={10} color={IC.iconSemantic} className="flex-shrink-0" />
                                     <span className="min-w-0 flex-1 truncate luxia-type-caption" style={{ color: IC.textPrimary }}>{entry.url}</span>
                                     <div className="relative z-20 flex-shrink-0" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
                                         <CrawlerMenu onView={() => onView(entry.id)} onEdit={() => onEdit(entry.id)} onRemove={() => onRemove(entry.id)} />

@@ -16,7 +16,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, forwardRef, type CSSProperties, type HTMLAttributes } from "react";
 import {
   GALAXY_DEFAULT_DESCRIPTION,
   GALAXY_DEFAULT_INSTRUCTION,
@@ -28,7 +28,7 @@ import {
   type GalaxySessionState,
 } from "./constants";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/app/components/ui/tooltip";
-import { IC_BTN_OPEN, IC, icHoverOff, icHoverOn, icOpenActiveOn } from "@/app/features/active-data-tables/inspectorTheme";
+import { IC_BTN_OPEN, IC, icHoverOff, icHoverOn, icInputBorderHoverOff, icInputBorderHoverOn, icOpenActiveOn, icTextareaStyle } from "@/app/features/active-data-tables/inspectorTheme";
 import { InstructionManager } from "@/app/features/instruction/InstructionManager";
 import { INSTRUCTION_MAX_CHARS } from "@/app/features/instruction/constants";
 
@@ -86,8 +86,9 @@ const SPACE = {
   cardPadX: 16,
   cardPadY: 14,
   nestPad: 14,
-  labelGap: 8,
-  stack: 16,
+  labelGap: 10,
+  stack: 14,
+  groupPadTop: 26,
 } as const;
 
 const GC = {
@@ -96,58 +97,68 @@ const GC = {
   shellBorder: "rgba(255, 255, 255, 0.06)",
   shellShadow: "var(--luxia-galaxy-shell-shadow)",
 
-  header: "var(--luxia-galaxy-header)",
-  headerDivider: "rgba(255, 255, 255, 0.07)",
+  header: "var(--luxia-galaxy-shell)",
+  headerDivider: "rgba(255, 255, 255, 0.04)",
 
   page: "transparent",
   card: "var(--luxia-galaxy-surface)",
   cardBorder: "rgba(255, 255, 255, 0.06)",
+  cardBorderStrong: "rgba(255, 255, 255, 0.10)",
   cardShadow: "0 2px 8px rgba(8, 5, 18, 0.14)",
-  cardShadowRaised: "0 8px 20px rgba(8, 5, 18, 0.22)",
+  cardShadowRaised: "0 6px 16px rgba(8, 5, 18, 0.20)",
 
-  insightsOuter: "var(--luxia-galaxy-surface-insights)",
-  insightsBorder: "rgba(142, 99, 235, 0.14)",
-  insightsHeader: "var(--luxia-galaxy-surface-elevated)",
-  insightsCollapsed: "var(--luxia-galaxy-surface-insights)",
-  insightsHover: "var(--luxia-galaxy-surface-insights-hover)",
+  insightsOuter: "var(--luxia-galaxy-surface)",
+  insightsBorder: "rgba(255, 255, 255, 0.06)",
+  insightsBorderOpen: "rgba(255, 255, 255, 0.10)",
+  insightsHeader: "transparent",
+  insightsCollapsed: "transparent",
+  insightsHover: "rgba(255, 255, 255, 0.06)",
 
-  routing: "var(--luxia-galaxy-surface-raised)",
+  routing: "transparent",
   segmentTrack: "rgba(255, 255, 255, 0.06)",
   selected: "var(--luxia-purple-50)",
 
   trigger: "var(--luxia-galaxy-surface)",
   triggerBorder: "rgba(255, 255, 255, 0.07)",
-  dropdown: "var(--luxia-galaxy-header)",
-  searchField: "var(--luxia-galaxy-surface-input)",
-  searchBorder: "rgba(255, 255, 255, 0.07)",
+  dropdown: "var(--luxia-galaxy-shell)",
+  searchField: IC.input,
+  searchBorder: IC.inputBorder,
+  searchBorderHover: IC.inputBorderHover,
+  searchBorderFocus: IC.inputBorderFocus,
   rowHover: "rgba(255, 255, 255, 0.06)",
   rowSelected: "rgba(142, 99, 235, 0.14)",
 
-  activity: "var(--luxia-galaxy-surface-nested)",
+  activity: "transparent",
   activityBorder: "rgba(255, 255, 255, 0.06)",
-  activityRow: "var(--luxia-galaxy-surface-raised)",
-  activityRowHover: "var(--luxia-galaxy-surface-insights)",
+  activityRow: "rgba(255, 255, 255, 0.04)",
+  activityRowHover: "rgba(255, 255, 255, 0.08)",
 
-  bestMatch: "var(--luxia-galaxy-surface-elevated)",
-  bestMatchBorder: "rgba(142, 99, 235, 0.18)",
-  bestMatchShadow: "0 8px 22px rgba(8, 5, 18, 0.26), 0 1px 0 rgba(255, 255, 255, 0.06) inset",
+  bestMatch: "var(--luxia-galaxy-surface)",
+  bestMatchBorder: "rgba(255, 255, 255, 0.16)",
+  bestMatchShadow: "none",
 
-  sources: "var(--luxia-galaxy-surface-nested)",
-  sourcesBorder: "rgba(255, 255, 255, 0.06)",
-  sourceRowHover: "var(--luxia-galaxy-surface-raised)",
+  sources: "transparent",
+  sourcesBorder: "rgba(255, 255, 255, 0.04)",
+  sourceRowHover: "rgba(255, 255, 255, 0.05)",
+  stepComplete: "var(--luxia-purple-50)",
+  sectionDivider: "rgba(255, 255, 255, 0.05)",
+  stepDoneLabel: "rgba(255, 255, 255, 0.42)",
+  stepDetail: "rgba(255, 255, 255, 0.55)",
 
-  instruction: "var(--luxia-galaxy-surface-quiet)",
-  instructionBorder: "rgba(255, 255, 255, 0.08)",
-  instructionShadow: "none",
+  instruction: "var(--luxia-galaxy-surface)",
+  instructionBorder: "rgba(255, 255, 255, 0.06)",
+  instructionShadow: "0 2px 8px rgba(8, 5, 18, 0.14)",
   instructionTitle: "rgba(255, 255, 255, 0.92)",
-  instructionIcon: "var(--luxia-purple-30)",
+  instructionIcon: "rgba(255, 255, 255, 0.55)",
   instructionHelper: "rgba(255, 255, 255, 0.62)",
-  instructionField: "var(--luxia-galaxy-surface-instruction-field)",
-  instructionFieldBorder: "rgba(255, 255, 255, 0.09)",
-  instructionFieldHoverBorder: "rgba(255, 255, 255, 0.14)",
-  textarea: "var(--luxia-galaxy-surface-input)",
-  textareaBorder: "rgba(255, 255, 255, 0.08)",
-  textareaHoverBorder: "rgba(255, 255, 255, 0.12)",
+  instructionField: IC.input,
+  instructionFieldBorder: IC.inputBorder,
+  instructionFieldHoverBorder: IC.inputBorderHover,
+  instructionFieldFocusBorder: IC.inputBorderFocus,
+  textarea: IC.input,
+  textareaBorder: IC.inputBorder,
+  textareaHoverBorder: IC.inputBorderHover,
+  textareaFocusBorder: IC.inputBorderFocus,
 
   textPrimary: "#FFFFFF",
   textHeading: "#FFFFFF",
@@ -162,15 +173,16 @@ const GC = {
   textDisabled: "var(--luxia-galaxy-disabled-text)",
   textPlaceholder: "rgba(255, 255, 255, 0.40)",
   textHelper: "rgba(255, 255, 255, 0.70)",
-  textSubtitle: "rgba(150, 219, 251, 0.55)",
+  textSubtitle: IC.textSubtitle,
   textQuietTitle: "rgba(255, 255, 255, 0.70)",
-  textSourceTitle: "rgba(255, 255, 255, 0.92)",
-  textSourceMeta: "rgba(255, 255, 255, 0.55)",
-  textSourcePages: "rgba(255, 255, 255, 0.40)",
+  textSourceTitle: "rgba(255, 255, 255, 0.78)",
+  textSourceMeta: "rgba(255, 255, 255, 0.48)",
+  textSourcePages: "rgba(255, 255, 255, 0.36)",
   chevron: "rgba(255, 255, 255, 0.55)",
   iconSection: "rgba(255, 255, 255, 0.55)",
   iconSectionActive: "var(--luxia-purple-50)",
   iconSectionHover: "rgba(255, 255, 255, 0.78)",
+  iconSectionQuiet: "rgba(255, 255, 255, 0.40)",
 
   interactivePurple: "var(--luxia-purple-30)",
   interactiveBlue: "var(--luxia-brand-tertiary)",
@@ -180,9 +192,9 @@ const GC = {
   idle: "var(--luxia-purple-50)",
 
   pdfBadgeBg: "rgba(150, 219, 251, 0.12)",
-  pdfBadgeText: "var(--luxia-brand-tertiary)",
+  pdfBadgeText: IC.iconPdf,
   dbBadgeBg: "rgba(142, 99, 235, 0.14)",
-  dbBadgeText: "var(--luxia-purple-20)",
+  dbBadgeText: IC.textDescDatabase,
 
   focusRing: "0 0 0 2px rgba(142, 99, 235, 0.28)",
   scrollThumb: "rgba(255, 255, 255, 0.14)",
@@ -265,10 +277,11 @@ function applyGalaxyPrimaryHover(el: HTMLElement, hovering: boolean, enabled: bo
 const SURF = {
   outer: GC.insightsOuter,
   outerBorder: GC.insightsBorder,
+  outerBorderOpen: GC.insightsBorderOpen,
   header: GC.insightsHeader,
   collapsed: GC.insightsCollapsed,
   hover: GC.insightsHover,
-  overview: GC.card,
+  overview: "transparent",
   activity: GC.activity,
   activityBorder: GC.activityBorder,
   bestMatch: GC.bestMatch,
@@ -279,29 +292,60 @@ const SURF = {
 function SectionLabel({
   children,
   icon: Icon,
+  tone = "default",
 }: {
   children: React.ReactNode;
   icon?: LucideIcon;
+  tone?: "default" | "primary" | "secondary";
 }) {
+  const labelColor =
+    tone === "primary" ? GC.textSecondary : tone === "secondary" ? "rgba(255, 255, 255, 0.42)" : GC.textMuted;
+  const iconColor =
+    tone === "primary" ? GC.iconSectionActive : tone === "secondary" ? GC.iconSectionQuiet : GC.iconSection;
+
   return (
     <p
       className="flex items-center gap-1.5 luxia-type-metadata"
       style={{
         marginBottom: SPACE.labelGap,
-        color: GC.textMuted,
-        fontWeight: 500,
-        letterSpacing: "0.06em",
+        color: labelColor,
+        fontWeight: 600,
+        letterSpacing: "0.08em",
         fontSize: 10,
         textTransform: "uppercase" as const,
       }}
     >
       {Icon ? (
-        <Icon size={12} strokeWidth={2} aria-hidden className="flex-shrink-0" style={{ color: GC.iconSection }} />
+        <Icon size={12} strokeWidth={2} aria-hidden className="flex-shrink-0" style={{ color: iconColor }} />
       ) : null}
       {children}
     </p>
   );
 }
+
+const InsightsGroup = forwardRef<
+  HTMLDivElement,
+  HTMLAttributes<HTMLDivElement> & { divided?: boolean }
+>(function InsightsGroup({ children, divided = false, className, style, ...rest }, ref) {
+  return (
+    <div
+      ref={ref}
+      className={className}
+      style={{
+        ...(divided
+          ? {
+              borderTop: `1px solid ${GC.sectionDivider}`,
+              paddingTop: SPACE.groupPadTop,
+            }
+          : null),
+        ...style,
+      }}
+      {...rest}
+    >
+      {children}
+    </div>
+  );
+});
 
 function transparencySummary(
   session: GalaxySessionState,
@@ -364,12 +408,15 @@ export function GalaxyActivityPanel({
   const [transparencyOpen, setTransparencyOpen] = useState(true);
   const [query, setQuery] = useState("");
   const [focusIndex, setFocusIndex] = useState(0);
+  const [selectorOpen, setSelectorOpen] = useState(false);
   const [reduceMotion, setReduceMotion] = useState(false);
   const activityRef = useRef<HTMLDivElement>(null);
   const selectedRef = useRef<HTMLDivElement>(null);
   const sourcesRef = useRef<HTMLDivElement>(null);
   const instructionRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const selectorTriggerRef = useRef<HTMLButtonElement>(null);
+  const selectorPanelRef = useRef<HTMLDivElement>(null);
   const descriptionEditRef = useRef<HTMLButtonElement>(null);
   const descriptionTextareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -414,6 +461,14 @@ export function GalaxyActivityPanel({
     setFocusIndex((i) => Math.min(i, Math.max(visibleResults.length - 1, 0)));
   }, [visibleResults.length]);
 
+  useEffect(() => {
+    if (!selectorOpen) return;
+    const option = selectorPanelRef.current?.querySelector<HTMLElement>(
+      `[role="option"][data-galaxy-option-index="${focusIndex}"]`,
+    );
+    option?.scrollIntoView({ block: "nearest" });
+  }, [focusIndex, selectorOpen]);
+
   const summary = transparencySummary(session, isManualMode, pendingManual);
 
   useEffect(() => {
@@ -451,12 +506,69 @@ export function GalaxyActivityPanel({
     if (!isManualMode) {
       setQuery("");
       setFocusIndex(0);
-      return;
+      setSelectorOpen(false);
     }
-    if (!transparencyOpen) return;
+  }, [isManualMode]);
+
+  useEffect(() => {
+    if (!selectorOpen) return;
     const frame = window.requestAnimationFrame(() => searchRef.current?.focus());
     return () => window.cancelAnimationFrame(frame);
-  }, [isManualMode, transparencyOpen]);
+  }, [selectorOpen]);
+
+  useEffect(() => {
+    if (!selectorOpen) return;
+    function onPointerDown(e: PointerEvent) {
+      const target = e.target as Node;
+      if (selectorTriggerRef.current?.contains(target)) return;
+      if (selectorPanelRef.current?.contains(target)) return;
+      // Keep clear control inside the closed field from treating as outside
+      const field = (e.target as HTMLElement | null)?.closest?.("[data-galaxy-selected-trigger]");
+      if (field) return;
+      setSelectorOpen(false);
+      setQuery("");
+      setFocusIndex(0);
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      setSelectorOpen(false);
+      setQuery("");
+      setFocusIndex(0);
+      window.requestAnimationFrame(() => selectorTriggerRef.current?.focus());
+    }
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [selectorOpen]);
+
+  function closeConstellationSelector(restoreFocus = true) {
+    setSelectorOpen(false);
+    setQuery("");
+    setFocusIndex(0);
+    if (restoreFocus) {
+      window.requestAnimationFrame(() => selectorTriggerRef.current?.focus());
+    }
+  }
+
+  function toggleConstellationSelector() {
+    setSelectorOpen((open) => {
+      if (open) {
+        setQuery("");
+        setFocusIndex(0);
+        return false;
+      }
+      return true;
+    });
+  }
+
+  function selectConstellationOption(option: GalaxyControlRouteOption) {
+    onSelectManual(option);
+    closeConstellationSelector(true);
+  }
 
   useEffect(() => {
     if (!editingDescription) return;
@@ -738,17 +850,14 @@ export function GalaxyActivityPanel({
                   aria-label="Galaxy description"
                   aria-invalid={descriptionInvalid}
                   aria-describedby={descriptionInvalid ? "galaxy-description-error" : undefined}
-                  className="w-full resize-none overflow-y-auto p-3 outline-none luxia-type-caption focus:outline-none focus-visible:outline-none galaxy-panel-scroll"
+                  className="w-full resize-none overflow-y-auto p-3 outline-none luxia-type-caption focus:outline-none focus-visible:outline-none galaxy-panel-scroll placeholder:text-[rgba(255,255,255,0.40)]"
                   style={{
                     minHeight: 72,
                     maxHeight: 112,
-                    color: GC.textResult,
                     fontWeight: 400,
                     lineHeight: 1.55,
-                    background: GC.textarea,
                     borderRadius: R.nested,
-                    border: `1px solid ${descriptionInvalid ? "rgba(247, 80, 80, 0.55)" : GC.purple}`,
-                    boxShadow: descriptionInvalid ? "none" : GC.focusRing,
+                    ...icTextareaStyle(true, { invalid: descriptionInvalid }),
                     scrollbarWidth: "thin",
                     scrollbarColor: `${GC.scrollThumb} transparent`,
                     transition: TRANSITION,
@@ -766,20 +875,18 @@ export function GalaxyActivityPanel({
                   </p>
                 ) : null}
                 <div className="flex items-center justify-end gap-2">
-                  {descriptionDirty ? (
-                    <button
-                      type="button"
-                      onClick={cancelDescriptionEdit}
-                      aria-label="Cancel description edit"
-                      className={GALAXY_BTN_CLASS}
-                      style={galaxyActionStyle("secondary")}
-                      onMouseEnter={(e) => applyGalaxySecondaryHover(e.currentTarget, true)}
-                      onMouseLeave={(e) => applyGalaxySecondaryHover(e.currentTarget, false)}
-                      data-galaxy-description-cancel="true"
-                    >
-                      Cancel
-                    </button>
-                  ) : null}
+                  <button
+                    type="button"
+                    onClick={cancelDescriptionEdit}
+                    aria-label="Cancel description edit"
+                    className={GALAXY_BTN_CLASS}
+                    style={galaxyActionStyle("secondary")}
+                    onMouseEnter={(e) => applyGalaxySecondaryHover(e.currentTarget, true)}
+                    onMouseLeave={(e) => applyGalaxySecondaryHover(e.currentTarget, false)}
+                    data-galaxy-description-cancel="true"
+                  >
+                    Cancel
+                  </button>
                   <button
                     type="button"
                     disabled={!descriptionCanSave}
@@ -817,8 +924,8 @@ export function GalaxyActivityPanel({
               style={{
                 borderRadius: R.card + 2,
                 background: SURF.outer,
-                border: `1px solid ${SURF.outerBorder}`,
-                boxShadow: GC.cardShadowRaised,
+                border: `1px solid ${transparencyOpen ? SURF.outerBorderOpen : SURF.outerBorder}`,
+                boxShadow: transparencyOpen ? GC.cardShadowRaised : GC.cardShadow,
               }}
             >
               <button
@@ -886,7 +993,7 @@ export function GalaxyActivityPanel({
                     : `grid-template-rows ${animMs}ms ${EASE}, opacity ${animMs}ms ${EASE}`,
                 }}
               >
-                <div className="min-h-0 overflow-hidden" style={{ background: GC.insightsOuter }}>
+                <div className="min-h-0 overflow-hidden" style={{ background: "transparent" }}>
                   <div
                     className="flex flex-col px-4"
                     style={{
@@ -895,7 +1002,7 @@ export function GalaxyActivityPanel({
                       paddingBottom: transparencyOpen ? SPACE.nestPad : 0,
                     }}
                   >
-                    <div>
+                    <InsightsGroup>
                       <SectionLabel>Routing</SectionLabel>
                       <div
                         className="p-2.5"
@@ -903,7 +1010,7 @@ export function GalaxyActivityPanel({
                           borderRadius: R.nested,
                           background: GC.routing,
                           border: `1px solid ${GC.cardBorder}`,
-                          boxShadow: GC.cardShadow,
+                          boxShadow: "none",
                         }}
                       >
                         <div
@@ -988,131 +1095,172 @@ export function GalaxyActivityPanel({
                               Applies to the next question
                             </p>
 
-                            {pendingManual ? (
-                              <div
-                                className="mb-2 flex min-w-0 max-w-full items-center gap-1.5 overflow-hidden rounded-[10px] px-2.5 py-2"
-                                data-galaxy-selected-trigger="true"
-                                style={{
-                                  background: GC.trigger,
-                                  border: `1px solid ${GC.triggerBorder}`,
-                                  minWidth: 0,
+                            <div
+                              className="flex min-w-0 items-stretch overflow-hidden rounded-[10px]"
+                              style={{
+                                background: GC.trigger,
+                                border: `1px solid ${selectorOpen ? GC.cardBorderStrong : GC.triggerBorder}`,
+                              }}
+                              data-galaxy-selected-trigger="true"
+                            >
+                              <button
+                                ref={selectorTriggerRef}
+                                type="button"
+                                aria-expanded={selectorOpen}
+                                aria-haspopup="listbox"
+                                aria-controls="galaxy-constellation-listbox"
+                                aria-label={
+                                  pendingManual
+                                    ? `Selected constellation: ${pendingManual.label}. Change constellation`
+                                    : "Choose a constellation"
+                                }
+                                title={pendingManual?.label}
+                                onClick={toggleConstellationSelector}
+                                onKeyDown={(e) => {
+                                  if (e.key === "ArrowDown" && !selectorOpen) {
+                                    e.preventDefault();
+                                    setSelectorOpen(true);
+                                  } else if (e.key === "Escape" && selectorOpen) {
+                                    e.preventDefault();
+                                    closeConstellationSelector(true);
+                                  }
                                 }}
-                                title={pendingManual.label}
-                                tabIndex={0}
-                                aria-label={`Selected constellation: ${pendingManual.label}`}
+                                className="flex min-w-0 flex-1 items-center gap-2 px-3.5 py-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[rgba(142,99,235,0.35)]"
                               >
-                                <p
+                                <span
                                   className="min-w-0 flex-1 truncate luxia-type-caption"
                                   style={{
-                                    color: GC.textPrimary,
-                                    fontWeight: 600,
+                                    color: pendingManual ? GC.textPrimary : GC.textSecondary,
+                                    fontWeight: pendingManual ? 600 : 500,
                                   }}
                                 >
-                                  {pendingManual.label}
-                                </p>
+                                  {pendingManual ? pendingManual.label : "Choose a constellation"}
+                                </span>
                                 <ChevronDown
                                   size={14}
                                   className="flex-shrink-0"
-                                  style={{ color: GC.textSecondary }}
                                   aria-hidden
+                                  style={{
+                                    color: GC.textSecondary,
+                                    transform: selectorOpen ? "rotate(180deg)" : "none",
+                                    transition: reduceMotion ? "none" : "transform 160ms ease",
+                                  }}
                                 />
+                              </button>
+                              {pendingManual ? (
                                 <button
                                   type="button"
                                   aria-label="Clear constellation selection"
-                                  onClick={onClearManual}
-                                  className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-[6px] outline-none"
-                                  style={{ background: GC.segmentTrack }}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onClearManual();
+                                    closeConstellationSelector(false);
+                                  }}
+                                  className="flex w-9 flex-shrink-0 items-center justify-center outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[rgba(142,99,235,0.35)]"
+                                  style={{ borderLeft: `1px solid ${GC.triggerBorder}` }}
                                 >
                                   <X size={12} style={{ color: GC.textSecondary }} />
                                 </button>
-                              </div>
-                            ) : (
+                              ) : null}
+                            </div>
+
+                            {selectorOpen ? (
                               <div
-                                className="mb-2 flex min-w-0 max-w-full items-center gap-2 overflow-hidden rounded-[10px] px-2.5 py-2"
+                                ref={selectorPanelRef}
+                                className="mt-2 min-w-0 overflow-hidden rounded-[10px]"
                                 style={{
-                                  background: GC.trigger,
                                   border: `1px solid ${GC.triggerBorder}`,
-                                  minWidth: 0,
+                                  background: GC.dropdown,
                                 }}
+                                data-galaxy-constellation-dropdown="true"
                               >
-                                <p
-                                  className="min-w-0 flex-1 truncate luxia-type-caption"
-                                  style={{ color: GC.textSecondary, fontWeight: 500 }}
+                                <div
+                                  className="relative min-w-0 px-3 pt-3 pb-2"
+                                  style={{ borderBottom: `1px solid ${GC.triggerBorder}` }}
                                 >
-                                  Choose a constellation
-                                </p>
-                                <ChevronDown
-                                  size={14}
-                                  className="flex-shrink-0"
-                                  style={{ color: GC.textSecondary }}
-                                  aria-hidden
-                                />
-                              </div>
-                            )}
+                                  <div
+                                    className="relative flex items-center rounded-[8px] transition-[border-color] duration-150"
+                                    style={{
+                                      background: IC.input,
+                                      border: `1px solid ${IC.inputBorder}`,
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      if (e.currentTarget.contains(document.activeElement)) return;
+                                      e.currentTarget.style.borderColor = IC.inputBorderHover;
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      if (e.currentTarget.contains(document.activeElement)) return;
+                                      e.currentTarget.style.borderColor = IC.inputBorder;
+                                    }}
+                                  >
+                                    <Search
+                                      size={12}
+                                      className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2"
+                                      style={{ color: IC.inputIcon }}
+                                    />
+                                    <input
+                                      ref={searchRef}
+                                      value={query}
+                                      onChange={(e) => {
+                                        setQuery(e.target.value);
+                                        setFocusIndex(0);
+                                      }}
+                                      onKeyDown={(e) => {
+                                        if (e.key === "ArrowDown") {
+                                          e.preventDefault();
+                                          setFocusIndex((i) =>
+                                            Math.min(i + 1, Math.max(visibleResults.length - 1, 0)),
+                                          );
+                                        } else if (e.key === "ArrowUp") {
+                                          e.preventDefault();
+                                          setFocusIndex((i) => Math.max(i - 1, 0));
+                                        } else if (e.key === "Enter" && visibleResults[focusIndex]) {
+                                          e.preventDefault();
+                                          selectConstellationOption(visibleResults[focusIndex]);
+                                        } else if (e.key === "Escape") {
+                                          e.preventDefault();
+                                          closeConstellationSelector(true);
+                                        }
+                                      }}
+                                      onFocus={(e) => {
+                                        const shell = e.currentTarget.parentElement;
+                                        if (shell) shell.style.borderColor = IC.inputBorderFocus;
+                                      }}
+                                      onBlur={(e) => {
+                                        const shell = e.currentTarget.parentElement;
+                                        if (shell) shell.style.borderColor = IC.inputBorder;
+                                      }}
+                                      placeholder="Search constellations…"
+                                      aria-label="Search constellations"
+                                      aria-controls="galaxy-constellation-listbox"
+                                      aria-autocomplete="list"
+                                      className="h-9 w-full min-w-0 rounded-[8px] bg-transparent py-2 pl-8 pr-3 outline-none luxia-type-caption placeholder:text-[rgba(255,255,255,0.40)]"
+                                      style={{ color: IC.textPrimary }}
+                                    />
+                                  </div>
+                                </div>
 
-                            <div
-                              className="min-w-0 overflow-hidden rounded-[10px]"
-                              style={{ border: `1px solid ${GC.searchBorder}`, background: GC.dropdown }}
-                            >
-                              <div
-                                className="relative min-w-0 px-2 py-1.5"
-                                style={{
-                                  borderBottom: `1px solid ${GC.searchBorder}`,
-                                  background: GC.searchField,
-                                }}
-                              >
-                                <Search
-                                  size={12}
-                                  className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2"
-                                  style={{ color: GC.textMuted }}
-                                />
-                                <input
-                                  ref={searchRef}
-                                  value={query}
-                                  onChange={(e) => { setQuery(e.target.value); setFocusIndex(0); }}
-                                  onKeyDown={(e) => {
-                                    if (e.key === "ArrowDown") {
-                                      e.preventDefault();
-                                      setFocusIndex((i) => Math.min(i + 1, Math.max(visibleResults.length - 1, 0)));
-                                    } else if (e.key === "ArrowUp") {
-                                      e.preventDefault();
-                                      setFocusIndex((i) => Math.max(i - 1, 0));
-                                    } else if (e.key === "Enter" && visibleResults[focusIndex]) {
-                                      e.preventDefault();
-                                      onSelectManual(visibleResults[focusIndex]);
-                                    }
+                                <div
+                                  id="galaxy-constellation-listbox"
+                                  className="max-h-[180px] overflow-x-hidden overflow-y-auto px-2 py-2 galaxy-panel-scroll"
+                                  role="listbox"
+                                  aria-label="Project constellations"
+                                  data-galaxy-constellation-results="true"
+                                  style={{
+                                    scrollbarWidth: "thin",
+                                    scrollbarColor: `${GC.scrollThumb} transparent`,
                                   }}
-                                  onFocus={(e) => {
-                                    e.currentTarget.style.boxShadow = `inset 0 0 0 1px ${GC.purple}`; e.currentTarget.parentElement && (e.currentTarget.parentElement.style.boxShadow = GC.focusRing);
-                                  }}
-                                  onBlur={(e) => {
-                                    e.currentTarget.style.boxShadow = "none";
-                                    if (e.currentTarget.parentElement) e.currentTarget.parentElement.style.boxShadow = "none";
-                                  }}
-                                  placeholder="Search constellations…"
-                                  aria-label="Search constellations"
-                                  className="h-8 w-full min-w-0 rounded-[7px] bg-transparent pl-7 pr-2 outline-none luxia-type-caption placeholder:text-[rgba(255,255,255,0.42)]"
-                                  style={{ color: GC.textPrimary }}
-                                />
-                              </div>
-
-                              <div
-                                className="max-h-[180px] overflow-x-hidden overflow-y-auto p-1"
-                                role="listbox"
-                                aria-label="Project constellations"
-                                data-galaxy-constellation-results="true"
-                              >
-                                {routeOptionsLoading ? (
-                                  <p className="px-2 py-3 luxia-type-caption" style={{ color: GC.textSecondary }}>
-                                    Loading constellations…
-                                  </p>
-                                ) : filteredAll.length === 0 ? (
-                                  <p className="px-2 py-3 luxia-type-caption" style={{ color: GC.textSecondary }}>
-                                    {query.trim() ? "No constellations found" : "No constellations available"}
-                                  </p>
-                                ) : (
-                                  <>
-                                    {visibleResults.map((option, index) => {
+                                >
+                                  {routeOptionsLoading ? (
+                                    <p className="px-2 py-3 luxia-type-caption" style={{ color: GC.textSecondary }}>
+                                      Loading constellations…
+                                    </p>
+                                  ) : filteredAll.length === 0 ? (
+                                    <p className="px-2 py-3 luxia-type-caption" style={{ color: GC.textSecondary }}>
+                                      {query.trim() ? "No constellations found" : "No constellations available"}
+                                    </p>
+                                  ) : (
+                                    visibleResults.map((option, index) => {
                                       const selected = pendingManual?.id === option.id;
                                       const highlighted = index === focusIndex;
                                       return (
@@ -1121,9 +1269,13 @@ export function GalaxyActivityPanel({
                                           type="button"
                                           role="option"
                                           aria-selected={selected}
+                                          data-galaxy-option-index={index}
                                           title={option.label}
-                                          className="flex w-full min-w-0 items-start gap-2 overflow-hidden rounded-[8px] px-2 py-2 text-left outline-none"
+                                          className="flex w-full min-w-0 items-start gap-2 overflow-hidden rounded-[8px] px-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[rgba(142,99,235,0.28)]"
                                           style={{
+                                            minHeight: 44,
+                                            paddingTop: 8,
+                                            paddingBottom: 8,
                                             background: selected
                                               ? GC.rowSelected
                                               : highlighted
@@ -1132,14 +1284,14 @@ export function GalaxyActivityPanel({
                                             transition: TRANSITION,
                                           }}
                                           onMouseEnter={() => setFocusIndex(index)}
-                                          onClick={() => onSelectManual(option)}
+                                          onClick={() => selectConstellationOption(option)}
                                         >
                                           <div className="min-w-0 flex-1 overflow-hidden" style={{ minWidth: 0 }}>
                                             <p
                                               className="luxia-type-caption"
                                               style={{
                                                 color: GC.textResult,
-                                                fontWeight: 500,
+                                                fontWeight: selected ? 600 : 500,
                                                 overflow: "hidden",
                                                 textOverflow: "ellipsis",
                                                 whiteSpace: "nowrap",
@@ -1155,42 +1307,26 @@ export function GalaxyActivityPanel({
                                             </p>
                                           </div>
                                           {selected ? (
-                                            <Check size={12} className="mt-0.5 flex-shrink-0" style={{ color: GC.interactiveBlue }} />
+                                            <Check
+                                              size={12}
+                                              className="mt-0.5 flex-shrink-0"
+                                              style={{ color: GC.purple }}
+                                            />
                                           ) : null}
                                         </button>
                                       );
-                                    })}
-
-                                    {(() => {
-                                      let hint: string | null = null;
-                                      if (!query.trim() && routeOptions.length > GALAXY_ROUTE_RESULT_LIMIT) {
-                                        hint = `Type to narrow ${routeOptions.length.toLocaleString()} constellations`;
-                                      } else if (filteredAll.length > visibleResults.length) {
-                                        hint = `${visibleResults.length} of ${filteredAll.length.toLocaleString()} results shown — refine your search`;
-                                      } else if (!query.trim() && routeOptions.length > 0) {
-                                        hint = "Type to narrow results";
-                                      }
-                                      if (!hint) return null;
-                                      return (
-                                        <p
-                                          className="px-2 py-2 luxia-type-caption"
-                                          style={{ color: GC.textSecondary, fontWeight: 500 }}
-                                          data-galaxy-results-hint="true"
-                                        >
-                                          {hint}
-                                        </p>
-                                      );
-                                    })()}
-                                  </>
-                                )}
+                                    })
+                                  )}
+                                </div>
                               </div>
-                            </div>
+                            ) : null}
                           </div>
                         ) : null}
                       </div>
-                    </div>
+                    </InsightsGroup>
 
-                    <div
+                    <InsightsGroup
+                      divided
                       ref={activityRef}
                       tabIndex={-1}
                       className="outline-none"
@@ -1204,7 +1340,7 @@ export function GalaxyActivityPanel({
                           borderRadius: R.nested,
                           background: SURF.activity,
                           border: `1px solid ${SURF.activityBorder}`,
-                          boxShadow: GC.cardShadow,
+                          boxShadow: "none",
                         }}
                       >
                         <p className="sr-only" aria-live="polite">{session.activityLabel}</p>
@@ -1238,7 +1374,7 @@ export function GalaxyActivityPanel({
                                 className="mt-[3px] flex h-4 w-4 flex-shrink-0 items-center justify-center"
                                 aria-hidden
                               >
-                                <Check size={12} style={{ color: GC.success }} strokeWidth={2.5} />
+                                <Check size={12} style={{ color: GC.stepComplete }} strokeWidth={2.5} />
                               </span>
                               <div className="min-w-0">
                                 <p className="luxia-type-body-dense-strong" style={{ color: GC.textPrimary, fontWeight: 500 }}>
@@ -1293,7 +1429,7 @@ export function GalaxyActivityPanel({
                                     aria-hidden
                                   >
                                     {done ? (
-                                      <Check size={12} style={{ color: GC.success }} strokeWidth={2.5} />
+                                      <Check size={12} style={{ color: GC.stepComplete }} strokeWidth={2.5} />
                                     ) : active ? (
                                       <span
                                         className="h-1.5 w-1.5 rounded-full motion-safe:animate-pulse"
@@ -1310,7 +1446,10 @@ export function GalaxyActivityPanel({
                                     <div className="flex items-baseline justify-between gap-2">
                                       <p
                                         className="luxia-type-body-dense-strong"
-                                        style={{ color: GC.textPrimary, fontWeight: active ? 600 : 500 }}
+                                        style={{
+                                          color: GC.textPrimary,
+                                          fontWeight: 600,
+                                        }}
                                       >
                                         {step.title}
                                       </p>
@@ -1318,7 +1457,7 @@ export function GalaxyActivityPanel({
                                         <span
                                           className="flex-shrink-0 luxia-type-caption"
                                           style={{
-                                            color: done && !active ? GC.interactiveBlue : GC.textSecondary,
+                                            color: done && !active ? GC.stepDoneLabel : GC.textSecondary,
                                             fontWeight: 400,
                                           }}
                                         >
@@ -1326,7 +1465,10 @@ export function GalaxyActivityPanel({
                                         </span>
                                       ) : null}
                                     </div>
-                                    <p className="mt-0.5 luxia-type-caption" style={{ color: GC.textDesc, fontWeight: 400 }}>
+                                    <p
+                                      className="mt-0.5 luxia-type-caption"
+                                      style={{ color: GC.stepDetail, fontWeight: 400 }}
+                                    >
                                       {step.detail}
                                     </p>
                                   </div>
@@ -1353,10 +1495,10 @@ export function GalaxyActivityPanel({
                           </button>
                         ) : null}
                       </div>
-                    </div>
+                    </InsightsGroup>
 
                     {showCandidates ? (
-                      <div>
+                      <InsightsGroup divided>
                         <SectionLabel>Candidate matches</SectionLabel>
                         <div className="rounded-[12px] px-2.5 py-2" style={{ background: SURF.overview }}>
                           <ul className="flex flex-col gap-1">
@@ -1379,24 +1521,25 @@ export function GalaxyActivityPanel({
                             })}
                           </ul>
                         </div>
-                      </div>
+                      </InsightsGroup>
                     ) : null}
 
                     {showSelected && session.selected ? (
-                      <div
+                      <InsightsGroup
+                        divided
                         ref={selectedRef}
                         tabIndex={-1}
                         className="outline-none"
                         aria-label="Best match"
                       >
-                        <SectionLabel icon={Crosshair}>Best Match</SectionLabel>
+                        <SectionLabel icon={Crosshair} tone="primary">Best Match</SectionLabel>
                         <div
                           style={{
                             borderRadius: R.card,
-                            padding: "18px 18px",
+                            padding: "22px 22px",
                             background: SURF.bestMatch,
                             border: `1px solid ${SURF.bestMatchBorder}`,
-                            boxShadow: GC.bestMatchShadow,
+                            boxShadow: "none",
                           }}
                         >
                           <p
@@ -1457,24 +1600,25 @@ export function GalaxyActivityPanel({
                             </button>
                           ) : null}
                         </div>
-                      </div>
+                      </InsightsGroup>
                     ) : null}
 
                     {showSources ? (
-                      <div
+                      <InsightsGroup
+                        divided
                         ref={sourcesRef}
                         tabIndex={-1}
                         className="outline-none"
                         aria-label="Sources used"
                       >
-                        <SectionLabel icon={Files}>Sources</SectionLabel>
+                        <SectionLabel icon={Files} tone="secondary">Sources</SectionLabel>
                         <div
-                          className="px-1.5 py-1.5"
+                          className="px-1 py-1"
                           style={{
                             borderRadius: R.nested,
                             background: SURF.sources,
                             border: `1px solid ${GC.sourcesBorder}`,
-                            boxShadow: GC.cardShadow,
+                            boxShadow: "none",
                           }}
                         >
                           <ul className="flex flex-col gap-0.5">
@@ -1483,7 +1627,7 @@ export function GalaxyActivityPanel({
                               return (
                                 <li
                                   key={source.id}
-                                  className="flex items-start gap-2.5 px-2.5 py-2.5"
+                                  className="flex items-start gap-2.5 px-2 py-2"
                                   style={{ borderRadius: R.control, transition: TRANSITION }}
                                   onMouseEnter={(e) => {
                                     (e.currentTarget as HTMLElement).style.background = GC.sourceRowHover;
@@ -1495,7 +1639,7 @@ export function GalaxyActivityPanel({
                                   <FileText
                                     size={13}
                                     className="mt-[3px] flex-shrink-0"
-                                    style={{ color: GC.interactiveBlue, opacity: 0.85 }}
+                                    style={{ color: GC.iconSectionQuiet, opacity: 0.9 }}
                                   />
                                   <div className="min-w-0 flex-1">
                                     <p
@@ -1531,7 +1675,7 @@ export function GalaxyActivityPanel({
                             })}
                           </ul>
                         </div>
-                      </div>
+                      </InsightsGroup>
                     ) : null}
                   </div>
                 </div>
@@ -1620,29 +1764,20 @@ export function GalaxyActivityPanel({
                 }}
                 rows={4}
                 aria-label="Galaxy instruction"
-                className="w-full resize-none overflow-y-auto p-3.5 outline-none luxia-type-metadata focus:outline-none focus-visible:outline-none galaxy-panel-scroll"
+                className="w-full resize-none overflow-y-auto p-3.5 outline-none luxia-type-metadata focus:outline-none focus-visible:outline-none galaxy-panel-scroll placeholder:text-[rgba(255,255,255,0.40)]"
                 style={{
                   minHeight: 104,
                   maxHeight: 140,
-                  color: GC.textResult,
                   fontWeight: 400,
                   lineHeight: 1.55,
-                  background: GC.instructionField,
                   borderRadius: "var(--luxia-radius-12)",
-                  border: `1px solid ${focused ? GC.purple : GC.instructionFieldBorder}`,
-                  boxShadow: focused ? GC.focusRing : "none",
+                  ...icTextareaStyle(focused),
                   scrollbarWidth: "thin",
                   scrollbarColor: `${GC.scrollThumb} transparent`,
                   transition: TRANSITION,
                 }}
-                onMouseEnter={(e) => {
-                  if (focused) return;
-                  (e.currentTarget as HTMLElement).style.borderColor = GC.instructionFieldHoverBorder;
-                }}
-                onMouseLeave={(e) => {
-                  if (focused) return;
-                  (e.currentTarget as HTMLElement).style.borderColor = GC.instructionFieldBorder;
-                }}
+                onMouseEnter={(e) => icInputBorderHoverOn(e, focused)}
+                onMouseLeave={(e) => icInputBorderHoverOff(e, focused)}
               />
 
               <div className="flex items-center justify-end gap-2 pt-0.5">

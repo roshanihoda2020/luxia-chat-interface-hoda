@@ -345,8 +345,8 @@
   );
   --luxia-galaxy-shell: #16122E;
   --luxia-galaxy-shell-shadow:
-    0 20px 48px rgba(8, 5, 18, 0.30),
-    0 8px 18px rgba(8, 5, 18, 0.16),
+    0 18px 44px rgba(8, 5, 18, 0.24),
+    0 6px 16px rgba(8, 5, 18, 0.12),
     inset 0 1px 0 rgba(255, 255, 255, 0.05),
     inset 0 0 28px rgba(6, 4, 14, 0.26);
   --luxia-galaxy-header: #1A1432;

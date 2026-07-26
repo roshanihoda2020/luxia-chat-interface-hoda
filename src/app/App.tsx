@@ -39,7 +39,7 @@ import {
   type GalaxySessionState,
 } from "@/app/features/galaxy";
 import { LX } from "@/app/features/active-data-tables/tokens";
-import { IC, IC_BTN_ICON, IC_BTN_OPEN, icHoverOff, icHoverOn, icOpenActiveOn } from "@/app/features/active-data-tables/inspectorTheme";
+import { IC, IC_BTN_ICON, IC_BTN_OPEN, IC_CARD_HEADER, IC_INPUT_TEXT, IC_SEARCH_SHELL, IC_SEARCH_SHELL_STYLE, icCardStyle, icHoverOff, icHoverOn, icInspectorAccentStyle, icInspectorDescriptionColor, icOpenActiveOn, icSearchShellBlur, icSearchShellFocus, icSearchShellHoverOff, icSearchShellHoverOn, icTextareaStyle } from "@/app/features/active-data-tables/inspectorTheme";
 import { Button } from "@/app/components/ui/button";
 import { Badge } from "@/app/components/ui/badge";
 import { Label } from "@/app/components/ui/label";
@@ -1654,8 +1654,8 @@ function AICard({
   const showStandardFooter = !galaxy && (message.sources || insights);
 
   return (
-    <div className="flex gap-3 mb-7 min-w-0 max-w-full" onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
-      <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-[8px] mt-0.5"
+    <div className="flex items-start gap-3 mb-7 min-w-0 max-w-full" onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
+      <div className="flex-shrink-0 w-8 flex items-start justify-center rounded-[8px]"
         style={{ background: "transparent" }}>
         <LuxiaStarLogo size={24} />
       </div>
@@ -2463,14 +2463,9 @@ function KBEntryModal({ mode: initialMode, entry, onSave, onAdd, onClose }: {
           <div className="flex-1 min-w-0">
             <h2 className="luxia-type-title-panel" style={{ color: LX.primary }}>{title}</h2>
           </div>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button type="button" variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 rounded-full" aria-label="Close">
-                <X size={14} style={{ color: LX.textMuted }} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent sideOffset={6}>Close</TooltipContent>
-          </Tooltip>
+          <Button type="button" variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 rounded-full" aria-label="Close">
+            <X size={14} style={{ color: LX.textMuted }} />
+          </Button>
         </div>
         <div className="h-px mx-8 flex-shrink-0" style={{ background: LX.border }} />
 
@@ -2620,14 +2615,9 @@ function AutoKBModal({ constellationLabel, onAdd, onClose }: {
             <h2 className="luxia-type-title-panel" style={{ color: LX.primary }}>Auto-generate Knowledge</h2>
             <p className="luxia-type-metadata" style={{ color: LX.textMuted }}>From <span className="font-bold">{constellationLabel}</span></p>
           </div>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button type="button" variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 rounded-full" aria-label="Close">
-                <X size={14} style={{ color: LX.textMuted }} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent sideOffset={6}>Close</TooltipContent>
-          </Tooltip>
+          <Button type="button" variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 rounded-full" aria-label="Close">
+            <X size={14} style={{ color: LX.textMuted }} />
+          </Button>
         </div>
         <div className="flex items-center gap-4 px-7 py-3.5 flex-shrink-0" style={{ borderBottom: `1px solid ${LX.border}` }}>
           <div className="flex items-center gap-2">
@@ -2763,14 +2753,9 @@ function KBWorkspaceModal({ entries, constellationLabel, onSave, onClose }: {
                 {constellationLabel} · {pending.length} {pending.length === 1 ? "entry" : "entries"}
               </p>
             </div>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button type="button" variant="ghost" size="icon" onClick={onClose} className="h-9 w-9 rounded-full" aria-label="Close knowledge base">
-                  <X size={15} style={{ color: LX.textMuted }} />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent sideOffset={6}>Close</TooltipContent>
-            </Tooltip>
+            <Button type="button" variant="ghost" size="icon" onClick={onClose} className="h-9 w-9 rounded-full" aria-label="Close knowledge base">
+              <X size={15} style={{ color: LX.textMuted }} />
+            </Button>
           </div>
 
           <div className="flex items-center gap-2.5 px-8 pb-5 flex-shrink-0">
@@ -2781,14 +2766,9 @@ function KBWorkspaceModal({ entries, constellationLabel, onSave, onClose }: {
                 placeholder="Search questions and answers…"
                 className="flex-1 outline-none luxia-type-body-dense bg-transparent" style={{ color: LX.primary }} />
               {searchQ && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => setSearchQ("")} aria-label="Clear search">
-                      <X size={11} style={{ color: LX.textMuted }} />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent sideOffset={6}>Clear search</TooltipContent>
-                </Tooltip>
+                <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => setSearchQ("")} aria-label="Clear search">
+                  <X size={11} style={{ color: LX.textMuted }} />
+                </Button>
               )}
             </div>
             <Button type="button" variant="outline" onClick={() => { const i = document.createElement("input"); i.type = "file"; i.accept = ".csv"; i.click(); }}
@@ -2944,9 +2924,9 @@ function KBSidebarSection({ entries, isOpen, onToggle, onExpand, onAdd, onView, 
 
   return (
     <div className="overflow-hidden rounded-[14px]"
-      style={{ background: IC.card, border: `1px solid ${IC.border}`, boxShadow: IC.cardShadow }}>
-      <div className="flex items-center gap-1.5 px-[14px] py-3">
-        <BookOpen size={14} color={IC.iconAccent} className="flex-shrink-0" />
+      style={icCardStyle(isOpen)}>
+      <div className={IC_CARD_HEADER}>
+        <BookOpen size={14} color={IC.iconSemantic} className="flex-shrink-0" />
         <span className="flex-1 luxia-type-title-component truncate" style={{ color: IC.textPrimary }}>Knowledge Base</span>
         <Tooltip>
           <TooltipTrigger asChild>
@@ -2978,15 +2958,21 @@ function KBSidebarSection({ entries, isOpen, onToggle, onExpand, onAdd, onView, 
 
       {isOpen && (
         <div className="px-2 pb-2.5" style={{ borderTop: `1px solid ${IC.borderSubtle}` }}>
-          <div className="flex items-center gap-1.5 px-2.5 h-[28px] rounded-[7px] mt-2 mb-1"
-            style={{ border: `1px solid ${IC.border}`, background: IC.input }}>
-            <Search size={10} style={{ color: IC.textMuted }} />
+          <div
+            className={IC_SEARCH_SHELL}
+            style={IC_SEARCH_SHELL_STYLE}
+            onMouseEnter={icSearchShellHoverOn}
+            onMouseLeave={icSearchShellHoverOff}
+          >
+            <Search size={10} style={{ color: IC.inputIcon }} />
             <input value={searchQ} onChange={(e) => setSearchQ(e.target.value)}
               placeholder="Search…"
-              className="flex-1 outline-none luxia-type-caption bg-transparent" style={{ color: IC.textPrimary }} />
+              className={`flex-1 ${IC_INPUT_TEXT}`} style={{ color: IC.textPrimary }}
+              onFocus={icSearchShellFocus}
+              onBlur={icSearchShellBlur} />
             {searchQ && (
               <button onClick={() => setSearchQ("")} className="w-4 h-4 flex items-center justify-center outline-none">
-                <X size={9} style={{ color: IC.textMuted }} />
+                <X size={9} style={{ color: IC.inputIcon }} />
               </button>
             )}
           </div>
@@ -3002,7 +2988,7 @@ function KBSidebarSection({ entries, isOpen, onToggle, onExpand, onAdd, onView, 
                 style={{ background: "transparent" }}
                 onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = IC.hover; }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
-                <BookOpen size={10} color={IC.iconAccent} className="flex-shrink-0" />
+                <BookOpen size={10} color={IC.iconSemantic} className="flex-shrink-0" />
                 <span className="flex-1 luxia-type-caption truncate" style={{ color: IC.textPrimary }}>{entry.question}</span>
                 <KBEntryMenu
                   onView={() => onView(entry.id)}
@@ -3512,8 +3498,10 @@ function ConstellationSidebar({
         width,
         padding: IC.gap,
         boxSizing: "border-box",
+        ...icInspectorAccentStyle(constellation.type),
       }}
       data-luxia-inspector="capsule"
+      data-constellation-type={constellation.type}
     >
     <aside
       className="relative flex min-h-0 flex-1 flex-col overflow-hidden"
@@ -3533,7 +3521,7 @@ function ConstellationSidebar({
 
       <div
         className="relative flex-shrink-0 overflow-hidden px-4 pt-3 pb-2.5"
-        style={{ background: IC.header, borderBottom: `1px solid ${IC.borderSubtle}` }}
+        style={{ background: IC.header, borderBottom: `1px solid ${IC.headerDivider}` }}
       >
         <div className="flex min-w-0 items-center gap-2 overflow-hidden">
           <div className="relative min-w-0 flex-1 overflow-hidden">
@@ -3543,7 +3531,7 @@ function ConstellationSidebar({
                   <Network size={12} style={{ color: IC.iconAccent, flexShrink: 0 }} />
                   <span className="min-w-0 truncate">Galaxy chat</span>
                 </div>
-                <p className="mt-0.5 truncate luxia-type-caption leading-4" style={{ color: IC.textMuted }}>
+                <p className="mt-0.5 truncate luxia-type-caption leading-4" style={{ color: IC.textSubtitle }}>
                   Uses all constellations in this project
                 </p>
               </div>
@@ -3598,7 +3586,7 @@ function ConstellationSidebar({
           <p
             className="luxia-type-caption"
             style={{
-              color: IC.textSecondary,
+              color: isGalaxyChat ? IC.textSubtitle : icInspectorDescriptionColor(constellation.type),
               overflow: "hidden",
               display: "-webkit-box",
               WebkitLineClamp: descExpanded ? "unset" : 2,
@@ -3608,9 +3596,10 @@ function ConstellationSidebar({
             {constellation.description}
           </p>
           <button
+            type="button"
             onClick={() => setDescExpanded((p) => !p)}
             className="luxia-type-caption mt-0.5 hover:opacity-70 transition-opacity"
-            style={{ color: IC.iconAccent }}
+            style={{ color: IC.textPrimary }}
           >
             {descExpanded ? "Show less" : "Read more"}
           </button>
@@ -3728,9 +3717,9 @@ function ConstellationSidebar({
 
           return (
             <div key={fallbackSid} className="overflow-hidden rounded-[14px]"
-              style={{ background: IC.card, border: `1px solid ${IC.border}`, boxShadow: IC.cardShadow }}>
-              <div className="flex items-center gap-1.5 px-[14px] py-3">
-                <FallbackIcon size={14} color={IC.iconAccent} className="flex-shrink-0" />
+              style={icCardStyle(isOpen)}>
+              <div className={IC_CARD_HEADER}>
+                <FallbackIcon size={14} color={IC.iconSemantic} className="flex-shrink-0" />
                 <span className="flex-1 luxia-type-title-component truncate" style={{ color: IC.textPrimary }}>{SECTION_META[fallbackSid].label}</span>
                 <button type="button" onClick={(e) => { e.stopPropagation(); setModalSection(fallbackSid); }} title="Open full editor"
                   className={IC_BTN_OPEN}
@@ -3752,8 +3741,8 @@ function ConstellationSidebar({
                 <div className="px-2 pb-2.5" style={{ borderTop: `1px solid ${IC.borderSubtle}` }}>
                   {isInstr ? (
                     <textarea value={instruction} onChange={(e) => setInstruction(e.target.value)} rows={3}
-                      className="w-full outline-none resize-none luxia-type-metadata p-2.5 rounded-[12px] mt-2 transition-colors"
-                      style={{ color: IC.textPrimary, background: IC.instructionField, border: `1px solid ${IC.border}` }}
+                      className="w-full outline-none resize-none luxia-type-metadata p-2.5 rounded-[12px] mt-2 transition-[border-color] duration-150 placeholder:text-[rgba(255,255,255,0.40)]"
+                      style={icTextareaStyle(false)}
                       placeholder="Write instructions…" />
                   ) : (
                     <div className="pt-1.5">
@@ -3786,7 +3775,7 @@ function ConstellationSidebar({
         })}
       </div>
 
-      <div className="flex-shrink-0 px-4 py-3" style={{ borderTop: `1px solid ${IC.borderSubtle}`, background: IC.header }}>
+      <div className="flex-shrink-0 px-4 py-4" style={{ borderTop: `1px solid ${IC.headerDivider}`, background: IC.shell }}>
         {constellationFeedback ? (
           <p className="mb-2 text-center luxia-type-caption" role="status"
             style={{ color: constellationFeedback.type === "error" ? LX.error : LX.success }}>

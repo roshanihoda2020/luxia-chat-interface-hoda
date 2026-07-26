@@ -10,7 +10,6 @@ import type { RelationshipFormValues } from "./RelationshipForm";
 import { Button } from "@/app/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/app/components/ui/dialog";
 import { Input } from "@/app/components/ui/input";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/app/components/ui/tooltip";
 import { LX } from "./tokens";
 import type { RelationshipRecord } from "./types";
 import { activeRelationshipCount, cloneRelationships, relationshipName, relationshipsSignature } from "./utils";
@@ -146,14 +145,9 @@ export function RelationshipManager({
                                     <DialogTitle className="luxia-type-title-modal" style={{ color: LX.primary }}>Relationship</DialogTitle>
                                     <DialogDescription className="mt-1 luxia-type-metadata" style={{ color: LX.textMuted }}>Changes are local until saved.</DialogDescription>
                                 </div>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Button type="button" variant="outline" size="icon" className="h-9 w-9 rounded-full" aria-label="Close relationship manager" onClick={requestClose}>
-                                            <X size={15} style={{ color: LX.textMuted }} />
-                                        </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent sideOffset={6}>Close</TooltipContent>
-                                </Tooltip>
+                                <Button type="button" variant="outline" size="icon" className="h-9 w-9 rounded-full" aria-label="Close relationship manager" onClick={requestClose}>
+                                    <X size={15} style={{ color: LX.textMuted }} />
+                                </Button>
                             </div>
                         </DialogHeader>
 

@@ -3,7 +3,6 @@ import { useState } from "react";
 import { Button } from "@/app/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/app/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/app/components/ui/tabs";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/app/components/ui/tooltip";
 import { DatasourceFileSelector } from "./DatasourceFileSelector";
 import { UploadExtraContextFilePanel } from "./UploadExtraContextFilePanel";
 import { LX } from "./tokens";
@@ -40,14 +39,9 @@ export function AddExtraContextFilesDialog({
                             <DialogTitle className="luxia-type-title-modal" style={{ color: LX.primary }}>Add files</DialogTitle>
                             <DialogDescription className="sr-only">Upload a file or add from datasource.</DialogDescription>
                         </div>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button type="button" variant="outline" size="icon" className="h-9 w-9 rounded-full" aria-label="Close add files" onClick={() => onOpenChange(false)}>
-                                    <X size={15} style={{ color: LX.textMuted }} />
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent sideOffset={6}>Close</TooltipContent>
-                        </Tooltip>
+                        <Button type="button" variant="outline" size="icon" className="h-9 w-9 rounded-full" aria-label="Close add files" onClick={() => onOpenChange(false)}>
+                            <X size={15} style={{ color: LX.textMuted }} />
+                        </Button>
                     </div>
                 </DialogHeader>
 

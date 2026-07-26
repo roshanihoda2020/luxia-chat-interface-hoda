@@ -11,7 +11,6 @@ import { Button } from "@/app/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/app/components/ui/dialog";
 import { Input } from "@/app/components/ui/input";
 import { Switch } from "@/app/components/ui/switch";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/app/components/ui/tooltip";
 import { LX } from "./tokens";
 import type { CrawlerState } from "./types";
 import { activeCrawlerCount, cloneCrawlerState, crawlerSignature } from "./utils";
@@ -83,7 +82,7 @@ export function CrawlerManager({ open, state, onCommit, onCancel }: {
                                     <DialogTitle className="luxia-type-title-modal" style={{ color: LX.primary }}>Crawler URL Data</DialogTitle>
                                     <DialogDescription className="mt-1 luxia-type-metadata" style={{ color: LX.textMuted }}>Changes are local until saved.</DialogDescription>
                                 </div>
-                                <Tooltip><TooltipTrigger asChild><Button type="button" variant="outline" size="icon" className="h-9 w-9 rounded-full" aria-label="Close crawler manager" onClick={requestClose}><X size={15} style={{ color: LX.textMuted }} /></Button></TooltipTrigger><TooltipContent sideOffset={6}>Close</TooltipContent></Tooltip>
+                                <Button type="button" variant="outline" size="icon" className="h-9 w-9 rounded-full" aria-label="Close crawler manager" onClick={requestClose}><X size={15} style={{ color: LX.textMuted }} /></Button>
                             </div>
                         </DialogHeader>
 

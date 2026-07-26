@@ -1,7 +1,7 @@
 import { ChevronDown, FileText, Plus, Search, SquareArrowOutUpRight, X } from "lucide-react";
 import { useRef, useState } from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/app/components/ui/tooltip";
-import { IC, IC_BTN_ICON, IC_BTN_OPEN, IC_CARD, icHoverOff, icHoverOn, icOpenActiveOn } from "../active-data-tables/inspectorTheme";
+import { IC, IC_BTN_ICON, IC_BTN_OPEN, IC_CARD_HEADER, IC_INPUT_TEXT, IC_SEARCH_SHELL, IC_SEARCH_SHELL_STYLE, icCardStyle, icHoverOff, icHoverOn, icOpenActiveOn, icSearchShellBlur, icSearchShellFocus, icSearchShellHoverOff, icSearchShellHoverOn } from "../active-data-tables/inspectorTheme";
 import { PDFFileMenu } from "./PDFFileMenu";
 import { LX } from "./tokens";
 import type { PDFFileRecord } from "./types";
@@ -51,9 +51,9 @@ export function CompactPDFList({
     }
 
     return (
-        <div style={IC_CARD}>
-            <div className="flex items-center gap-1.5 px-[14px] py-3">
-                <FileText size={14} color={IC.iconAccent} className="flex-shrink-0" />
+        <div style={icCardStyle(isOpen)}>
+            <div className={IC_CARD_HEADER}>
+                <FileText size={14} color={IC.iconSemantic} className="flex-shrink-0" />
                 <span className="flex-1 truncate luxia-type-title-component" style={{ color: IC.textPrimary }}>PDF Files</span>
                 <Tooltip>
                     <TooltipTrigger asChild>
@@ -79,14 +79,21 @@ export function CompactPDFList({
 
             {isOpen && (
                 <div className="px-2 pb-2.5" style={{ borderTop: `1px solid ${IC.borderSubtle}` }}>
-                    <div className="flex items-center gap-1.5 px-2.5 h-[28px] rounded-[7px] mt-2 mb-1" style={{ border: `1px solid ${IC.border}`, background: IC.input }}>
-                        <Search size={10} style={{ color: IC.textMuted }} />
+                    <div
+                        className={IC_SEARCH_SHELL}
+                        style={IC_SEARCH_SHELL_STYLE}
+                        onMouseEnter={icSearchShellHoverOn}
+                        onMouseLeave={icSearchShellHoverOff}
+                    >
+                        <Search size={10} style={{ color: IC.inputIcon }} />
                         <input value={search} onChange={(e) => onSearchChange(e.target.value)} placeholder="Search…"
-                            className="flex-1 bg-transparent luxia-type-caption outline-none" style={{ color: IC.textPrimary }}
-                            aria-label="Search PDF files" />
+                            className={`flex-1 ${IC_INPUT_TEXT}`} style={{ color: IC.textPrimary }}
+                            aria-label="Search PDF files"
+                            onFocus={icSearchShellFocus}
+                            onBlur={icSearchShellBlur} />
                         {search && (
                             <button type="button" aria-label="Clear search" onClick={() => onSearchChange("")} className="outline-none">
-                                <X size={9} style={{ color: IC.textMuted }} />
+                                <X size={9} style={{ color: IC.inputIcon }} />
                             </button>
                         )}
                     </div>
@@ -102,7 +109,7 @@ export function CompactPDFList({
                                 style={{ background: "transparent" }}
                                 onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = IC.hover; }}
                                 onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
-                                <FileText size={10} color={IC.iconAccent} className="flex-shrink-0" />
+                                <FileText size={10} color={IC.iconSemantic} className="flex-shrink-0" />
                                 <span className="min-w-0 flex-1 truncate luxia-type-caption" style={{ color: IC.textPrimary }}>{file.name}</span>
                                 <div className="relative z-20 flex-shrink-0" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
                                     <PDFFileMenu onView={() => onView(file.id)} onRemove={() => onRemove(file.id)} />

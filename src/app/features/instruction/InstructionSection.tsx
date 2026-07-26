@@ -1,7 +1,7 @@
 import { ChevronDown, Cpu, SquareArrowOutUpRight } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/app/components/ui/tooltip";
-import { IC, IC_BTN_ICON, IC_BTN_OPEN, IC_CARD, icHoverOff, icHoverOn, icOpenActiveOn } from "@/app/features/active-data-tables/inspectorTheme";
+import { IC, IC_BTN_ICON, IC_BTN_OPEN, IC_CARD_HEADER, icCardStyle, icHoverOff, icHoverOn, icInputBorderHoverOff, icInputBorderHoverOn, icOpenActiveOn, icTextareaStyle } from "@/app/features/active-data-tables/inspectorTheme";
 import { INSTRUCTION_MAX_CHARS } from "./constants";
 import { InstructionManager } from "./InstructionManager";
 import type { InstructionData } from "./types";
@@ -45,9 +45,9 @@ export function InstructionSection({
 
     return (
         <>
-            <div style={IC_CARD}>
-                <div className="flex items-center gap-1.5 px-[14px] py-3">
-                    <Cpu size={14} color={IC.iconAccent} className="flex-shrink-0" />
+            <div style={icCardStyle(isOpen)}>
+                <div className={IC_CARD_HEADER}>
+                    <Cpu size={14} color={IC.iconSemantic} className="flex-shrink-0" />
                     <span className="flex-1 truncate luxia-type-title-component" style={{ color: IC.textPrimary }}>Instruction</span>
                     <Tooltip>
                         <TooltipTrigger asChild>
@@ -100,13 +100,10 @@ export function InstructionSection({
                             rows={3}
                             placeholder="Write instructions…"
                             aria-label="Instruction text"
-                            className="mt-2 w-full resize-none overflow-y-auto rounded-[7px] p-2.5 outline-none luxia-type-caption transition-colors"
-                            style={{
-                                color: IC.textPrimary,
-                                background: IC.input,
-                                border: `1px solid ${focused ? "var(--luxia-purple-50)" : IC.border}`,
-                                boxShadow: focused ? IC.focusRing : "none",
-                            }}
+                            className={`mt-2 w-full resize-none overflow-y-auto rounded-[7px] p-2.5 outline-none luxia-type-caption transition-[border-color] duration-150 placeholder:text-[rgba(255,255,255,0.40)]`}
+                            style={icTextareaStyle(focused)}
+                            onMouseEnter={(e) => icInputBorderHoverOn(e, focused)}
+                            onMouseLeave={(e) => icInputBorderHoverOff(e, focused)}
                         />
                         {data.attachment ? (
                             <p className="mt-1.5 truncate luxia-type-caption" style={{ color: IC.textMuted }}>

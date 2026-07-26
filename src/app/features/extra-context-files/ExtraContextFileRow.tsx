@@ -47,14 +47,9 @@ export function ExtraContextFileRow({
                     </TooltipTrigger>
                     <TooltipContent sideOffset={6}>View file</TooltipContent>
                 </Tooltip>
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-full" aria-label="Remove file" onClick={onRemove} disabled={isUploading || isMarked}>
-                            <Trash2 size={14} style={{ color: LX.error }} />
-                        </Button>
-                    </TooltipTrigger>
-                    <TooltipContent sideOffset={6}>Remove file</TooltipContent>
-                </Tooltip>
+                <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-full" aria-label="Remove file" onClick={onRemove} disabled={isUploading || isMarked}>
+                    <Trash2 size={14} style={{ color: LX.error }} />
+                </Button>
             </div>
         </div>
     );

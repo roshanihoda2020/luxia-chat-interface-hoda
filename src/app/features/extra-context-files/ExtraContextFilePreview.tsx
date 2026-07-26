@@ -1,7 +1,6 @@
 import { FileText, X } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/app/components/ui/drawer";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/app/components/ui/tooltip";
 import { LX } from "./tokens";
 import type { ExtraContextFile } from "./types";
 import { fileMetaLine } from "./utils";
@@ -30,14 +29,9 @@ export function ExtraContextFilePreview({
                                 <DrawerTitle className="truncate luxia-type-title-modal" style={{ color: LX.primary }}>{file.name}</DrawerTitle>
                                 {meta ? <DrawerDescription className="mt-1 luxia-type-metadata" style={{ color: LX.textMuted }}>{meta}</DrawerDescription> : null}
                             </div>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button type="button" variant="outline" size="icon" className="h-9 w-9 rounded-full" aria-label="Close preview" onClick={() => onOpenChange(false)}>
-                                        <X size={15} style={{ color: LX.textMuted }} />
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent sideOffset={6}>Close</TooltipContent>
-                            </Tooltip>
+                                <Button type="button" variant="outline" size="icon" className="h-9 w-9 rounded-full" aria-label="Close preview" onClick={() => onOpenChange(false)}>
+                                    <X size={15} style={{ color: LX.textMuted }} />
+                                </Button>
                         </div>
                     </DrawerHeader>
                     <div className="flex-1 overflow-auto px-6 py-5">

@@ -65,14 +65,9 @@ export function InstructionAttachment({
                         </TooltipTrigger>
                         <TooltipContent sideOffset={6}>Replace</TooltipContent>
                     </Tooltip>
-                    <Tooltip>
-                        <TooltipTrigger asChild>
                             <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-full" aria-label="Remove attached file" onClick={onRemove}>
                                 <X size={14} style={{ color: LX.textMuted }} />
                             </Button>
-                        </TooltipTrigger>
-                        <TooltipContent sideOffset={6}>Remove</TooltipContent>
-                    </Tooltip>
                 </div>
                 {uploading ? <p className="luxia-type-metadata" style={{ color: LX.textMuted }}>Uploading…</p> : null}
                 {error ? <p className="luxia-type-metadata" role="alert" style={{ color: LX.error }}>{error}</p> : null}

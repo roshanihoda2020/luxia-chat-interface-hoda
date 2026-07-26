@@ -3,7 +3,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/app/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/app/components/ui/dialog";
 import { Input } from "@/app/components/ui/input";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/app/components/ui/tooltip";
 import { AddExtraContextFilesDialog } from "./AddExtraContextFilesDialog";
 import { DiscardExtraContextChangesDialog } from "./DiscardExtraContextChangesDialog";
 import { ExtraContextFilePreview } from "./ExtraContextFilePreview";
@@ -120,14 +119,9 @@ export function ExtraContextFilesManager({
                                     <DialogTitle className="luxia-type-title-modal" style={{ color: LX.primary }}>Extra Context Files</DialogTitle>
                                     <DialogDescription className="mt-1 luxia-type-metadata" style={{ color: LX.textMuted }}>Changes are local until saved.</DialogDescription>
                                 </div>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Button type="button" variant="outline" size="icon" className="h-9 w-9 rounded-full" aria-label="Close extra context files" onClick={requestClose}>
-                                            <X size={15} style={{ color: LX.textMuted }} />
-                                        </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent sideOffset={6}>Close</TooltipContent>
-                                </Tooltip>
+                                <Button type="button" variant="outline" size="icon" className="h-9 w-9 rounded-full" aria-label="Close extra context files" onClick={requestClose}>
+                                    <X size={15} style={{ color: LX.textMuted }} />
+                                </Button>
                             </div>
                         </DialogHeader>
 
