@@ -6,7 +6,7 @@
   <title>Inspector Capsule — Shared Material Variants A / B / C</title>
   <style>
     :root {
-      /* Existing Luxia shell family only — no new hues */
+      
       --shell-deep: #14102A;
       --shell: #16122E;
       --shell-soft: #181430;
@@ -99,11 +99,7 @@
       color: #64748B;
     }
 
-    /*
-      Shared structure — identical across variants.
-      Material depth is only on .capsule + ::before/::after layers.
-      Cards stay at current elevation.
-    */
+    
     .capsule {
       position: relative;
       width: 100%;
@@ -117,7 +113,7 @@
       isolation: isolate;
     }
 
-    /* Deeper outer shell base */
+    
     .capsule-base {
       position: absolute;
       inset: 0;
@@ -127,7 +123,7 @@
       pointer-events: none;
     }
 
-    /* Softer inner material surface */
+    
     .capsule-material {
       position: absolute;
       inset: 0;
@@ -228,10 +224,7 @@
       white-space: pre-wrap;
     }
 
-    /* ═══════════════════════════════════════════
-       Variant A — Soft Ambient Capsule
-       Gentle ambient light, soft depth, quiet vignette
-       ═══════════════════════════════════════════ */
+    
     .variant-a {
       box-shadow:
         0 18px 44px rgba(8, 5, 18, 0.26),
@@ -251,10 +244,7 @@
         inset 0 1px 0 rgba(255, 255, 255, 0.035);
     }
 
-    /* ═══════════════════════════════════════════
-       Variant B — Sculpted Capsule
-       Stronger edge shaping / molded volume
-       ═══════════════════════════════════════════ */
+    
     .variant-b {
       box-shadow:
         0 20px 48px rgba(8, 5, 18, 0.28),
@@ -275,10 +265,7 @@
         inset 0 -20px 28px rgba(4, 2, 12, 0.16);
     }
 
-    /* ═══════════════════════════════════════════
-       Variant C — Precision Enterprise
-       Almost invisible lighting; premium restraint
-       ═══════════════════════════════════════════ */
+    
     .variant-c {
       box-shadow:
         0 16px 40px rgba(8, 5, 18, 0.24),
@@ -312,7 +299,7 @@
   </div>
 
   <div class="grid">
-    <!-- A -->
+    
     <div class="column">
       <div class="meta">
         <h2>Variant A</h2>
@@ -344,7 +331,7 @@ top edge: 3.5%
 outer float: dual soft</div>
     </div>
 
-    <!-- B -->
+    
     <div class="column">
       <div class="meta">
         <h2>Variant B</h2>
@@ -376,7 +363,7 @@ top + bottom falloff
 outer float: deeper dual</div>
     </div>
 
-    <!-- C -->
+    
     <div class="column">
       <div class="meta">
         <h2>Variant C</h2>

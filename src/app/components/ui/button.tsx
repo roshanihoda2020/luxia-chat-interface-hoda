@@ -4,11 +4,6 @@ import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "./utils";
 
-/**
- * Luxia Design System Button.
- * Visual styles live in luxia-tokens.css (.luxia-button*).
- * Preserves backward-compatible aliases: default→primary, sm→compact, lg→large.
- */
 const buttonVariants = cva("luxia-button", {
   variants: {
     variant: {

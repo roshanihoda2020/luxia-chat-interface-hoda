@@ -1,9 +1,3 @@
-/*
- * Conversation accent themes — scoped via data-conversation-theme.
- * Add a new block here (and ConversationThemeId) for Crawler, API, etc.
- */
-
-/* Theme 1 — Knowledge Base / database */
 [data-conversation-theme="database"] {
   --luxia-conversation-gradient: var(--luxia-gradient-button);
   --luxia-conversation-shadow-user: 0 6px 18px rgba(48, 33, 78, 0.20);
@@ -15,7 +9,6 @@
   --luxia-conversation-accent-mark-shadow: 0 8px 24px rgba(142, 99, 235, 0.22);
 }
 
-/* Theme 2 — PDF conversation (product-specific blue accent — not a conflicting brand purple) */
 [data-conversation-theme="pdf"] {
   --luxia-conversation-gradient: linear-gradient(87deg, #3D78D8 0%, #96DBFB 100%);
   --luxia-conversation-shadow-user: 0 6px 18px rgba(61, 120, 216, 0.28);

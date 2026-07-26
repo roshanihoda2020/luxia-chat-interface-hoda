@@ -60,7 +60,6 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-// ─── Constellation type style tokens (tab cards + indicators) ──
 const CONSTELLATION_STYLE: Record<string, {
   color: string; bg: string; activeBg: string;
   border: string; activeBorder: string;
@@ -81,7 +80,6 @@ const CONSTELLATION_STYLE: Record<string, {
   },
 };
 
-// ─── Response languages ───────────────────────────────────────
 const LANGUAGES = [
   { code: "EN", flagUrl: flagUs, label: "English",  sublabel: "United States" },
   { code: "IT", flagUrl: flagIt, label: "Italiano", sublabel: "Italia" },
@@ -107,7 +105,6 @@ function FlagCircle({ flagUrl, label, size = 24 }: { flagUrl: string; label: str
   );
 }
 
-// ─── Constellation Section Definitions ───────────────────────
 type SectionId = "kb" | "dataTable" | "contextFiles" | "relationship" | "metrics" | "instr" | "pdfFiles" | "crawler";
 type ConstellationType = "database" | "pdf";
 
@@ -144,7 +141,6 @@ const SECTION_INSTRUCTION: Record<ConstellationType, string> = {
   pdf: "Extract and summarise information from the connected PDF files.",
 };
 
-// ─── Knowledge Base Types & Data ─────────────────────────────
 interface KBEntry { id: string; question: string; answer: string; responseType?: string; }
 
 const KB_RESPONSE_TYPES = [
@@ -221,7 +217,6 @@ const KB_AUTO_SAMPLES: KBEntry[] = [
   },
 ];
 
-// ─── Types ────────────────────────────────────────────────────
 interface Source { id: string; label: string; }
 type ResponseInsights = {
   format: "bullets" | "paragraphs";
@@ -385,7 +380,6 @@ function ResponseInsightsContent({ insights }: { insights: ResponseInsights }) {
   );
 }
 
-// ─── Data ─────────────────────────────────────────────────────
 const PROJECTS: Project[] = [
   { id: "proj1", label: "Project 01" },
   { id: "proj2", label: "Project 02" },
@@ -471,7 +465,6 @@ const NAV_BOTTOM_ITEMS = [
   { icon: HelpCircle, label: "Support" },
 ];
 
-// ─── Markdown renderer ────────────────────────────────────────
 function renderMd(text: string) {
   return text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g).map((p, i) => {
     if (p.startsWith("**") && p.endsWith("**"))
@@ -501,12 +494,10 @@ function renderContent(content: string) {
   });
 }
 
-// ─── Sidebar Brand Background ────────────────────────────────
 function SidebarBrandBackground() {
   return null;
 }
 
-// ─── Left sidebar layout ──────────────────────────────────────
 const SIDEBAR_WIDTH_EXPANDED = 280;
 const SIDEBAR_WIDTH_COLLAPSED = 76;
 const SIDEBAR_TOGGLE_SIZE = 42;
@@ -561,7 +552,6 @@ function clampGalaxyWidth(width: number, viewportWidth: number, leftNavWidth: nu
   return Math.max(GALAXY_WIDTH_MIN, Math.min(maxWidth, width));
 }
 
-// ─── Nav Item ─────────────────────────────────────────────────
 function NavItem({ icon: Icon, label, active, badge, chevron, collapsed }: {
   icon: LucideIcon;
   label: string; active?: boolean; badge?: number; chevron?: boolean; collapsed?: boolean;
@@ -613,7 +603,6 @@ function NavItem({ icon: Icon, label, active, badge, chevron, collapsed }: {
   return button;
 }
 
-// ─── Official Luxia Logo ──────────────────────────────────────
 const SIDEBAR_LOGO_WIDTH = 119.66;
 const SIDEBAR_LOGO_HEIGHT = 46.64;
 const SIDEBAR_BRAND_LEFT = 24;
@@ -666,7 +655,6 @@ function SidebarStarDecoration() {
   );
 }
 
-// ─── Left Navigation ──────────────────────────────────────────
 function SidebarCollapseToggle({
   collapsed,
   onToggle,
@@ -816,7 +804,6 @@ function LeftNav({
   );
 }
 
-// ─── Chat Tab Bar ─────────────────────────────────────────────
 function ChatTabBar({ chats, activeId, onSelect, onNew, onClose, onPin, onRename }: {
   chats: Chat[]; activeId: string;
   onSelect: (id: string) => void; onNew: () => void;
@@ -934,7 +921,6 @@ function ChatTabBar({ chats, activeId, onSelect, onNew, onClose, onPin, onRename
   );
 }
 
-// ─── Assistant Mode Dropdown ──────────────────────────────────
 const ASSISTANT_MODES = ["Luxia", "Knowledge Base", "Luxia / AI"];
 
 function AssistantModeDropdown({ mode, onChange }: { mode: string; onChange: (m: string) => void }) {
@@ -997,7 +983,6 @@ function AssistantModeDropdown({ mode, onChange }: { mode: string; onChange: (m:
   );
 }
 
-// ─── New Chat Modal ───────────────────────────────────────────
 function ChatTypeOption({
   id,
   value,
@@ -1213,7 +1198,6 @@ function NewChatModal({
   );
 }
 
-// ─── Luxia Dialog Shell ───────────────────────────────────────
 function LuxiaDialog({ open, onClose, title, children, footer }: {
   open: boolean; onClose: () => void;
   title: string; children: React.ReactNode; footer: React.ReactNode;
@@ -1249,7 +1233,6 @@ function LuxiaDialog({ open, onClose, title, children, footer }: {
   );
 }
 
-// ─── Options Dialogs ──────────────────────────────────────────
 const DEMO_USERS = [
   { id: "u1", name: "Alice Martin", email: "alice@luxia.ai" },
   { id: "u2", name: "Ben Torres", email: "ben@luxia.ai" },
@@ -1464,7 +1447,6 @@ function DeleteChatDialog({ open, onClose, onDelete }: {
   );
 }
 
-// ─── Page Header ──────────────────────────────────────────────
 function PageHeader({ chatLabel, chat, onRenameChat, onDeleteChat }: {
   chatLabel: string;
   chat: Chat;
@@ -1583,7 +1565,6 @@ function PageHeader({ chatLabel, chat, onRenameChat, onDeleteChat }: {
         document.body
       )}
 
-      {/* Dialogs */}
       <RenameDialog open={dialog === "rename"} current={chatLabel} onClose={() => setDialog(null)} onRename={onRenameChat} />
       <ShareDialog open={dialog === "share"} chatLabel={chatLabel} sharedUsers={sharedUsers} onClose={() => setDialog(null)} onShare={(ids) => setSharedUsers(ids)} />
       <ShareListDialog open={dialog === "shareList"} sharedUsers={sharedUsers} onClose={() => setDialog(null)} />
@@ -1593,7 +1574,6 @@ function PageHeader({ chatLabel, chat, onRenameChat, onDeleteChat }: {
   );
 }
 
-// ─── Date Separator ───────────────────────────────────────────
 function DateSeparator({ label }: { label: string }) {
   return (
     <div className="flex items-center gap-3 my-8">
@@ -1604,7 +1584,6 @@ function DateSeparator({ label }: { label: string }) {
   );
 }
 
-// ─── Source Footer ────────────────────────────────────────────
 function SourceFooter({
   sources,
   insights,
@@ -1659,7 +1638,6 @@ function SourceFooter({
   );
 }
 
-// ─── AI Card ──────────────────────────────────────────────────
 function AICard({
   message,
   onOpenGalaxyConstellation,
@@ -1724,7 +1702,6 @@ function AICard({
   );
 }
 
-// ─── User Bubble ──────────────────────────────────────────────
 function UserBubble({ message }: { message: Message }) {
   return (
     <div className="flex justify-end mb-7 min-w-0 max-w-full">
@@ -1744,7 +1721,6 @@ function UserBubble({ message }: { message: Message }) {
   );
 }
 
-// ─── Empty State ──────────────────────────────────────────────
 function EmptyState({ onPrompt }: { onPrompt: (p: string) => void }) {
   return (
     <div className="flex flex-col items-center justify-center h-full px-8 pb-8">
@@ -1773,7 +1749,6 @@ function EmptyState({ onPrompt }: { onPrompt: (p: string) => void }) {
   );
 }
 
-// ─── Language Selector ───────────────────────────────────────
 function LanguageSelector({ lang, onChange }: { lang: string; onChange: (c: string) => void }) {
   const [open, setOpen] = useState(false);
   const [menuPos, setMenuPos] = useState<{ bottom: number; left: number } | null>(null);
@@ -1849,7 +1824,6 @@ function LanguageSelector({ lang, onChange }: { lang: string; onChange: (c: stri
   );
 }
 
-// ─── Response Type Dropdown (portal, opens upward) ───────────
 function ResponseTypeDropdown({ constellationType }: { constellationType: ConstellationType }) {
   const options = constellationType === "database"
     ? [{ id: "narrative", label: "Narrative", icon: AlignLeft }, { id: "charts", label: "Charts", icon: BarChart3 }]
@@ -1941,7 +1915,6 @@ function ResponseTypeDropdown({ constellationType }: { constellationType: Conste
   );
 }
 
-// ─── Prompt Composer ──────────────────────────────────────────
 /** Must match --luxia-composer-input-max-height / min-height in luxia-tokens.css */
 const COMPOSER_INPUT_MIN_HEIGHT = 20;
 const COMPOSER_INPUT_MAX_HEIGHT = 40;
@@ -2081,7 +2054,6 @@ function PromptComposer({
   );
 }
 
-// ─── Sidebar small item ───────────────────────────────────────
 function SidebarListItem({ label, icon: Icon, onView, onRemove, draggable: isDraggable, onDragStart, onDragOver, onDrop, onDragEnd, dragOver }: {
   label: string; icon: SectionIcon;
   onView?: () => void; onRemove: () => void;
@@ -2151,7 +2123,6 @@ function SidebarListItem({ label, icon: Icon, onView, onRemove, draggable: isDra
   );
 }
 
-// ─── Confirm Remove Dialog ─────────────────────────────────────
 function ConfirmRemoveDialog({ label, onConfirm, onCancel }: {
   label: string; onConfirm: () => void; onCancel: () => void;
 }) {
@@ -2189,7 +2160,6 @@ function ConfirmRemoveDialog({ label, onConfirm, onCancel }: {
   );
 }
 
-// ─── Item Preview Modal ────────────────────────────────────────
 function ItemPreviewModal({ label, icon: Icon, onClose }: {
   label: string; icon: SectionIcon; onClose: () => void;
 }) {
@@ -2226,7 +2196,6 @@ function ItemPreviewModal({ label, icon: Icon, onClose }: {
   );
 }
 
-// ─── File Drop Zone ───────────────────────────────────────────
 function FileDropZone({ onDrop }: { onDrop: (names: string[]) => void }) {
   const [over, setOver] = useState(false);
   return (
@@ -2242,7 +2211,6 @@ function FileDropZone({ onDrop }: { onDrop: (names: string[]) => void }) {
   );
 }
 
-// ─── Section Workspace Modal ───────────────────────────────────
 function SectionWorkspaceModal({ sectionId, items, instruction, onSave, onClose }: {
   sectionId: SectionId; items: string[]; instruction: string;
   onSave: (items: string[], instruction: string) => void;
@@ -2295,7 +2263,6 @@ function SectionWorkspaceModal({ sectionId, items, instruction, onSave, onClose 
         style={{ background: "white", boxShadow: "0 12px 32px rgba(15,23,42,0.14)" }}
         onClick={(e) => e.stopPropagation()}>
 
-        {/* Header */}
         <div className="flex items-center gap-3 px-7 py-5 flex-shrink-0" style={{ borderBottom: `1px solid ${LX.border}` }}>
           <div className="w-9 h-9 rounded-[10px] flex items-center justify-center flex-shrink-0"
             style={{ background: "rgba(142,99,235,0.08)" }}>
@@ -2314,7 +2281,6 @@ function SectionWorkspaceModal({ sectionId, items, instruction, onSave, onClose 
           </button>
         </div>
 
-        {/* Search bar */}
         {!isInstr && (
           <div className="flex items-center gap-2 px-6 py-3 flex-shrink-0" style={{ borderBottom: `1px solid ${LX.border}` }}>
             <Search size={13} style={{ color: LX.muted }} />
@@ -2330,7 +2296,6 @@ function SectionWorkspaceModal({ sectionId, items, instruction, onSave, onClose 
           </div>
         )}
 
-        {/* Body */}
         <div className="flex-1 overflow-y-auto px-8 py-5">
           {isInstr ? (
             <textarea value={pendingInstr} onChange={(e) => setPendingInstr(e.target.value)} rows={14}
@@ -2403,7 +2368,6 @@ function SectionWorkspaceModal({ sectionId, items, instruction, onSave, onClose 
           )}
         </div>
 
-        {/* Footer */}
         <div className="flex items-center justify-between gap-3 px-7 py-4 flex-shrink-0" style={{ borderTop: `1px solid ${LX.border}` }}>
           <span className="luxia-type-metadata" style={{ color: LX.textMuted }}>
             {isInstr ? "" : `${pendingItems.length} item${pendingItems.length !== 1 ? "s" : ""}`}
@@ -2445,8 +2409,6 @@ function SectionWorkspaceModal({ sectionId, items, instruction, onSave, onClose 
   );
 }
 
-// ─── KB Entry Preview Modal ───────────────────────────────────
-// ─── KB Entry Modal (Add / View / Edit) ──────────────────────
 function KBEntryModal({ mode: initialMode, entry, onSave, onAdd, onClose }: {
   mode: "add" | "view" | "edit";
   entry?: KBEntry;
@@ -2494,7 +2456,6 @@ function KBEntryModal({ mode: initialMode, entry, onSave, onAdd, onClose }: {
       <div className="relative rounded-[24px] w-[600px] max-h-[90vh] flex flex-col overflow-hidden"
         style={{ background: LX.surface, boxShadow: LX.shadow.xl }} onClick={(e) => e.stopPropagation()}>
 
-        {/* Header */}
         <div className="flex items-center gap-3 px-8 pt-6 pb-5 flex-shrink-0">
           <div className="w-9 h-9 rounded-[10px] flex items-center justify-center" style={{ background: LX.blueT10 }}>
             <BookOpen size={15} color={LX.secondary} />
@@ -2513,9 +2474,7 @@ function KBEntryModal({ mode: initialMode, entry, onSave, onAdd, onClose }: {
         </div>
         <div className="h-px mx-8 flex-shrink-0" style={{ background: LX.border }} />
 
-        {/* Body */}
         <div className="flex-1 overflow-y-auto px-8 py-6 space-y-5">
-          {/* Question */}
           <div>
             <label className="luxia-type-metadata mb-2 block" style={{ color: LX.textMuted }}>Question</label>
             {isView ? (
@@ -2528,7 +2487,6 @@ function KBEntryModal({ mode: initialMode, entry, onSave, onAdd, onClose }: {
                 style={{ border: `1px solid ${question ? LX.secondary : LX.border}`, color: LX.primary, background: LX.subtle }} />
             )}
           </div>
-          {/* Answer */}
           <div>
             <label className="luxia-type-metadata mb-2 block" style={{ color: LX.textMuted }}>Answer</label>
             {isView ? (
@@ -2542,7 +2500,6 @@ function KBEntryModal({ mode: initialMode, entry, onSave, onAdd, onClose }: {
                 style={{ border: `1px solid ${answer ? LX.secondary : LX.border}`, color: LX.primary, background: LX.subtle }} />
             )}
           </div>
-          {/* Advanced */}
           <div>
             <button onClick={() => !isView && setAdvanced(p => !p)}
               className="flex items-center gap-1.5 luxia-type-metadata transition-opacity"
@@ -2552,7 +2509,6 @@ function KBEntryModal({ mode: initialMode, entry, onSave, onAdd, onClose }: {
             </button>
             {(advanced || isView) && (
               <div className="mt-3 space-y-5 rounded-[14px] p-5" style={{ background: LX.subtle, border: `1px solid ${LX.border}` }}>
-                {/* Response Type */}
                 <div>
                   <label className="luxia-type-overline-form mb-2.5 block" style={{ color: LX.textMuted }}>Response Type</label>
                   <div className="inline-flex rounded-[10px] overflow-hidden" style={{ border: `1px solid ${LX.border}`, background: LX.surface, opacity: isView ? 0.7 : 1 }}>
@@ -2569,7 +2525,6 @@ function KBEntryModal({ mode: initialMode, entry, onSave, onAdd, onClose }: {
                     ))}
                   </div>
                 </div>
-                {/* Generate SQL */}
                 {!isView && (
                   <div>
                     <label className="luxia-type-overline-form mb-2.5 block" style={{ color: LX.textMuted }}>Generate SQL</label>
@@ -2597,7 +2552,6 @@ function KBEntryModal({ mode: initialMode, entry, onSave, onAdd, onClose }: {
           </div>
         </div>
 
-        {/* Footer */}
         <div className="flex items-center justify-end gap-2.5 px-8 py-5 flex-shrink-0" style={{ borderTop: `1px solid ${LX.border}` }}>
           {isView ? (
             <>
@@ -2625,7 +2579,6 @@ function KBEntryModal({ mode: initialMode, entry, onSave, onAdd, onClose }: {
   );
 }
 
-// ─── Auto-Generate KB Modal ───────────────────────────────────
 function AutoKBModal({ constellationLabel, onAdd, onClose }: {
   constellationLabel: string; onAdd: (entries: KBEntry[]) => void; onClose: () => void;
 }) {
@@ -2658,7 +2611,6 @@ function AutoKBModal({ constellationLabel, onAdd, onClose }: {
       <div className="absolute inset-0 bg-black/35" style={{ backdropFilter: "blur(3px)" }} />
       <div className="relative rounded-[24px] w-[640px] max-h-[86vh] flex flex-col overflow-hidden"
         style={{ background: LX.surface, boxShadow: LX.shadow.xl }} onClick={(e) => e.stopPropagation()}>
-        {/* Header */}
         <div className="flex items-center gap-3 px-7 py-5 flex-shrink-0" style={{ borderBottom: `1px solid ${LX.border}` }}>
           <div className="w-9 h-9 rounded-[10px] flex items-center justify-center flex-shrink-0"
             style={{ background: `linear-gradient(135deg, ${LX.blueT10} 0%, ${LX.sl10} 100%)` }}>
@@ -2677,7 +2629,6 @@ function AutoKBModal({ constellationLabel, onAdd, onClose }: {
             <TooltipContent sideOffset={6}>Close</TooltipContent>
           </Tooltip>
         </div>
-        {/* Config bar */}
         <div className="flex items-center gap-4 px-7 py-3.5 flex-shrink-0" style={{ borderBottom: `1px solid ${LX.border}` }}>
           <div className="flex items-center gap-2">
             <span className="luxia-type-metadata" style={{ color: LX.primary }}>Entries</span>
@@ -2704,7 +2655,6 @@ function AutoKBModal({ constellationLabel, onAdd, onClose }: {
             <Wand2 size={11} />{generating ? "Generating…" : "Generate"}
           </Button>
         </div>
-        {/* Results */}
         <div className="flex-1 overflow-y-auto px-7 py-5">
           {generating && (
             <div className="flex flex-col items-center justify-center py-14 gap-3">
@@ -2748,7 +2698,6 @@ function AutoKBModal({ constellationLabel, onAdd, onClose }: {
             </div>
           )}
         </div>
-        {/* Footer */}
         <div className="flex items-center justify-end gap-2.5 px-7 py-4 flex-shrink-0" style={{ borderTop: `1px solid ${LX.border}` }}>
           <Button type="button" variant="secondary" onClick={onClose} className="h-[40px] rounded-[24px] px-5 luxia-type-body-dense-strong" style={{ color: LX.textMuted }}>
             Cancel
@@ -2766,7 +2715,6 @@ function AutoKBModal({ constellationLabel, onAdd, onClose }: {
   );
 }
 
-// ─── KB Workspace Modal ───────────────────────────────────────
 function KBWorkspaceModal({ entries, constellationLabel, onSave, onClose }: {
   entries: KBEntry[]; constellationLabel: string;
   onSave: (entries: KBEntry[]) => void; onClose: () => void;
@@ -2808,7 +2756,6 @@ function KBWorkspaceModal({ entries, constellationLabel, onSave, onClose }: {
         <div className="relative w-[760px] max-h-[88vh] rounded-[24px] overflow-hidden flex flex-col"
           style={{ background: LX.surface, boxShadow: LX.shadow.xl }} onClick={(e) => e.stopPropagation()}>
 
-          {/* Header */}
           <div className="flex items-center gap-4 px-8 py-6 flex-shrink-0">
             <div className="flex-1 min-w-0">
               <h2 className="luxia-type-heading-h4 leading-none" style={{ color: LX.primary }}>Knowledge Base</h2>
@@ -2826,7 +2773,6 @@ function KBWorkspaceModal({ entries, constellationLabel, onSave, onClose }: {
             </Tooltip>
           </div>
 
-          {/* Toolbar */}
           <div className="flex items-center gap-2.5 px-8 pb-5 flex-shrink-0">
             <div className="flex-1 flex items-center gap-2 px-3.5 h-[38px] rounded-[12px]"
               style={{ border: `1px solid ${LX.border}`, background: LX.subtle }}>
@@ -2862,7 +2808,6 @@ function KBWorkspaceModal({ entries, constellationLabel, onSave, onClose }: {
 
           <div className="h-px mx-8 flex-shrink-0" style={{ background: LX.border }} />
 
-          {/* Entry list */}
           <div className="flex-1 overflow-y-auto px-8 py-5">
             {filtered.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 gap-3">
@@ -2942,7 +2887,6 @@ function KBWorkspaceModal({ entries, constellationLabel, onSave, onClose }: {
             )}
           </div>
 
-          {/* Footer */}
           <div className="flex items-center justify-between gap-3 px-8 py-5 flex-shrink-0" style={{ borderTop: `1px solid ${LX.border}` }}>
             <span className="luxia-type-body-dense" style={{ color: LX.textMuted }}>
               {pending.length} {pending.length === 1 ? "entry" : "entries"}
@@ -2961,7 +2905,6 @@ function KBWorkspaceModal({ entries, constellationLabel, onSave, onClose }: {
         </div>
       </div>
 
-      {/* Nested dialogs */}
       {confirmRemoveId && (
         <ConfirmRemoveDialog
           label={pending.find(e => e.id === confirmRemoveId)?.question ?? ""}
@@ -2990,7 +2933,6 @@ function KBWorkspaceModal({ entries, constellationLabel, onSave, onClose }: {
   );
 }
 
-// ─── KB Sidebar Section ───────────────────────────────────────
 function KBSidebarSection({ entries, isOpen, onToggle, onExpand, onAdd, onView, onEdit, onRemove }: {
   entries: KBEntry[]; isOpen: boolean;
   onToggle: () => void; onExpand: () => void; onAdd: () => void;
@@ -3003,7 +2945,6 @@ function KBSidebarSection({ entries, isOpen, onToggle, onExpand, onAdd, onView, 
   return (
     <div className="overflow-hidden rounded-[14px]"
       style={{ background: IC.card, border: `1px solid ${IC.border}`, boxShadow: IC.cardShadow }}>
-      {/* Header */}
       <div className="flex items-center gap-1.5 px-[14px] py-3">
         <BookOpen size={14} color={IC.iconAccent} className="flex-shrink-0" />
         <span className="flex-1 luxia-type-title-component truncate" style={{ color: IC.textPrimary }}>Knowledge Base</span>
@@ -3037,7 +2978,6 @@ function KBSidebarSection({ entries, isOpen, onToggle, onExpand, onAdd, onView, 
 
       {isOpen && (
         <div className="px-2 pb-2.5" style={{ borderTop: `1px solid ${IC.borderSubtle}` }}>
-          {/* Search */}
           <div className="flex items-center gap-1.5 px-2.5 h-[28px] rounded-[7px] mt-2 mb-1"
             style={{ border: `1px solid ${IC.border}`, background: IC.input }}>
             <Search size={10} style={{ color: IC.textMuted }} />
@@ -3051,7 +2991,6 @@ function KBSidebarSection({ entries, isOpen, onToggle, onExpand, onAdd, onView, 
             )}
           </div>
 
-          {/* Entry rows */}
           {filtered.length === 0 ? (
             <p className="px-2 py-2 luxia-type-caption" style={{ color: IC.textMuted }}>
               {searchQ ? "No matches." : "No entries yet."}
@@ -3074,7 +3013,6 @@ function KBSidebarSection({ entries, isOpen, onToggle, onExpand, onAdd, onView, 
             ))
           )}
 
-          {/* Add Entry */}
           <button onClick={onAdd}
             className="mt-1 w-full flex items-center gap-1.5 px-2 py-1.5 rounded-[7px] luxia-type-caption transition-colors outline-none"
             style={{ color: IC.textMuted }}
@@ -3088,7 +3026,6 @@ function KBSidebarSection({ entries, isOpen, onToggle, onExpand, onAdd, onView, 
   );
 }
 
-// ─── Constellation Selector (portal dropdown) ─────────────────
 const CONSTELLATION_MENU_ID = "luxia-constellation-selector-listbox";
 const CONSTELLATION_MENU_WIDTH = 244;
 const CONSTELLATION_MENU_MIN_WIDTH = 220;
@@ -3371,7 +3308,6 @@ function ConstellationSelector({
   );
 }
 
-// ─── Constellation Sidebar ────────────────────────────────────
 function ConstellationSidebar({
   width,
   onResizeStart,
@@ -3397,7 +3333,6 @@ function ConstellationSidebar({
 }) {
   const sectionIds = CONSTELLATION_SECTIONS[constellation.type];
 
-  // Build initial items state for this constellation type
   const initItems = () => Object.fromEntries(sectionIds.map(id => [id, [...(SECTION_DEFAULTS[id] ?? [])]])) as Record<SectionId, string[]>;
   const [items, setItems] = useState<Record<SectionId, string[]>>(initItems);
   const [instruction, setInstruction] = useState(SECTION_INSTRUCTION[constellation.type]);
@@ -3407,12 +3342,10 @@ function ConstellationSidebar({
 
   const [descExpanded, setDescExpanded] = useState(false);
 
-  // Modal / confirm / preview
   const [modalSection, setModalSection] = useState<SectionId | null>(null);
   const [confirmRemove, setConfirmRemove] = useState<{ sid: SectionId; idx: number } | null>(null);
   const [previewItem, setPreviewItem] = useState<{ sid: SectionId; idx: number } | null>(null);
 
-  // KB state
   const [kbEntries, setKbEntries] = useState<KBEntry[]>(KB_DEFAULTS);
   const [kbWorkspaceOpen, setKbWorkspaceOpen] = useState(false);
   const [kbAddOpen, setKbAddOpen] = useState(false);
@@ -3420,11 +3353,9 @@ function ConstellationSidebar({
   const [kbViewId, setKbViewId] = useState<string | null>(null);
   const [kbEditId, setKbEditId] = useState<string | null>(null);
 
-  // Drag state (non-KB sections)
   const [dragSrc, setDragSrc] = useState<{ sid: SectionId; i: number } | null>(null);
   const [dragOver, setDragOver] = useState<{ sid: SectionId; i: number } | null>(null);
 
-  // Constellation save state
   const [sectionSignatures, setSectionSignatures] = useState<Record<string, string>>({});
   const [savedConstellationSnapshot, setSavedConstellationSnapshot] = useState<string | null>(null);
   const [constellationSaving, setConstellationSaving] = useState(false);
@@ -3780,7 +3711,6 @@ function ConstellationSidebar({
             );
           }
 
-          // Knowledge Base gets its own specialized component
           if (sid === "kb") {
             return (
               <KBSidebarSection key="kb"
@@ -3798,7 +3728,6 @@ function ConstellationSidebar({
 
           const isInstr = sid === "instr";
           const showDrop = sid === "pdfFiles";
-          // Fallback list renderer for any section not handled above.
           // Cast keeps the generic branch typed after specialized early-returns exhaust SectionId.
           const fallbackSid = sid as SectionId;
           const sectionItems: string[] = items[fallbackSid] ?? [];
@@ -3958,7 +3887,6 @@ function ConstellationSidebar({
   );
 }
 
-// ─── App ──────────────────────────────────────────────────────
 export default function App() {
   const [chats, setChats] = useState<Chat[]>(INITIAL_CHATS);
   const [activeChat, setActiveChat] = useState("c1");

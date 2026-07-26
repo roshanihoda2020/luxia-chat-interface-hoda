@@ -1,7 +1,6 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Typography — Nunito via canonical font family */
   --font-family: var(--luxia-font-family);
   --font-size: 16px;
 
@@ -14,7 +13,6 @@
   /* Luxia has no 500 — map Tailwind font-medium → 600 */
   --font-weight-medium: var(--font-weight-semibold);
 
-  /* Semantic light theme → canonical Luxia tokens */
   --background: var(--luxia-background);
   --foreground: var(--luxia-text-primary);
 
@@ -52,7 +50,6 @@
   --chart-4: var(--luxia-brand-secondary);
   --chart-5: var(--luxia-brand-tertiary);
 
-  /* Radius scale (maps to Luxia) */
   --radius-none: 0;
   --radius-xs: var(--luxia-radius-4);
   --radius-sm: var(--luxia-radius-8);
@@ -62,7 +59,6 @@
   --radius-full: var(--luxia-radius-pill);
   --radius: var(--radius-md);
 
-  /* Spacing scale */
   --space-xs: var(--luxia-spacing-8);
   --space-sm: var(--luxia-spacing-12);
   --space-md: var(--luxia-spacing-16);
@@ -71,14 +67,12 @@
   --space-2xl: var(--luxia-spacing-40);
   --space-3xl: var(--luxia-spacing-48);
 
-  /* Shadow scale */
   --shadow-xs: var(--luxia-shadow-xs);
   --shadow-sm: var(--luxia-shadow-sm);
   --shadow-md: var(--luxia-shadow-md);
   --shadow-lg: var(--luxia-shadow-lg);
   --shadow-xl: var(--luxia-shadow-xl);
 
-  /* Gradients — canonical */
   --gradient-fade-purple-dark: linear-gradient(
     90deg,
     #000000 0%,
@@ -207,7 +201,6 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  /* Luxia token utilities for Tailwind */
   --color-luxia-brand-primary: var(--luxia-brand-primary);
   --color-luxia-brand-secondary: var(--luxia-brand-secondary);
   --color-luxia-brand-tertiary: var(--luxia-brand-tertiary);
@@ -246,7 +239,6 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Tipografia/Display H1 — 40/48 ExtraBold */
   h1 {
     margin: 0;
     font-family: var(--font-family);
@@ -255,7 +247,6 @@
     line-height: 3rem;
   }
 
-  /* Tipografia/Heading H2 — 32/40 Bold */
   h2 {
     margin: 0;
     font-family: var(--font-family);
@@ -264,7 +255,6 @@
     line-height: 2.5rem;
   }
 
-  /* Tipografia/Heading H3 — 24/32 Bold */
   h3 {
     margin: 0;
     font-family: var(--font-family);
@@ -273,7 +263,6 @@
     line-height: 2rem;
   }
 
-  /* Tipografia/Heading H4 — 20/28 Bold */
   h4 {
     margin: 0;
     font-family: var(--font-family);
@@ -362,10 +351,6 @@
   }
 }
 
-/**
- * Canonical Luxia typography — exact semantic names shared with the Design System.
- * Prefer these classes over arbitrary text-[Npx] / font-* utilities.
- */
 @layer components {
   .luxia-type-display-h1,
   .typography-display-h1 {
