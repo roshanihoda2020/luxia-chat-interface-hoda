@@ -54,7 +54,7 @@ import {
   Trash2, Check, Edit3, BarChart3, Table2,
   Home, Users, LayoutGrid, Bot,
   Bell, Wrench, HelpCircle,
-  Sparkles, MessageSquare, Network, Star,
+  MessageSquare, Network, Star,
   RefreshCw, Search, MoreHorizontal, Wand2,
   AlignLeft, Layers, Settings2, Pencil, Share2, List, FileBarChart2,
   type LucideIcon,
@@ -3536,13 +3536,6 @@ function ConstellationSidebar({
         style={{ background: IC.header, borderBottom: `1px solid ${IC.borderSubtle}` }}
       >
         <div className="flex min-w-0 items-center gap-2 overflow-hidden">
-          <div
-            className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-[6px]"
-            style={{ background: IC.selected }}
-          >
-            <Sparkles size={12} color={IC.iconAccent} />
-          </div>
-
           <div className="relative min-w-0 flex-1 overflow-hidden">
             {isGalaxyChat ? (
               <div className="min-w-0 overflow-hidden">
@@ -3601,7 +3594,7 @@ function ConstellationSidebar({
           </Tooltip>
         </div>
 
-        <div className="mt-2 pl-[32px]">
+        <div className="mt-2">
           <p
             className="luxia-type-caption"
             style={{
@@ -3806,11 +3799,11 @@ function ConstellationSidebar({
           onClick={saveConstellation}
           className="flex h-[38px] w-full items-center justify-center gap-2 rounded-[10px] luxia-type-body-dense-strong outline-none disabled:cursor-not-allowed"
           style={{
-            color: constellationDirty && !constellationSaving ? "#FFFFFF" : IC.disabledText,
-            background: constellationDirty && !constellationSaving ? IC.saveEnabled : IC.disabledSurface,
-            border: `1px solid ${constellationDirty && !constellationSaving ? "transparent" : IC.disabledBorder}`,
-            boxShadow: constellationDirty && !constellationSaving ? "var(--luxia-shadow-sm)" : "none",
-            opacity: 1,
+            color: "#FFFFFF",
+            background: IC.saveEnabled,
+            border: "1px solid transparent",
+            boxShadow: "var(--luxia-shadow-sm)",
+            opacity: constellationDirty && !constellationSaving ? 1 : 0.48,
           }}
         >
           <Check size={13} />{constellationSaving ? "Saving…" : "Save Constellation"}

@@ -231,9 +231,11 @@ function galaxyActionStyle(
   if (!enabled) {
     return {
       ...base,
-      color: GC.disabledText,
-      background: GC.disabledSurface,
-      border: `1px solid ${GC.disabledBorder}`,
+      color: "#FFFFFF",
+      background: GC.saveEnabledBg,
+      border: "1px solid transparent",
+      boxShadow: "var(--luxia-shadow-sm)",
+      opacity: 0.48,
       cursor: "not-allowed",
     };
   }
