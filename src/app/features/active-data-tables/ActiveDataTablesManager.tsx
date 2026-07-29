@@ -172,7 +172,7 @@ export function ActiveDataTablesManager({
                                     </div>
                                 </div>
 
-                                <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4 pb-6">
+                                <div className="min-h-0 flex-1 overflow-y-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical px-6 py-4 pb-6">
                                     <div className="overflow-hidden rounded-[18px] border" style={{ borderColor: LX.border }}>
                                         <Table className="min-w-full table-fixed">
                                             <TableHeader>

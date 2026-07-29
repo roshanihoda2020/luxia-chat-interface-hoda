@@ -1,0 +1,268 @@
+/**
+ * Scoped Luxia scrollbar system — apply via .luxia-scrollbar* on scroll containers only.
+ * Do not use universal *::-webkit-scrollbar selectors.
+ */
+
+/* Shared arrow removal (Chromium / WebKit) */
+.luxia-scrollbar::-webkit-scrollbar-button,
+.luxia-scrollbar::-webkit-scrollbar-button:single-button,
+.luxia-scrollbar::-webkit-scrollbar-button:double-button,
+.luxia-scrollbar::-webkit-scrollbar-button:start,
+.luxia-scrollbar::-webkit-scrollbar-button:end,
+.luxia-scrollbar::-webkit-scrollbar-button:horizontal:decrement,
+.luxia-scrollbar::-webkit-scrollbar-button:horizontal:increment,
+.luxia-scrollbar::-webkit-scrollbar-button:vertical:decrement,
+.luxia-scrollbar::-webkit-scrollbar-button:vertical:increment,
+.luxia-scrollbar-light::-webkit-scrollbar-button,
+.luxia-scrollbar-light::-webkit-scrollbar-button:single-button,
+.luxia-scrollbar-light::-webkit-scrollbar-button:double-button,
+.luxia-scrollbar-light::-webkit-scrollbar-button:start,
+.luxia-scrollbar-light::-webkit-scrollbar-button:end,
+.luxia-scrollbar-light::-webkit-scrollbar-button:horizontal:decrement,
+.luxia-scrollbar-light::-webkit-scrollbar-button:horizontal:increment,
+.luxia-scrollbar-light::-webkit-scrollbar-button:vertical:decrement,
+.luxia-scrollbar-light::-webkit-scrollbar-button:vertical:increment,
+.luxia-scrollbar-dark::-webkit-scrollbar-button,
+.luxia-scrollbar-dark::-webkit-scrollbar-button:single-button,
+.luxia-scrollbar-dark::-webkit-scrollbar-button:double-button,
+.luxia-scrollbar-dark::-webkit-scrollbar-button:start,
+.luxia-scrollbar-dark::-webkit-scrollbar-button:end,
+.luxia-scrollbar-dark::-webkit-scrollbar-button:horizontal:decrement,
+.luxia-scrollbar-dark::-webkit-scrollbar-button:horizontal:increment,
+.luxia-scrollbar-dark::-webkit-scrollbar-button:vertical:decrement,
+.luxia-scrollbar-dark::-webkit-scrollbar-button:vertical:increment {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  background: transparent !important;
+}
+
+/* Light surfaces (default) — neutral gray on white/light backgrounds */
+.luxia-scrollbar,
+.luxia-scrollbar-light {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.28) rgba(148, 163, 184, 0.08);
+}
+
+.luxia-scrollbar::-webkit-scrollbar,
+.luxia-scrollbar-light::-webkit-scrollbar {
+  width: 4px;
+  height: 3px;
+}
+
+.luxia-scrollbar::-webkit-scrollbar-track,
+.luxia-scrollbar-light::-webkit-scrollbar-track {
+  background: rgba(148, 163, 184, 0.08);
+  border-radius: 999px;
+}
+
+.luxia-scrollbar::-webkit-scrollbar-thumb,
+.luxia-scrollbar-light::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.28);
+  border-radius: 999px;
+  border: 0;
+  box-shadow: none;
+  min-height: 32px;
+  transition: background-color 140ms ease;
+}
+
+.luxia-scrollbar::-webkit-scrollbar-thumb:hover,
+.luxia-scrollbar-light::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.42);
+}
+
+.luxia-scrollbar::-webkit-scrollbar-thumb:active,
+.luxia-scrollbar-light::-webkit-scrollbar-thumb:active {
+  background: rgba(71, 85, 105, 0.58);
+}
+
+/* Main message history — same neutral-gray treatment */
+.luxia-scrollbar-messages {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.28) rgba(148, 163, 184, 0.08);
+}
+
+.luxia-scrollbar-messages::-webkit-scrollbar {
+  width: 4px;
+}
+
+.luxia-scrollbar-messages::-webkit-scrollbar-track {
+  background: rgba(148, 163, 184, 0.08);
+  border-radius: 999px;
+}
+
+.luxia-scrollbar-messages::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.28);
+  border-radius: 999px;
+  border: 0;
+  box-shadow: none;
+  min-height: 32px;
+  transition: background-color 140ms ease;
+}
+
+.luxia-scrollbar-messages::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.42);
+}
+
+.luxia-scrollbar-messages::-webkit-scrollbar-thumb:active {
+  background: rgba(71, 85, 105, 0.58);
+}
+
+/* Dark surfaces */
+.luxia-scrollbar-dark {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(150, 219, 251, 0.22) transparent;
+}
+
+.luxia-scrollbar-dark::-webkit-scrollbar {
+  width: 4px;
+  height: 3px;
+}
+
+.luxia-scrollbar-dark::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 999px;
+}
+
+.luxia-scrollbar-dark::-webkit-scrollbar-thumb {
+  background: rgba(150, 219, 251, 0.22);
+  border-radius: 999px;
+  border: 0;
+  box-shadow: none;
+  min-height: 32px;
+  transition: background-color 140ms ease, opacity 140ms ease;
+}
+
+.luxia-scrollbar-dark::-webkit-scrollbar-thumb:hover {
+  background: rgba(150, 219, 251, 0.44);
+}
+
+.luxia-scrollbar-dark::-webkit-scrollbar-thumb:active {
+  background: rgba(142, 99, 235, 0.72);
+}
+
+/* Horizontal tab strips — neutral gray on white tab bar */
+.luxia-scrollbar-horizontal {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.28) rgba(148, 163, 184, 0.08);
+}
+
+.luxia-scrollbar-horizontal::-webkit-scrollbar {
+  width: 0;
+  height: 3px;
+}
+
+.luxia-scrollbar-horizontal::-webkit-scrollbar-track {
+  background: rgba(148, 163, 184, 0.08);
+  border-radius: 999px;
+  margin-top: 4px;
+}
+
+.luxia-scrollbar-horizontal::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.28);
+  border-radius: 999px;
+  border: 0;
+  box-shadow: none;
+  transition: background-color 140ms ease;
+}
+
+.luxia-scrollbar-horizontal::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.42);
+}
+
+.luxia-scrollbar-horizontal::-webkit-scrollbar-thumb:active {
+  background: rgba(71, 85, 105, 0.58);
+}
+
+/* Vertical-only containers */
+.luxia-scrollbar-vertical::-webkit-scrollbar {
+  width: 4px;
+  height: 0;
+}
+
+/* Sidebar navigation — narrower, hover-reveal thumb */
+.luxia-scrollbar-sidebar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(150, 219, 251, 0.12) transparent;
+}
+
+.luxia-scrollbar-sidebar::-webkit-scrollbar {
+  width: 3px;
+  height: 0;
+}
+
+.luxia-scrollbar-sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.luxia-scrollbar-sidebar::-webkit-scrollbar-thumb {
+  background: rgba(150, 219, 251, 0.12);
+  border-radius: 999px;
+  border: 0;
+  box-shadow: none;
+  transition: background-color 140ms ease;
+}
+
+.luxia-scrollbar-sidebar:hover {
+  scrollbar-color: rgba(150, 219, 251, 0.24) transparent;
+}
+
+.luxia-scrollbar-sidebar:hover::-webkit-scrollbar-thumb {
+  background: rgba(150, 219, 251, 0.24);
+}
+
+.luxia-scrollbar-sidebar::-webkit-scrollbar-thumb:hover {
+  background: rgba(150, 219, 251, 0.46);
+}
+
+/* Backward-compatible alias for Galaxy / inspector panels */
+.galaxy-panel-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(150, 219, 251, 0.22) transparent;
+}
+
+.galaxy-panel-scroll::-webkit-scrollbar {
+  width: 4px;
+  height: 3px;
+}
+
+.galaxy-panel-scroll::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 999px;
+}
+
+.galaxy-panel-scroll::-webkit-scrollbar-thumb {
+  background: rgba(150, 219, 251, 0.22);
+  border-radius: 999px;
+  border: 0;
+  box-shadow: none;
+  min-height: 32px;
+  transition: background-color 140ms ease;
+}
+
+.galaxy-panel-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(150, 219, 251, 0.44);
+}
+
+.galaxy-panel-scroll::-webkit-scrollbar-thumb:active {
+  background: rgba(142, 99, 235, 0.72);
+}
+
+.galaxy-panel-scroll::-webkit-scrollbar-button,
+.galaxy-panel-scroll::-webkit-scrollbar-button:single-button,
+.galaxy-panel-scroll::-webkit-scrollbar-button:double-button,
+.galaxy-panel-scroll::-webkit-scrollbar-button:start,
+.galaxy-panel-scroll::-webkit-scrollbar-button:end,
+.galaxy-panel-scroll::-webkit-scrollbar-button:horizontal:decrement,
+.galaxy-panel-scroll::-webkit-scrollbar-button:horizontal:increment,
+.galaxy-panel-scroll::-webkit-scrollbar-button:vertical:decrement,
+.galaxy-panel-scroll::-webkit-scrollbar-button:vertical:increment {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  background: transparent !important;
+}

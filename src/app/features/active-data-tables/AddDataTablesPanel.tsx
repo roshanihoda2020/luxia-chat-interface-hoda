@@ -48,7 +48,7 @@ export function AddDataTablesPanel({
                 <Input value={query} onChange={(e) => onQueryChange(e.target.value)} placeholder="Search tables to add..." className="h-8 border-0 bg-transparent px-0 luxia-type-input-search-dense shadow-none focus-visible:ring-0" aria-label="Search available tables" />
             </div>
 
-            <div className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto pb-4 pr-1">
+            <div className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical pb-4 pr-1">
                 {filtered.length === 0 ? (
                     <div className="rounded-[14px] border border-dashed px-4 py-8 text-center luxia-type-body-dense" style={{ borderColor: LX.border, color: LX.textMuted }}>
                         No tables match your search.

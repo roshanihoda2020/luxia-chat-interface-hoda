@@ -75,7 +75,7 @@ export function ManagePDFFilesDialog({
                         <Button type="button" variant="ghost" size="sm" className="rounded-full" onClick={deselectAllVisible}>Deselect all</Button>
                     </div>
 
-                    <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+                    <div className="min-h-0 flex-1 space-y-2 overflow-y-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical pr-1">
                         {filtered.length === 0 ? (
                             <p className="py-8 text-center luxia-type-body-dense" style={{ color: LX.textMuted }}>No files match your search.</p>
                         ) : filtered.map((file) => {

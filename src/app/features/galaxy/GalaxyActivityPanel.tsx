@@ -753,10 +753,8 @@ export function GalaxyActivityPanel({
         </header>
 
         <div
-          className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-5 galaxy-panel-scroll"
+          className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto luxia-scrollbar luxia-scrollbar-dark luxia-scrollbar-vertical galaxy-panel-scroll px-5"
           style={{
-            scrollbarWidth: "thin",
-            scrollbarColor: `${GC.scrollThumb} transparent`,
             background: GC.page,
           }}
         >
@@ -841,7 +839,7 @@ export function GalaxyActivityPanel({
                   aria-label="Galaxy description"
                   aria-invalid={descriptionInvalid}
                   aria-describedby={descriptionInvalid ? "galaxy-description-error" : undefined}
-                  className="w-full resize-none overflow-y-auto p-3 outline-none luxia-type-caption focus:outline-none focus-visible:outline-none galaxy-panel-scroll placeholder:text-[rgba(255,255,255,0.40)]"
+                  className="w-full resize-none overflow-y-auto luxia-scrollbar luxia-scrollbar-dark luxia-scrollbar-vertical galaxy-panel-scroll p-3 outline-none luxia-type-caption focus:outline-none focus-visible:outline-none placeholder:text-[rgba(255,255,255,0.40)]"
                   style={{
                     minHeight: 72,
                     maxHeight: 112,
@@ -849,8 +847,6 @@ export function GalaxyActivityPanel({
                     lineHeight: 1.55,
                     borderRadius: R.nested,
                     ...icTextareaStyle(true, { invalid: descriptionInvalid }),
-                    scrollbarWidth: "thin",
-                    scrollbarColor: `${GC.scrollThumb} transparent`,
                     transition: TRANSITION,
                   }}
                   data-galaxy-description-input="true"
@@ -1225,14 +1221,10 @@ export function GalaxyActivityPanel({
 
                                 <div
                                   id="galaxy-constellation-listbox"
-                                  className="max-h-[180px] overflow-x-hidden overflow-y-auto px-2 py-2 galaxy-panel-scroll"
+                                  className="max-h-[180px] overflow-x-hidden overflow-y-auto luxia-scrollbar luxia-scrollbar-dark luxia-scrollbar-vertical galaxy-panel-scroll px-2 py-2"
                                   role="listbox"
                                   aria-label="Project constellations"
                                   data-galaxy-constellation-results="true"
-                                  style={{
-                                    scrollbarWidth: "thin",
-                                    scrollbarColor: `${GC.scrollThumb} transparent`,
-                                  }}
                                 >
                                   {routeOptionsLoading ? (
                                     <p className="px-2 py-3 luxia-type-caption" style={{ color: GC.textSecondary }}>
@@ -1747,7 +1739,7 @@ export function GalaxyActivityPanel({
                 }}
                 rows={4}
                 aria-label="Galaxy instruction"
-                className="w-full resize-none overflow-y-auto p-3.5 outline-none luxia-type-metadata focus:outline-none focus-visible:outline-none galaxy-panel-scroll placeholder:text-[rgba(255,255,255,0.40)]"
+                className="w-full resize-none overflow-y-auto luxia-scrollbar luxia-scrollbar-dark luxia-scrollbar-vertical galaxy-panel-scroll p-3.5 outline-none luxia-type-metadata focus:outline-none focus-visible:outline-none placeholder:text-[rgba(255,255,255,0.40)]"
                 style={{
                   minHeight: 104,
                   maxHeight: 140,
@@ -1755,8 +1747,6 @@ export function GalaxyActivityPanel({
                   lineHeight: 1.55,
                   borderRadius: "var(--luxia-radius-12)",
                   ...icTextareaStyle(focused),
-                  scrollbarWidth: "thin",
-                  scrollbarColor: `${GC.scrollThumb} transparent`,
                   transition: TRANSITION,
                 }}
                 onMouseEnter={(e) => icInputBorderHoverOn(e, focused)}

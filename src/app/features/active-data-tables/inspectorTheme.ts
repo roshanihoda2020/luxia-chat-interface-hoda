@@ -66,7 +66,6 @@ export function icInspectorAccent(type: "pdf" | "database"): string {
   return type === "pdf" ? IC.iconPdf : IC.iconAccent;
 }
 
-/** Main capsule heading color by inspector semantic */
 export function icInspectorTitleColor(type: "pdf" | "database" | "galaxy"): string {
   if (type === "galaxy") return "var(--luxia-text-inverse)";
   return IC.iconSemantic;

@@ -100,7 +100,7 @@ export function InstructionSection({
                             rows={3}
                             placeholder="Write instructions…"
                             aria-label="Instruction text"
-                            className={`mt-2 w-full resize-none overflow-y-auto rounded-[7px] p-2.5 outline-none luxia-type-caption transition-[border-color] duration-150 placeholder:text-[rgba(255,255,255,0.40)]`}
+                            className={`mt-2 w-full resize-none overflow-y-auto luxia-scrollbar luxia-scrollbar-dark luxia-scrollbar-vertical rounded-[7px] p-2.5 outline-none luxia-type-caption transition-[border-color] duration-150 placeholder:text-[rgba(255,255,255,0.40)]`}
                             style={icTextareaStyle(focused)}
                             onMouseEnter={(e) => icInputBorderHoverOn(e, focused)}
                             onMouseLeave={(e) => icInputBorderHoverOff(e, focused)}

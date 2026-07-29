@@ -112,7 +112,7 @@ export function ConfigureColumnsDialog({
                                     <p className="mt-3 luxia-type-metadata" style={{ color: LX.error }}>Fix the highlighted display names before saving.</p>
                                 ) : null}
 
-                                <div className="mt-4 flex-1 min-h-0 overflow-auto rounded-[18px] border" style={{ borderColor: LX.border }}>
+                                <div className="mt-4 flex-1 min-h-0 overflow-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical rounded-[18px] border" style={{ borderColor: LX.border }}>
                                     <Table>
                                         <TableHeader>
                                             <TableRow style={{ background: LX.subtle }}>
@@ -171,7 +171,7 @@ export function ConfigureColumnsDialog({
                             <div className="flex min-h-0 w-full max-w-[480px] flex-col px-6 py-5 xl:border-l" style={{ borderColor: LX.border }}>
                                 {selectedColumn ? (
                                     <div className="flex h-full min-h-0 flex-col">
-                                        <div className="mt-4 min-h-0 flex-1 space-y-4 overflow-auto pr-1">
+                                        <div className="mt-4 min-h-0 flex-1 space-y-4 overflow-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical pr-1">
                                             <div>
                                                 <label className="mb-1.5 block luxia-type-label-form" style={{ color: LX.primary }}>Display name</label>
                                                 <Input value={selectedColumn.displayName} onChange={(e) => patchSelectedColumn({ displayName: e.target.value })} aria-invalid={selectedColumn.displayName.trim().length === 0} />

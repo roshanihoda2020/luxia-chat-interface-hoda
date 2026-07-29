@@ -106,7 +106,7 @@ export function MetricMenu({
             ref={menuRef}
             role="menu"
             aria-label="Metric actions"
-            className="min-w-[160px] max-w-[min(280px,calc(100vw-24px))] overflow-y-auto rounded-[14px] border p-1 z-[9999]"
+            className="min-w-[160px] max-w-[min(280px,calc(100vw-24px))] overflow-y-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical rounded-[14px] border p-1 z-[9999]"
             style={{
                 ...menuStyle,
                 pointerEvents: "auto",

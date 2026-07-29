@@ -820,7 +820,7 @@ function LeftNav({
           )}
         </div>
 
-        <div className="relative z-[2] min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
+        <div className="relative z-[2] min-h-0 flex-1 overflow-x-hidden overflow-y-auto luxia-scrollbar luxia-scrollbar-dark luxia-scrollbar-vertical luxia-scrollbar-sidebar">
           <nav className={`${navPadding} space-y-px`}>
             {NAV_TOP_ITEMS.map(({ icon, label }) => (
               <NavItem
@@ -862,15 +862,15 @@ function LeftNav({
               </nav>
             </div>
           ) : null}
+        </div>
 
-          <div
-            className={`${navPadding} space-y-px pb-1 pt-2`}
-            style={{ borderTop: "1px solid rgba(255,255,255,0.07)", marginTop: 8 }}
-          >
-            {NAV_BOTTOM_ITEMS.map(({ icon, label }) => (
-              <NavItem key={label} icon={icon} label={label} collapsed={collapsed} />
-            ))}
-          </div>
+        <div
+          className={`relative z-[2] flex-shrink-0 ${navPadding} space-y-px pb-1 pt-2`}
+          style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
+        >
+          {NAV_BOTTOM_ITEMS.map(({ icon, label }) => (
+            <NavItem key={label} icon={icon} label={label} collapsed={collapsed} />
+          ))}
         </div>
 
         {collapsed ? (
@@ -932,7 +932,7 @@ function ChatTabBar({ chats, activeId, onSelect, onNew, onClose, onPin, onRename
   }, []);
 
   return (
-    <div className="flex items-center gap-1.5 px-6 py-2 overflow-x-auto flex-shrink-0"
+    <div className="luxia-scrollbar luxia-scrollbar-horizontal flex items-center gap-1.5 px-6 py-2 overflow-x-auto flex-shrink-0"
       style={{ borderBottom: `1px solid ${LX.border}` }}>
       {chats.map((chat) => {
         const isActive = chat.id === activeId;
@@ -1221,7 +1221,7 @@ function NewChatModal({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-7 pb-5 space-y-5">
+        <div className="flex-1 overflow-y-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical px-7 pb-5 space-y-5">
           <section>
             <Label className="mb-2 block luxia-type-overline-form" style={{ color: LX.textMuted }}>
               Chat Type
@@ -1332,7 +1332,7 @@ function LuxiaDialog({ open, onClose, title, children, footer }: {
             <X size={16} style={{ color: LX.textMuted }} />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto px-7 pb-2">{children}</div>
+        <div className="flex-1 overflow-y-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical px-7 pb-2">{children}</div>
         <div className="flex-shrink-0 flex items-center justify-end gap-3 px-7 py-5" style={{ borderTop: `1px solid ${LX.border}` }}>
           {footer}
         </div>
@@ -1434,7 +1434,7 @@ function ShareDialog({ open, chatLabel, sharedUsers, onClose, onShare }: {
           })}
         </div>
       )}
-      <div className="space-y-0.5 max-h-48 overflow-y-auto">
+      <div className="space-y-0.5 max-h-48 overflow-y-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical">
         {filtered.map(u => (
           <button key={u.id} onClick={() => toggle(u.id)}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-[8px] text-left transition-colors outline-none"
@@ -2287,7 +2287,7 @@ function ItemPreviewModal({ label, icon: Icon, onClose }: {
             <X size={14} style={{ color: LX.muted }} />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto px-6 py-6">
+        <div className="flex-1 overflow-y-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical px-6 py-6">
           <div className="rounded-[12px] p-4 luxia-type-body-dense"
             style={{ background: LX.subtle, border: `1px solid ${LX.border}`, color: LX.muted }}>
             <p className="font-bold mb-2" style={{ color: LX.primary }}>{label}</p>
@@ -2405,7 +2405,7 @@ function SectionWorkspaceModal({ sectionId, items, instruction, onSave, onClose 
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto px-8 py-5">
+        <div className="flex-1 overflow-y-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical px-8 py-5">
           {isInstr ? (
             <textarea value={pendingInstr} onChange={(e) => setPendingInstr(e.target.value)} rows={14}
               className="w-full outline-none resize-none luxia-type-body-small p-4 rounded-[12px]"
@@ -2578,7 +2578,7 @@ function KBEntryModal({ mode: initialMode, entry, onSave, onAdd, onClose }: {
         </div>
         <div className="h-px mx-8 flex-shrink-0" style={{ background: LX.border }} />
 
-        <div className="flex-1 overflow-y-auto px-8 py-6 space-y-5">
+        <div className="flex-1 overflow-y-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical px-8 py-6 space-y-5">
           <div>
             <label className="luxia-type-metadata mb-2 block" style={{ color: LX.textMuted }}>Question</label>
             {isView ? (
@@ -2754,7 +2754,7 @@ function AutoKBModal({ constellationLabel, onAdd, onClose }: {
             <LuxiaAiIcon size={11} />{generating ? "Generating…" : "Generate"}
           </Button>
         </div>
-        <div className="flex-1 overflow-y-auto px-7 py-5">
+        <div className="flex-1 overflow-y-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical px-7 py-5">
           {generating && (
             <div className="flex flex-col items-center justify-center py-14 gap-3">
               <div className="w-9 h-9 rounded-full border-2 animate-spin"
@@ -2897,7 +2897,7 @@ function KBWorkspaceModal({ entries, constellationLabel, onSave, onClose }: {
 
           <div className="h-px mx-8 flex-shrink-0" style={{ background: LX.border }} />
 
-          <div className="flex-1 overflow-y-auto px-8 py-5">
+          <div className="flex-1 overflow-y-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical px-8 py-5">
             {filtered.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 gap-3">
                 <BookOpen size={32} style={{ color: `${LX.textMuted}44` }} />
@@ -3357,7 +3357,7 @@ function ConstellationSelector({
             id={CONSTELLATION_MENU_ID}
             role="listbox"
             aria-label="Constellations"
-            className="py-1 max-h-[200px] overflow-y-auto"
+            className="py-1 max-h-[200px] overflow-y-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical"
           >
             {filtered.length === 0 ? (
               <p className="px-4 py-3 luxia-type-metadata" style={{ color: LX.textMuted }}>No results</p>
@@ -3728,8 +3728,7 @@ function ConstellationSidebar({
       </div>
 
       <div
-        className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-5 pt-5 pb-2.5 space-y-2 galaxy-panel-scroll"
-        style={{ scrollbarWidth: "thin", scrollbarColor: `${IC.scrollThumb} transparent` }}
+        className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto luxia-scrollbar luxia-scrollbar-dark luxia-scrollbar-vertical galaxy-panel-scroll px-5 pt-5 pb-2.5 space-y-2"
       >
         {sectionIds.map((sid) => {
           const meta = SECTION_META[sid];
@@ -4842,7 +4841,7 @@ export default function App() {
             className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
             style={{ minWidth: 0 }}
           >
-            <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-11 pt-6 pb-5">
+            <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical luxia-scrollbar-messages px-11 pt-6 pb-5">
               {messages.length === 0
                 ? (activeData?.chatType === "galaxy"
                   ? (

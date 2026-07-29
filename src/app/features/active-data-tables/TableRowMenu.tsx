@@ -76,7 +76,7 @@ export function TableRowMenu({
     const menu = open ? createPortal(
         <div
             ref={menuRef}
-            className="min-w-[220px] max-w-[min(320px,calc(100vw-24px))] overflow-y-auto rounded-[12px] border p-2"
+            className="min-w-[220px] max-w-[min(320px,calc(100vw-24px))] overflow-y-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical rounded-[12px] border p-2"
             style={{
                 ...menuStyle,
                 pointerEvents: "auto",

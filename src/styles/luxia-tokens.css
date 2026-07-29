@@ -650,21 +650,41 @@
   overflow-wrap: anywhere;
   word-break: break-word;
   scrollbar-width: thin;
-  scrollbar-color: rgba(148, 163, 184, 0.55) transparent;
+  scrollbar-color: rgba(148, 163, 184, 0.28) rgba(148, 163, 184, 0.08);
 }
 
 .luxia-chat-composer__input::-webkit-scrollbar {
-  width: 6px;
+  width: 4px;
 }
 
 .luxia-chat-composer__input::-webkit-scrollbar-track {
-  background: transparent;
-  margin-block: 6px;
+  background: rgba(148, 163, 184, 0.08);
+  margin-block: 4px;
+  border-radius: 999px;
 }
 
 .luxia-chat-composer__input::-webkit-scrollbar-thumb {
-  background-color: rgba(148, 163, 184, 0.55);
+  background-color: rgba(148, 163, 184, 0.28);
   border-radius: 999px;
+  border: 0;
+  box-shadow: none;
+}
+
+.luxia-chat-composer__input::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(100, 116, 139, 0.42);
+}
+
+.luxia-chat-composer__input::-webkit-scrollbar-button,
+.luxia-chat-composer__input::-webkit-scrollbar-button:single-button,
+.luxia-chat-composer__input::-webkit-scrollbar-button:double-button,
+.luxia-chat-composer__input::-webkit-scrollbar-button:vertical:decrement,
+.luxia-chat-composer__input::-webkit-scrollbar-button:vertical:increment {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  background: transparent !important;
 }
 
 .luxia-chat-composer__input::placeholder {
@@ -682,24 +702,3 @@
   box-shadow: none !important;
 }
 
-.galaxy-panel-scroll {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
-}
-
-.galaxy-panel-scroll::-webkit-scrollbar {
-  width: 6px;
-}
-
-.galaxy-panel-scroll::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.galaxy-panel-scroll::-webkit-scrollbar-thumb {
-  background-color: rgba(255, 255, 255, 0.16);
-  border-radius: 999px;
-}
-
-.galaxy-panel-scroll::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(255, 255, 255, 0.26);
-}

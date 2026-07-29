@@ -38,7 +38,7 @@ export function DatasourceFileSelector({
                 <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search datasource files…" className="h-8 border-0 bg-transparent px-0 luxia-type-input-search-dense shadow-none focus-visible:ring-0" aria-label="Search datasource files" />
             </div>
 
-            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical pr-1">
                 {filtered.length === 0 ? (
                     <p className="py-8 text-center luxia-type-body-dense" style={{ color: LX.textMuted }}>No files match your search.</p>
                 ) : filtered.map((file) => {

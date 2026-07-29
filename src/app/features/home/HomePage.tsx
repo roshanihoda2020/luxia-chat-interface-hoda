@@ -241,7 +241,7 @@ export function HomePageShell({
   return (
     <div
       ref={scrollRef}
-      className="luxia-home-shell min-h-0 flex-1 overflow-x-hidden overflow-y-auto"
+      className="luxia-home-shell luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical min-h-0 flex-1 overflow-x-hidden overflow-y-auto"
       style={{ background: HS.pageBg }}
     >
       <div

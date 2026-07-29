@@ -28,7 +28,7 @@ export function ViewMetricDialog({
                     <div>
                         <p className="luxia-type-caption" style={{ color: LX.textMuted }}>SQL Expression</p>
                         <pre
-                            className="mt-1 max-h-[240px] overflow-auto rounded-[12px] border px-3 py-2.5 font-mono luxia-type-metadata leading-relaxed whitespace-pre-wrap"
+                            className="mt-1 max-h-[240px] overflow-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical rounded-[12px] border px-3 py-2.5 font-mono luxia-type-metadata leading-relaxed whitespace-pre-wrap"
                             style={{ borderColor: LX.border, background: LX.subtle, color: LX.primary }}
                         >
                             {item.sqlExpression}

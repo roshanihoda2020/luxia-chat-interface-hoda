@@ -95,7 +95,7 @@ export function ChangePrimaryDialog({
           </FilterGroup>
         </div>
 
-        <div className="max-h-[min(50vh,360px)] space-y-2 overflow-y-auto">
+        <div className="max-h-[min(50vh,360px)] space-y-2 overflow-y-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical">
           {filteredItems.map((item) => {
             const key = workItemEntityKey(item);
             const entityType = item.kind === "galaxySession" ? "galaxy-conversation" : "chat";

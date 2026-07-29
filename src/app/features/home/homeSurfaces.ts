@@ -1,4 +1,3 @@
-/** Home surfaces — semantic Design System color roles only */
 export const HS = {
   pageBg: "var(--luxia-surface-subtle)",
   /** Shared Home content max-width — center leftover space on wide CSS viewports */

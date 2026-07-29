@@ -54,10 +54,6 @@ interface ProjectCardMetaProps {
   density?: "featured" | "supporting";
 }
 
-/**
- * Compact Project metadata: resource stat groups + separate updated time.
- * Not interactive — informational only.
- */
 export function ProjectCardMeta({
   project,
   density = "supporting",

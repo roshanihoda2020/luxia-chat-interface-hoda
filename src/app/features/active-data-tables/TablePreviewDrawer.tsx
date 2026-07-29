@@ -65,7 +65,7 @@ export function TablePreviewDrawer({
                         </div>
                     </div>
 
-                    <div className="flex-1 min-h-0 overflow-auto px-6 py-5">
+                    <div className="flex-1 min-h-0 overflow-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical px-6 py-5">
                         {filteredRows.length === 0 ? (
                             <div className="flex h-full items-center justify-center rounded-[18px] border border-dashed px-6 py-12 text-center" style={{ borderColor: LX.border }}>
                                 <div className="max-w-[520px]">

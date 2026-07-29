@@ -34,7 +34,7 @@ export function ExtraContextFilePreview({
                                 </Button>
                         </div>
                     </DrawerHeader>
-                    <div className="flex-1 overflow-auto px-6 py-5">
+                    <div className="flex-1 overflow-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical px-6 py-5">
                         {canPreview ? (
                             <div className="rounded-[14px] border p-4 luxia-type-body-dense" style={{ borderColor: LX.border, background: LX.subtle, color: LX.textSecondary }}>
                                 <p className="font-bold" style={{ color: LX.primary }}>{file.name}</p>

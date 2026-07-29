@@ -1,5 +1,6 @@
 @import "./fonts.css";
 @import "./luxia-tokens.css";
+@import "./luxia-scrollbars.css";
 @import "./tailwind.css";
 @import "./theme.css";
 @import "./conversation-themes.css";

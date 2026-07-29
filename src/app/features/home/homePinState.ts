@@ -51,7 +51,7 @@ export function writePinnedEntityOrder(order: HomeEntityKey[]): void {
   writeJson(PINNED_ENTITY_ORDER_KEY, order);
 }
 
-/** Toggle Project Pin; newly pinned Projects move to the front of the order. */
+/** Newly pinned Projects move to the front of the order. */
 export function togglePinnedProjectId(
   current: string[],
   projectId: string,
