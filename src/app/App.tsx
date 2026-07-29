@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo, type ReactElement } from "react";
 import ReactDOM from "react-dom";
 import luxiaWordmarkUrl from "@/assets/brand/Luxia-Star.svg";
 import sidebarStarLogoUrl from "@/assets/brand/Star.svg";
@@ -38,6 +38,31 @@ import {
   type GalaxyRoutingPhase,
   type GalaxySessionState,
 } from "@/app/features/galaxy";
+import {
+  HomePage,
+  HomePageShell,
+  NewProjectModal,
+  HOME_PROJECTS,
+  HOME_RECENT_WORK,
+  HERO_DESCRIPTION_PLACEHOLDER,
+  getChatEntityKey,
+  getGalaxyEntityKey,
+  homePrimaryPreferencesEqual,
+  normalizeHomePrimaryPreference,
+  parseEntityKey,
+  readDismissedContinueKeys,
+  readHomePrimaryPreference,
+  readPinnedEntityOrder,
+  readPinnedProjectIds,
+  togglePinnedEntityKey,
+  togglePinnedProjectId,
+  workItemEntityKey,
+  writeDismissedContinueKeys,
+  writeHomePrimaryPreference,
+  writePinnedEntityOrder,
+  writePinnedProjectIds,
+} from "@/app/features/home";
+import type { HomeBrowseMode, HomeProjectCard, HomeRecentWorkItem } from "@/app/features/home";
 import { LX } from "@/app/features/active-data-tables/tokens";
 import { IC, IC_BTN_ICON, IC_BTN_OPEN, IC_CARD_HEADER, IC_INPUT_TEXT, IC_SEARCH_SHELL, IC_SEARCH_SHELL_STYLE, icCardStyle, icHoverOff, icHoverOn, icInspectorAccentStyle, icInspectorDescriptionColor, icInspectorTitleColor, icOpenActiveOn, icSearchShellBlur, icSearchShellFocus, icSearchShellHoverOff, icSearchShellHoverOn, icTextareaStyle } from "@/app/features/active-data-tables/inspectorTheme";
 import { Button } from "@/app/components/ui/button";
@@ -52,13 +77,27 @@ import {
   FileText, Database, Globe, BookOpen, FolderOpen, Cpu,
   Send, Mic, Eye, Upload, GripVertical,
   Trash2, Check, Edit3, BarChart3, Table2,
-  Home, Users, LayoutGrid, Bot,
-  Bell, Wrench, HelpCircle,
-  MessageSquare, Network, Star,
-  RefreshCw, Search, MoreHorizontal, Wand2,
+  Network,
+  RefreshCw, Search, MoreHorizontal,
   AlignLeft, Layers, Settings2, Pencil, Share2, List, FileBarChart2,
   type LucideIcon,
 } from "lucide-react";
+import {
+  LuxiaAiIcon,
+  LuxiaChatIcon,
+  LuxiaConstellationIcon,
+  LuxiaDashboardIcon,
+  LuxiaDatasourceIcon,
+  LuxiaGalaxyIcon,
+  LuxiaHomeIcon,
+  LuxiaNotificationsIcon,
+  LuxiaSettingsIcon,
+  LuxiaSupportIcon,
+  LuxiaToolsGalleryIcon,
+  LuxiaUserPermissionsIcon,
+  LuxiaVirtualAssistantIcon,
+  type LuxiaIconProps,
+} from "@/assets/icons";
 
 const CONSTELLATION_STYLE: Record<string, {
   color: string; bg: string; activeBg: string;
@@ -302,10 +341,18 @@ function getProjectConstellations(projectId: string) {
 
 function resolveChatConstellation(chat: Chat | undefined): Constellation {
   if (chat?.chatType === "constellation" && chat.constellationId) {
-    return CONSTELLATIONS.find((c) => c.id === chat.constellationId) ?? CONSTELLATIONS[0];
+    const exact = CONSTELLATIONS.find((c) => c.id === chat.constellationId);
+    if (exact) return exact;
+    console.warn(
+      `[Luxia] Constellation "${chat.constellationId}" not found for chat "${chat.id}". Preserving unavailable state.`,
+    );
   }
-  const projectConstellations = getProjectConstellations(chat?.projectId ?? PROJECTS[0].id);
-  return projectConstellations[0] ?? CONSTELLATIONS[0];
+  const projectId = chat?.projectId;
+  if (projectId && PROJECTS.some((project) => project.id === projectId)) {
+    const projectConstellations = getProjectConstellations(projectId);
+    if (projectConstellations[0]) return projectConstellations[0];
+  }
+  return CONSTELLATIONS[0];
 }
 
 const INSIGHTS_MIN_CONTENT_LENGTH = 220;
@@ -381,63 +428,97 @@ function ResponseInsightsContent({ insights }: { insights: ResponseInsights }) {
 }
 
 const PROJECTS: Project[] = [
-  { id: "proj1", label: "Project 01" },
-  { id: "proj2", label: "Project 02" },
-  { id: "proj3", label: "Project 03" },
+  { id: "project-01", label: "Project name 01" },
+  { id: "project-02", label: "Project name 02" },
+  { id: "project-03", label: "Project name 03" },
+  { id: "project-04", label: "Project name 04" },
+  { id: "project-05", label: "Project name 05" },
+  { id: "project-06", label: "Project name 06" },
+  { id: "project-07", label: "Project name 07" },
+  { id: "project-08", label: "Project name 08" },
+  { id: "project-09", label: "Project name 09" },
+  { id: "project-10", label: "Project name 10" },
 ];
 
 const CONSTELLATIONS: Constellation[] = [
   {
-    id: "con1", label: "Constellation 01", type: "database", projectId: "proj1",
-    description: "Connects structured data tables, relationship graphs, and metrics for analytical queries and reporting.",
+    id: "con1", label: "Constellation name 01", type: "database", projectId: "project-01",
+    description: HERO_DESCRIPTION_PLACEHOLDER,
   },
   {
-    id: "con2", label: "Constellation 02", type: "pdf", projectId: "proj1",
-    description: "Indexes PDF documents and crawled web pages for semantic search and content summarisation.",
+    id: "con2", label: "Constellation name 02", type: "pdf", projectId: "project-01",
+    description: HERO_DESCRIPTION_PLACEHOLDER,
   },
   {
-    id: "con3", label: "Constellation 03", type: "database", projectId: "proj1",
-    description: "Operational database with real-time event streams, KPI dashboards, and usage analytics.",
+    id: "con3", label: "Constellation name 03", type: "database", projectId: "project-02",
+    description: HERO_DESCRIPTION_PLACEHOLDER,
   },
   {
-    id: "con4", label: "Constellation 04", type: "pdf", projectId: "proj2",
-    description: "Archived quarterly financial PDFs and supporting disclosure documents.",
+    id: "con4", label: "Constellation name 04", type: "pdf", projectId: "project-02",
+    description: HERO_DESCRIPTION_PLACEHOLDER,
+  },
+  {
+    id: "con5", label: "Constellation name 05", type: "database", projectId: "project-03",
+    description: HERO_DESCRIPTION_PLACEHOLDER,
+  },
+  {
+    id: "con6", label: "Constellation name 06", type: "pdf", projectId: "project-03",
+    description: HERO_DESCRIPTION_PLACEHOLDER,
+  },
+  {
+    id: "con7", label: "Constellation name 07", type: "database", projectId: "project-04",
+    description: HERO_DESCRIPTION_PLACEHOLDER,
+  },
+  {
+    id: "con8", label: "Constellation name 08", type: "pdf", projectId: "project-04",
+    description: HERO_DESCRIPTION_PLACEHOLDER,
   },
 ];
 
 const INITIAL_CHATS: Chat[] = [
-  { id: "c1", label: "Chat 1", chatType: "constellation", projectId: "proj1", constellationId: "con1" },
-  { id: "c2", label: "Chat 2", chatType: "constellation", projectId: "proj1", constellationId: "con2" },
-  { id: "g1", label: "Galaxy Chat", chatType: "galaxy", projectId: "proj1" },
+  { id: "chat-01", label: "Chat name 01", chatType: "constellation", projectId: "project-01", constellationId: "con1", pinned: true },
+  { id: "chat-02", label: "Chat name 02", chatType: "constellation", projectId: "project-01", constellationId: "con2" },
+  { id: "chat-03", label: "Chat name 03", chatType: "constellation", projectId: "project-02", constellationId: "con3" },
+  { id: "chat-04", label: "Chat name 04", chatType: "constellation", projectId: "project-02", constellationId: "con4", pinned: true },
+  { id: "chat-05", label: "Chat name 05", chatType: "constellation", projectId: "project-03", constellationId: "con5" },
+  { id: "chat-06", label: "Chat name 06", chatType: "constellation", projectId: "project-03", constellationId: "con6" },
+  { id: "chat-07", label: "Chat name 07", chatType: "constellation", projectId: "project-04", constellationId: "con7" },
+  { id: "chat-08", label: "Chat name 08", chatType: "constellation", projectId: "project-04", constellationId: "con8" },
+  { id: "galaxy-01", label: "Galaxy name 01", chatType: "galaxy", projectId: "project-01" },
+  { id: "galaxy-02", label: "Galaxy name 02", chatType: "galaxy", projectId: "project-02", pinned: true },
+  { id: "galaxy-03", label: "Galaxy name 03", chatType: "galaxy", projectId: "project-03" },
+  { id: "galaxy-04", label: "Galaxy name 04", chatType: "galaxy", projectId: "project-04" },
+  { id: "galaxy-05", label: "Galaxy name 05", chatType: "galaxy", projectId: "project-05" },
+  { id: "galaxy-06", label: "Galaxy name 06", chatType: "galaxy", projectId: "project-06" },
+  { id: "galaxy-07", label: "Galaxy name 07", chatType: "galaxy", projectId: "project-07" },
+  { id: "galaxy-08", label: "Galaxy name 08", chatType: "galaxy", projectId: "project-08" },
+  { id: "galaxy-09", label: "Galaxy name 09", chatType: "galaxy", projectId: "project-09" },
+  { id: "galaxy-10", label: "Galaxy name 10", chatType: "galaxy", projectId: "project-10" },
 ];
 
-const MESSAGES_C1: Message[] = [
-  { id: "u1", role: "user", timestamp: "10:14 AM", content: "What data is available in this constellation?" },
-  {
-    id: "a1", role: "ai", timestamp: "10:14 AM",
-    content: "This constellation connects two active data tables and three knowledge base documents across the project workspace.\n\nYou can query tables directly for structured metrics, filter records, and join related entities. Document sources support semantic search, summarisation, and section-level retrieval.\n\nKnowledge base entries take priority when a curated answer exists, while tables and documents complement each other for analytical and narrative questions.",
-    sources: [{ id: "s1", label: "Table 1" }, { id: "s2", label: "Document A" }],
-    insights: {
-      format: "bullets",
-      items: [
-        "Start with knowledge base matches when you need a definitive, curated answer.",
-        "Use table queries when the question depends on metrics, filters, or relationships.",
-        "Blend document search when the question needs narrative or section-level context.",
-      ],
+function makePrototypeMessages(chatId: string, chatLabel: string): Message[] {
+  return [
+    {
+      id: `${chatId}-u1`,
+      role: "user",
+      timestamp: "10:14 AM",
+      content: `Placeholder question for ${chatLabel}.`,
     },
-  },
-];
+    {
+      id: `${chatId}-a1`,
+      role: "ai",
+      timestamp: "10:14 AM",
+      content: `Placeholder response for ${chatLabel}. This message history belongs only to ${chatId}.`,
+      sources: [{ id: `${chatId}-s1`, label: "Source A" }, { id: `${chatId}-s2`, label: "Source B" }],
+    },
+  ];
+}
 
-const MESSAGES_C2: Message[] = [
-  { id: "u1", role: "user", timestamp: "11:02 AM", content: "What PDF files are connected here?" },
-  {
-    id: "a1", role: "ai", timestamp: "11:02 AM",
-    content: "This constellation includes two PDF documents and one crawled URL.\n\nI can search within the PDFs, summarise their content, or retrieve specific sections.",
-    sources: [{ id: "s1", label: "Report A.pdf" }, { id: "s2", label: "Guide B.pdf" }],
-  },
-];
-
-const INITIAL_MESSAGES: Record<string, Message[]> = { c1: MESSAGES_C1, c2: MESSAGES_C2 };
+const INITIAL_MESSAGES: Record<string, Message[]> = Object.fromEntries(
+  INITIAL_CHATS
+    .filter((chat) => chat.chatType === "constellation")
+    .map((chat) => [chat.id, makePrototypeMessages(chat.id, chat.label)]),
+);
 
 const EMPTY_PROMPTS = [
   "What information is available here?",
@@ -447,23 +528,25 @@ const EMPTY_PROMPTS = [
 ];
 
 const NAV_TOP_ITEMS = [
-  { icon: Home, label: "Home page" },
-  { icon: Users, label: "User & permissions" },
-  { icon: Database, label: "Datasources" },
+  { icon: LuxiaHomeIcon, label: "Home page" },
+  { icon: LuxiaUserPermissionsIcon, label: "User & permissions" },
+  { icon: LuxiaDatasourceIcon, label: "Datasources" },
 ];
 const NAV_PROJECT_ITEMS = [
-  { icon: Network, label: "Galaxies" },
-  { icon: LayoutGrid, label: "Constellations" },
-  { icon: BarChart3, label: "Dashboard" },
-  { icon: Bot, label: "Virtual assistant" },
-  { icon: MessageSquare, label: "Chat", active: true },
+  { icon: LuxiaGalaxyIcon, label: "Galaxies" },
+  { icon: LuxiaConstellationIcon, label: "Constellations" },
+  { icon: LuxiaDashboardIcon, label: "Dashboard" },
+  { icon: LuxiaVirtualAssistantIcon, label: "Virtual assistant" },
+  { icon: LuxiaChatIcon, label: "Chat", active: true },
 ];
 const NAV_BOTTOM_ITEMS = [
-  { icon: Bell, label: "Notifications" },
-  { icon: Wrench, label: "Tools gallery" },
-  { icon: Star, label: "Settings" },
-  { icon: HelpCircle, label: "Support" },
+  { icon: LuxiaNotificationsIcon, label: "Notifications" },
+  { icon: LuxiaToolsGalleryIcon, label: "Tools gallery" },
+  { icon: LuxiaSettingsIcon, label: "Settings" },
+  { icon: LuxiaSupportIcon, label: "Support" },
 ];
+
+type NavIconComponent = (props: LuxiaIconProps) => ReactElement;
 
 function renderMd(text: string) {
   return text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g).map((p, i) => {
@@ -552,14 +635,17 @@ function clampGalaxyWidth(width: number, viewportWidth: number, leftNavWidth: nu
   return Math.max(GALAXY_WIDTH_MIN, Math.min(maxWidth, width));
 }
 
-function NavItem({ icon: Icon, label, active, badge, chevron, collapsed }: {
-  icon: LucideIcon;
+function NavItem({ icon: Icon, label, active, badge, chevron, collapsed, onClick }: {
+  icon: NavIconComponent | LucideIcon;
   label: string; active?: boolean; badge?: number; chevron?: boolean; collapsed?: boolean;
+  onClick?: () => void;
 }) {
   const button = (
     <button
       type="button"
-      aria-label={collapsed ? label : undefined}
+      onClick={onClick}
+      aria-label={label}
+      aria-current={active ? "page" : undefined}
       className={`w-full flex items-center rounded-[10px] transition-all group ${
         collapsed ? "justify-center h-[40px] px-0" : "gap-3 px-3.5 h-[40px] text-left"
       }`}
@@ -567,7 +653,7 @@ function NavItem({ icon: Icon, label, active, badge, chevron, collapsed }: {
       onMouseEnter={(e) => { if (!active) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.06)"; }}
       onMouseLeave={(e) => { if (!active) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
     >
-      <span className="relative flex-shrink-0">
+      <span className="relative flex-shrink-0" aria-hidden>
         <Icon size={16} color={active ? "white" : "rgba(255,255,255,0.55)"} />
         {collapsed && badge ? (
           <span
@@ -585,7 +671,7 @@ function NavItem({ icon: Icon, label, active, badge, chevron, collapsed }: {
             {label}
           </span>
           {badge ? <span className="luxia-type-badge px-1.5 py-0.5 rounded-full" style={{ background: LX.error, color: "white" }}>{badge}</span> : null}
-          {chevron ? <ChevronRight size={12} color={active ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.22)"} /> : null}
+          {chevron ? <ChevronRight size={12} color={active ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.22)"} aria-hidden /> : null}
         </>
       ) : null}
     </button>
@@ -689,9 +775,15 @@ function SidebarCollapseToggle({
 function LeftNav({
   collapsed,
   onToggleCollapsed,
+  homeActive,
+  onHomeClick,
+  onChatClick,
 }: {
   collapsed: boolean;
   onToggleCollapsed: () => void;
+  homeActive?: boolean;
+  onHomeClick?: () => void;
+  onChatClick?: () => void;
 }) {
   const navPadding = collapsed ? "px-2" : "px-3";
 
@@ -731,7 +823,14 @@ function LeftNav({
         <div className="relative z-[2] min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
           <nav className={`${navPadding} space-y-px`}>
             {NAV_TOP_ITEMS.map(({ icon, label }) => (
-              <NavItem key={label} icon={icon} label={label} collapsed={collapsed} />
+              <NavItem
+                key={label}
+                icon={icon}
+                label={label}
+                collapsed={collapsed}
+                active={label === "Home page" ? homeActive : false}
+                onClick={label === "Home page" ? onHomeClick : undefined}
+              />
             ))}
           </nav>
 
@@ -740,19 +839,29 @@ function LeftNav({
             style={{ height: 1, background: "rgba(255,255,255,0.07)" }}
           />
 
-          <div className={navPadding}>
-            {!collapsed ? (
-              <p className="px-3 mb-1 luxia-type-overline-data"
-                style={{ color: "rgba(150,219,251,0.55)" }}>
-                Project Name 1
-              </p>
-            ) : null}
-            <nav className="space-y-px">
-              {NAV_PROJECT_ITEMS.map(({ icon, label, active }) => (
-                <NavItem key={label} icon={icon} label={label} active={active} chevron={!collapsed} collapsed={collapsed} />
-              ))}
-            </nav>
-          </div>
+          {!homeActive ? (
+            <div className={navPadding}>
+              {!collapsed ? (
+                <p className="px-3 mb-1 luxia-type-overline-data"
+                  style={{ color: "rgba(150,219,251,0.55)" }}>
+                  Project name 01
+                </p>
+              ) : null}
+              <nav className="space-y-px">
+                {NAV_PROJECT_ITEMS.map(({ icon, label, active }) => (
+                  <NavItem
+                    key={label}
+                    icon={icon}
+                    label={label}
+                    active={active}
+                    chevron={!collapsed}
+                    collapsed={collapsed}
+                    onClick={label === "Chat" ? onChatClick : undefined}
+                  />
+                ))}
+              </nav>
+            </div>
+          ) : null}
 
           <div
             className={`${navPadding} space-y-px pb-1 pt-2`}
@@ -857,7 +966,7 @@ function ChatTabBar({ chats, activeId, onSelect, onNew, onClose, onPin, onRename
                 boxShadow: isActive ? LX.shadow.sm : "none",
               }}>
               {chat.pinned && <Pin size={10} style={{ color: isGalaxyTab ? LX.secondary : (style?.color ?? LX.accent) }} />}
-              {isGalaxyTab && <Network size={11} style={{ color: LX.secondary, flexShrink: 0 }} />}
+              {isGalaxyTab && <LuxiaGalaxyIcon size={11} style={{ color: LX.secondary, flexShrink: 0 }} />}
               {renaming === chat.id ? (
                 <input ref={renameRef} value={renameVal}
                   onChange={(e) => setRenameVal(e.target.value)}
@@ -2527,7 +2636,7 @@ function KBEntryModal({ mode: initialMode, entry, onSave, onAdd, onClose }: {
                       disabled={!question.trim() || generating || sqlDisabled}
                       className="flex items-center gap-2 px-4 h-[34px] rounded-[10px] luxia-type-metadata transition-opacity disabled:opacity-35"
                       style={{ background: sqlDisabled ? LX.borderStrong : LX.primary, color: LX.surface }}>
-                      <Wand2 size={12} />{generating ? "Generating…" : "Generate SQL"}
+                      <LuxiaAiIcon size={12} />{generating ? "Generating…" : "Generate SQL"}
                     </button>
                     {sqlDisabled && (
                       <p className="luxia-type-caption mt-1.5" style={{ color: LX.textMuted }}>Available for Table, Chart, KPI, and List types only.</p>
@@ -2609,7 +2718,7 @@ function AutoKBModal({ constellationLabel, onAdd, onClose }: {
         <div className="flex items-center gap-3 px-7 py-5 flex-shrink-0" style={{ borderBottom: `1px solid ${LX.border}` }}>
           <div className="w-9 h-9 rounded-[10px] flex items-center justify-center flex-shrink-0"
             style={{ background: `linear-gradient(135deg, ${LX.blueT10} 0%, ${LX.sl10} 100%)` }}>
-            <Wand2 size={15} color={LX.secondary} />
+            <LuxiaAiIcon size={15} color={LX.secondary} />
           </div>
           <div className="flex-1 min-w-0">
             <h2 className="luxia-type-title-panel" style={{ color: LX.primary }}>Auto-generate Knowledge</h2>
@@ -2642,7 +2751,7 @@ function AutoKBModal({ constellationLabel, onAdd, onClose }: {
           </div>
           <div className="flex-1" />
           <Button type="button" onClick={handleGenerate} disabled={generating} className="h-[34px] rounded-[24px] px-4 luxia-type-metadata text-white hover:opacity-90 disabled:opacity-60" style={{ background: LX.gradient.button, boxShadow: LX.shadow.sm }}>
-            <Wand2 size={11} />{generating ? "Generating…" : "Generate"}
+            <LuxiaAiIcon size={11} />{generating ? "Generating…" : "Generate"}
           </Button>
         </div>
         <div className="flex-1 overflow-y-auto px-7 py-5">
@@ -2655,7 +2764,7 @@ function AutoKBModal({ constellationLabel, onAdd, onClose }: {
           )}
           {!generating && generated.length === 0 && (
             <div className="flex flex-col items-center justify-center py-14 gap-2">
-              <Wand2 size={28} style={{ color: `${LX.textMuted}55` }} />
+              <LuxiaAiIcon size={28} style={{ color: `${LX.textMuted}55` }} />
               <p className="luxia-type-body-dense" style={{ color: LX.textMuted }}>Configure above, then click Generate</p>
             </div>
           )}
@@ -2777,7 +2886,7 @@ function KBWorkspaceModal({ entries, constellationLabel, onSave, onClose }: {
             </Button>
             <Button type="button" variant="outline" onClick={() => setAutoOpen(true)}
               className="h-[38px] rounded-[12px] px-3.5 luxia-type-metadata" style={{ color: LX.secondary }}>
-              <Wand2 size={12} />Auto-generate
+              <LuxiaAiIcon size={12} />Auto-generate
             </Button>
             <Button type="button" onClick={() => setAddOpen(true)}
               className="h-[38px] rounded-[12px] px-4 luxia-type-metadata text-white hover:opacity-90"
@@ -3883,14 +3992,32 @@ function ConstellationSidebar({
 
 export default function App() {
   const [chats, setChats] = useState<Chat[]>(INITIAL_CHATS);
-  const [activeChat, setActiveChat] = useState("c1");
+  const [activeChat, setActiveChat] = useState("chat-01");
   const [chatMessages, setChatMessages] = useState<Record<string, Message[]>>(INITIAL_MESSAGES);
   const [inputValue, setInputValue] = useState("");
   const [language, setLanguage] = useState("EN");
   const [assistantMode, setAssistantMode] = useState("Luxia");
   const [showNewChatModal, setShowNewChatModal] = useState(false);
+  const [showNewProjectModal, setShowNewProjectModal] = useState(false);
+  const [appView, setAppView] = useState<"home" | "chat">("home");
+  const [homeBrowseMode, setHomeBrowseMode] = useState<HomeBrowseMode>("overview");
+  const [homeScrollRequest, setHomeScrollRequest] = useState(0);
+  const [homeProjects, setHomeProjects] = useState<HomeProjectCard[]>(HOME_PROJECTS);
+  const [pinnedProjectIds, setPinnedProjectIds] = useState<string[]>(readPinnedProjectIds);
+  const [pinnedEntityOrder, setPinnedEntityOrder] = useState(readPinnedEntityOrder);
+  const [primaryPreference, setPrimaryPreference] = useState(readHomePrimaryPreference);
+  const [dismissedContinueKeys, setDismissedContinueKeys] = useState(readDismissedContinueKeys);
   const [galaxySessions, setGalaxySessions] = useState<Record<string, GalaxySessionState>>(() => ({
-    g1: createIdleGalaxySession("Project Name 1"),
+    "galaxy-01": createIdleGalaxySession("Project name 01"),
+    "galaxy-02": createIdleGalaxySession("Project name 02"),
+    "galaxy-03": createIdleGalaxySession("Project name 03"),
+    "galaxy-04": createIdleGalaxySession("Project name 04"),
+    "galaxy-05": createIdleGalaxySession("Project name 05"),
+    "galaxy-06": createIdleGalaxySession("Project name 06"),
+    "galaxy-07": createIdleGalaxySession("Project name 07"),
+    "galaxy-08": createIdleGalaxySession("Project name 08"),
+    "galaxy-09": createIdleGalaxySession("Project name 09"),
+    "galaxy-10": createIdleGalaxySession("Project name 10"),
   }));
   const [sidebarWidth, setSidebarWidth] = useState(INSPECTOR_WIDTH_DEFAULT);
   const [galaxyPanelWidth, setGalaxyPanelWidth] = useState(() =>
@@ -4055,7 +4182,268 @@ export default function App() {
   }
 
   function handleNewChat() {
+    setAppView("chat");
     setShowNewChatModal(true);
+  }
+
+  /** Canonical global Home navigation — shared by every sidebar Home control. */
+  function handleNavigateHome() {
+    setAppView("home");
+    setHomeBrowseMode("overview");
+    setShowNewChatModal(false);
+    setShowNewProjectModal(false);
+    setHomeScrollRequest((value) => value + 1);
+  }
+
+  function openChatWorkspace() {
+    setAppView("chat");
+  }
+
+  const recentWork = useMemo<HomeRecentWorkItem[]>(() => (
+    HOME_RECENT_WORK.map((item) => {
+      const chat = chats.find((c) => c.id === item.chatId);
+      const key = workItemEntityKey(item);
+      const constellation = item.constellationId
+        ? CONSTELLATIONS.find((entry) => entry.id === item.constellationId)
+        : undefined;
+      const projectCard = homeProjects.find((project) => project.id === item.projectId);
+      return {
+        ...item,
+        title: chat?.label ?? item.title,
+        isPinned: pinnedEntityOrder.includes(key) || Boolean(chat?.pinned),
+        // Resolve descriptions by stable IDs (prototype items still use the placeholder).
+        constellationDescription: constellation?.description,
+        projectDescription: projectCard?.description,
+      };
+    })
+  ), [chats, homeProjects, pinnedEntityOrder]);
+
+  // Keep persisted Home-focus preference aligned with accessible Chat/Galaxy keys.
+  useEffect(() => {
+    const normalized = normalizeHomePrimaryPreference(
+      primaryPreference,
+      recentWork,
+      dismissedContinueKeys,
+    );
+    if (!homePrimaryPreferencesEqual(normalized, primaryPreference)) {
+      setPrimaryPreference(normalized);
+      writeHomePrimaryPreference(normalized);
+    }
+  }, [dismissedContinueKeys, primaryPreference, recentWork]);
+
+  function handleToggleWorkPin(itemId: string) {
+    const item = recentWork.find((entry) => entry.id === itemId);
+    if (!item) return;
+    const key = workItemEntityKey(item);
+    const nextOrder = togglePinnedEntityKey(pinnedEntityOrder, key);
+    const pinned = nextOrder.includes(key);
+    setPinnedEntityOrder(nextOrder);
+    writePinnedEntityOrder(nextOrder);
+    setChats((prev) => prev.map((chat) => (
+      chat.id === item.chatId ? { ...chat, pinned } : chat
+    )));
+  }
+
+  function handleToggleProjectPin(projectId: string) {
+    const next = togglePinnedProjectId(pinnedProjectIds, projectId);
+    setPinnedProjectIds(next);
+    writePinnedProjectIds(next);
+    setHomeProjects((prev) => prev.map((project) => (
+      project.id === projectId ? { ...project, isPinned: next.includes(projectId) } : project
+    )));
+  }
+
+  function handleSetPrimaryHero(entityKey: string) {
+    if (!parseEntityKey(entityKey)) return;
+    const exists = recentWork.some((item) => workItemEntityKey(item) === entityKey);
+    if (!exists) return;
+
+    const next = { mode: "manual" as const, entityKey };
+    setPrimaryPreference(next);
+    writeHomePrimaryPreference(next);
+    if (dismissedContinueKeys.includes(entityKey)) {
+      const cleared = dismissedContinueKeys.filter((key) => key !== entityKey);
+      setDismissedContinueKeys(cleared);
+      writeDismissedContinueKeys(cleared);
+    }
+  }
+
+  /** Clears manual Home focus so the invisible fallback resolver picks a Hero. */
+  function clearManualHomeFocus() {
+    const next = { mode: "automatic" as const, entityKey: null };
+    setPrimaryPreference(next);
+    writeHomePrimaryPreference(next);
+  }
+
+  function handleShowAllOnHome() {
+    setDismissedContinueKeys([]);
+    writeDismissedContinueKeys([]);
+    clearManualHomeFocus();
+  }
+
+  function handleDismissFromContinue(entityKey: string) {
+    const next = [...new Set([...dismissedContinueKeys, entityKey])];
+    setDismissedContinueKeys(next);
+    writeDismissedContinueKeys(next);
+    // Hiding the manual Home-focus item makes it inaccessible — normalize immediately.
+    if (primaryPreference.mode === "manual" && primaryPreference.entityKey === entityKey) {
+      const automatic = { mode: "automatic" as const, entityKey: null };
+      setPrimaryPreference(automatic);
+      writeHomePrimaryPreference(automatic);
+    }
+  }
+
+  function handleRestoreToContinue(entityKey: string) {
+    const next = dismissedContinueKeys.filter((key) => key !== entityKey);
+    setDismissedContinueKeys(next);
+    writeDismissedContinueKeys(next);
+  }
+
+  function ensureChatOpen(chatId: string) {
+    const existing = chats.find((chat) => chat.id === chatId);
+    if (existing) {
+      setActiveChat(chatId);
+      return true;
+    }
+    const template = INITIAL_CHATS.find((chat) => chat.id === chatId);
+    if (!template) {
+      console.warn(`[Luxia] Chat/Galaxy "${chatId}" not found. Navigation aborted.`);
+      return false;
+    }
+    setChats((prev) => [...prev, template]);
+    setChatMessages((prev) => ({ ...prev, [chatId]: INITIAL_MESSAGES[chatId] ?? [] }));
+    if (template.chatType === "galaxy") {
+      const project = PROJECTS.find((p) => p.id === template.projectId);
+      if (!project) {
+        console.warn(
+          `[Luxia] Project "${template.projectId}" missing for galaxy "${chatId}". Navigation aborted.`,
+        );
+        return false;
+      }
+      setGalaxySessions((prev) => ({
+        ...prev,
+        [chatId]: prev[chatId] ?? createIdleGalaxySession(project.label),
+      }));
+    }
+    setActiveChat(chatId);
+    return true;
+  }
+
+  function handleContinueWork(item: HomeRecentWorkItem) {
+    if (!ensureChatOpen(item.chatId)) return;
+    setAppView("chat");
+  }
+
+  function handleOpenProjectFromHome(projectId: string) {
+    const project = homeProjects.find((entry) => entry.id === projectId)
+      ?? PROJECTS.find((entry) => entry.id === projectId);
+    if (!project) {
+      console.warn(`[Luxia] Project "${projectId}" not found. Navigation aborted.`);
+      return;
+    }
+
+    // Project workspace: prefer a constellation Chat for this Project ID.
+    // Zero-Constellation Projects fall back to their single Project-level Galaxy.
+    const constellationChat = chats.find(
+      (chat) => chat.chatType === "constellation" && chat.projectId === projectId,
+    ) ?? INITIAL_CHATS.find(
+      (chat) => chat.chatType === "constellation" && chat.projectId === projectId,
+    );
+
+    const galaxyId = "galaxyId" in project && typeof project.galaxyId === "string"
+      ? project.galaxyId
+      : undefined;
+    const galaxyChat = constellationChat
+      ? null
+      : (
+        (galaxyId
+          ? chats.find((chat) => chat.id === galaxyId)
+            ?? INITIAL_CHATS.find((chat) => chat.id === galaxyId)
+          : undefined)
+        ?? chats.find((chat) => chat.chatType === "galaxy" && chat.projectId === projectId)
+        ?? INITIAL_CHATS.find((chat) => chat.chatType === "galaxy" && chat.projectId === projectId)
+      );
+
+    const projectChat = constellationChat ?? galaxyChat;
+    if (!projectChat) {
+      console.warn(`[Luxia] No Chat/Galaxy found for project "${projectId}". Navigation aborted.`);
+      return;
+    }
+
+    if (!ensureChatOpen(projectChat.id)) return;
+    setAppView("chat");
+  }
+
+  function handleOpenGalaxyFromHome(projectId: string) {
+    const homeProject = homeProjects.find((entry) => entry.id === projectId);
+    const project = homeProject ?? PROJECTS.find((entry) => entry.id === projectId);
+    if (!project) {
+      console.warn(`[Luxia] Project "${projectId}" not found for Galaxy open. Navigation aborted.`);
+      return;
+    }
+
+    const galaxyId = homeProject?.galaxyId
+      ?? INITIAL_CHATS.find((chat) => chat.chatType === "galaxy" && chat.projectId === projectId)?.id;
+
+    if (!galaxyId) {
+      console.warn(`[Luxia] No Galaxy ID associated with project "${projectId}". Navigation aborted.`);
+      return;
+    }
+
+    const galaxyChat = chats.find((chat) => chat.id === galaxyId && chat.chatType === "galaxy")
+      ?? INITIAL_CHATS.find((chat) => chat.id === galaxyId && chat.chatType === "galaxy");
+
+    if (!galaxyChat || galaxyChat.projectId !== projectId) {
+      console.warn(
+        `[Luxia] Galaxy "${galaxyId}" is missing or not bound to project "${projectId}". Navigation aborted.`,
+      );
+      return;
+    }
+
+    if (!ensureChatOpen(galaxyChat.id)) return;
+    setAppView("chat");
+  }
+
+  function handleOpenChatFromHome(chatId: string) {
+    if (!ensureChatOpen(chatId)) return;
+    setAppView("chat");
+  }
+
+  function handleCreateProject(name: string) {
+    const stamp = Date.now();
+    const id = `project-${stamp}`;
+    const galaxyId = `galaxy-${stamp}`;
+    setHomeProjects((prev) => [...prev, {
+      id,
+      name,
+      galaxyId,
+      constellationCount: 0,
+      sourceCount: 0,
+      memberCount: 1,
+      updatedAt: "Just now",
+      updatedAtTimestamp: stamp,
+      isPinned: false,
+      isFeatured: false,
+      isEmpty: true,
+      description: undefined,
+    }]);
+  }
+
+  function handleChatPin(id: string) {
+    setChats((prev) => {
+      const target = prev.find((chat) => chat.id === id);
+      if (!target) return prev;
+      const nextPinned = !target.pinned;
+      const key = target.chatType === "galaxy" ? getGalaxyEntityKey(id) : getChatEntityKey(id);
+      setPinnedEntityOrder((order) => {
+        const next = nextPinned
+          ? [...order.filter((entry) => entry !== key), key]
+          : order.filter((entry) => entry !== key);
+        writePinnedEntityOrder(next);
+        return next;
+      });
+      return prev.map((chat) => (chat.id === id ? { ...chat, pinned: nextPinned } : chat));
+    });
   }
 
   function handleNewChatCreate(payload: NewChatPayload) {
@@ -4397,9 +4785,43 @@ export default function App() {
       <LeftNav
         collapsed={leftNavCollapsed}
         onToggleCollapsed={handleLeftNavToggle}
+        homeActive={appView === "home"}
+        onHomeClick={handleNavigateHome}
+        onChatClick={openChatWorkspace}
       />
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        {appView === "home" ? (
+          <HomePageShell scrollRequest={homeScrollRequest}>
+            <HomePage
+              projects={homeProjects}
+              recentWork={recentWork}
+              pinnedProjectIds={pinnedProjectIds}
+              pinnedEntityOrder={pinnedEntityOrder}
+              primaryPreference={primaryPreference}
+              dismissedContinueKeys={dismissedContinueKeys}
+              browseMode={homeBrowseMode}
+              onBrowseModeChange={setHomeBrowseMode}
+              onPrimaryPreferenceChange={(preference) => {
+                setPrimaryPreference(preference);
+                writeHomePrimaryPreference(preference);
+              }}
+              onDismissFromContinue={handleDismissFromContinue}
+              onRestoreToContinue={handleRestoreToContinue}
+              onSetPrimaryHero={handleSetPrimaryHero}
+              onShowAllOnHome={handleShowAllOnHome}
+              onToggleProjectPin={handleToggleProjectPin}
+              onToggleWorkPin={handleToggleWorkPin}
+              onContinueWork={handleContinueWork}
+              onOpenProject={handleOpenProjectFromHome}
+              onOpenGalaxy={handleOpenGalaxyFromHome}
+              onOpenChat={handleOpenChatFromHome}
+              onNewChat={handleNewChat}
+              onNewProject={() => setShowNewProjectModal(true)}
+            />
+          </HomePageShell>
+        ) : (
+          <>
         <PageHeader
           chatLabel={activeData?.label ?? "Chat 1"}
           chat={activeData ?? INITIAL_CHATS[0]}
@@ -4411,7 +4833,7 @@ export default function App() {
           chats={chats} activeId={activeChat}
           onSelect={setActiveChat} onNew={handleNewChat}
           onClose={handleCloseChat}
-          onPin={(id) => setChats(p => p.map(c => c.id === id ? { ...c, pinned: !c.pinned } : c))}
+          onPin={handleChatPin}
           onRename={(id, label) => setChats(p => p.map(c => c.id === id ? { ...c, label } : c))}
         />
 
@@ -4534,12 +4956,21 @@ export default function App() {
             />
           )}
         </div>
+          </>
+        )}
       </div>
 
       {showNewChatModal && (
         <NewChatModal
           onCreate={handleNewChatCreate}
           onClose={() => setShowNewChatModal(false)}
+        />
+      )}
+      {showNewProjectModal && (
+        <NewProjectModal
+          open={showNewProjectModal}
+          onClose={() => setShowNewProjectModal(false)}
+          onCreate={handleCreateProject}
         />
       )}
     </div>

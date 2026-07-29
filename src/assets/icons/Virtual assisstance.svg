@@ -1,0 +1,16 @@
+<svg width="25" height="20" viewBox="0 0 25 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g clip-path="url(#clip0_4317_27087)">
+<path d="M3.86572 8.37757C3.86572 8.37757 5.41979 7.54833 6.06848 6.8638C6.82698 6.06338 7.99581 5.01361 7.99581 5.01361C7.99581 5.01361 10.1615 5.73591 12.1258 5.85451C13.9044 5.96188 14.4948 5.16451 16.256 5.35003C18.808 5.61884 20.3865 8.37757 20.3865 8.37757" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M20.3865 12.3099V9.61889V9.13348C20.3865 4.5714 16.6882 0.873108 12.1261 0.873108C7.56402 0.873108 3.86572 4.5714 3.86572 9.13348V10.1043C3.86572 14.6664 7.56402 18.3647 12.1261 18.3647" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+<path d="M20.3865 9.6192H21.1517C21.9015 9.6192 22.5093 10.227 22.5093 10.9768V10.9768C22.5093 11.7266 21.9015 12.3345 21.1517 12.3345H20.3865V9.6192Z" fill="currentColor" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
+<path d="M3.86646 9.6192H3.10127C2.35148 9.6192 1.74365 10.227 1.74365 10.9768V10.9768C1.74365 11.7266 2.35148 12.3345 3.10127 12.3345H3.86646V9.6192Z" fill="currentColor" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
+<rect x="-0.6" y="0.6" width="2.2019" height="1.57062" rx="0.785312" transform="matrix(-1 0 0 1 13.4528 16.9794)" fill="currentColor" stroke="currentColor" stroke-width="1.2"/>
+<ellipse cx="9.09375" cy="9.98999" rx="1.51562" ry="1.23438" fill="currentColor"/>
+<ellipse cx="15.1562" cy="9.98999" rx="1.51562" ry="1.23438" fill="currentColor"/>
+</g>
+<defs>
+<clipPath id="clip0_4317_27087">
+<rect width="24.25" height="19.75" fill="currentColor"/>
+</clipPath>
+</defs>
+</svg>

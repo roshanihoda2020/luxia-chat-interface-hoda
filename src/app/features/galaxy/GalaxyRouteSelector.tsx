@@ -1,4 +1,5 @@
-import { Check, Network, X } from "lucide-react";
+import { Check, X } from "lucide-react";
+import { LuxiaGalaxyIcon } from "@/assets/icons";
 import { useEffect, useMemo, useRef, useState } from "react";
 import ReactDOM from "react-dom";
 import { LX } from "@/app/features/active-data-tables/tokens";
@@ -107,7 +108,7 @@ export function GalaxyRouteSelector({
           border: `1px solid rgba(142,99,235,0.22)`,
         }}
       >
-        <Network size={11} style={{ color: LX.secondary }} />
+        <LuxiaGalaxyIcon size={11} style={{ color: LX.secondary }} />
         {label}
       </button>
 
