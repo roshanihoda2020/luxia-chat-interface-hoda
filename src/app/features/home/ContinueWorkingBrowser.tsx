@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { ArrowLeft, Info } from "lucide-react";
+import { Info } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
+import { getProjectNameById } from "@/app/features/project/data";
+import {
+  LuxiaBreadcrumb,
+  buildHomeArchiveBreadcrumbItems,
+} from "@/app/components/LuxiaBreadcrumb";
+import { LuxiaPageHeader } from "@/app/components/LuxiaPageHeader";
 import { ChangePrimaryDialog } from "./ChangePrimaryDialog";
 import {
   BROWSER_CONTENT_MAX,
@@ -50,8 +56,9 @@ interface ContinueWorkingBrowserProps {
   onNewProject: () => void;
 }
 
-function SourceTag({ source }: { source: "database" | "pdf" }) {
+function SourceTag({ source }: { source: "database" | "csv" | "pdf" }) {
   const isDb = source === "database";
+  const label = source === "database" ? "DB" : source === "csv" ? "CSV" : "PDF";
   return (
     <span
       className="inline-flex shrink-0 items-center rounded-[6px] px-1.5 py-0.5 luxia-type-overline-data"
@@ -62,7 +69,7 @@ function SourceTag({ source }: { source: "database" | "pdf" }) {
           : "var(--luxia-opacity-blue-16)",
       }}
     >
-      {isDb ? "DB" : "PDF"}
+      {label}
     </span>
   );
 }
@@ -92,6 +99,7 @@ function WorkItemRow({
   const entityColor = item.kind === "galaxySession"
     ? HS.accentGalaxy
     : (getSourceAccentColor(item.constellationSource, "soft") ?? HS.accentChat);
+  const projectName = getProjectNameById(item.projectId);
 
   const menuItems = buildContinueFocusMenuItems({
     title: item.title,
@@ -132,9 +140,9 @@ function WorkItemRow({
             <p
               className="truncate luxia-type-body-dense"
               style={{ color: "var(--luxia-text-secondary)" }}
-              aria-label={`Project: ${item.projectName}`}
+              aria-label={`Project: ${projectName}`}
             >
-              {item.projectName}
+              {projectName}
             </p>
             {item.constellationName ? (
               <p
@@ -142,7 +150,13 @@ function WorkItemRow({
                 style={{ color: "var(--luxia-text-secondary)" }}
                 aria-label={`Constellation: ${item.constellationName}${
                   item.constellationSource
-                    ? `, Source: ${item.constellationSource === "database" ? "DB" : "PDF"}`
+                    ? `, Source: ${
+                        item.constellationSource === "database"
+                          ? "DB"
+                          : item.constellationSource === "csv"
+                            ? "CSV"
+                            : "PDF"
+                      }`
                     : ""
                 }`}
               >
@@ -223,29 +237,26 @@ function PageHeaderStack({
 }) {
   return (
     <div className="mx-auto min-w-0 w-full" style={{ maxWidth: BROWSER_CONTENT_MAX }}>
-      <header className="mb-6">
-        <button
-          type="button"
-          onClick={onBack}
-          className="inline-flex min-h-9 items-center gap-1.5 rounded-[8px] px-1 py-1 luxia-type-body-dense outline-none transition-colors hover:bg-[var(--luxia-opacity-brand-primary-04)] focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]"
-          style={{ color: HS.viewAllText }}
-        >
-          <ArrowLeft size={16} strokeWidth={1.75} aria-hidden />
-          Back to Home
-        </button>
-        <h1
-          className="luxia-type-heading-h3"
-          style={{ color: HS.sectionHeading, marginTop: 16 }}
-        >
-          Your work
-        </h1>
-        <p
-          className="luxia-type-body-small"
-          style={{ color: "var(--luxia-text-secondary)", marginTop: 6 }}
-        >
-          Search, organize, and continue your Chats and Galaxies.
-        </p>
-      </header>
+      <LuxiaPageHeader
+        contentGap="page"
+        title="Your work"
+        titleStyle={{ color: HS.sectionHeading }}
+        breadcrumb={
+          <LuxiaBreadcrumb
+            tone="page"
+            items={buildHomeArchiveBreadcrumbItems({
+              archiveId: "your-work",
+              archiveLabel: "Your work",
+            })}
+            handlers={{ onHome: onBack }}
+          />
+        }
+        description={
+          <p className="luxia-type-body-small" style={{ color: "var(--luxia-neutral-600, #475569)" }}>
+            Search, organize, and continue your Chats and Galaxies.
+          </p>
+        }
+      />
       {children}
     </div>
   );
@@ -407,6 +418,7 @@ export function ContinueWorkingBrowser({
     <>
       <BrowserShell
         title="Your work"
+        archiveId="your-work"
         description="Search, organize, and continue your Chats and Galaxies."
         onBack={onBack}
         searchLabel="Search Chats and Galaxies"

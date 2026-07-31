@@ -1,5 +1,5 @@
 import { ProjectIcon } from "@/app/components/icons";
-import { HS } from "./homeSurfaces";
+import { HS } from "@/app/features/home/homeSurfaces";
 
 export type ProjectCornerMarkerSize = "featured" | "supporting";
 

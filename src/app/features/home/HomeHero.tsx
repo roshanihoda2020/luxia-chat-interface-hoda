@@ -24,7 +24,7 @@ interface HeroContextFields {
   project: string;
   constellation?: string;
   sourceTag?: {
-    label: "DB" | "PDF";
+    label: "DB" | "CSV" | "PDF";
     color: string;
     background: string;
   };
@@ -44,6 +44,12 @@ function getHeroContextFields(hero: HomeHeroContent): HeroContextFields | null {
         label: "DB",
         color: getSourceAccentColor("database", "soft") ?? HS.heroMuted,
         background: "var(--luxia-opacity-brand-secondary-16)",
+      };
+    } else if (hero.constellationSource === "csv") {
+      fields.sourceTag = {
+        label: "CSV",
+        color: getSourceAccentColor("csv", "soft") ?? HS.heroMuted,
+        background: "var(--luxia-opacity-blue-16)",
       };
     } else if (hero.constellationSource === "pdf") {
       fields.sourceTag = {
@@ -73,7 +79,7 @@ function getHeroCornerMarkerStyle(
       background: "var(--luxia-purple-50)",
     };
   }
-  if (hero.constellationSource === "pdf") {
+  if (hero.constellationSource === "csv" || hero.constellationSource === "pdf") {
     return {
       color: "var(--luxia-text-inverse)",
       background: "var(--luxia-blue-50)",
@@ -178,7 +184,7 @@ export function HomeHero({
 
   const sectionHeading = (
     <SectionHeader
-      title="Continue working"
+      title="Your focus"
       titleId="home-continue-heading"
       icon={<History size={22} strokeWidth={1.75} />}
       iconColor={HS.sectionIconContinue}

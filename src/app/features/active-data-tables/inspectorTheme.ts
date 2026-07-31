@@ -57,21 +57,21 @@ export const IC = {
   controlBg: "rgba(255, 255, 255, 0.06)",
 } as const;
 
-export function icInspectorDescriptionColor(type: "pdf" | "database"): string {
+export function icInspectorDescriptionColor(type: "pdf" | "csv" | "database"): string {
   if (type === "database") return IC.textDescDatabase;
   return IC.textDescPdf;
 }
 
-export function icInspectorAccent(type: "pdf" | "database"): string {
-  return type === "pdf" ? IC.iconPdf : IC.iconAccent;
+export function icInspectorAccent(type: "pdf" | "csv" | "database"): string {
+  return type === "database" ? IC.iconAccent : IC.iconPdf;
 }
 
-export function icInspectorTitleColor(type: "pdf" | "database" | "galaxy"): string {
+export function icInspectorTitleColor(type: "pdf" | "csv" | "database" | "galaxy"): string {
   if (type === "galaxy") return "var(--luxia-text-inverse)";
   return IC.iconSemantic;
 }
 
-export function icInspectorAccentStyle(type: "pdf" | "database"): CSSProperties {
+export function icInspectorAccentStyle(type: "pdf" | "csv" | "database"): CSSProperties {
   const accent = icInspectorAccent(type);
   return {
     ["--luxia-inspector-accent" as string]: accent,

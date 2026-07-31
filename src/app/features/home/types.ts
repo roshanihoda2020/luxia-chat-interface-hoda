@@ -1,8 +1,11 @@
 export type HomeHeroKind = "galaxySession" | "chat" | "project" | "empty";
-export type HomeConstellationSource = "database" | "pdf";
+export type HomeConstellationSource = "database" | "csv" | "pdf";
 
 import type { HomeEntityKey } from "./homeEntityKeys";
 import type { HomePrimaryPreference } from "./homePrimaryPreference";
+import type { HomeProjectCard, ProjectDestination } from "@/app/features/project/types";
+
+export type { HomeProjectCard, ProjectDestination };
 
 export type HomeShortcutEntityType = "project" | "chat" | "galaxy-conversation";
 export type HomeShortcutSourceType = "database" | "pdf" | "mixed" | "unknown";
@@ -26,7 +29,11 @@ export interface HomeRecentWorkItem {
   title: string;
   kind: "galaxySession" | "chat";
   projectId: string;
-  projectName: string;
+  /**
+   * Legacy optional field only — ignored for display when present.
+   * Resolve visible names via `getProjectNameById(projectId)`.
+   */
+  projectName?: string;
   chatId: string;
   conversationId: string;
   constellationId?: string;
@@ -44,26 +51,6 @@ export interface HomeRecentWorkItem {
   lastOpenedAt?: number;
   latestPreview?: string;
   isPinned?: boolean;
-}
-
-export interface HomeProjectCard {
-  id: string;
-  name: string;
-  /** Single Project-level Galaxy ID (exactly one per Project). */
-  galaxyId: string;
-  constellationCount: number;
-  /** Project-level source total when available; omit from meta when undefined. */
-  sourceCount?: number;
-  memberCount: number;
-  /** Visible relative label (e.g. "2h ago"). */
-  updatedAt: string;
-  /** Sortable absolute timestamp for ranking. */
-  updatedAtTimestamp: number;
-  isPinned: boolean;
-  isFeatured: boolean;
-  isEmpty: boolean;
-  recentPreview?: string;
-  description?: string;
 }
 
 export interface HomeHeroContent {
@@ -110,18 +97,26 @@ export interface HomePageProps {
   onSetPrimaryHero: (entityKey: HomeEntityKey) => void;
   onShowAllOnHome: () => void;
   onToggleProjectPin: (projectId: string) => void;
+  onArchiveProject?: (projectId: string) => void;
+  onRestoreProject?: (projectId: string) => void;
   onToggleWorkPin: (itemId: string) => void;
   onContinueWork: (item: HomeRecentWorkItem) => void;
   onOpenShortcut?: (shortcut: HomeShortcutRef) => void;
   onOpenProject: (projectId: string) => void;
   onOpenGalaxy: (projectId: string) => void;
   onOpenChat: (chatId: string) => void;
+  onOpenConstellation?: (projectId: string, constellationId: string) => void;
   onNewChat: () => void;
   onNewProject: () => void;
+  /** Canonical Constellation catalog for Home search (stable IDs). */
+  searchConstellations?: Array<{
+    id: string;
+    label: string;
+    projectId: string;
+    type: "database" | "csv" | "pdf";
+  }>;
   onNavigateProjectDestination?: (
     destination: ProjectDestination,
     projectId: string,
   ) => void;
 }
-
-export type ProjectDestination = "galaxy" | "constellations" | "openProject";

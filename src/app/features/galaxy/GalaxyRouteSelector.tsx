@@ -8,7 +8,7 @@ import { GALAXY_ROUTE_RESULT_LIMIT, type GalaxyMatchedConstellation, type Galaxy
 export type GalaxyRouteOption = {
   id: string;
   label: string;
-  type: "PDF" | "DB";
+  type: "PDF" | "CSV" | "DB";
 };
 
 export function GalaxyRouteSelector({

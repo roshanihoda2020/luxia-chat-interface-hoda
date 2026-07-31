@@ -1,0 +1,214 @@
+/**
+ * Project Overview–specific seeds keyed by stable `projectId`.
+ * Canonical Project records live in `HOME_PROJECTS` (`features/project`).
+ * Do not duplicate Project name, description, Galaxy ID, or counts here.
+ */
+import { HOME_PROJECTS } from "@/app/features/project/data";
+import type {
+  ProjectActivityItem,
+  ProjectDashboardItem,
+  ProjectMemberItem,
+  ProjectVirtualAssistantItem,
+} from "./types";
+
+const HOUR_MS = 3_600_000;
+const DAY_MS = 86_400_000;
+const NOW = Date.now();
+
+const PROJECT_IDS = HOME_PROJECTS.map((project) => project.id);
+
+function pad(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+function projectIndex(projectId: string): number {
+  const index = PROJECT_IDS.indexOf(projectId);
+  return index >= 0 ? index : 0;
+}
+
+/** Project-scoped activity seeds. Counts vary by Project so Overview content is not identical. */
+export const PROJECT_ACTIVITY: ProjectActivityItem[] = PROJECT_IDS.flatMap((projectId) => {
+  const index = projectIndex(projectId);
+  const n = index + 1;
+  const homeProject = HOME_PROJECTS.find((project) => project.id === projectId);
+  const base: ProjectActivityItem[] = [
+    {
+      id: `${projectId}-act-01`,
+      projectId,
+      type: "chat",
+      primary: `Chat name ${pad(Math.min(n, 8))} was created`,
+      secondary: `Constellation name ${pad(Math.min(n, 8))}`,
+      timestamp: "1 hour ago",
+      timestampValue: NOW - HOUR_MS,
+      chatId: n <= 8 ? `chat-${pad(n)}` : undefined,
+      constellationId: n <= 4 ? `con${(n - 1) * 2 + 1}` : undefined,
+    },
+    {
+      id: `${projectId}-act-02`,
+      projectId,
+      type: "constellation",
+      primary: `Constellation name ${pad(Math.min(n + 1, 8))} was created`,
+      secondary: n % 3 === 0 ? "PDF" : n % 3 === 1 ? "DB" : "CSV",
+      timestamp: "3 hours ago",
+      timestampValue: NOW - HOUR_MS * 3,
+      constellationId: n <= 4 ? `con${Math.min((n - 1) * 2 + 2, 8)}` : undefined,
+    },
+    {
+      id: `${projectId}-act-03`,
+      projectId,
+      type: "source",
+      primary: `Data source name ${pad(n)} was connected to Constellation name ${pad(Math.min(n + 2, 8))}`,
+      secondary: n % 3 === 0 ? "PDF" : n % 3 === 1 ? "Database" : "CSV",
+      timestamp: "Yesterday",
+      timestampValue: NOW - DAY_MS,
+      constellationId: n <= 4 ? `con${Math.min((n - 1) * 2 + 1, 8)}` : undefined,
+    },
+    {
+      id: `${projectId}-act-04`,
+      projectId,
+      type: "dashboard",
+      primary: `Dashboard name ${pad(n)} was updated`,
+      timestamp: "2 days ago",
+      timestampValue: NOW - DAY_MS * 2,
+      dashboardId: `${projectId}-dashboard-01`,
+    },
+  ];
+
+  if (index === 0 && homeProject) {
+    base.push(
+      {
+        id: `${projectId}-act-05`,
+        projectId,
+        type: "virtual-assistant",
+        primary: "Virtual Assistant name 01 was updated",
+        secondary: homeProject.name,
+        timestamp: "3 days ago",
+        timestampValue: NOW - DAY_MS * 3,
+        virtualAssistantId: `${projectId}-va-01`,
+      },
+      {
+        id: `${projectId}-act-06`,
+        projectId,
+        type: "member",
+        primary: "User name was added",
+        secondary: "Editor",
+        timestamp: "4 days ago",
+        timestampValue: NOW - DAY_MS * 4,
+      },
+      {
+        id: `${projectId}-act-07`,
+        projectId,
+        type: "project",
+        primary: `${homeProject.name} was updated`,
+        timestamp: "5 days ago",
+        timestampValue: NOW - DAY_MS * 5,
+      },
+    );
+  }
+
+  if (homeProject?.isEmpty || homeProject?.constellationCount === 0) {
+    return [];
+  }
+
+  return base;
+});
+
+export const PROJECT_DASHBOARDS: ProjectDashboardItem[] = PROJECT_IDS.flatMap((projectId) => {
+  const index = projectIndex(projectId);
+  const homeProject = HOME_PROJECTS.find((project) => project.id === projectId);
+  if (homeProject?.isEmpty) return [];
+  const n = index + 1;
+  const items: ProjectDashboardItem[] = [
+    {
+      id: `${projectId}-dashboard-01`,
+      projectId,
+      name: `Dashboard name ${pad(n)}`,
+      kind: "dashboard",
+      updatedAt: "2h ago",
+      updatedAtTimestamp: NOW - HOUR_MS * 2,
+    },
+    {
+      id: `${projectId}-dashboard-02`,
+      projectId,
+      name: `Dashboard name ${pad(Math.min(n + 1, 10))}`,
+      kind: "dashboard",
+      updatedAt: "1 day ago",
+      updatedAtTimestamp: NOW - DAY_MS,
+    },
+  ];
+  if (index % 2 === 0) {
+    items.push({
+      id: `${projectId}-dashboard-group-01`,
+      projectId,
+      name: `Dashboard group name ${pad(n)}`,
+      kind: "group",
+      updatedAt: "3 days ago",
+      updatedAtTimestamp: NOW - DAY_MS * 3,
+    });
+  }
+  return items;
+});
+
+export const PROJECT_VIRTUAL_ASSISTANTS: ProjectVirtualAssistantItem[] = PROJECT_IDS.flatMap(
+  (projectId) => {
+    const index = projectIndex(projectId);
+    const homeProject = HOME_PROJECTS.find((project) => project.id === projectId);
+    if (homeProject?.isEmpty) return [];
+    const n = index + 1;
+    const count = index === 0 ? 3 : index === 6 ? 4 : 2;
+    return Array.from({ length: count }, (_, i) => ({
+      id: `${projectId}-va-${pad(i + 1)}`,
+      projectId,
+      name: `Virtual Assistant name ${pad(Math.min(n + i, 10))}`,
+      channel: i === 0 ? "Web" : i === 1 ? "Slack" : undefined,
+    }));
+  },
+);
+
+const ROLE_CYCLE = ["Administrator", "Editor", "Viewer", "Contributor"] as const;
+
+export const PROJECT_MEMBERS: ProjectMemberItem[] = PROJECT_IDS.flatMap((projectId) => {
+  const homeProject = HOME_PROJECTS.find((project) => project.id === projectId);
+  const memberCount = homeProject?.memberCount ?? 1;
+  return Array.from({ length: memberCount }, (_, i) => ({
+    id: `${projectId}-member-${pad(i + 1)}`,
+    projectId,
+    name: i === 0 ? "Hoda Roshani" : `User name ${pad(i + 1)}`,
+    role: ROLE_CYCLE[i % ROLE_CYCLE.length],
+    email: i === 0 ? "hoda@luxia.example" : `user${pad(i + 1)}@luxia.example`,
+  }));
+});
+
+/** Synthetic Source counts for Constellations that exist in App seed data. */
+export const CONSTELLATION_SOURCE_COUNTS: Record<string, number> = {
+  con1: 4,
+  con2: 2,
+  con3: 6,
+  con4: 3,
+  con5: 5,
+  con6: 2,
+  con7: 1,
+  con8: 3,
+};
+
+export function getProjectActivity(projectId: string): ProjectActivityItem[] {
+  return PROJECT_ACTIVITY
+    .filter((item) => item.projectId === projectId)
+    .slice()
+    .sort((a, b) => b.timestampValue - a.timestampValue);
+}
+
+export function getProjectDashboards(projectId: string): ProjectDashboardItem[] {
+  return PROJECT_DASHBOARDS
+    .filter((item) => item.projectId === projectId)
+    .slice()
+    .sort((a, b) => b.updatedAtTimestamp - a.updatedAtTimestamp);
+}
+
+export function getProjectVirtualAssistants(projectId: string): ProjectVirtualAssistantItem[] {
+  return PROJECT_VIRTUAL_ASSISTANTS.filter((item) => item.projectId === projectId);
+}
+
+export function getProjectMembers(projectId: string): ProjectMemberItem[] {
+  return PROJECT_MEMBERS.filter((item) => item.projectId === projectId);
+}

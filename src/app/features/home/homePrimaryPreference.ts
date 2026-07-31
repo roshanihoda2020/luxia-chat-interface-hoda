@@ -1,7 +1,7 @@
 import { workItemToHeroContent } from "./data";
 import type { HomeEntityKey } from "./homeEntityKeys";
 import { parseEntityKey, workItemEntityKey } from "./homeEntityKeys";
-import type { HomeHeroContent, HomeRecentWorkItem } from "./types";
+import type { HomeHeroContent, HomeProjectCard, HomeRecentWorkItem } from "./types";
 
 export type HomePrimaryMode = "automatic" | "manual";
 
@@ -135,6 +135,7 @@ export function resolveHomeHero(options: {
   pinnedWorkIds: Set<string>;
   pinnedOrder: HomeEntityKey[];
   dismissed: HomeEntityKey[];
+  projects?: readonly HomeProjectCard[];
 }): { hero: HomeHeroContent; heroEntityKey: HomeEntityKey | null; eligiblePrimaryItems: HomeRecentWorkItem[] } {
   const preference = normalizeHomePrimaryPreference(
     options.primaryPreference,
@@ -203,7 +204,7 @@ export function resolveHomeHero(options: {
     selected = visiblePrimaryItems[0];
   }
 
-  const hero = workItemToHeroContent(selected, options.pinnedWorkIds);
+  const hero = workItemToHeroContent(selected, options.pinnedWorkIds, options.projects);
   hero.selectedByYou = isManualHomeFocus(preference)
     && preference.entityKey === workItemEntityKey(selected);
 

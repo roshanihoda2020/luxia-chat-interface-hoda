@@ -1,9 +1,7 @@
 export { ContinueWorkingBrowser } from "./ContinueWorkingBrowser";
 export { HomePage, HomePageShell } from "./HomePage";
-export { NewProjectModal } from "./NewProjectModal";
-export { ProjectsBrowser } from "./ProjectsBrowser";
 export { ViewAllAction } from "./ViewAllAction";
-export { HOME_PROJECTS, HOME_RECENT_WORK, HERO_DESCRIPTION_PLACEHOLDER, resolveHeroDescription } from "./data";
+export { HOME_RECENT_WORK, HERO_DESCRIPTION_PLACEHOLDER, resolveHeroDescription } from "./data";
 export {
   readDismissedContinueKeys,
   readHomePrimaryPreference,
@@ -18,11 +16,8 @@ export type { HomePrimaryPreference, HomePrimaryMode } from "./homePrimaryPrefer
 export { parseEntityKey } from "./homeEntityKeys";
 export {
   readPinnedEntityOrder,
-  readPinnedProjectIds,
   togglePinnedEntityKey,
-  togglePinnedProjectId,
   writePinnedEntityOrder,
-  writePinnedProjectIds,
 } from "./homePinState";
 export {
   getChatEntityKey,
@@ -37,3 +32,16 @@ export type {
   HomeRecentWorkItem,
   ProjectDestination,
 } from "./types";
+
+/** Project domain re-exports for App shell convenience (canonical owner: features/project). */
+export {
+  NewProjectModal,
+  ProjectsBrowser,
+  HOME_PROJECTS,
+  getProjectPath,
+  parseProjectIdFromPath,
+  isHomePath,
+  readPinnedProjectIds,
+  togglePinnedProjectId,
+  writePinnedProjectIds,
+} from "@/app/features/project";

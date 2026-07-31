@@ -1,6 +1,12 @@
 import type { ReactNode } from "react";
-import { ArrowLeft, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { Input } from "@/app/components/ui/input";
+import {
+  LuxiaBreadcrumb,
+  buildHomeArchiveBreadcrumbItems,
+  type LuxiaBreadcrumbHandlers,
+} from "@/app/components/LuxiaBreadcrumb";
+import { LuxiaPageHeader } from "@/app/components/LuxiaPageHeader";
 import { HS } from "./homeSurfaces";
 
 export const BROWSER_PAGE_SIZE = 20;
@@ -9,7 +15,11 @@ export const BROWSER_CONTENT_MAX = "1200px";
 interface BrowserShellProps {
   title: string;
   description?: string;
+  /** Stable archive id for breadcrumb current segment. */
+  archiveId?: string;
   onBack: () => void;
+  /** Optional page-level action (e.g. New Project). */
+  actions?: ReactNode;
   searchLabel: string;
   searchPlaceholder: string;
   searchValue: string;
@@ -25,7 +35,9 @@ interface BrowserShellProps {
 export function BrowserShell({
   title,
   description,
+  archiveId = "archive",
   onBack,
+  actions,
   searchLabel,
   searchPlaceholder,
   searchValue,
@@ -37,34 +49,35 @@ export function BrowserShell({
   footer,
   banner,
 }: BrowserShellProps) {
+  const crumbHandlers: LuxiaBreadcrumbHandlers = {
+    onHome: onBack,
+  };
+
   return (
     <div className="mx-auto min-w-0 w-full" style={{ maxWidth: BROWSER_CONTENT_MAX }}>
-      <header className="mb-6">
-        <button
-          type="button"
-          onClick={onBack}
-          className="inline-flex min-h-9 items-center gap-1.5 rounded-[8px] px-1 py-1 luxia-type-body-dense outline-none transition-colors hover:bg-[var(--luxia-opacity-brand-primary-04)] focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]"
-          style={{ color: HS.viewAllText }}
-        >
-          <ArrowLeft size={16} strokeWidth={1.75} aria-hidden />
-          Back to Home
-        </button>
-
-        <h1
-          className="luxia-type-heading-h3"
-          style={{ color: HS.sectionHeading, marginTop: 16 }}
-        >
-          {title}
-        </h1>
-        {description ? (
-          <p
-            className="luxia-type-body-small"
-            style={{ color: "var(--luxia-text-secondary)", marginTop: 6 }}
-          >
-            {description}
-          </p>
-        ) : null}
-      </header>
+      <LuxiaPageHeader
+        contentGap="page"
+        title={title}
+        titleStyle={{ color: HS.sectionHeading }}
+        breadcrumb={
+          <LuxiaBreadcrumb
+            tone="page"
+            items={buildHomeArchiveBreadcrumbItems({
+              archiveId,
+              archiveLabel: title,
+            })}
+            handlers={crumbHandlers}
+          />
+        }
+        description={
+          description ? (
+            <p className="luxia-type-body-small" style={{ color: "var(--luxia-neutral-600, #475569)" }}>
+              {description}
+            </p>
+          ) : null
+        }
+        actions={actions}
+      />
 
       {banner}
 

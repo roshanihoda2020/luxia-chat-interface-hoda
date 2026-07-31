@@ -1,3 +1,4 @@
+import { getProjectNameById } from "@/app/features/project/data";
 import type { HomeEntityKey } from "./homeEntityKeys";
 import { workItemEntityKey } from "./homeEntityKeys";
 import type { HomeRecentWorkItem } from "./types";
@@ -45,13 +46,15 @@ export function matchesContinueSearch(item: HomeRecentWorkItem, query: string): 
   const sourceType =
     item.constellationSource === "database"
       ? "database"
-      : item.constellationSource === "pdf"
-        ? "pdf"
-        : "";
+      : item.constellationSource === "csv"
+        ? "csv"
+        : item.constellationSource === "pdf"
+          ? "pdf"
+          : "";
 
   const haystack = [
     item.title,
-    item.projectName,
+    getProjectNameById(item.projectId),
     item.constellationName ?? "",
     sourceType,
     entityType,

@@ -1,13 +1,75 @@
 import { LuxiaProjectsIcon } from "@/assets/icons";
 import { Button } from "@/app/components/ui/button";
-import { EntityIdentityRow } from "./entityIdentity";
-import { getProjectPreview } from "./data";
-import { ProjectCardMeta } from "./ProjectCardMeta";
+import {
+  LuxiaEntityOptionsMenu,
+  type LuxiaEntityOptionsItem,
+} from "@/app/components/LuxiaEntityOptionsMenu";
+import { EntityIdentityRow } from "@/app/features/home/entityIdentity";
+import { getHomeCardStyle, getProjectCardTypography, HS, HI } from "@/app/features/home/homeSurfaces";
+import { PinButton } from "@/app/features/home/PinButton";
+import { SectionHeader } from "@/app/features/home/SectionHeader";
+import { getProjectPreview, isProjectArchived } from "./data";
+import { getProjectPath } from "./projectPaths";
+import { ProjectCardFooter, ProjectCardMeta } from "./ProjectCardMeta";
 import { ProjectCornerMarker } from "./ProjectCornerMarker";
-import { getHomeCardStyle, getProjectCardTypography, HS, HI } from "./homeSurfaces";
-import { PinButton } from "./PinButton";
-import { SectionHeader } from "./SectionHeader";
 import type { HomeProjectCard, ProjectDestination } from "./types";
+
+/** Build Project-card Options for active vs archived lifecycle states. */
+export function buildProjectCardOptions(
+  project: HomeProjectCard,
+  handlers: {
+    onArchiveProject?: (projectId: string) => void;
+    onRestoreProject?: (projectId: string) => void;
+  } = {},
+): LuxiaEntityOptionsItem[] {
+  const archived = isProjectArchived(project);
+
+  if (archived) {
+    return [
+      { id: "rename", label: "Rename Project", disabled: true },
+      { id: "edit-details", label: "Edit Project details", disabled: true },
+      {
+        id: "restore",
+        label: "Restore Project",
+        ariaLabel: `Restore ${project.name}`,
+        onSelect: handlers.onRestoreProject
+          ? () => handlers.onRestoreProject!(project.id)
+          : undefined,
+        disabled: !handlers.onRestoreProject,
+      },
+      {
+        id: "delete",
+        label: "Delete Project",
+        ariaLabel: `Delete ${project.name}`,
+        disabled: true,
+        destructive: true,
+        separatorBefore: true,
+      },
+    ];
+  }
+
+  return [
+    { id: "rename", label: "Rename Project", disabled: true },
+    { id: "edit-details", label: "Edit Project details", disabled: true },
+    {
+      id: "archive",
+      label: "Archive Project",
+      ariaLabel: `Archive ${project.name}`,
+      onSelect: handlers.onArchiveProject
+        ? () => handlers.onArchiveProject!(project.id)
+        : undefined,
+      disabled: !handlers.onArchiveProject,
+    },
+    {
+      id: "delete",
+      label: "Delete Project",
+      ariaLabel: `Delete ${project.name}`,
+      disabled: true,
+      destructive: true,
+      separatorBefore: true,
+    },
+  ];
+}
 
 interface ProjectDestinationActionsProps {
   projectId: string;
@@ -27,18 +89,21 @@ export function ProjectDestinationActions({
 }: ProjectDestinationActionsProps) {
   const openGalaxy = () => onNavigate?.("galaxy", projectId);
   const openConstellations = () => onNavigate?.("constellations", projectId);
+  const projectHref = getProjectPath(projectId);
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <Button
-        type="button"
-        variant="primary"
-        size="compact"
+    <>
+      <a
+        href={projectHref}
         aria-label={`Open Project ${projectName}`}
-        onClick={() => onOpenProject(projectId)}
+        onClick={(e) => {
+          e.preventDefault();
+          onOpenProject(projectId);
+        }}
+        className="luxia-button luxia-button--primary luxia-button--compact inline-flex items-center justify-center outline-none focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]"
       >
         Open Project
-      </Button>
+      </a>
       <Button
         type="button"
         variant="outline"
@@ -59,7 +124,7 @@ export function ProjectDestinationActions({
           Constellations
         </Button>
       ) : null}
-    </div>
+    </>
   );
 }
 
@@ -101,6 +166,8 @@ interface ProjectCardShellProps {
   descriptionColor: string;
   compactActions: boolean;
   onToggleProjectPin: (projectId: string) => void;
+  onArchiveProject?: (projectId: string) => void;
+  onRestoreProject?: (projectId: string) => void;
   onOpenProject: (projectId: string) => void;
   onNavigate?: (destination: ProjectDestination, projectId: string) => void;
 }
@@ -117,13 +184,19 @@ function ProjectCardShell({
   descriptionColor,
   compactActions,
   onToggleProjectPin,
+  onArchiveProject,
+  onRestoreProject,
   onOpenProject,
   onNavigate,
 }: ProjectCardShellProps) {
   const isFeatured = markerSize === "featured";
-  // Compact Project Pin (~30px) sits ~8px left of marker.
-  const pinRight = isFeatured ? 56 : 50;
-  const contentPadRight = isFeatured ? 100 : 88;
+  const utilityRight = isFeatured ? 56 : 50;
+  const contentPadRight = isFeatured ? 128 : 116;
+  const archived = isProjectArchived(project);
+  const optionsItems = buildProjectCardOptions(project, {
+    onArchiveProject,
+    onRestoreProject,
+  });
 
   return (
     <div
@@ -138,17 +211,25 @@ function ProjectCardShell({
       <ProjectCornerMarker size={markerSize} />
 
       <div
-        className="absolute z-[2] flex shrink-0 items-center"
+        className="absolute z-[2] flex shrink-0 items-center gap-1"
         style={{
           top: isFeatured ? 9 : 6,
-          right: pinRight,
+          right: utilityRight,
         }}
       >
-        <PinButton
-          pinned={project.isPinned}
-          label={project.name}
-          controlSize="project"
-          onToggle={() => onToggleProjectPin(project.id)}
+        {!archived ? (
+          <PinButton
+            pinned={project.isPinned}
+            label={project.name}
+            controlSize="project"
+            onToggle={() => onToggleProjectPin(project.id)}
+          />
+        ) : null}
+        <LuxiaEntityOptionsMenu
+          entityType="Project"
+          entityLabel={project.name}
+          ariaLabel={`Project options for ${project.name}`}
+          items={optionsItems}
         />
       </div>
 
@@ -159,15 +240,20 @@ function ProjectCardShell({
           size={isFeatured ? "standard" : "compact"}
           hideIcon
         />
-        <h3
-          className={`mt-2 line-clamp-1 ${titleClass}`}
-          style={{
-            color: titleColor,
-            letterSpacing: isFeatured ? "-0.02em" : undefined,
-          }}
-          title={project.name}
-        >
-          {project.name}
+        <h3 className={`mt-2 line-clamp-1 ${titleClass}`} style={{ letterSpacing: isFeatured ? "-0.02em" : undefined }}>
+          <a
+            href={getProjectPath(project.id)}
+            onClick={(e) => {
+              e.preventDefault();
+              onOpenProject(project.id);
+            }}
+            className="max-w-full truncate text-left outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)] rounded-[4px]"
+            style={{ color: titleColor, display: "inline-block", maxWidth: "100%" }}
+            title={project.name}
+            aria-label={`Open Project ${project.name}`}
+          >
+            {project.name}
+          </a>
         </h3>
         <ProjectCardDescription
           description={project.description}
@@ -175,17 +261,21 @@ function ProjectCardShell({
         />
       </div>
 
-      <ProjectCardMeta project={project} density={markerSize} />
+      <ProjectCardMeta project={project} density={markerSize} showUpdated={false} />
 
-      <div className="relative z-[1] mt-auto">
-        <ProjectDestinationActions
-          projectId={project.id}
-          projectName={project.name}
-          compact={compactActions}
-          onOpenProject={onOpenProject}
-          onNavigate={onNavigate}
-        />
-      </div>
+      <ProjectCardFooter
+        updatedAt={project.updatedAt}
+        density={markerSize}
+        actions={(
+          <ProjectDestinationActions
+            projectId={project.id}
+            projectName={project.name}
+            compact={compactActions}
+            onOpenProject={onOpenProject}
+            onNavigate={onNavigate}
+          />
+        )}
+      />
     </div>
   );
 }
@@ -195,6 +285,8 @@ interface ProjectsPreviewProps {
   pinnedProjectOrder: string[];
   onViewAll: () => void;
   onToggleProjectPin: (projectId: string) => void;
+  onArchiveProject?: (projectId: string) => void;
+  onRestoreProject?: (projectId: string) => void;
   onOpenProject: (projectId: string) => void;
   onNavigateProjectDestination?: (destination: ProjectDestination, projectId: string) => void;
 }
@@ -204,6 +296,8 @@ export function ProjectsPreview({
   pinnedProjectOrder,
   onViewAll,
   onToggleProjectPin,
+  onArchiveProject,
+  onRestoreProject,
   onOpenProject,
   onNavigateProjectDestination,
 }: ProjectsPreviewProps) {
@@ -239,6 +333,8 @@ export function ProjectsPreview({
           descriptionColor="var(--luxia-text-secondary)"
           compactActions={false}
           onToggleProjectPin={onToggleProjectPin}
+          onArchiveProject={onArchiveProject}
+          onRestoreProject={onRestoreProject}
           onOpenProject={onOpenProject}
           onNavigate={onNavigateProjectDestination}
         />
@@ -259,6 +355,8 @@ export function ProjectsPreview({
             descriptionColor="var(--luxia-text-secondary)"
             compactActions
             onToggleProjectPin={onToggleProjectPin}
+            onArchiveProject={onArchiveProject}
+            onRestoreProject={onRestoreProject}
             onOpenProject={onOpenProject}
             onNavigate={onNavigateProjectDestination}
           />

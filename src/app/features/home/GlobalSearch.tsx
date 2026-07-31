@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Search } from "lucide-react";
 import { Input } from "@/app/components/ui/input";
+import { getProjectNameById } from "@/app/features/project/data";
 import { EntityIcon } from "./entityIdentity";
 import { HS } from "./homeSurfaces";
 import type { HomeProjectCard, HomeRecentWorkItem } from "./types";
@@ -23,7 +24,7 @@ interface GlobalSearchProps {
     id: string;
     label: string;
     projectId: string;
-    type: "database" | "pdf";
+    type: "database" | "csv" | "pdf";
   }>;
   onSelect: (result: HomeSearchResult) => void;
 }
@@ -36,6 +37,8 @@ export function GlobalSearch({
 }: GlobalSearchProps) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
+  const [highlightIndex, setHighlightIndex] = useState(0);
+  const listRef = useRef<HTMLUListElement>(null);
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -44,14 +47,19 @@ export function GlobalSearch({
     const matches: HomeSearchResult[] = [];
 
     projects.forEach((project) => {
-      if (project.name.toLowerCase().includes(q)) {
+      const haystack = [
+        project.name,
+        project.description ?? "",
+        "project",
+      ].join(" ").toLowerCase();
+      if (haystack.includes(q)) {
         matches.push({
           id: `project-${project.id}`,
           label: project.name,
           kind: "project",
           entityId: project.id,
           projectId: project.id,
-          subtitle: "Project",
+          subtitle: "PROJECT",
           color: HS.accentProject,
         });
       }
@@ -61,12 +69,14 @@ export function GlobalSearch({
       const entityKind = item.kind === "galaxySession" ? "galaxy" : "chat";
       const sourceToken = item.constellationSource === "database"
         ? "db database"
-        : item.constellationSource === "pdf"
-          ? "pdf"
-          : "";
+        : item.constellationSource === "csv"
+          ? "csv"
+          : item.constellationSource === "pdf"
+            ? "pdf"
+            : "";
       const haystack = [
         item.title,
-        item.projectName,
+        getProjectNameById(item.projectId, projects),
         item.constellationName ?? "",
         sourceToken,
         entityKind,
@@ -81,15 +91,16 @@ export function GlobalSearch({
           entityId: item.kind === "galaxySession" ? item.conversationId : item.chatId,
           projectId: item.projectId,
           constellationId: item.constellationId,
-          subtitle: item.kind === "galaxySession" ? "Galaxy" : "Chat",
+          subtitle: item.kind === "galaxySession" ? "GALAXY" : "CHAT",
           color: item.kind === "galaxySession" ? HS.accentGalaxy : HS.accentChat,
         });
       }
     });
 
     constellations.forEach((con) => {
+      const projectName = getProjectNameById(con.projectId, projects, "");
       const sourceToken = con.type === "pdf" ? "pdf" : "db database";
-      const haystack = `${con.label} ${sourceToken} constellation`.toLowerCase();
+      const haystack = `${con.label} ${projectName} ${sourceToken} constellation`.toLowerCase();
       if (haystack.includes(q)) {
         matches.push({
           id: `con-${con.id}`,
@@ -98,7 +109,7 @@ export function GlobalSearch({
           entityId: con.id,
           projectId: con.projectId,
           constellationId: con.id,
-          subtitle: con.type === "pdf" ? "PDF Constellation" : "Database Constellation",
+          subtitle: con.type === "pdf" ? "PDF · CONSTELLATION" : "DB · CONSTELLATION",
           color: con.type === "pdf" ? HS.sourcePdfSoft : HS.sourceDatabaseSoft,
         });
       }
@@ -106,6 +117,54 @@ export function GlobalSearch({
 
     return matches.slice(0, 24);
   }, [constellations, projects, query, recentWork]);
+
+  useEffect(() => {
+    setHighlightIndex(0);
+  }, [query, results.length]);
+
+  function selectResult(result: HomeSearchResult) {
+    onSelect(result);
+    setQuery("");
+    setOpen(false);
+    setHighlightIndex(0);
+  }
+
+  function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (!open || !query.trim()) return;
+
+    if (e.key === "Escape") {
+      e.preventDefault();
+      setOpen(false);
+      return;
+    }
+
+    if (results.length === 0) return;
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setOpen(true);
+      setHighlightIndex((prev) => Math.min(prev + 1, results.length - 1));
+      return;
+    }
+
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setOpen(true);
+      setHighlightIndex((prev) => Math.max(prev - 1, 0));
+      return;
+    }
+
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const result = results[highlightIndex] ?? results[0];
+      if (result) selectResult(result);
+    }
+  }
+
+  useEffect(() => {
+    const el = listRef.current?.querySelector<HTMLElement>(`[data-search-index="${highlightIndex}"]`);
+    el?.scrollIntoView({ block: "nearest" });
+  }, [highlightIndex]);
 
   return (
     <div className="relative mb-7 w-full">
@@ -124,8 +183,13 @@ export function GlobalSearch({
           }}
           onFocus={() => setOpen(true)}
           onBlur={() => window.setTimeout(() => setOpen(false), 120)}
+          onKeyDown={onKeyDown}
           placeholder="Search Projects, Galaxies, Chats, and Constellations"
           aria-label="Search Projects, Galaxies, Chats, and Constellations"
+          aria-autocomplete="list"
+          aria-expanded={open && Boolean(query.trim())}
+          aria-controls="luxia-home-search-results"
+          role="combobox"
           className="h-11 rounded-[12px] pl-10 luxia-type-body-default"
           style={{
             background: HS.searchBg,
@@ -144,27 +208,34 @@ export function GlobalSearch({
               No results for &ldquo;{query.trim()}&rdquo;
             </p>
           ) : (
-            <ul>
-              {results.map((result) => {
+            <ul
+              id="luxia-home-search-results"
+              ref={listRef}
+              role="listbox"
+              className="max-h-80 overflow-y-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical"
+            >
+              {results.map((result, index) => {
                 const entityType = result.kind === "project"
                   ? "project"
                   : result.kind === "galaxy"
                     ? "galaxy-conversation"
-                    : result.kind === "constellation"
-                      ? "chat"
-                      : "chat";
+                    : "chat";
+                const active = index === highlightIndex;
 
                 return (
-                  <li key={result.id}>
+                  <li key={result.id} role="presentation">
                     <button
                       type="button"
-                      className="flex w-full items-center gap-3 px-4 py-2.5 text-left outline-none transition-colors hover:bg-[var(--luxia-opacity-brand-primary-04)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--luxia-border-focus)]"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => {
-                        onSelect(result);
-                        setQuery("");
-                        setOpen(false);
+                      role="option"
+                      aria-selected={active}
+                      data-search-index={index}
+                      className="flex w-full items-center gap-3 px-4 py-2.5 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--luxia-border-focus)]"
+                      style={{
+                        background: active ? "var(--luxia-opacity-brand-primary-04)" : undefined,
                       }}
+                      onMouseEnter={() => setHighlightIndex(index)}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => selectResult(result)}
                     >
                       <EntityIcon
                         entityType={entityType}

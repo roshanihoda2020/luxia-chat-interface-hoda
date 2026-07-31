@@ -15,7 +15,7 @@ export type GalaxyRoutingPhase =
 export type GalaxyMatchedConstellation = {
   id: string;
   label: string;
-  type: "PDF" | "DB";
+  type: "PDF" | "CSV" | "DB";
 };
 
 export type GalaxyRelevance = "High relevance" | "Medium relevance" | "Low relevance";
@@ -23,7 +23,7 @@ export type GalaxyRelevance = "High relevance" | "Medium relevance" | "Low relev
 export type GalaxyCandidate = {
   id: string;
   label: string;
-  type: "PDF" | "DB";
+  type: "PDF" | "CSV" | "DB";
   relevance: GalaxyRelevance;
 };
 
@@ -118,13 +118,13 @@ export const GALAXY_OVERVIEW_SCOPE: {
 export type GalaxyControlRouteOption = {
   id: string;
   label: string;
-  type: "PDF" | "DB";
+  type: "PDF" | "CSV" | "DB";
   projectName?: string;
 };
 
 export function buildGalaxyRouteCatalog(
   _projectName: string,
-  _seeds: Array<{ id: string; label: string; type: "PDF" | "DB" }> = [],
+  _seeds: Array<{ id: string; label: string; type: "PDF" | "CSV" | "DB" }> = [],
   total = GALAXY_MOCK_ROUTE_OPTION_COUNT,
 ): GalaxyControlRouteOption[] {
   const out: GalaxyControlRouteOption[] = [];
@@ -132,7 +132,7 @@ export function buildGalaxyRouteCatalog(
     out.push({
       id: `galaxy-mock-${i}`,
       label: `Constellation ${i}`,
-      type: i % 3 === 0 ? "DB" : "PDF",
+      type: i % 3 === 0 ? "DB" : i % 3 === 1 ? "CSV" : "PDF",
     });
   }
   return out;

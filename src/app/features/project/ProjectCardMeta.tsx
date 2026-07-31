@@ -48,22 +48,69 @@ function ProjectStatGroup({
   );
 }
 
+/** Quiet Updated timestamp — decorative clock; text remains readable. */
+export function ProjectUpdatedMeta({
+  updatedAt,
+  className = "",
+  density = "supporting",
+}: {
+  updatedAt: string;
+  className?: string;
+  /** Featured is one step larger than supporting card footers. */
+  density?: "featured" | "supporting";
+}) {
+  const isFeatured = density === "featured";
+
+  return (
+    <p
+      className={`inline-flex min-w-0 shrink-0 items-center gap-1 ${
+        isFeatured ? "luxia-type-body-dense" : "luxia-type-caption"
+      } ${className}`}
+      style={{ color: "var(--luxia-neutral-500, #64748B)" }}
+      aria-label={`Updated ${updatedAt}`}
+    >
+      <Clock
+        size={isFeatured ? 14 : 13}
+        strokeWidth={1.75}
+        aria-hidden="true"
+        className="shrink-0"
+      />
+      <span className="truncate">Updated {updatedAt}</span>
+    </p>
+  );
+}
+
 interface ProjectCardMetaProps {
   project: HomeProjectCard;
   /** Featured allows a slightly roomier stack; supporting stays compact. */
   density?: "featured" | "supporting";
+  /** When false, Updated is omitted (use ProjectCardFooter instead). */
+  showUpdated?: boolean;
+  /**
+   * Optional root class override.
+   * When set, replaces the default card stack margins (use for page headers).
+   */
+  className?: string;
+  /** Gap between chips and Updated — defaults to card-compact `mt-1.5`. */
+  updatedClassName?: string;
 }
 
 export function ProjectCardMeta({
   project,
   density = "supporting",
+  showUpdated = true,
+  className,
+  updatedClassName = "mt-1.5",
 }: ProjectCardMetaProps) {
   const isFeatured = density === "featured";
   const iconSize = 14;
 
   return (
     <div
-      className={`relative z-[1] min-w-0 ${isFeatured ? "mb-4 mt-3" : "mb-3.5 mt-2.5"}`}
+      className={
+        className
+          ?? `relative z-[1] min-w-0 ${isFeatured ? "mb-4 mt-3" : "mb-3.5 mt-2.5"}`
+      }
     >
       <div className="flex flex-wrap items-center gap-1.5">
         <ProjectStatGroup
@@ -91,14 +138,33 @@ export function ProjectCardMeta({
         />
       </div>
 
-      <p
-        className="mt-1.5 inline-flex min-w-0 items-center gap-1.5 luxia-type-body-dense"
-        style={{ color: "var(--luxia-text-muted)", fontSize: 13, lineHeight: 1.35 }}
-        aria-label={`Updated ${project.updatedAt}`}
-      >
-        <Clock size={14} strokeWidth={1.75} aria-hidden className="shrink-0" />
-        <span>Updated {project.updatedAt}</span>
-      </p>
+      {showUpdated ? (
+        <ProjectUpdatedMeta
+          updatedAt={project.updatedAt}
+          density={density}
+          className={updatedClassName}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+/** Shared Project card footer: actions left, Updated right. */
+export function ProjectCardFooter({
+  actions,
+  updatedAt,
+  density = "supporting",
+}: {
+  actions: ReactNode;
+  updatedAt: string;
+  density?: "featured" | "supporting";
+}) {
+  return (
+    <div className="relative z-[1] mt-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
+        {actions}
+      </div>
+      <ProjectUpdatedMeta updatedAt={updatedAt} density={density} className="ml-auto" />
     </div>
   );
 }

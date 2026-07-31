@@ -10,8 +10,8 @@ import { GlobalSearch, type HomeSearchResult } from "./GlobalSearch";
 import { HomeHeader } from "./HomeHeader";
 import { HomeHero } from "./HomeHero";
 import { HS } from "./homeSurfaces";
-import { ProjectsBrowser } from "./ProjectsBrowser";
-import { ProjectsPreview } from "./ProjectsPreview";
+import { ProjectsBrowser, ProjectsPreview } from "@/app/features/project";
+import { filterActiveProjects } from "@/app/features/project/data";
 import type {
   HomeHeroContent,
   HomePageProps,
@@ -33,21 +33,30 @@ export function HomePage({
   onShowAllOnHome,
   onPrimaryPreferenceChange,
   onToggleProjectPin,
+  onArchiveProject,
+  onRestoreProject,
   onToggleWorkPin,
   onContinueWork,
   onOpenProject,
   onOpenGalaxy,
   onOpenChat,
+  onOpenConstellation,
   onNewChat,
   onNewProject,
+  searchConstellations,
   onNavigateProjectDestination,
 }: HomePageProps) {
   const projectsWithPin = useMemo(
     () => projects.map((project) => ({
       ...project,
-      isPinned: pinnedProjectIds.includes(project.id),
+      isPinned: project.status !== "archived" && pinnedProjectIds.includes(project.id),
     })),
     [pinnedProjectIds, projects],
+  );
+
+  const activeProjects = useMemo(
+    () => filterActiveProjects(projectsWithPin),
+    [projectsWithPin],
   );
 
   const workWithPin = useMemo(
@@ -85,21 +94,29 @@ export function HomePage({
       pinnedWorkIds,
       pinnedOrder: pinnedEntityOrder,
       dismissed: dismissedContinueKeys,
+      projects,
     }),
-    [dismissedContinueKeys, effectivePrimaryPreference, pinnedEntityOrder, pinnedWorkIds, workWithPin],
+    [dismissedContinueKeys, effectivePrimaryPreference, pinnedEntityOrder, pinnedWorkIds, projects, workWithPin],
   );
 
-  const constellations = useMemo(
-    () => workWithPin
+  const constellations = useMemo(() => {
+    if (searchConstellations && searchConstellations.length > 0) {
+      return searchConstellations;
+    }
+    return workWithPin
       .filter((item) => item.constellationId && item.constellationName)
       .map((item) => ({
         id: item.constellationId!,
         label: item.constellationName!,
         projectId: item.projectId,
-        type: item.constellationSource === "pdf" ? "pdf" as const : "database" as const,
-      })),
-    [workWithPin],
-  );
+        type:
+          item.constellationSource === "pdf"
+            ? ("pdf" as const)
+            : item.constellationSource === "csv"
+              ? ("csv" as const)
+              : ("database" as const),
+      }));
+  }, [searchConstellations, workWithPin]);
 
   function handleHeroPrimary(hero: HomeHeroContent) {
     if (hero.kind === "empty") {
@@ -129,11 +146,14 @@ export function HomePage({
       return;
     }
     if (result.kind === "galaxy" || result.kind === "chat") {
-      // Exact Chat/Galaxy ID — never route by Project title or first match.
       onOpenChat(result.entityId);
       return;
     }
     if (result.kind === "constellation" && result.constellationId) {
+      if (onOpenConstellation) {
+        onOpenConstellation(result.projectId, result.constellationId);
+        return;
+      }
       onOpenProject(result.projectId);
     }
   }
@@ -175,8 +195,11 @@ export function HomePage({
         projects={projectsWithPin}
         onBack={() => onBrowseModeChange("overview")}
         onToggleProjectPin={onToggleProjectPin}
+        onArchiveProject={onArchiveProject}
+        onRestoreProject={onRestoreProject}
         onOpenProject={onOpenProject}
         onNavigateProjectDestination={handleNavigate}
+        onNewProject={onNewProject}
       />
     );
   }
@@ -189,7 +212,7 @@ export function HomePage({
       <HomeHeader onNewChat={onNewChat} onNewProject={onNewProject} />
 
       <GlobalSearch
-        projects={projectsWithPin}
+        projects={activeProjects}
         recentWork={workWithPin}
         constellations={constellations}
         onSelect={handleSearchSelect}
@@ -212,10 +235,12 @@ export function HomePage({
       />
 
       <ProjectsPreview
-        projects={projectsWithPin}
+        projects={activeProjects}
         pinnedProjectOrder={pinnedProjectIds}
         onViewAll={() => onBrowseModeChange("projects")}
         onToggleProjectPin={onToggleProjectPin}
+        onArchiveProject={onArchiveProject}
+        onRestoreProject={onRestoreProject}
         onOpenProject={onOpenProject}
         onNavigateProjectDestination={handleNavigate}
       />
@@ -226,10 +251,16 @@ export function HomePage({
 export function HomePageShell({
   children,
   scrollRequest = 0,
+  contentMax = HS.contentMax,
 }: {
   children: ReactNode;
   /** Increment to scroll the Home surface to the top. */
   scrollRequest?: number;
+  /**
+   * Centered content max-width.
+   * Defaults to Home (`HS.contentMax`). Project Overview passes `overview` variant (`1480px`).
+   */
+  contentMax?: string;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -249,8 +280,8 @@ export function HomePageShell({
         style={{ paddingInline: HS.pagePadInline }}
       >
         <div
-          className="luxia-home-content mx-auto w-full"
-          style={{ maxWidth: HS.contentMax }}
+          className="luxia-home-content mx-auto w-full min-w-0"
+          style={{ maxWidth: contentMax }}
         >
           {children}
         </div>

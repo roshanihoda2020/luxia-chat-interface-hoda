@@ -2,12 +2,18 @@ export const HS = {
   pageBg: "var(--luxia-surface-subtle)",
   /** Shared Home content max-width — center leftover space on wide CSS viewports */
   contentMax: "1240px",
+  /** Generous centered max-width for Project Overview and project-scoped libraries */
+  overviewContentMax: "1480px",
+  /** Library/archive max-width for full-page libraries outside Home's approved cap */
+  libraryContentMax: "1480px",
   /** Alias of contentMax for section call sites */
   sectionMax: "1240px",
   /** @deprecated alias of sectionMax — keep for existing call sites */
   heroSectionMax: "1240px",
   /** Fluid Home page horizontal padding (viewport-based; not zoom detection) */
   pagePadInline: "clamp(var(--luxia-spacing-24), 3vw, var(--luxia-spacing-48))",
+  /** Chat/Galaxy main workspace horizontal inset — matches message column padding */
+  workspacePadInline: "clamp(var(--luxia-spacing-24), 2vw, 40px)",
 
   heroSurface: "var(--luxia-gradient-galaxy-panel)",
   heroBorder: "var(--luxia-galaxy-btn-secondary-border)",
@@ -108,13 +114,13 @@ export function getProjectCardTypography(style: HomeCardStyle) {
 }
 
 export function getSourceAccentColor(
-  source?: "database" | "pdf",
+  source?: "database" | "csv" | "pdf",
   emphasis: "default" | "soft" = "default",
 ): string | undefined {
   if (source === "database") {
     return emphasis === "soft" ? HS.sourceDatabaseSoft : HS.sourceDatabase;
   }
-  if (source === "pdf") {
+  if (source === "csv" || source === "pdf") {
     return emphasis === "soft" ? HS.sourcePdfSoft : HS.sourcePdf;
   }
   return undefined;

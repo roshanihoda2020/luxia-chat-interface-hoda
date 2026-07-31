@@ -1,3 +1,4 @@
+import { getProjectNameById } from "@/app/features/project/data";
 import { useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
@@ -42,9 +43,10 @@ export function ChangePrimaryDialog({
       if (entityFilter === "galaxy" && item.kind !== "galaxySession") return false;
 
       if (!q) return true;
+      const projectName = getProjectNameById(item.projectId);
       return (
         item.title.toLowerCase().includes(q)
-        || item.projectName.toLowerCase().includes(q)
+        || projectName.toLowerCase().includes(q)
         || (item.constellationName ?? "").toLowerCase().includes(q)
         || (item.kind === "galaxySession" ? "galaxy" : "chat").includes(q)
         || (item.constellationSource ?? "").includes(q)
@@ -104,6 +106,7 @@ export function ChangePrimaryDialog({
               ? HS.accentGalaxy
               : (sourceColor ?? HS.accentChat);
             const selected = key === currentKey;
+            const projectName = getProjectNameById(item.projectId);
 
             return (
               <button
@@ -138,9 +141,9 @@ export function ChangePrimaryDialog({
                   <span
                     className="mt-0.5 block truncate luxia-type-body-dense"
                     style={{ color: "var(--luxia-text-muted)" }}
-                    aria-label={`Project: ${item.projectName}`}
+                    aria-label={`Project: ${projectName}`}
                   >
-                    {item.projectName}
+                    {projectName}
                   </span>
                   {item.constellationName ? (
                     <span
@@ -148,7 +151,13 @@ export function ChangePrimaryDialog({
                       style={{ color: "var(--luxia-text-muted)" }}
                       aria-label={`Constellation: ${item.constellationName}${
                         item.constellationSource
-                          ? `, Source: ${item.constellationSource === "database" ? "DB" : "PDF"}`
+                          ? `, Source: ${
+                              item.constellationSource === "database"
+                                ? "DB"
+                                : item.constellationSource === "csv"
+                                  ? "CSV"
+                                  : "PDF"
+                            }`
                           : ""
                       }`}
                     >
@@ -163,7 +172,11 @@ export function ChangePrimaryDialog({
                               : "var(--luxia-opacity-blue-16)",
                           }}
                         >
-                          {item.constellationSource === "database" ? "DB" : "PDF"}
+                          {item.constellationSource === "database"
+                            ? "DB"
+                            : item.constellationSource === "csv"
+                              ? "CSV"
+                              : "PDF"}
                         </span>
                       ) : null}
                     </span>

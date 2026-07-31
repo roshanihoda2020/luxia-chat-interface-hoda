@@ -78,12 +78,12 @@ function DropdownMenuItem({
       data-inset={inset}
       data-variant={variant}
       className={cn(
-        "relative flex cursor-default items-center gap-2 rounded-[var(--luxia-radius-8)] px-3 py-2 luxia-type-body-small outline-hidden select-none",
+        "relative flex cursor-pointer items-center gap-2 rounded-[var(--luxia-radius-8)] px-3 py-2 luxia-type-body-dense-strong outline-hidden select-none",
         "text-[var(--luxia-text-primary)]",
         "focus:bg-[var(--luxia-opacity-brand-secondary-08)] focus:text-[var(--luxia-brand-primary)]",
         "data-[variant=destructive]:text-[var(--luxia-error)] data-[variant=destructive]:focus:bg-[var(--luxia-opacity-error-08)] data-[variant=destructive]:focus:text-[var(--luxia-error)]",
         "data-[variant=destructive]:*:[svg]:!text-[var(--luxia-error)] [&_svg:not([class*='text-'])]:text-[var(--luxia-text-muted)]",
-        "data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[inset]:pl-8",
+        "data-[disabled]:pointer-events-none data-[disabled]:cursor-default data-[disabled]:opacity-50 data-[disabled]:font-normal data-[inset]:pl-8",
         "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className,
       )}

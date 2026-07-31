@@ -133,16 +133,16 @@ export function buildContinueFocusMenuItems(options: {
   if (options.visibilityAction === "show" && options.onShow) {
     items.push({
       id: "restore",
-      label: "Show in Continue working",
-      ariaLabel: `Show ${options.title} in Continue working`,
+      label: "Show on Home",
+      ariaLabel: `Show ${options.title} on Home`,
       onClick: options.onShow,
       separatorBefore: true,
     });
   } else if (options.visibilityAction === "hide" && options.onHide) {
     items.push({
       id: "hide",
-      label: "Hide from Continue working",
-      ariaLabel: `Hide ${options.title} from Continue working`,
+      label: "Hide from Home",
+      ariaLabel: `Hide ${options.title} from Home`,
       onClick: options.onHide,
       muted: true,
       separatorBefore: true,
