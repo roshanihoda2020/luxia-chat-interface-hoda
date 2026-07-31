@@ -129,7 +129,7 @@ export function PDFFilesManager({
                                     <DialogTitle className="luxia-type-title-modal" style={{ color: LX.primary }}>PDF Files</DialogTitle>
                                     <DialogDescription className="mt-1 luxia-type-metadata" style={{ color: LX.textMuted }}>Changes are local until saved.</DialogDescription>
                                 </div>
-                                <Button type="button" variant="outline" size="icon" className="h-9 w-9 rounded-full" aria-label="Close PDF files manager" onClick={requestClose}>
+                                <Button type="button" variant="outline" size="icon" className="h-9 w-9 " aria-label="Close PDF files manager" onClick={requestClose}>
                                     <X size={15} style={{ color: LX.textMuted }} />
                                 </Button>
                             </div>
@@ -139,7 +139,7 @@ export function PDFFilesManager({
                             <div className="flex items-center gap-2 rounded-[14px] border px-3 py-2" style={{ borderColor: LX.border, background: LX.subtle }}>
                                 <Search size={14} style={{ color: LX.textMuted }} />
                                 <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search PDF files…" className="h-8 border-0 bg-transparent px-0 luxia-type-input-search-dense shadow-none focus-visible:ring-0" aria-label="Search PDF files" />
-                                {search ? <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-full" aria-label="Clear search" onClick={() => setSearch("")}><X size={12} style={{ color: LX.textMuted }} /></Button> : null}
+                                {search ? <Button type="button" variant="ghost" size="icon" className="h-7 w-7 " aria-label="Clear search" onClick={() => setSearch("")}><X size={12} style={{ color: LX.textMuted }} /></Button> : null}
                             </div>
                         </div>
 
@@ -167,15 +167,15 @@ export function PDFFilesManager({
 
                         <div className="flex-shrink-0 border-t px-6 py-4" style={{ borderColor: LX.border }}>
                             <PDFUploadZone onUpload={handleUpload} />
-                            <Button type="button" variant="outline" className="mb-4 mt-3 w-full rounded-full" onClick={() => setManageOpen(true)}>
+                            <Button type="button" variant="outline" className="mb-4 mt-3 w-full " onClick={() => setManageOpen(true)}>
                                 <FolderOpen size={14} />Manage Files
                             </Button>
                             {saveError ? <p className="mb-3 luxia-type-metadata" role="alert" style={{ color: LX.error }}>{saveError}</p> : null}
                             <div className="flex items-center justify-between gap-3">
                                 <span className="luxia-type-metadata" style={{ color: LX.textMuted }}>{count} {count === 1 ? "item" : "items"}{dirty ? " · Unsaved changes" : ""}</span>
                                 <div className="flex items-center gap-2">
-                                    <Button type="button" variant="secondary" className="rounded-full px-4" onClick={requestClose}>Cancel</Button>
-                                    <Button type="button" className="min-w-[132px] rounded-full px-4" disabled={!dirty || saving} onClick={save}>{saving ? "Saving…" : "Save Changes"}</Button>
+                                    <Button type="button" variant="secondary" className="px-4" onClick={requestClose}>Cancel</Button>
+                                    <Button type="button" className="min-w-[132px] px-4" disabled={!dirty || saving} onClick={save}>{saving ? "Saving…" : "Save Changes"}</Button>
                                 </div>
                             </div>
                         </div>

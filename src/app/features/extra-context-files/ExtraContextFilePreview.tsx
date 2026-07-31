@@ -29,7 +29,7 @@ export function ExtraContextFilePreview({
                                 <DrawerTitle className="truncate luxia-type-title-modal" style={{ color: LX.primary }}>{file.name}</DrawerTitle>
                                 {meta ? <DrawerDescription className="mt-1 luxia-type-metadata" style={{ color: LX.textMuted }}>{meta}</DrawerDescription> : null}
                             </div>
-                                <Button type="button" variant="outline" size="icon" className="h-9 w-9 rounded-full" aria-label="Close preview" onClick={() => onOpenChange(false)}>
+                                <Button type="button" variant="outline" size="icon" className="h-9 w-9 " aria-label="Close preview" onClick={() => onOpenChange(false)}>
                                     <X size={15} style={{ color: LX.textMuted }} />
                                 </Button>
                         </div>

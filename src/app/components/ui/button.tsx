@@ -11,6 +11,7 @@ const buttonVariants = cva("luxia-button", {
       primary: "luxia-button--primary",
       secondary: "luxia-button--secondary",
       outline: "luxia-button--outline",
+      tertiary: "luxia-button--tertiary",
       ghost: "luxia-button--ghost",
       destructive: "luxia-button--destructive",
       destructiveGhost: "luxia-button--destructive-ghost",

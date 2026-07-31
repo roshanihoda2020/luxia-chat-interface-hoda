@@ -66,7 +66,7 @@ export function ViewRelationshipDialog({
                 </div>
 
                 <DialogFooter>
-                    <Button type="button" className="rounded-full px-4" onClick={() => onOpenChange(false)}>Close</Button>
+                    <Button type="button" variant="primary" onClick={() => onOpenChange(false)}>Close</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

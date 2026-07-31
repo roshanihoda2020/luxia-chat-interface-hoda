@@ -238,7 +238,7 @@ export function HomeHero({
                 <Button type="button" variant="primary" onClick={() => setChangePrimaryOpen(true)}>
                   {hero.primaryLabel}
                 </Button>
-                <Button type="button" variant="outline" onClick={onViewAll}>
+                <Button type="button" variant="secondary" onClick={onViewAll}>
                   {hero.secondaryLabel}
                 </Button>
               </>
@@ -246,7 +246,7 @@ export function HomeHero({
               <>
                 <Button type="button" variant="primary" onClick={onPrimary}>{hero.primaryLabel}</Button>
                 {hero.secondaryLabel && onSecondary ? (
-                  <Button type="button" variant="outline" onClick={onSecondary}>{hero.secondaryLabel}</Button>
+                  <Button type="button" variant="secondary" onClick={onSecondary}>{hero.secondaryLabel}</Button>
                 ) : null}
               </>
             )}
@@ -400,9 +400,9 @@ export function HomeHero({
                 {hero.secondaryLabel && onSecondary ? (
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant="tertiary"
                     onClick={onSecondary}
-                    className="!text-[var(--luxia-opacity-white-80)] hover:!bg-[var(--luxia-opacity-white-08)]"
+                    className="!border-[var(--luxia-opacity-white-24)] !text-[var(--luxia-opacity-white-80)] hover:!bg-[var(--luxia-opacity-white-08)]"
                   >
                     {hero.secondaryLabel}
                     <LuxiaArrowRightIcon size={13} aria-hidden className="ml-0.5" />

@@ -71,8 +71,8 @@ export function ManagePDFFilesDialog({
                     </div>
 
                     <div className="flex items-center gap-2">
-                        <Button type="button" variant="outline" size="sm" className="rounded-full" onClick={selectAllVisible}>Select All</Button>
-                        <Button type="button" variant="ghost" size="sm" className="rounded-full" onClick={deselectAllVisible}>Deselect all</Button>
+                        <Button type="button" variant="outline" size="sm" onClick={selectAllVisible}>Select All</Button>
+                        <Button type="button" variant="ghost" size="sm" onClick={deselectAllVisible}>Deselect all</Button>
                     </div>
 
                     <div className="min-h-0 flex-1 space-y-2 overflow-y-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical pr-1">
@@ -100,8 +100,8 @@ export function ManagePDFFilesDialog({
                 </div>
 
                 <DialogFooter className="border-t px-6 py-4" style={{ borderColor: LX.border }}>
-                    <Button type="button" variant="secondary" className="rounded-full px-4" onClick={() => onOpenChange(false)}>Cancel</Button>
-                    <Button type="button" className="rounded-full px-4" disabled={!dirty} onClick={() => { onSave(selected); onOpenChange(false); }}>Save</Button>
+                    <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>Cancel</Button>
+                    <Button type="button" variant="primary" disabled={!dirty} onClick={() => { onSave(selected); onOpenChange(false); }}>Save</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

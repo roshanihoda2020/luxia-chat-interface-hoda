@@ -9,7 +9,9 @@ export type {
 export {
   CONSTELLATION_SOURCE_COUNTS,
   getProjectActivity,
+  getProjectDashboardOutputs,
   getProjectDashboards,
   getProjectMembers,
   getProjectVirtualAssistants,
+  getProjectWidgets,
 } from "./data";

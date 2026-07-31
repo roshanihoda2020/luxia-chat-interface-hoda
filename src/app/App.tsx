@@ -1353,10 +1353,10 @@ function NewChatModal({
         </div>
 
         <div className="flex-shrink-0 flex items-center justify-end gap-2.5 px-7 py-4" style={{ borderTop: `1px solid ${LX.border}` }}>
-          <Button type="button" variant="secondary" className="rounded-full px-4" onClick={onClose}>
+          <Button type="button" variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="button" className="rounded-full px-4" disabled={!canCreate} onClick={handleCreate}>
+          <Button type="button" variant="primary" disabled={!canCreate} onClick={handleCreate}>
             Create Chat
           </Button>
         </div>
@@ -1424,7 +1424,7 @@ function ShareDialog({ open, chatLabel, sharedUsers, onClose, onShare }: {
   }
   if (done) return (
     <LuxiaDialog open={open} onClose={onClose} title={`Share ${chatLabel}`}
-      footer={<button onClick={onClose} className="px-5 h-[38px] rounded-full luxia-type-body-dense-strong text-white outline-none" style={{ background: LX.gradient.button }}>Done</button>}>
+      footer={<Button type="button" variant="primary" onClick={onClose}>Done</Button>}>
       <div className="py-6 text-center">
         <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3" style={{ background: "rgba(142,99,235,0.1)" }}>
           <Check size={22} style={{ color: LX.secondary }} />
@@ -1436,14 +1436,10 @@ function ShareDialog({ open, chatLabel, sharedUsers, onClose, onShare }: {
   return (
     <LuxiaDialog open={open} onClose={onClose} title={`Share ${chatLabel}`}
       footer={<>
-        <button onClick={onClose} className="px-5 h-[38px] rounded-full luxia-type-body-dense-strong transition-colors outline-none"
-          style={{ color: LX.textMuted, border: `1px solid ${LX.border}` }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.borderSubtle; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>Cancel</button>
-        <button onClick={() => { onShare(selected); setDone(true); }}
-          disabled={selected.length === 0}
-          className="px-5 h-[38px] rounded-full luxia-type-body-dense-strong text-white transition-opacity hover:opacity-90 disabled:opacity-40 outline-none"
-          style={{ background: LX.gradient.button }}>Share</button>
+        <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
+        <Button type="button" variant="primary" onClick={() => { onShare(selected); setDone(true); }} disabled={selected.length === 0}>
+          Share
+        </Button>
       </>}>
       <div className="flex items-center gap-2 px-3 h-[38px] rounded-[10px] mb-3" style={{ border: `1px solid ${LX.border}` }}>
         <Search size={13} style={{ color: LX.textMuted }} />
@@ -1492,7 +1488,7 @@ function ShareListDialog({ open, sharedUsers, onClose }: {
   const users = DEMO_USERS.filter(u => sharedUsers.includes(u.id));
   return (
     <LuxiaDialog open={open} onClose={onClose} title="Who Has Access"
-      footer={<button onClick={onClose} className="px-5 h-[38px] rounded-full luxia-type-body-dense-strong text-white outline-none" style={{ background: LX.gradient.button }}>Close</button>}>
+      footer={<Button type="button" variant="primary" onClick={onClose}>Close</Button>}>
       {users.length === 0
         ? <p className="py-6 luxia-type-body-small text-center" style={{ color: LX.textMuted }}>No users currently have access to this chat.</p>
         : <div className="space-y-1 py-1">
@@ -1520,13 +1516,8 @@ function GenerateReportDialog({ open, onClose }: { open: boolean; onClose: () =>
   return (
     <LuxiaDialog open={open} onClose={onClose} title="Generate Report"
       footer={<>
-        <button onClick={onClose} className="px-5 h-[38px] rounded-full luxia-type-body-dense-strong transition-colors outline-none"
-          style={{ color: LX.textMuted, border: `1px solid ${LX.border}` }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.borderSubtle; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>Cancel</button>
-        <button onClick={onClose}
-          className="px-5 h-[38px] rounded-full luxia-type-body-dense-strong text-white transition-opacity hover:opacity-90 outline-none"
-          style={{ background: LX.gradient.button }}>Generate and open in editor</button>
+        <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
+        <Button type="button" variant="primary" onClick={onClose}>Generate and open in editor</Button>
       </>}>
       <div className="space-y-5 py-1">
         <div>
@@ -1574,13 +1565,10 @@ function DeleteChatDialog({ open, onClose, onDelete, entityName, entityType = "C
   return (
     <LuxiaDialog open={open} onClose={onClose} title={`Delete ${entityName}?`}
       footer={<>
-        <button onClick={onClose} className="px-5 h-[38px] rounded-full luxia-type-body-dense-strong transition-colors outline-none"
-          style={{ color: LX.textMuted, border: `1px solid ${LX.border}` }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.borderSubtle; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>Cancel</button>
-        <button onClick={() => { onDelete(); onClose(); }}
-          className="px-5 h-[38px] rounded-full luxia-type-body-dense-strong text-white transition-opacity hover:opacity-90 outline-none"
-          style={{ background: "#F75050" }}>{`Delete ${entityType}`}</button>
+        <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
+        <Button type="button" variant="destructive" onClick={() => { onDelete(); onClose(); }}>
+          {`Delete ${entityType}`}
+        </Button>
       </>}>
       <p className="py-4 luxia-type-body-small" style={{ color: LX.textSecondary }}>
         This will permanently remove {entityName} and all its messages. This action cannot be undone.
@@ -2633,7 +2621,7 @@ function KBEntryModal({ mode: initialMode, entry, onSave, onAdd, onClose }: {
           <div className="flex-1 min-w-0">
             <h2 className="luxia-type-title-panel" style={{ color: LX.primary }}>{title}</h2>
           </div>
-          <Button type="button" variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 rounded-full" aria-label="Close">
+          <Button type="button" variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 " aria-label="Close">
             <X size={14} style={{ color: LX.textMuted }} />
           </Button>
         </div>
@@ -2720,20 +2708,22 @@ function KBEntryModal({ mode: initialMode, entry, onSave, onAdd, onClose }: {
         <div className="flex items-center justify-end gap-2.5 px-8 py-5 flex-shrink-0" style={{ borderTop: `1px solid ${LX.border}` }}>
           {isView ? (
             <>
-              <Button type="button" variant="secondary" onClick={onClose} className="h-[40px] rounded-[24px] px-5 luxia-type-body-dense-strong" style={{ color: LX.textMuted }}>
+              <Button type="button" variant="secondary" onClick={onClose}>
                 Close
               </Button>
-              <Button type="button" onClick={() => setMode("edit")} className="h-[40px] rounded-[24px] px-5 luxia-type-body-dense-strong text-white hover:opacity-90" style={{ background: LX.gradient.button, boxShadow: LX.shadow.sm }}>
-                <Edit3 size={14} />Edit
+              <Button type="button" variant="primary" onClick={() => setMode("edit")}>
+                <Edit3 size={16} aria-hidden />
+                Edit
               </Button>
             </>
           ) : (
             <>
-              <Button type="button" variant="secondary" onClick={onClose} className="h-[40px] rounded-[24px] px-5 luxia-type-body-dense-strong" style={{ color: LX.textMuted }}>
+              <Button type="button" variant="secondary" onClick={onClose}>
                 Cancel
               </Button>
-              <Button type="button" onClick={handleSubmit} disabled={!canSave} className="h-[40px] rounded-[24px] px-5 luxia-type-body-dense-strong text-white hover:opacity-90 disabled:opacity-40" style={{ background: LX.gradient.button, boxShadow: LX.shadow.sm }}>
-                <Check size={14} />{submitLabel}
+              <Button type="button" variant="primary" onClick={handleSubmit} disabled={!canSave}>
+                <Check size={16} aria-hidden />
+                {submitLabel}
               </Button>
             </>
           )}
@@ -2785,7 +2775,7 @@ function AutoKBModal({ constellationLabel, onAdd, onClose }: {
             <h2 className="luxia-type-title-panel" style={{ color: LX.primary }}>Auto-generate Knowledge</h2>
             <p className="luxia-type-metadata" style={{ color: LX.textMuted }}>From <span className="font-bold">{constellationLabel}</span></p>
           </div>
-          <Button type="button" variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 rounded-full" aria-label="Close">
+          <Button type="button" variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 " aria-label="Close">
             <X size={14} style={{ color: LX.textMuted }} />
           </Button>
         </div>
@@ -2811,8 +2801,9 @@ function AutoKBModal({ constellationLabel, onAdd, onClose }: {
             </select>
           </div>
           <div className="flex-1" />
-          <Button type="button" onClick={handleGenerate} disabled={generating} className="h-[34px] rounded-[24px] px-4 luxia-type-metadata text-white hover:opacity-90 disabled:opacity-60" style={{ background: LX.gradient.button, boxShadow: LX.shadow.sm }}>
-            <LuxiaAiIcon size={11} />{generating ? "Generating…" : "Generate"}
+          <Button type="button" variant="primary" size="compact" onClick={handleGenerate} disabled={generating}>
+            <LuxiaAiIcon size={14} aria-hidden />
+            {generating ? "Generating…" : "Generate"}
           </Button>
         </div>
         <div className="flex-1 overflow-y-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical px-7 py-5">
@@ -2859,14 +2850,17 @@ function AutoKBModal({ constellationLabel, onAdd, onClose }: {
           )}
         </div>
         <div className="flex items-center justify-end gap-2.5 px-7 py-4 flex-shrink-0" style={{ borderTop: `1px solid ${LX.border}` }}>
-          <Button type="button" variant="secondary" onClick={onClose} className="h-[40px] rounded-[24px] px-5 luxia-type-body-dense-strong" style={{ color: LX.textMuted }}>
+          <Button type="button" variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="button" onClick={() => { if (selectedEntries.length > 0) { onAdd(selectedEntries); onClose(); } }}
+          <Button
+            type="button"
+            variant="primary"
+            onClick={() => { if (selectedEntries.length > 0) { onAdd(selectedEntries); onClose(); } }}
             disabled={selectedEntries.length === 0}
-            className="h-[40px] rounded-[24px] px-5 luxia-type-body-dense-strong text-white hover:opacity-90 disabled:opacity-40"
-            style={{ background: LX.gradient.button, boxShadow: LX.shadow.sm }}>
-            <Plus size={14} />Add {selectedEntries.length > 0 ? `${selectedEntries.length} ` : ""}Selected
+          >
+            <Plus size={16} aria-hidden />
+            Add {selectedEntries.length > 0 ? `${selectedEntries.length} ` : ""}Selected
           </Button>
         </div>
       </div>
@@ -2923,7 +2917,7 @@ function KBWorkspaceModal({ entries, constellationLabel, onSave, onClose }: {
                 {constellationLabel} · {pending.length} {pending.length === 1 ? "entry" : "entries"}
               </p>
             </div>
-            <Button type="button" variant="ghost" size="icon" onClick={onClose} className="h-9 w-9 rounded-full" aria-label="Close knowledge base">
+            <Button type="button" variant="ghost" size="icon" onClick={onClose} className="h-9 w-9 " aria-label="Close knowledge base">
               <X size={15} style={{ color: LX.textMuted }} />
             </Button>
           </div>
@@ -4039,21 +4033,16 @@ function ConstellationSidebar({
             {constellationFeedback.message}
           </p>
         ) : null}
-        <button
+        <Button
           type="button"
+          variant="primary"
           disabled={!constellationDirty || constellationSaving}
           onClick={saveConstellation}
-          className="flex h-[38px] w-full items-center justify-center gap-2 rounded-[10px] luxia-type-body-dense-strong outline-none disabled:cursor-not-allowed"
-          style={{
-            color: "#FFFFFF",
-            background: IC.saveEnabled,
-            border: "1px solid transparent",
-            boxShadow: "var(--luxia-shadow-sm)",
-            opacity: constellationDirty && !constellationSaving ? 1 : 0.48,
-          }}
+          className="w-full"
         >
-          <Check size={13} />{constellationSaving ? "Saving…" : "Save Constellation"}
-        </button>
+          <Check size={16} aria-hidden />
+          {constellationSaving ? "Saving…" : "Save Constellation"}
+        </Button>
       </div>
     </aside>
 
@@ -4296,27 +4285,36 @@ export default function App() {
 
   const overviewChats: ProjectOverviewChat[] = useMemo(() => {
     const source = [...INITIAL_CHATS, ...chats.filter((c) => !INITIAL_CHATS.some((i) => i.id === c.id))];
-    return source
-      .filter((chat) => chat.chatType === "constellation")
-      .map((chat, index) => {
-        const constellation = allConstellations.find((c) => c.id === chat.constellationId);
-        return {
-          id: chat.id,
-          label: chat.label,
-          projectId: chat.projectId,
-          constellationId: chat.constellationId,
-          constellationName: constellation?.label,
-          constellationSource: constellation
-            ? constellation.type === "pdf"
-              ? ("pdf" as const)
-              : constellation.type === "csv"
-                ? ("csv" as const)
-                : ("database" as const)
-            : undefined,
-          lastOpenedAt: index === 0 ? "1 hour ago" : index === 1 ? "Yesterday" : `${index + 1} days ago`,
-          lastOpenedTimestamp: Date.now() - (index + 1) * 3_600_000,
-        };
-      });
+    const byProject = new Map<string, number>();
+    return source.map((chat) => {
+      const constellation = allConstellations.find((c) => c.id === chat.constellationId);
+      const isGalaxy = chat.chatType === "galaxy";
+      const projectOrder = byProject.get(chat.projectId) ?? 0;
+      byProject.set(chat.projectId, projectOrder + 1);
+      const hoursAgo = isGalaxy ? 1 + projectOrder * 5 : 2 + projectOrder * 8;
+      return {
+        id: chat.id,
+        label: chat.label,
+        projectId: chat.projectId,
+        chatSource: isGalaxy ? ("galaxy" as const) : ("constellation" as const),
+        constellationId: chat.constellationId,
+        constellationName: constellation?.label,
+        constellationSource: constellation
+          ? constellation.type === "pdf"
+            ? ("pdf" as const)
+            : constellation.type === "csv"
+              ? ("csv" as const)
+              : ("database" as const)
+          : undefined,
+        lastOpenedAt:
+          hoursAgo <= 2
+            ? "1 hour ago"
+            : hoursAgo <= 24
+              ? "Yesterday"
+              : `${Math.max(2, Math.round(hoursAgo / 24))} days ago`,
+        lastOpenedTimestamp: Date.now() - hoursAgo * 3_600_000,
+      };
+    });
   }, [chats, allConstellations]);
 
   const overviewConstellations: ProjectOverviewConstellation[] = useMemo(
@@ -4578,6 +4576,19 @@ export default function App() {
     if (!trimmed) return;
     setHomeProjects((prev) => prev.map((project) => (
       project.id === projectId ? { ...project, name: trimmed } : project
+    )));
+  }
+
+  function handleRenameGalaxy(projectId: string, name: string) {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const galaxyId = homeProjects.find((project) => project.id === projectId)?.galaxyId
+      ?? INITIAL_CHATS.find((chat) => chat.chatType === "galaxy" && chat.projectId === projectId)?.id;
+    if (!galaxyId) return;
+    setChats((prev) => prev.map((chat) => (
+      chat.id === galaxyId && chat.chatType === "galaxy"
+        ? { ...chat, label: trimmed }
+        : chat
     )));
   }
 
@@ -5307,6 +5318,7 @@ export default function App() {
               onNewChat={handleNewChatFromProject}
               onAddConstellation={handleAddConstellationToProject}
               onRenameProject={handleRenameProject}
+              onRenameGalaxy={handleRenameGalaxy}
               onArchiveProject={handleArchiveProject}
             />
           </HomePageShell>

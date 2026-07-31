@@ -127,7 +127,7 @@ export function MetricsManager({
                                     <DialogTitle className="luxia-type-title-modal" style={{ color: LX.primary }}>Metrics</DialogTitle>
                                     <DialogDescription className="mt-1 luxia-type-metadata" style={{ color: LX.textMuted }}>Changes are local until saved.</DialogDescription>
                                 </div>
-                                <Button type="button" variant="outline" size="icon" className="h-9 w-9 rounded-full" aria-label="Close metrics manager" onClick={requestClose}>
+                                <Button type="button" variant="outline" size="icon" className="h-9 w-9 " aria-label="Close metrics manager" onClick={requestClose}>
                                     <X size={15} style={{ color: LX.textMuted }} />
                                 </Button>
                             </div>
@@ -144,7 +144,7 @@ export function MetricsManager({
                                     aria-label="Search metrics"
                                 />
                                 {search ? (
-                                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-full" aria-label="Clear search" onClick={() => setSearch("")}>
+                                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7 " aria-label="Clear search" onClick={() => setSearch("")}>
                                         <X size={12} style={{ color: LX.textMuted }} />
                                     </Button>
                                 ) : null}
@@ -163,7 +163,7 @@ export function MetricsManager({
                                         <>
                                             <p className="luxia-type-title-component" style={{ color: LX.primary }}>No metrics yet</p>
                                             <p className="mt-1 luxia-type-body-dense" style={{ color: LX.textMuted }}>Add a metric to define a reusable calculation.</p>
-                                            <Button type="button" className="mt-4 rounded-full px-4" onClick={() => setAddOpen(true)}>
+                                            <Button type="button" className="mt-4 px-4" onClick={() => setAddOpen(true)}>
                                                 <Plus size={14} />Add metric
                                             </Button>
                                         </>
@@ -186,7 +186,7 @@ export function MetricsManager({
 
                         <div className="flex-shrink-0 border-t px-6 py-4" style={{ borderColor: LX.border }}>
                             {filtered.length > 0 ? (
-                                <Button type="button" variant="outline" className="mb-4 w-full rounded-full" onClick={() => setAddOpen(true)}>
+                                <Button type="button" variant="outline" className="mb-4 w-full " onClick={() => setAddOpen(true)}>
                                     <Plus size={14} />Add item
                                 </Button>
                             ) : null}
@@ -196,8 +196,8 @@ export function MetricsManager({
                                     {count} {count === 1 ? "item" : "items"}{dirty ? " · Unsaved changes" : ""}
                                 </span>
                                 <div className="flex items-center gap-2">
-                                    <Button type="button" variant="secondary" className="rounded-full px-4" onClick={requestClose}>Cancel</Button>
-                                    <Button type="button" className="min-w-[132px] rounded-full px-4" disabled={!dirty || saving} onClick={save}>
+                                    <Button type="button" variant="secondary" className="px-4" onClick={requestClose}>Cancel</Button>
+                                    <Button type="button" className="min-w-[132px] px-4" disabled={!dirty || saving} onClick={save}>
                                         {saving ? "Saving…" : "Save Changes"}
                                     </Button>
                                 </div>

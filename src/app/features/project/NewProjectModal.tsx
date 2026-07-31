@@ -46,7 +46,7 @@ export function NewProjectModal({ open, onClose, onCreate }: NewProjectModalProp
           />
         </div>
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+          <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
           <Button type="button" variant="primary" onClick={handleCreate}>Create Project</Button>
         </DialogFooter>
       </DialogContent>

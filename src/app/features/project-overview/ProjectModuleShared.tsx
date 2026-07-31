@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 import { LuxiaArrowRightIcon } from "@/assets/icons";
+import { Button } from "@/app/components/ui/button";
 import { HS } from "@/app/features/home/homeSurfaces";
 
 /**
@@ -104,8 +105,6 @@ export function ProjectViewAllLink({
   /** When omitted, renders as static prototype UI with no navigation. */
   onClick?: () => void;
 }) {
-  const className =
-    "inline-flex min-h-8 items-center gap-1 rounded-[8px] px-1 py-1 luxia-type-body-dense-strong";
   const content = (
     <>
       <span>{label}</span>
@@ -115,21 +114,25 @@ export function ProjectViewAllLink({
 
   if (!onClick) {
     return (
-      <span className={className} style={{ color: HS.viewAllText }}>
+      <span
+        className="inline-flex min-h-8 items-center gap-1 luxia-type-body-dense-strong"
+        style={{ color: HS.viewAllText }}
+      >
         {content}
       </span>
     );
   }
 
   return (
-    <button
+    <Button
       type="button"
+      variant="link"
       onClick={onClick}
-      className={`${className} outline-none transition-colors hover:bg-[var(--luxia-opacity-brand-primary-04)] focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]`}
+      className="min-h-8 gap-1 luxia-type-body-dense-strong"
       style={{ color: HS.viewAllText }}
     >
       {content}
-    </button>
+    </Button>
   );
 }
 
@@ -143,38 +146,27 @@ export function ProjectOutlineButton({
   onClick?: () => void;
   ariaLabel?: string;
 }) {
-  const style = {
-    color: "var(--luxia-purple-70)",
-    border: "1px solid var(--luxia-border-default)",
-    background: "var(--luxia-surface)",
-  } as const;
-  const className =
-    "inline-flex min-h-8 shrink-0 items-center rounded-[8px] px-3 luxia-type-body-dense-strong";
-
   if (!onClick) {
     return (
-      <span className={className} style={style}>
+      <span
+        className="luxia-button luxia-button--secondary luxia-button--compact pointer-events-none select-none"
+        aria-hidden={false}
+      >
         {label}
       </span>
     );
   }
 
   return (
-    <button
+    <Button
       type="button"
+      variant="secondary"
+      size="compact"
       onClick={onClick}
       aria-label={ariaLabel ?? label}
-      className={`${className} outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]`}
-      style={style}
-      onMouseEnter={(e) => {
-        (e.currentTarget as HTMLElement).style.background = "var(--luxia-opacity-brand-primary-04)";
-      }}
-      onMouseLeave={(e) => {
-        (e.currentTarget as HTMLElement).style.background = "var(--luxia-surface)";
-      }}
     >
       {label}
-    </button>
+    </Button>
   );
 }
 
@@ -211,11 +203,11 @@ export function ProjectModuleCard({
 }) {
   const sizeClass =
     size === "primary"
-      ? "min-h-[300px] p-5"
+      ? "min-h-[280px] p-5"
       : size === "supporting"
         ? "min-h-[220px] p-4"
         : size === "output"
-          ? "min-h-[250px] p-5"
+          ? "min-h-0 p-4"
           : "min-h-[250px] p-4";
 
   const surfaceStyle = MODULE_SURFACE[surface];

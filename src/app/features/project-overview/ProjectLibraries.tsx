@@ -573,7 +573,11 @@ export function VirtualAssistantsLibrary({
               icon={<LuxiaVirtualAssistantIcon size={16} aria-hidden color="currentColor" />}
               title={item.name}
               ariaLabel={item.name}
-              meta={item.channel ? <ProjectMetaText>{item.channel}</ProjectMetaText> : undefined}
+              meta={
+                <ProjectMetaText>
+                  {item.deployment} · {item.status}
+                </ProjectMetaText>
+              }
             />
           ))}
         </div>

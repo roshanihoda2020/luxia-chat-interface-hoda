@@ -308,6 +308,8 @@
   --luxia-radius-24: 24px;
   --luxia-radius-circle: 50%;
   --luxia-radius-pill: 9999px;
+  /* Standard action-button radius — rounded rectangle, not pill. */
+  --luxia-radius-button: 10px;
 
   /* Legacy radius aliases */
   --luxia-radius-sm: var(--luxia-radius-8);
@@ -384,11 +386,11 @@
   gap: 8px;
   height: 38px;
   min-height: 38px;
-  padding-inline: 20px;
+  padding-inline: 16px;
   border-width: 1px;
   border-style: solid;
   border-color: transparent;
-  border-radius: var(--luxia-radius-pill);
+  border-radius: var(--luxia-radius-button);
   font-family: var(--luxia-font-family);
   font-size: 13px;
   line-height: 18px;
@@ -430,25 +432,28 @@
 }
 
 .luxia-button--secondary {
-  color: var(--luxia-text-muted);
+  color: var(--luxia-brand-primary);
   background: var(--luxia-surface);
   border-color: var(--luxia-border-default);
   box-shadow: none;
 }
 
 .luxia-button--secondary:hover:not(:disabled):not([aria-disabled="true"]) {
-  background: var(--luxia-border-subtle);
+  background: var(--luxia-opacity-brand-secondary-08);
+  border-color: color-mix(in srgb, var(--luxia-brand-primary) 35%, var(--luxia-border-default));
   color: var(--luxia-brand-primary);
 }
 
-.luxia-button--outline {
+.luxia-button--outline,
+.luxia-button--tertiary {
   color: var(--luxia-brand-primary);
-  background: var(--luxia-surface);
-  border-color: var(--luxia-brand-primary);
+  background: transparent;
+  border-color: var(--luxia-border-default);
   box-shadow: none;
 }
 
-.luxia-button--outline:hover:not(:disabled):not([aria-disabled="true"]) {
+.luxia-button--outline:hover:not(:disabled):not([aria-disabled="true"]),
+.luxia-button--tertiary:hover:not(:disabled):not([aria-disabled="true"]) {
   background: var(--luxia-opacity-brand-secondary-08);
 }
 
@@ -508,18 +513,19 @@
   gap: 6px;
   font-size: 12px;
   line-height: 16px;
-  border-radius: var(--luxia-radius-pill);
+  border-radius: var(--luxia-radius-button);
 }
 
 .luxia-button--large {
   height: 44px;
   min-height: 44px;
-  padding-inline: 24px;
+  padding-inline: 20px;
   font-size: 14px;
   line-height: 20px;
-  border-radius: var(--luxia-radius-pill);
+  border-radius: var(--luxia-radius-button);
 }
 
+/* Icon-only utilities remain circular / pill. */
 .luxia-button--icon {
   width: 38px;
   min-width: 38px;
@@ -548,10 +554,51 @@
 
 .luxia-button:disabled,
 .luxia-button[aria-disabled="true"] {
-  opacity: 0.48;
+  opacity: 0.62;
   pointer-events: none;
   cursor: not-allowed;
   transform: none;
+}
+
+/* Dark-surface action group (Galaxy hero and similar). */
+.luxia-button--on-dark.luxia-button--primary {
+  color: var(--luxia-text-inverse);
+  background: linear-gradient(87.081deg, #30214E 45.623%, #8E63EB 112.38%);
+  border-color: rgba(198, 177, 245, 0.28);
+  box-shadow: var(--luxia-shadow-sm);
+}
+
+.luxia-button--on-dark.luxia-button--secondary {
+  color: rgba(198, 177, 245, 0.95);
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(198, 177, 245, 0.36);
+  box-shadow: none;
+}
+
+.luxia-button--on-dark.luxia-button--secondary:hover:not(:disabled):not([aria-disabled="true"]) {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--luxia-text-inverse);
+}
+
+.luxia-button--on-dark.luxia-button--outline,
+.luxia-button--on-dark.luxia-button--tertiary {
+  color: rgba(198, 177, 245, 0.95);
+  background: transparent;
+  border-color: rgba(198, 177, 245, 0.36);
+  box-shadow: none;
+}
+
+.luxia-button--on-dark.luxia-button--outline:hover:not(:disabled):not([aria-disabled="true"]),
+.luxia-button--on-dark.luxia-button--tertiary:hover:not(:disabled):not([aria-disabled="true"]) {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.luxia-button--on-dark:disabled,
+.luxia-button--on-dark[aria-disabled="true"] {
+  opacity: 1;
+  color: rgba(198, 177, 245, 0.72);
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(198, 177, 245, 0.28);
 }
 
 @media (prefers-reduced-motion: reduce) {

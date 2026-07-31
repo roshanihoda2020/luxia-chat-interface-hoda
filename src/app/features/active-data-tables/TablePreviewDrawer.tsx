@@ -60,8 +60,8 @@ export function TablePreviewDrawer({
                                 <Search size={14} style={{ color: LX.textMuted }} />
                                 <Input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} placeholder="Search rows..." className="h-8 border-0 bg-transparent px-0 luxia-type-input-search-dense shadow-none focus-visible:ring-0" aria-label="Search table rows" />
                             </div>
-                            <Button variant="outline" className="rounded-full px-4" onClick={onEditDetails}><PencilLine size={14} />Edit table details</Button>
-                            <Button variant="outline" className="rounded-full px-4" onClick={onConfigureColumns}><Columns3 size={14} />Configure columns</Button>
+                            <Button variant="outline" className="px-4" onClick={onEditDetails}><PencilLine size={14} />Edit table details</Button>
+                            <Button variant="outline" className="px-4" onClick={onConfigureColumns}><Columns3 size={14} />Configure columns</Button>
                         </div>
                     </div>
 
@@ -104,8 +104,8 @@ export function TablePreviewDrawer({
                         <div className="flex flex-wrap items-center justify-between gap-3 luxia-type-metadata" style={{ color: LX.textMuted }}>
                             <span>{filteredRows.length === 0 ? "0 rows shown" : `${Math.min((page - 1) * rowsPerPage + 1, filteredRows.length)}-${Math.min(page * rowsPerPage, filteredRows.length)} of ${filteredRows.length} rows`}</span>
                             <div className="flex items-center gap-2">
-                                <Button variant="outline" className="rounded-full px-4" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={page === 1}>Prev</Button>
-                                <Button variant="outline" className="rounded-full px-4" onClick={() => setPage((current) => Math.min(totalPages, current + 1))} disabled={page >= totalPages}>Next</Button>
+                                <Button variant="outline" className="px-4" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={page === 1}>Prev</Button>
+                                <Button variant="outline" className="px-4" onClick={() => setPage((current) => Math.min(totalPages, current + 1))} disabled={page >= totalPages}>Next</Button>
                             </div>
                         </div>
                     </div>

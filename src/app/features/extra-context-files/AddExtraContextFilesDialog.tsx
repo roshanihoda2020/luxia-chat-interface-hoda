@@ -39,7 +39,7 @@ export function AddExtraContextFilesDialog({
                             <DialogTitle className="luxia-type-title-modal" style={{ color: LX.primary }}>Add files</DialogTitle>
                             <DialogDescription className="sr-only">Upload a file or add from datasource.</DialogDescription>
                         </div>
-                        <Button type="button" variant="outline" size="icon" className="h-9 w-9 rounded-full" aria-label="Close add files" onClick={() => onOpenChange(false)}>
+                        <Button type="button" variant="outline" size="icon" className="h-9 w-9 " aria-label="Close add files" onClick={() => onOpenChange(false)}>
                             <X size={15} style={{ color: LX.textMuted }} />
                         </Button>
                     </div>

@@ -106,7 +106,7 @@ export function ProjectDestinationActions({
       </a>
       <Button
         type="button"
-        variant="outline"
+        variant="secondary"
         size="compact"
         aria-label={`Open Galaxy for ${projectName}`}
         onClick={openGalaxy}
@@ -116,7 +116,7 @@ export function ProjectDestinationActions({
       {!compact ? (
         <Button
           type="button"
-          variant="outline"
+          variant="tertiary"
           size="compact"
           aria-label={`View Constellations for ${projectName}`}
           onClick={openConstellations}

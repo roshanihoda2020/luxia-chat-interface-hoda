@@ -19,7 +19,7 @@ export function ViewCrawlerDialog({ open, onOpenChange, item }: { open: boolean;
                         <span className="luxia-type-body-dense-strong" style={{ color: item.exactSearch ? LX.success : LX.textMuted }}>{item.exactSearch ? "On" : "Off"}</span>
                     </div>
                 </div>
-                <DialogFooter><Button type="button" className="rounded-full px-4" onClick={() => onOpenChange(false)}>Close</Button></DialogFooter>
+                <DialogFooter><Button type="button" className="px-4" onClick={() => onOpenChange(false)}>Close</Button></DialogFooter>
             </DialogContent>
         </Dialog>
     );

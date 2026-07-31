@@ -6,11 +6,15 @@ import {
   LuxiaDashboardIcon,
   LuxiaVirtualAssistantIcon,
 } from "@/assets/icons";
+import {
+  DashboardOutputPreviewGraphic,
+  outputTypeLabel,
+} from "./DashboardOutputPreviews";
 import type {
-  ProjectDashboardItem,
+  ProjectDashboardOutput,
   ProjectOverviewChat,
   ProjectOverviewConstellation,
-  ProjectVirtualAssistantItem,
+  ProjectWidgetItem,
 } from "./types";
 import { ProjectDomainMarker } from "./ProjectDomainMarker";
 import {
@@ -23,9 +27,9 @@ import {
 } from "./ProjectModuleShared";
 
 function sourceBadgeLabel(type: HomeConstellationSource): string {
-  if (type === "pdf") return "PDF";
+  if (type === "pdf") return "File";
   if (type === "csv") return "CSV";
-  return "DB";
+  return "Database";
 }
 
 function SourceBadge({ type }: { type: HomeConstellationSource }) {
@@ -38,6 +42,18 @@ function SourceBadge({ type }: { type: HomeConstellationSource }) {
       {sourceBadgeLabel(type)}
     </Badge>
   );
+}
+
+function countByType(constellations: ProjectOverviewConstellation[]) {
+  let database = 0;
+  let csv = 0;
+  let file = 0;
+  for (const item of constellations) {
+    if (item.type === "database") database += 1;
+    else if (item.type === "csv") csv += 1;
+    else file += 1;
+  }
+  return { database, csv, file };
 }
 
 export function ChatsModule({
@@ -55,11 +71,11 @@ export function ChatsModule({
   const preview = chats.slice(0, 3);
   return (
     <ProjectModuleCard
-      icon={<LuxiaChatIcon size={19} aria-hidden color="currentColor" />}
+      icon={<LuxiaChatIcon size={20} aria-hidden color="currentColor" />}
       title="Chats"
       count={chats.length}
       countLabel={chats.length === 1 ? "Chat" : "Chats"}
-      description="Ask questions using one Constellation at a time. Responses and sources remain available in that Chat’s history. Verified answers may be retained in the Constellation Knowledge Base for controlled reuse."
+      description="Continue conversations with Galaxy or individual Constellations."
       size="primary"
       surface="interaction"
       marker={
@@ -78,7 +94,7 @@ export function ChatsModule({
       {preview.length === 0 ? (
         <ProjectModuleEmptyState
           title="No Chats yet"
-          description="Start a Chat from one of this Project’s Constellations."
+          description="Start a conversation with Galaxy or a Constellation."
           action={<ProjectOutlineButton label="New Chat" onClick={onNewChat} />}
         />
       ) : (
@@ -86,18 +102,24 @@ export function ChatsModule({
           {preview.map((chat) => (
             <ProjectPreviewRow
               key={chat.id}
-              icon={<LuxiaChatIcon size={16} aria-hidden color="currentColor" />}
+              icon={<LuxiaChatIcon size={18} aria-hidden color="currentColor" />}
               title={chat.label}
               ariaLabel={`Open ${chat.label}`}
               onClick={() => onOpenChat(chat.id)}
               meta={
                 <>
-                  {chat.constellationName ? (
-                    <ProjectMetaText>{chat.constellationName}</ProjectMetaText>
-                  ) : null}
-                  {chat.constellationSource ? (
-                    <SourceBadge type={chat.constellationSource} />
-                  ) : null}
+                  {chat.chatSource === "galaxy" ? (
+                    <ProjectMetaText>Galaxy</ProjectMetaText>
+                  ) : (
+                    <>
+                      {chat.constellationName ? (
+                        <ProjectMetaText>{chat.constellationName}</ProjectMetaText>
+                      ) : null}
+                      {chat.constellationSource ? (
+                        <SourceBadge type={chat.constellationSource} />
+                      ) : null}
+                    </>
+                  )}
                   <ProjectMetaText>{chat.lastOpenedAt}</ProjectMetaText>
                 </>
               }
@@ -115,13 +137,15 @@ export function ConstellationsModule({
   constellations: ProjectOverviewConstellation[];
 }) {
   const preview = constellations.slice(0, 3);
+  const counts = countByType(constellations);
+
   return (
     <ProjectModuleCard
-      icon={<LuxiaConstellationIcon size={19} aria-hidden color="currentColor" />}
+      icon={<LuxiaConstellationIcon size={20} aria-hidden color="currentColor" />}
       title="Constellations"
       count={constellations.length}
       countLabel={constellations.length === 1 ? "Constellation" : "Constellations"}
-      description="Organize selected Database, CSV, or PDF sources into focused knowledge environments used by Chat and Galaxy. Sources are managed separately and can be connected to a Constellation later."
+      description="Focused knowledge environments built from connected Project data sources."
       size="knowledge"
       surface="knowledge"
       marker={
@@ -140,27 +164,43 @@ export function ConstellationsModule({
       {preview.length === 0 ? (
         <ProjectModuleEmptyState
           title="No Constellations yet"
-          description="Add a Database, CSV, or PDF Constellation to begin."
+          description="Add a Database, CSV, or File Constellation to begin."
           action={<ProjectOutlineButton label="Add Constellation" />}
         />
       ) : (
-        <div className="flex flex-col">
-          {preview.map((item) => (
-            <ProjectPreviewRow
-              key={item.id}
-              icon={<LuxiaConstellationIcon size={16} aria-hidden color="currentColor" />}
-              title={item.label}
-              ariaLabel={item.label}
-              meta={
-                <>
-                  <SourceBadge type={item.type} />
-                  <ProjectMetaText>
-                    {item.sourceCount} {item.sourceCount === 1 ? "source" : "sources"}
-                  </ProjectMetaText>
-                </>
-              }
-            />
-          ))}
+        <div className="flex flex-col gap-3">
+          <div
+            className="flex flex-wrap gap-x-3 gap-y-1"
+            aria-label="Constellation type summary"
+          >
+            {counts.database > 0 ? (
+              <ProjectMetaText>{counts.database} Database</ProjectMetaText>
+            ) : null}
+            {counts.csv > 0 ? (
+              <ProjectMetaText>{counts.csv} CSV</ProjectMetaText>
+            ) : null}
+            {counts.file > 0 ? (
+              <ProjectMetaText>{counts.file} File</ProjectMetaText>
+            ) : null}
+          </div>
+          <div className="flex flex-col">
+            {preview.map((item) => (
+              <ProjectPreviewRow
+                key={item.id}
+                icon={<LuxiaConstellationIcon size={18} aria-hidden color="currentColor" />}
+                title={item.label}
+                ariaLabel={item.label}
+                meta={
+                  <>
+                    <ProjectMetaText>{sourceBadgeLabel(item.type)}</ProjectMetaText>
+                    <ProjectMetaText>
+                      {item.sourceCount} {item.sourceCount === 1 ? "source" : "sources"}
+                    </ProjectMetaText>
+                  </>
+                }
+              />
+            ))}
+          </div>
         </div>
       )}
     </ProjectModuleCard>
@@ -168,18 +208,20 @@ export function ConstellationsModule({
 }
 
 export function DashboardsModule({
-  dashboards,
+  outputs,
 }: {
-  dashboards: ProjectDashboardItem[];
+  outputs: ProjectDashboardOutput[];
 }) {
-  const preview = dashboards.slice(0, 3);
+  const preview = outputs.slice(0, 8);
+  const lastUpdated = preview[0]?.updatedAt;
+
   return (
     <ProjectModuleCard
-      icon={<LuxiaDashboardIcon size={19} aria-hidden color="currentColor" />}
-      title="Dashboards"
-      count={dashboards.length}
-      countLabel={dashboards.length === 1 ? "Dashboard" : "Dashboards"}
-      description="Collect charts, tables, metrics, and selected analyses explicitly saved from Chats."
+      icon={<LuxiaDashboardIcon size={20} aria-hidden color="currentColor" />}
+      title="Dashboard"
+      count={outputs.length}
+      countLabel={outputs.length === 1 ? "saved output" : "saved outputs"}
+      description="Saved charts, tables, reports, metrics, and analyses from Project conversations."
       headingColor="var(--luxia-blue-70)"
       iconColor="var(--luxia-blue-60)"
       size="output"
@@ -192,48 +234,79 @@ export function DashboardsModule({
       }
       footer={
         <>
-          <ProjectViewAllLink label="View all Dashboards" />
-          <ProjectOutlineButton label="New Dashboard" />
+          <ProjectViewAllLink label="Open Dashboard" />
+          <span />
         </>
       }
     >
       {preview.length === 0 ? (
         <ProjectModuleEmptyState
-          title="No Dashboards yet"
-          description="Create a Dashboard for this Project."
-          action={<ProjectOutlineButton label="New Dashboard" />}
+          title="No saved outputs yet"
+          description="Charts, tables, and reports saved from conversations will appear here."
         />
       ) : (
-        <div className="flex flex-col">
-          {preview.map((item) => (
-            <ProjectPreviewRow
-              key={item.id}
-              icon={<LuxiaDashboardIcon size={16} aria-hidden color="currentColor" />}
-              title={item.name}
-              ariaLabel={item.name}
-              iconColor="var(--luxia-blue-60)"
-              meta={<ProjectMetaText>Updated {item.updatedAt}</ProjectMetaText>}
-            />
-          ))}
+        <div className="flex min-w-0 flex-col gap-3">
+          {lastUpdated ? (
+            <p className="luxia-type-caption" style={{ color: "var(--luxia-neutral-600, #475569)" }}>
+              Last updated {lastUpdated}
+            </p>
+          ) : null}
+
+          <div className="grid min-w-0 grid-cols-1 items-stretch gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {preview.map((item) => (
+              <article
+                key={item.id}
+                className="flex min-w-0 flex-col rounded-[10px] p-2"
+                style={{
+                  background: "color-mix(in srgb, var(--luxia-surface) 72%, transparent)",
+                  border:
+                    "1px solid color-mix(in srgb, var(--luxia-blue-20) 45%, var(--luxia-neutral-200))",
+                }}
+                aria-label={`${item.name}, ${outputTypeLabel(item.outputType)}, from ${item.sourceContext}, updated ${item.updatedAt}`}
+              >
+                <DashboardOutputPreviewGraphic variant={item.outputType} />
+                <div className="mt-2 flex min-w-0 flex-1 flex-col gap-0.5 px-0.5">
+                  <p
+                    className="truncate luxia-type-body-dense-strong"
+                    style={{ color: "var(--luxia-text-primary)" }}
+                  >
+                    {item.name}
+                  </p>
+                  <p
+                    className="truncate luxia-type-caption"
+                    style={{ color: "var(--luxia-neutral-600, #475569)" }}
+                  >
+                    {outputTypeLabel(item.outputType)} · {item.sourceContext}
+                  </p>
+                  <p
+                    className="luxia-type-caption"
+                    style={{ color: "var(--luxia-neutral-500, #64748B)" }}
+                  >
+                    Updated {item.updatedAt}
+                  </p>
+                </div>
+              </article>
+            ))}
+          </div>
         </div>
       )}
     </ProjectModuleCard>
   );
 }
 
-export function VirtualAssistantsModule({
-  assistants,
+export function WidgetsModule({
+  widgets,
 }: {
-  assistants: ProjectVirtualAssistantItem[];
+  widgets: ProjectWidgetItem[];
 }) {
-  const preview = assistants.slice(0, 3);
+  const preview = widgets.slice(0, 3);
   return (
     <ProjectModuleCard
-      icon={<LuxiaVirtualAssistantIcon size={19} aria-hidden color="currentColor" />}
-      title="Virtual Assistant"
-      count={assistants.length}
-      countLabel={assistants.length === 1 ? "Virtual Assistant" : "Virtual Assistants"}
-      description="Provide a reusable way for selected users or audiences to interact with approved Project knowledge."
+      icon={<LuxiaVirtualAssistantIcon size={20} aria-hidden color="currentColor" />}
+      title="Widgets"
+      count={widgets.length}
+      countLabel={widgets.length === 1 ? "Widget" : "Widgets"}
+      description="Configure and deploy AI experiences powered by this Project’s Galaxy and Helios."
       iconColor="var(--luxia-purple-60)"
       size="supporting"
       surface="assistant"
@@ -245,25 +318,54 @@ export function VirtualAssistantsModule({
       }
       footer={
         <>
-          <ProjectViewAllLink label="View all Virtual Assistants" />
+          <ProjectViewAllLink label="View all Widgets" />
           <span />
         </>
       }
     >
       {preview.length === 0 ? (
         <ProjectModuleEmptyState
-          title="No Virtual Assistants yet"
-          description="Virtual Assistants for this Project will appear here when available."
+          title="No Widgets yet"
+          description="Deployed Galaxy experiences for this Project will appear here when available."
         />
       ) : (
-        <div className="flex flex-col">
+        <div className="flex flex-col gap-2">
+          <div
+            className="mb-1 flex flex-wrap gap-1.5"
+            aria-label="Deployment types"
+          >
+            {["Website", "Totem", "Embedded"].map((label) => (
+              <span
+                key={label}
+                className="inline-flex items-center rounded-[6px] px-2 py-0.5 luxia-type-caption"
+                style={{
+                  color: "var(--luxia-purple-70)",
+                  background: "var(--luxia-opacity-purple-08)",
+                  border: "1px solid color-mix(in srgb, var(--luxia-purple-20) 40%, var(--luxia-neutral-200))",
+                }}
+              >
+                {label}
+              </span>
+            ))}
+          </div>
           {preview.map((item) => (
             <ProjectPreviewRow
               key={item.id}
-              icon={<LuxiaVirtualAssistantIcon size={16} aria-hidden color="currentColor" />}
+              icon={<LuxiaVirtualAssistantIcon size={18} aria-hidden color="currentColor" />}
               title={item.name}
               ariaLabel={item.name}
-              meta={item.channel ? <ProjectMetaText>{item.channel}</ProjectMetaText> : undefined}
+              meta={
+                <>
+                  <ProjectMetaText>
+                    {item.deployment} · {item.language}
+                  </ProjectMetaText>
+                  <ProjectMetaText>
+                    {item.constellationCount}{" "}
+                    {item.constellationCount === 1 ? "Constellation" : "Constellations"}
+                  </ProjectMetaText>
+                  <ProjectMetaText>{item.status}</ProjectMetaText>
+                </>
+              }
             />
           ))}
         </div>
@@ -271,3 +373,6 @@ export function VirtualAssistantsModule({
     </ProjectModuleCard>
   );
 }
+
+/** @deprecated Use WidgetsModule — kept for unfinished library browse surfaces. */
+export const VirtualAssistantsModule = WidgetsModule;

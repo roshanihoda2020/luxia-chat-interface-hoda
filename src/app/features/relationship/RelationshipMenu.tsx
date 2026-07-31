@@ -163,7 +163,7 @@ export function RelationshipMenu({
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7 rounded-full"
+                    className="h-7 w-7 "
                     aria-label="Open relationship actions"
                     aria-expanded={open}
                     aria-haspopup="menu"

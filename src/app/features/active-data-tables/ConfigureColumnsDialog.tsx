@@ -153,7 +153,7 @@ export function ConfigureColumnsDialog({
                                                         <TableCell>
                                                             <Tooltip>
                                                                 <TooltipTrigger asChild>
-                                                                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8 rounded-full" aria-label={`Edit ${column.displayName}`} onClick={(event) => { event.stopPropagation(); setSelectedColumnId(column.id); }}>
+                                                                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8 " aria-label={`Edit ${column.displayName}`} onClick={(event) => { event.stopPropagation(); setSelectedColumnId(column.id); }}>
                                                                         <Columns3 size={14} style={{ color: LX.textMuted }} />
                                                                     </Button>
                                                                 </TooltipTrigger>
@@ -215,8 +215,8 @@ export function ConfigureColumnsDialog({
 
                         <div className="border-t px-6 py-4" style={{ borderColor: LX.border }}>
                             <div className="flex items-center justify-end gap-2">
-                                <Button variant="secondary" className="rounded-full px-4" onClick={requestClose}>Cancel</Button>
-                                <Button className="rounded-full px-4" disabled={!isDirty || !canSave} onClick={() => { onSave(table.id, draftColumns.map(cloneColumn)); onOpenChange(false); }}>Save changes</Button>
+                                <Button variant="secondary" className="px-4" onClick={requestClose}>Cancel</Button>
+                                <Button className="px-4" disabled={!isDirty || !canSave} onClick={() => { onSave(table.id, draftColumns.map(cloneColumn)); onOpenChange(false); }}>Save changes</Button>
                             </div>
                         </div>
                     </div>

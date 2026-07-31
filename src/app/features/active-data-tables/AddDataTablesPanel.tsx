@@ -38,7 +38,7 @@ export function AddDataTablesPanel({
                     <h4 className="luxia-type-title-component" style={{ color: LX.primary }}>Add data table</h4>
                     <p className="mt-0.5 luxia-type-metadata" style={{ color: LX.textMuted }}>Select from the available catalog.</p>
                 </div>
-                <Button type="button" variant="outline" size="sm" className="rounded-full px-3" onClick={onBack}>
+                <Button type="button" variant="outline" size="sm" className="px-3" onClick={onBack}>
                     Back
                 </Button>
             </div>
@@ -83,8 +83,8 @@ export function AddDataTablesPanel({
             </div>
 
             <div className="mt-4 flex-shrink-0 flex items-center justify-end gap-2">
-                <Button variant="secondary" className="rounded-full px-4" onClick={onBack}>Cancel</Button>
-                <Button className="rounded-full px-4" disabled={selectedIds.length === 0} onClick={onConfirm}>
+                <Button variant="secondary" className="px-4" onClick={onBack}>Cancel</Button>
+                <Button className="px-4" disabled={selectedIds.length === 0} onClick={onConfirm}>
                     <Plus size={14} />Add selected
                 </Button>
             </div>

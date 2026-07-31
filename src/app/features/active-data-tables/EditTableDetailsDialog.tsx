@@ -90,8 +90,8 @@ export function EditTableDetailsDialog({
 
                         <div className="border-t px-6 py-4" style={{ borderColor: LX.border }}>
                             <div className="flex items-center justify-end gap-2">
-                                <Button variant="secondary" className="rounded-full px-4" onClick={requestClose}>Cancel</Button>
-                                <Button className="rounded-full px-4" disabled={!isValid || !isDirty} onClick={() => { onSave(table.id, { displayName: draftName.trim(), description: draftDescription.trim() }); onOpenChange(false); }}>Save changes</Button>
+                                <Button variant="secondary" className="px-4" onClick={requestClose}>Cancel</Button>
+                                <Button className="px-4" disabled={!isValid || !isDirty} onClick={() => { onSave(table.id, { displayName: draftName.trim(), description: draftDescription.trim() }); onOpenChange(false); }}>Save changes</Button>
                             </div>
                         </div>
                     </div>

@@ -21,8 +21,8 @@ function CrawlerFormDialog({ open, onOpenChange, mode, initialValues, onSubmit }
                 </DialogHeader>
                 <CrawlerForm values={values} onChange={setValues} />
                 <DialogFooter className="gap-2 sm:gap-2">
-                    <Button type="button" variant="secondary" className="rounded-full px-4" onClick={() => onOpenChange(false)}>Cancel</Button>
-                    <Button type="button" className="rounded-full px-4" disabled={!valid} onClick={() => { onSubmit({ ...values, url: values.url.trim() }); onOpenChange(false); }}>{mode === "add" ? "Add" : "Update"}</Button>
+                    <Button type="button" variant="secondary" className="px-4" onClick={() => onOpenChange(false)}>Cancel</Button>
+                    <Button type="button" className="px-4" disabled={!valid} onClick={() => { onSubmit({ ...values, url: values.url.trim() }); onOpenChange(false); }}>{mode === "add" ? "Add" : "Update"}</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

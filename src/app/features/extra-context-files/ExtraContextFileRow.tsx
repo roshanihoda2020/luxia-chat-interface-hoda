@@ -41,13 +41,13 @@ export function ExtraContextFileRow({
             <div className="flex flex-shrink-0 items-center gap-1">
                 <Tooltip>
                     <TooltipTrigger asChild>
-                        <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-full" aria-label="View file" onClick={onView} disabled={isUploading}>
+                        <Button type="button" variant="ghost" size="icon" className="h-7 w-7 " aria-label="View file" onClick={onView} disabled={isUploading}>
                             <Eye size={14} style={{ color: LX.textMuted }} />
                         </Button>
                     </TooltipTrigger>
                     <TooltipContent sideOffset={6}>View file</TooltipContent>
                 </Tooltip>
-                <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-full" aria-label="Remove file" onClick={onRemove} disabled={isUploading || isMarked}>
+                <Button type="button" variant="ghost" size="icon" className="h-7 w-7 " aria-label="Remove file" onClick={onRemove} disabled={isUploading || isMarked}>
                     <Trash2 size={14} style={{ color: LX.error }} />
                 </Button>
             </div>

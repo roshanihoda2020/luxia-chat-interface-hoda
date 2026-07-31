@@ -84,7 +84,7 @@ export function InstructionManager({
                                     <DialogTitle className="luxia-type-title-modal" style={{ color: LX.primary }}>Instruction</DialogTitle>
                                     <DialogDescription className="mt-1 luxia-type-metadata" style={{ color: LX.textMuted }}>Changes are local until saved.</DialogDescription>
                                 </div>
-                                <Button type="button" variant="outline" size="icon" className="h-9 w-9 rounded-full" aria-label="Close instruction manager" onClick={requestClose}>
+                                <Button type="button" variant="outline" size="icon" className="h-9 w-9 " aria-label="Close instruction manager" onClick={requestClose}>
                                     <X size={15} style={{ color: LX.textMuted }} />
                                 </Button>
                             </div>
@@ -129,8 +129,8 @@ export function InstructionManager({
                                     {dirty ? "Unsaved changes" : ""}
                                 </span>
                                 <div className="flex items-center gap-2">
-                                    <Button type="button" variant="secondary" className="rounded-full px-4" onClick={requestClose}>Cancel</Button>
-                                    <Button type="button" className="min-w-[132px] rounded-full px-4" disabled={!dirty || saving} onClick={save}>
+                                    <Button type="button" variant="secondary" className="px-4" onClick={requestClose}>Cancel</Button>
+                                    <Button type="button" className="min-w-[132px] px-4" disabled={!dirty || saving} onClick={save}>
                                         {saving ? "Saving…" : "Save Changes"}
                                     </Button>
                                 </div>

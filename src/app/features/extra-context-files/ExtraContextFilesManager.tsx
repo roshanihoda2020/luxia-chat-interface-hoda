@@ -119,7 +119,7 @@ export function ExtraContextFilesManager({
                                     <DialogTitle className="luxia-type-title-modal" style={{ color: LX.primary }}>Extra Context Files</DialogTitle>
                                     <DialogDescription className="mt-1 luxia-type-metadata" style={{ color: LX.textMuted }}>Changes are local until saved.</DialogDescription>
                                 </div>
-                                <Button type="button" variant="outline" size="icon" className="h-9 w-9 rounded-full" aria-label="Close extra context files" onClick={requestClose}>
+                                <Button type="button" variant="outline" size="icon" className="h-9 w-9 " aria-label="Close extra context files" onClick={requestClose}>
                                     <X size={15} style={{ color: LX.textMuted }} />
                                 </Button>
                             </div>
@@ -136,7 +136,7 @@ export function ExtraContextFilesManager({
                                     aria-label="Search extra context files"
                                 />
                                 {search ? (
-                                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-full" aria-label="Clear search" onClick={() => setSearch("")}>
+                                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7 " aria-label="Clear search" onClick={() => setSearch("")}>
                                         <X size={12} style={{ color: LX.textMuted }} />
                                     </Button>
                                 ) : null}
@@ -155,7 +155,7 @@ export function ExtraContextFilesManager({
                                         <>
                                             <p className="luxia-type-title-component" style={{ color: LX.primary }}>No extra context files yet</p>
                                             <p className="mt-1 luxia-type-body-dense" style={{ color: LX.textMuted }}>Add files to provide additional context.</p>
-                                            <Button type="button" className="mt-4 rounded-full px-4" onClick={() => setAddOpen(true)}>
+                                            <Button type="button" className="mt-4 px-4" onClick={() => setAddOpen(true)}>
                                                 <Plus size={14} />Add files
                                             </Button>
                                         </>
@@ -177,7 +177,7 @@ export function ExtraContextFilesManager({
 
                         <div className="border-t px-6 py-4" style={{ borderColor: LX.border }}>
                             {filtered.length > 0 ? (
-                                <Button type="button" variant="outline" className="mb-4 w-full rounded-full" onClick={() => setAddOpen(true)}>
+                                <Button type="button" variant="outline" className="mb-4 w-full " onClick={() => setAddOpen(true)}>
                                     <Plus size={14} />Add files
                                 </Button>
                             ) : null}
@@ -187,8 +187,8 @@ export function ExtraContextFilesManager({
                                     {count} {count === 1 ? "item" : "items"}{dirty ? " · Unsaved changes" : ""}
                                 </span>
                                 <div className="flex items-center gap-2">
-                                    <Button type="button" variant="secondary" className="rounded-full px-4" onClick={requestClose}>Cancel</Button>
-                                    <Button type="button" className="min-w-[132px] rounded-full px-4" disabled={!dirty || saving} onClick={save}>
+                                    <Button type="button" variant="secondary" className="px-4" onClick={requestClose}>Cancel</Button>
+                                    <Button type="button" className="min-w-[132px] px-4" disabled={!dirty || saving} onClick={save}>
                                         {saving ? "Saving…" : "Save Changes"}
                                     </Button>
                                 </div>

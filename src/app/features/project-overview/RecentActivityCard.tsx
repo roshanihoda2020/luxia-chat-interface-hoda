@@ -20,9 +20,13 @@ function activityIcon(type: ProjectActivityType) {
     case "source":
       return <LuxiaDatasourceIcon size={17} aria-hidden color="var(--luxia-blue-60)" />;
     case "dashboard":
+    case "output":
       return <LuxiaDashboardIcon size={17} aria-hidden color="var(--luxia-blue-60)" />;
     case "virtual-assistant":
+    case "widget":
       return <LuxiaVirtualAssistantIcon size={17} aria-hidden color="var(--luxia-purple-60)" />;
+    case "instruction":
+      return <LuxiaProjectsIcon size={17} aria-hidden color="var(--luxia-purple-50)" />;
     case "member":
       return <Users size={17} strokeWidth={1.75} aria-hidden color="var(--luxia-neutral-500, #64748B)" />;
     default:
@@ -32,7 +36,7 @@ function activityIcon(type: ProjectActivityType) {
 
 function activityIconShell(type: ProjectActivityType) {
   const bg =
-    type === "source" || type === "dashboard"
+    type === "source" || type === "dashboard" || type === "output"
       ? "var(--luxia-blue-10)"
       : type === "member"
         ? "var(--luxia-neutral-100, #F1F5F9)"

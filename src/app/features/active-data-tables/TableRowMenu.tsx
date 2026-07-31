@@ -160,7 +160,7 @@ export function TableRowMenu({
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7 rounded-full"
+                    className="h-7 w-7 "
                     aria-label="Open table actions"
                     aria-expanded={open}
                     style={{ color: LX.textMuted }}

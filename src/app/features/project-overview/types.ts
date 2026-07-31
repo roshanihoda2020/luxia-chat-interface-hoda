@@ -21,7 +21,10 @@ export type ProjectActivityType =
   | "constellation"
   | "source"
   | "dashboard"
+  | "output"
   | "virtual-assistant"
+  | "widget"
+  | "instruction"
   | "member"
   | "project";
 
@@ -39,6 +42,27 @@ export interface ProjectActivityItem {
   virtualAssistantId?: string;
 }
 
+export type ProjectDashboardOutputType =
+  | "chart"
+  | "table"
+  | "report"
+  | "metric"
+  | "analysis"
+  | "insight"
+  | "comparison"
+  | "mixed";
+
+export interface ProjectDashboardOutput {
+  id: string;
+  projectId: string;
+  name: string;
+  outputType: ProjectDashboardOutputType;
+  sourceContext: string;
+  updatedAt: string;
+  updatedAtTimestamp: number;
+}
+
+/** @deprecated Prefer ProjectDashboardOutput for Overview gallery; kept for library prototypes. */
 export interface ProjectDashboardItem {
   id: string;
   projectId: string;
@@ -48,12 +72,27 @@ export interface ProjectDashboardItem {
   updatedAtTimestamp: number;
 }
 
-export interface ProjectVirtualAssistantItem {
+export type ProjectWidgetDeployment =
+  | "Website"
+  | "Totem"
+  | "Embedded assistant"
+  | "Laptop"
+  | "Kiosk";
+
+export type ProjectWidgetStatus = "Published" | "Draft";
+
+export interface ProjectWidgetItem {
   id: string;
   projectId: string;
   name: string;
-  channel?: string;
+  deployment: ProjectWidgetDeployment;
+  language: string;
+  status: ProjectWidgetStatus;
+  constellationCount: number;
 }
+
+/** Stable ID alias — Overview now surfaces Widgets; IDs remain `*-va-*`. */
+export type ProjectVirtualAssistantItem = ProjectWidgetItem;
 
 export interface ProjectMemberItem {
   id: string;
@@ -76,6 +115,7 @@ export interface ProjectOverviewChat {
   id: string;
   label: string;
   projectId: string;
+  chatSource: "galaxy" | "constellation";
   constellationId?: string;
   constellationName?: string;
   constellationSource?: HomeConstellationSource;

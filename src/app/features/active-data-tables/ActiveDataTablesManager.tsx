@@ -166,7 +166,7 @@ export function ActiveDataTablesManager({
                                             <Search size={14} style={{ color: LX.textMuted }} />
                                             <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search data tables..." className="h-8 border-0 bg-transparent px-0 luxia-type-input-search-dense shadow-none focus-visible:ring-0" aria-label="Search data tables" />
                                         </div>
-                                        <Button variant="outline" className="rounded-full px-4" onClick={() => setAddMode(true)}>
+                                        <Button variant="outline" className="px-4" onClick={() => setAddMode(true)}>
                                             <Plus size={14} />Add data table
                                         </Button>
                                     </div>
@@ -282,8 +282,8 @@ export function ActiveDataTablesManager({
                             <div className="flex items-center justify-between gap-3">
                                 <span className="luxia-type-metadata" style={{ color: LX.textMuted }}>{activeCount} active tables</span>
                                 <div className="flex items-center gap-2">
-                                    <Button variant="secondary" className="rounded-full px-4" onClick={requestClose}>Cancel</Button>
-                                    <Button className="rounded-full px-4" disabled={!dirty} onClick={save}>Save changes</Button>
+                                    <Button variant="secondary" className="px-4" onClick={requestClose}>Cancel</Button>
+                                    <Button className="px-4" disabled={!dirty} onClick={save}>Save changes</Button>
                                 </div>
                             </div>
                         </div>

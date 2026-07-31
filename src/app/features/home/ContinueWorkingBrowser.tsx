@@ -356,7 +356,7 @@ export function ContinueWorkingBrowser({
                 Open Galaxy
               </Button>
             ) : (
-              <Button type="button" variant="outline" onClick={onNewProject}>
+              <Button type="button" variant="secondary" onClick={onNewProject}>
                 New Project
               </Button>
             )}

@@ -23,7 +23,7 @@ export function HomeHeader({ onNewChat, onNewProject }: HomeHeaderProps) {
         <Button type="button" variant="primary" onClick={onNewChat}>
           New Chat
         </Button>
-        <Button type="button" variant="outline" onClick={onNewProject}>
+        <Button type="button" variant="secondary" onClick={onNewProject}>
           New Project
         </Button>
       </div>

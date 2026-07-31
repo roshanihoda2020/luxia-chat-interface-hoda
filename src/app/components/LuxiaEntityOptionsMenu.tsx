@@ -35,8 +35,8 @@ export interface LuxiaEntityOptionsMenuProps {
   entityType: string;
   items: LuxiaEntityOptionsItem[];
   /**
-   * `icon` — compact utility ellipsis (entity cards / Project header).
-   * `text` — outlined page-level “Options” button (Chat workspace header).
+   * `icon` — compact utility ellipsis (entity cards).
+   * `text` — outlined page-level “Options” button (Project / Chat headers).
    */
   triggerVariant?: "text" | "icon";
   /**

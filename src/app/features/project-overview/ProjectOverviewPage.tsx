@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { HomeProjectCard } from "@/app/features/project/types";
 import {
   getProjectActivity,
-  getProjectDashboards,
-  getProjectVirtualAssistants,
+  getProjectDashboardOutputs,
+  getProjectWidgets,
 } from "./data";
 import { ProjectGalaxyCard } from "./ProjectGalaxyCard";
 import { ProjectHeader, ProjectNotFoundState } from "./ProjectHeader";
@@ -11,7 +11,7 @@ import {
   ChatsModule,
   ConstellationsModule,
   DashboardsModule,
-  VirtualAssistantsModule,
+  WidgetsModule,
 } from "./ProjectModules";
 import { RecentActivityCard } from "./RecentActivityCard";
 import type {
@@ -41,6 +41,7 @@ export interface ProjectOverviewPageProps {
   onOpenVirtualAssistant?: (projectId: string, assistantId: string) => void;
   onBrowseModeChange?: (mode: ProjectOverviewBrowseMode) => void;
   onRenameProject?: (projectId: string, name: string) => void;
+  onRenameGalaxy?: (projectId: string, name: string) => void;
   onArchiveProject?: (projectId: string) => void;
 }
 
@@ -76,6 +77,7 @@ export function ProjectOverviewPage({
   onNewChat,
   onBrowseModeChange,
   onRenameProject,
+  onRenameGalaxy,
   onArchiveProject,
 }: ProjectOverviewPageProps) {
   const [browseMode, setBrowseMode] = useState<ProjectOverviewBrowseMode>(
@@ -105,7 +107,10 @@ export function ProjectOverviewPage({
   );
 
   const projectChats = useMemo(
-    () => (projectId ? chats.filter((chat) => chat.projectId === projectId) : []),
+    () =>
+      (projectId ? chats.filter((chat) => chat.projectId === projectId) : [])
+        .slice()
+        .sort((a, b) => b.lastOpenedTimestamp - a.lastOpenedTimestamp),
     [chats, projectId],
   );
 
@@ -118,12 +123,12 @@ export function ProjectOverviewPage({
     () => (projectId ? getProjectActivity(projectId) : []),
     [projectId],
   );
-  const dashboards = useMemo(
-    () => (projectId ? getProjectDashboards(projectId) : []),
+  const dashboardOutputs = useMemo(
+    () => (projectId ? getProjectDashboardOutputs(projectId) : []),
     [projectId],
   );
-  const assistants = useMemo(
-    () => (projectId ? getProjectVirtualAssistants(projectId) : []),
+  const widgets = useMemo(
+    () => (projectId ? getProjectWidgets(projectId) : []),
     [projectId],
   );
 
@@ -161,15 +166,24 @@ export function ProjectOverviewPage({
           <ProjectGalaxyCard
             project={resolvedProject}
             galaxyName={galaxyName}
-            lastOpened={resolvedProject.updatedAt}
             onOpenGalaxy={() => onOpenGalaxy(resolvedProject.id)}
             onOpenGalaxySettings={() => onOpenGalaxySettings(resolvedProject.id)}
+            onRenameGalaxy={
+              onRenameGalaxy
+                ? (name) => onRenameGalaxy(resolvedProject.id, name)
+                : undefined
+            }
           />
         </section>
 
         <section className="min-w-0">
+          <OverviewLabel>Project outputs</OverviewLabel>
+          <DashboardsModule outputs={dashboardOutputs} />
+        </section>
+
+        <section className="min-w-0">
           <OverviewLabel>Knowledge and interactions</OverviewLabel>
-          <div className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,0.88fr)_minmax(0,1.35fr)] xl:items-stretch">
+          <div className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-2 xl:items-start">
             <ConstellationsModule constellations={projectConstellations} />
             <ChatsModule
               chats={projectChats}
@@ -180,11 +194,8 @@ export function ProjectOverviewPage({
         </section>
 
         <section className="min-w-0">
-          <OverviewLabel>Outputs</OverviewLabel>
-          <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)] lg:items-stretch">
-            <DashboardsModule dashboards={dashboards} />
-            <VirtualAssistantsModule assistants={assistants} />
-          </div>
+          <OverviewLabel>Deployment and assistants</OverviewLabel>
+          <WidgetsModule widgets={widgets} />
         </section>
 
         <section className="min-w-0">

@@ -34,7 +34,7 @@ export function ProjectHeader({
   return (
     <LuxiaPageHeader
       contentGap="none"
-      className="mb-5"
+      className="mb-4"
       pageTypeLabel="PROJECT"
       titleStyle={{ color: "var(--luxia-purple-70)" }}
       title={project.name}
@@ -72,7 +72,7 @@ export function ProjectHeader({
       secondaryAction={
         <span
           className={cn(
-            buttonVariants({ variant: "outline", size: "compact" }),
+            buttonVariants({ variant: "tertiary", size: "compact" }),
             "pointer-events-none select-none",
           )}
         >
@@ -84,6 +84,7 @@ export function ProjectHeader({
           entityType="Project"
           entityLabel={project.name}
           ariaLabel="Project options"
+          triggerVariant="text"
           items={[
             { id: "edit-details", label: "Edit Project details", disabled: true },
             {

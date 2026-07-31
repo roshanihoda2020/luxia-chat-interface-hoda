@@ -72,10 +72,10 @@ export function DatasourceFileSelector({
             </div>
 
             <div className="flex items-center justify-end gap-2">
-                <Button type="button" variant="secondary" className="rounded-full px-4" onClick={onCancel}>Cancel</Button>
+                <Button type="button" variant="secondary" className="px-4" onClick={onCancel}>Cancel</Button>
                 <Button
                     type="button"
-                    className="rounded-full px-4"
+                    className="px-4"
                     disabled={selected.length === 0}
                     onClick={() => onAdd(catalog.filter((file) => selected.includes(file.id)))}
                 >
