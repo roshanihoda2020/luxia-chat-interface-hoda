@@ -101,10 +101,8 @@ export function HomeContinueMenu({
 
 export type ContinueVisibilityAction = "hide" | "show" | "none";
 
-/** Shared Home / Your work More-menu builder (Change/Set Home focus + Hide/Show). */
 export function buildContinueFocusMenuItems(options: {
   title: string;
-  /** Hero always uses “change”. Your work uses “set” unless the row is already Home focus. */
   focusAction: "change" | "set";
   visibilityAction: ContinueVisibilityAction;
   onChangePrimary: () => void;

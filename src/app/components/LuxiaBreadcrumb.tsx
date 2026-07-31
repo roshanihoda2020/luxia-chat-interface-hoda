@@ -1,4 +1,3 @@
-/** Typed breadcrumb destinations — always carry stable IDs, never labels. */
 export type LuxiaBreadcrumbDestination =
   | { kind: "home" }
   | { kind: "project"; projectId: string }
@@ -66,14 +65,9 @@ interface LuxiaBreadcrumbProps {
   items: LuxiaBreadcrumbItem[];
   handlers: LuxiaBreadcrumbHandlers;
   className?: string;
-  /** Visual density — Chat header uses metadata size; Project Overview uses caption. */
   tone?: "chat" | "page";
 }
 
-/**
- * Shared Luxia breadcrumb trail.
- * Clickable segments are buttons; the current page is a non-interactive span.
- */
 export function LuxiaBreadcrumb({
   items,
   handlers,
@@ -140,7 +134,6 @@ export function LuxiaBreadcrumb({
   );
 }
 
-/** Build Chat page trail: Home › Project › Constellation › Chat */
 export function buildChatBreadcrumbItems(input: {
   projectId: string;
   projectName: string;
@@ -187,7 +180,6 @@ export function buildChatBreadcrumbItems(input: {
   return items;
 }
 
-/** Build Galaxy page trail: Home › Project › Galaxy */
 export function buildGalaxyBreadcrumbItems(input: {
   projectId: string;
   projectName: string;
@@ -211,7 +203,6 @@ export function buildGalaxyBreadcrumbItems(input: {
   ];
 }
 
-/** Build Project Overview trail: Home › Project */
 export function buildProjectOverviewBreadcrumbItems(input: {
   projectId: string;
   projectName: string;
@@ -226,7 +217,27 @@ export function buildProjectOverviewBreadcrumbItems(input: {
   ];
 }
 
-/** Build Home archive trail: Home › Archive (Projects / Your work). */
+export function buildProjectDashboardBreadcrumbItems(input: {
+  projectId: string;
+  projectName: string;
+}): LuxiaBreadcrumbItem[] {
+  return [
+    { id: "home", label: "Home", destination: { kind: "home" } },
+    {
+      id: `project-${input.projectId}`,
+      label: input.projectName,
+      destination: input.projectId
+        ? { kind: "project", projectId: input.projectId }
+        : { kind: "current" },
+    },
+    {
+      id: `dashboard-${input.projectId}`,
+      label: "Dashboard",
+      destination: { kind: "current" },
+    },
+  ];
+}
+
 export function buildHomeArchiveBreadcrumbItems(input: {
   archiveId: string;
   archiveLabel: string;
@@ -241,7 +252,6 @@ export function buildHomeArchiveBreadcrumbItems(input: {
   ];
 }
 
-/** Build Project library trail: Home › Project › Library. */
 export function buildProjectLibraryBreadcrumbItems(input: {
   projectId: string;
   projectName: string;

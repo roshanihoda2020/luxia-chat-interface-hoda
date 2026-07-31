@@ -48,7 +48,6 @@ function ProjectStatGroup({
   );
 }
 
-/** Quiet Updated timestamp — decorative clock; text remains readable. */
 export function ProjectUpdatedMeta({
   updatedAt,
   className = "",
@@ -56,7 +55,6 @@ export function ProjectUpdatedMeta({
 }: {
   updatedAt: string;
   className?: string;
-  /** Featured is one step larger than supporting card footers. */
   density?: "featured" | "supporting";
 }) {
   const isFeatured = density === "featured";
@@ -82,16 +80,9 @@ export function ProjectUpdatedMeta({
 
 interface ProjectCardMetaProps {
   project: HomeProjectCard;
-  /** Featured allows a slightly roomier stack; supporting stays compact. */
   density?: "featured" | "supporting";
-  /** When false, Updated is omitted (use ProjectCardFooter instead). */
   showUpdated?: boolean;
-  /**
-   * Optional root class override.
-   * When set, replaces the default card stack margins (use for page headers).
-   */
   className?: string;
-  /** Gap between chips and Updated — defaults to card-compact `mt-1.5`. */
   updatedClassName?: string;
 }
 
@@ -149,7 +140,6 @@ export function ProjectCardMeta({
   );
 }
 
-/** Shared Project card footer: actions left, Updated right. */
 export function ProjectCardFooter({
   actions,
   updatedAt,

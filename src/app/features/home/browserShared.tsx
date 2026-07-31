@@ -15,10 +15,8 @@ export const BROWSER_CONTENT_MAX = "1200px";
 interface BrowserShellProps {
   title: string;
   description?: string;
-  /** Stable archive id for breadcrumb current segment. */
   archiveId?: string;
   onBack: () => void;
-  /** Optional page-level action (e.g. New Project). */
   actions?: ReactNode;
   searchLabel: string;
   searchPlaceholder: string;

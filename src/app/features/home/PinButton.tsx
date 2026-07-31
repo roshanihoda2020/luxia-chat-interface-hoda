@@ -5,7 +5,6 @@ interface PinButtonProps {
   pinned: boolean;
   label: string;
   tone?: "light" | "dark";
-  /** `project` = compact Project-card control (30–32px). */
   controlSize?: "default" | "hero" | "project";
   onToggle: () => void;
 }

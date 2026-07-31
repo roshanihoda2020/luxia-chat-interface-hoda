@@ -254,12 +254,7 @@ export function HomePageShell({
   contentMax = HS.contentMax,
 }: {
   children: ReactNode;
-  /** Increment to scroll the Home surface to the top. */
   scrollRequest?: number;
-  /**
-   * Centered content max-width.
-   * Defaults to Home (`HS.contentMax`). Project Overview passes `overview` variant (`1480px`).
-   */
   contentMax?: string;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);

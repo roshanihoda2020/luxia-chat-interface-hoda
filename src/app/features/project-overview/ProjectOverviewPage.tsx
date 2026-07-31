@@ -36,7 +36,7 @@ export interface ProjectOverviewPageProps {
   onOpenConstellation: (projectId: string, constellationId: string) => void;
   onNewChat: (projectId: string) => void;
   onAddConstellation: (projectId: string, name: string, type: "database" | "csv" | "pdf") => void;
-  onOpenDashboard?: (projectId: string, dashboardId: string) => void;
+  onOpenDashboard?: (projectId: string) => void;
   onNewDashboard?: (projectId: string) => void;
   onOpenVirtualAssistant?: (projectId: string, assistantId: string) => void;
   onBrowseModeChange?: (mode: ProjectOverviewBrowseMode) => void;
@@ -45,10 +45,6 @@ export interface ProjectOverviewPageProps {
   onArchiveProject?: (projectId: string) => void;
 }
 
-/**
- * Unfinished Project-scoped destinations are not navigable yet.
- * Keep Overview as the only browse surface until those pages are designed.
- */
 const DESIGNED_BROWSE_MODES: ProjectOverviewBrowseMode[] = ["overview"];
 
 function OverviewLabel({ children }: { children: ReactNode }) {
@@ -75,6 +71,7 @@ export function ProjectOverviewPage({
   onOpenGalaxySettings,
   onOpenChat,
   onNewChat,
+  onOpenDashboard,
   onBrowseModeChange,
   onRenameProject,
   onRenameGalaxy,
@@ -178,12 +175,19 @@ export function ProjectOverviewPage({
 
         <section className="min-w-0">
           <OverviewLabel>Project outputs</OverviewLabel>
-          <DashboardsModule outputs={dashboardOutputs} />
+          <DashboardsModule
+            outputs={dashboardOutputs}
+            onOpenDashboard={
+              onOpenDashboard
+                ? () => onOpenDashboard(resolvedProject.id)
+                : undefined
+            }
+          />
         </section>
 
         <section className="min-w-0">
           <OverviewLabel>Knowledge and interactions</OverviewLabel>
-          <div className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-2 xl:items-start">
+          <div className="grid min-w-0 grid-cols-1 items-stretch gap-4 xl:grid-cols-2">
             <ConstellationsModule constellations={projectConstellations} />
             <ChatsModule
               chats={projectChats}
@@ -194,7 +198,7 @@ export function ProjectOverviewPage({
         </section>
 
         <section className="min-w-0">
-          <OverviewLabel>Deployment and assistants</OverviewLabel>
+          <OverviewLabel>Deployment and Vidgets</OverviewLabel>
           <WidgetsModule widgets={widgets} />
         </section>
 

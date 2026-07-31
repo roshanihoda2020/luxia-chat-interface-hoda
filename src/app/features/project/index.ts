@@ -32,5 +32,17 @@ export {
   togglePinnedProjectId,
   writePinnedProjectIds,
 } from "./projectPinState";
-export { getProjectPath, parseProjectIdFromPath, isHomePath } from "./projectPaths";
+export {
+  getProjectPath,
+  getGalaxyPath,
+  getDashboardPath,
+  getChatPath,
+  parseProjectIdFromPath,
+  parseGalaxyProjectIdFromPath,
+  parseDashboardProjectIdFromPath,
+  parseChatIdFromPath,
+  isHomePath,
+  resolveLuxiaPathname,
+} from "./projectPaths";
+export type { LuxiaResolvedPath } from "./projectPaths";
 export type { HomeProjectCard, ProjectDestination, ProjectLifecycleStatus } from "./types";

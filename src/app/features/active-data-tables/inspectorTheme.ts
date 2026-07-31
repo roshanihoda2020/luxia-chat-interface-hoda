@@ -22,24 +22,15 @@ export const IC = {
   textPrimary: "#FFFFFF",
   textSecondary: "rgba(255, 255, 255, 0.70)",
   textMuted: "rgba(255, 255, 255, 0.55)",
-  /** Align with DS `--luxia-inspector-subtitle` (galaxy / pdf) */
   textSubtitle: "rgba(150, 219, 251, 0.55)",
-  /** Align with DS `--luxia-inspector-description` for PDF */
   textDescPdf: "rgba(150, 219, 251, 0.78)",
-  /** Align with DS `--luxia-inspector-description` for Database */
   textDescDatabase: "rgba(198, 177, 245, 0.78)",
   icon: "rgba(255, 255, 255, 0.55)",
   iconAccent: "var(--luxia-purple-50)",
-  /** Align with Galaxy / PDF badge accent */
   iconPdf: "var(--luxia-brand-tertiary)",
-  /**
-   * Section icons + titles + Read more — inherits `--luxia-inspector-accent`
-   * from the constellation inspector root (PDF blue / Database purple).
-   */
   iconSemantic: "var(--luxia-inspector-accent, var(--luxia-purple-50))",
   hover: "rgba(255, 255, 255, 0.06)",
   selected: "rgba(142, 99, 235, 0.14)",
-  /** Non-input controls only; inputs use inputBorderFocus */
   focusRing: "0 0 0 2px rgba(142, 99, 235, 0.28)",
   shellShadow: "var(--luxia-galaxy-shell-shadow)",
   cardShadow: "0 2px 8px rgba(8, 5, 18, 0.14)",

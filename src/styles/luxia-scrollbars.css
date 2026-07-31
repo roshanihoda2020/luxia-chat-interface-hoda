@@ -1,9 +1,4 @@
-/**
- * Scoped Luxia scrollbar system — apply via .luxia-scrollbar* on scroll containers only.
- * Do not use universal *::-webkit-scrollbar selectors.
- */
 
-/* Shared arrow removal (Chromium / WebKit) */
 .luxia-scrollbar::-webkit-scrollbar-button,
 .luxia-scrollbar::-webkit-scrollbar-button:single-button,
 .luxia-scrollbar::-webkit-scrollbar-button:double-button,
@@ -39,7 +34,6 @@
   background: transparent !important;
 }
 
-/* Light surfaces (default) — neutral gray on white/light backgrounds */
 .luxia-scrollbar,
 .luxia-scrollbar-light {
   scrollbar-width: thin;
@@ -78,7 +72,6 @@
   background: rgba(71, 85, 105, 0.58);
 }
 
-/* Main message history — same neutral-gray treatment */
 .luxia-scrollbar-messages {
   scrollbar-width: thin;
   scrollbar-color: rgba(148, 163, 184, 0.28) rgba(148, 163, 184, 0.08);
@@ -110,7 +103,6 @@
   background: rgba(71, 85, 105, 0.58);
 }
 
-/* Dark surfaces */
 .luxia-scrollbar-dark {
   scrollbar-width: thin;
   scrollbar-color: rgba(150, 219, 251, 0.22) transparent;
@@ -143,7 +135,6 @@
   background: rgba(142, 99, 235, 0.72);
 }
 
-/* Horizontal tab strips — neutral gray on white tab bar */
 .luxia-scrollbar-horizontal {
   scrollbar-width: thin;
   scrollbar-color: rgba(148, 163, 184, 0.28) rgba(148, 163, 184, 0.08);
@@ -176,13 +167,11 @@
   background: rgba(71, 85, 105, 0.58);
 }
 
-/* Vertical-only containers */
 .luxia-scrollbar-vertical::-webkit-scrollbar {
   width: 4px;
   height: 0;
 }
 
-/* Sidebar navigation — narrower, hover-reveal thumb */
 .luxia-scrollbar-sidebar {
   scrollbar-width: thin;
   scrollbar-color: rgba(150, 219, 251, 0.12) transparent;
@@ -217,7 +206,6 @@
   background: rgba(150, 219, 251, 0.46);
 }
 
-/* Backward-compatible alias for Galaxy / inspector panels */
 .galaxy-panel-scroll {
   scrollbar-width: thin;
   scrollbar-color: rgba(150, 219, 251, 0.22) transparent;

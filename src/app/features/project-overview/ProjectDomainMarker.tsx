@@ -33,10 +33,6 @@ const MARKER_TONE: Record<
   },
 };
 
-/**
- * Home-style integrated top-right domain marker for Project Overview cards.
- * Decorative only — does not participate in hit-testing or accessibility tree.
- */
 export function ProjectDomainMarker({
   tone,
   icon,
@@ -44,7 +40,6 @@ export function ProjectDomainMarker({
 }: {
   tone: ProjectDomainMarkerTone;
   icon: ReactNode;
-  /** Galaxy uses a slightly larger featured mark; modules use supporting size. */
   size?: "galaxy" | "module";
 }) {
   const { background, color } = MARKER_TONE[tone];

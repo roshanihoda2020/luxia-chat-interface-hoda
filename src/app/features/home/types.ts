@@ -29,21 +29,14 @@ export interface HomeRecentWorkItem {
   title: string;
   kind: "galaxySession" | "chat";
   projectId: string;
-  /**
-   * Legacy optional field only — ignored for display when present.
-   * Resolve visible names via `getProjectNameById(projectId)`.
-   */
   projectName?: string;
   chatId: string;
   conversationId: string;
   constellationId?: string;
   constellationName?: string;
   constellationSource?: HomeConstellationSource;
-  /** Active constellation description (Chat), resolved by constellation ID. */
   constellationDescription?: string;
-  /** Project description (Galaxy), resolved by project ID. */
   projectDescription?: string;
-  /** Neutral mock/demo entity — shows reserved description placeholder. */
   isPrototype?: boolean;
   mode?: "auto" | "specific";
   role?: string;
@@ -60,7 +53,6 @@ export interface HomeHeroContent {
   meta?: string;
   selectedByYou?: boolean;
   preview?: string;
-  /** Contextual description beneath the entity name (clamped to 2 lines). */
   description?: string;
   projectId?: string;
   projectName?: string;
@@ -88,7 +80,6 @@ export interface HomePageProps {
   pinnedEntityOrder: HomeEntityKey[];
   primaryPreference: HomePrimaryPreference;
   dismissedContinueKeys: HomeEntityKey[];
-  /** Controlled Home surface: overview | your-work | projects */
   browseMode: HomeBrowseMode;
   onBrowseModeChange: (mode: HomeBrowseMode) => void;
   onPrimaryPreferenceChange: (preference: HomePrimaryPreference) => void;
@@ -108,7 +99,6 @@ export interface HomePageProps {
   onOpenConstellation?: (projectId: string, constellationId: string) => void;
   onNewChat: () => void;
   onNewProject: () => void;
-  /** Canonical Constellation catalog for Home search (stable IDs). */
   searchConstellations?: Array<{
     id: string;
     label: string;

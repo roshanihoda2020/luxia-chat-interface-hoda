@@ -198,7 +198,7 @@ export function ActivityLibrary({
             <option value="constellation">Constellation</option>
             <option value="source">Source</option>
             <option value="dashboard">Dashboard</option>
-            <option value="virtual-assistant">Virtual Assistant</option>
+            <option value="virtual-assistant">Vidget</option>
             <option value="member">Member</option>
             <option value="project">Project</option>
           </select>
@@ -545,22 +545,22 @@ export function VirtualAssistantsLibrary({
 
   return (
     <LibraryShell
-      title="Virtual Assistant"
+      title="Vidgets"
       libraryId="virtual-assistants"
       projectId={projectId}
       projectName={projectName}
-      description={`Virtual Assistants for ${projectName}`}
-      countLabel={`${filtered.length} ${filtered.length === 1 ? "Virtual Assistant" : "Virtual Assistants"}`}
+      description={`Vidgets for ${projectName}`}
+      countLabel={`${filtered.length} ${filtered.length === 1 ? "Vidget" : "Vidgets"}`}
       onNavigateHome={onNavigateHome}
       onBackToProject={onBack}
-      searchLabel="Search Virtual Assistants"
+      searchLabel="Search Vidgets"
       searchValue={query}
       onSearchChange={setQuery}
     >
       {filtered.length === 0 ? (
         <EmptyLibrary
-          title="No Virtual Assistants found"
-          description="Virtual Assistants for this Project will appear here when available."
+          title="No Vidgets found"
+          description="Vidgets for this Project will appear here when available."
         />
       ) : (
         <div

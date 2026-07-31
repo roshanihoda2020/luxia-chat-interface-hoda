@@ -2,7 +2,6 @@ import type { HomeEntityKey } from "./homeEntityKeys";
 
 const PINNED_ENTITY_ORDER_KEY = "luxia-home-pinned-entity-order";
 
-/** Prototype seed when no pin order has been persisted yet. */
 export const DEFAULT_PINNED_ENTITY_ORDER: HomeEntityKey[] = [
   "chat:chat-01",
   "chat:chat-04",
@@ -23,7 +22,6 @@ function writeJson(key: string, value: unknown): void {
   try {
     localStorage.setItem(key, JSON.stringify(value));
   } catch {
-    /* ignore */
   }
 }
 

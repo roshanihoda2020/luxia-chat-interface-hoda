@@ -4,8 +4,6 @@ import type { HomeHeroContent, HomeProjectCard, HomeRecentWorkItem } from "./typ
 const DAY_MS = 86_400_000;
 const HOUR_MS = 3_600_000;
 
-/** Reserved description area for neutral prototype / mock Home entities.
- * Two blocks wrap naturally into two readable lines in the left column. */
 export const HERO_DESCRIPTION_PLACEHOLDER =
   `${"x".repeat(52)} ${"x".repeat(13)}\n${"x".repeat(52)} ${"x".repeat(13)}`;
 
@@ -24,12 +22,6 @@ function formatLastOpened(lastOpenedAt?: number): string {
   return `Last opened ${days} days ago`;
 }
 
-/**
- * Chat → active Constellation description (by constellation ID).
- * Galaxy → Project description (by project ID).
- * Prototype/mock → reserved x-placeholder.
- * Real entity with no valid description → undefined (no block rendered).
- */
 export function resolveHeroDescription(item: HomeRecentWorkItem): string | undefined {
   if (item.isPrototype) {
     return HERO_DESCRIPTION_PLACEHOLDER;
@@ -50,11 +42,6 @@ export function resolveHeroDescription(item: HomeRecentWorkItem): string | undef
 
 const NOW = Date.now();
 
-/**
- * Shared Home / Your work prototype collection.
- * Chat IDs: chat-01…chat-08 · Galaxy IDs: galaxy-01…galaxy-04 (work items)
- * Projects: project-01…project-10 each with one Galaxy.
- */
 export const HOME_RECENT_WORK: HomeRecentWorkItem[] = [
   {
     id: "work-chat-01",
@@ -232,7 +219,6 @@ export function workItemToHeroContent(
   projects?: readonly HomeProjectCard[],
 ): HomeHeroContent {
   const isGalaxy = source.kind === "galaxySession";
-  // Always resolve from canonical Project data — ignore any legacy stored projectName.
   const projectName = getProjectNameById(source.projectId, projects);
   return {
     kind: source.kind,

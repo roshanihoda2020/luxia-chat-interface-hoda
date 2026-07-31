@@ -4,10 +4,8 @@ const DAY_MS = 86_400_000;
 const HOUR_MS = 3_600_000;
 const NOW = Date.now();
 
-/** One-line Project card description for neutral prototypes. */
 export const PROJECT_DESCRIPTION_PLACEHOLDER = `${"x".repeat(80)}`;
 
-/** Canonical Project catalog — single source of truth for cards, archive, search, Overview. */
 export const HOME_PROJECTS: HomeProjectCard[] = [
   {
     id: "project-01",
@@ -59,14 +57,14 @@ export const HOME_PROJECTS: HomeProjectCard[] = [
     id: "project-04",
     name: "Project name 04",
     galaxyId: "galaxy-04",
-    constellationCount: 0,
-    sourceCount: 0,
+    constellationCount: 2,
+    sourceCount: 4,
     memberCount: 2,
     updatedAt: "1w ago",
     updatedAtTimestamp: NOW - DAY_MS * 7,
     isPinned: false,
     isFeatured: false,
-    isEmpty: true,
+    isEmpty: false,
     status: "active",
     description: PROJECT_DESCRIPTION_PLACEHOLDER,
   },
@@ -162,7 +160,6 @@ export const HOME_PROJECTS: HomeProjectCard[] = [
   },
 ];
 
-/** Rank Projects for the limited Home preview: pinned order, then most recently updated. */
 export function isProjectActive(project: HomeProjectCard): boolean {
   return project.status !== "archived";
 }
@@ -183,7 +180,6 @@ export function filterArchivedProjects(
   return projects.filter(isProjectArchived);
 }
 
-/** Rank active Projects for the limited Home preview: pinned order, then most recently updated. */
 export function rankProjectsForPreview(
   projects: HomeProjectCard[],
   pinnedProjectOrder: readonly string[],
@@ -232,7 +228,6 @@ export function formatProjectMeta(project: HomeProjectCard): string {
   return parts.join(" · ");
 }
 
-/** Stable lookup map for the canonical Project catalog. */
 export const PROJECTS_BY_ID: ReadonlyMap<string, HomeProjectCard> = new Map(
   HOME_PROJECTS.map((project) => [project.id, project]),
 );
@@ -251,11 +246,6 @@ export function getProjectById(
     ?? PROJECTS_BY_ID.get(projectId);
 }
 
-/**
- * Resolve a Project display name from a stable Project ID.
- * Does not reconstruct names from IDs and does not fall back to the first Project.
- * Legacy stored `projectName` values should be ignored in favor of this helper.
- */
 export function getProjectNameById(
   projectId: string | null | undefined,
   projects: readonly HomeProjectCard[] = HOME_PROJECTS,

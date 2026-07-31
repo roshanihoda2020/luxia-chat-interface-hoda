@@ -243,7 +243,14 @@ export function GlobalSearch({
                         color={result.color}
                       />
                       <div className="min-w-0 flex-1">
-                        <span className="block truncate luxia-type-body-default-strong" style={{ color: "var(--luxia-text-primary)" }}>
+                        <span
+                          className="block truncate luxia-type-body-default-strong"
+                          style={{
+                            color: result.kind === "project"
+                              ? HS.projectTitle
+                              : "var(--luxia-text-primary)",
+                          }}
+                        >
                           {result.label}
                         </span>
                         <span className="block truncate luxia-type-body-dense" style={{ color: "var(--luxia-text-muted)" }}>

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useMemo, type ReactElement } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo, type ReactElement, type MouseEvent as ReactMouseEvent } from "react";
 import ReactDOM from "react-dom";
 import luxiaWordmarkUrl from "@/assets/brand/Luxia-Star.svg";
 import sidebarStarLogoUrl from "@/assets/brand/Star.svg";
@@ -48,8 +48,11 @@ import {
   getChatEntityKey,
   getGalaxyEntityKey,
   getProjectPath,
-  parseProjectIdFromPath,
+  getGalaxyPath,
+  getDashboardPath,
+  getChatPath,
   isHomePath,
+  resolveLuxiaPathname,
   homePrimaryPreferencesEqual,
   normalizeHomePrimaryPreference,
   parseEntityKey,
@@ -69,6 +72,7 @@ import type { HomeBrowseMode, HomeProjectCard, HomeRecentWorkItem } from "@/app/
 import { getProjectNameById } from "@/app/features/project";
 import {
   ProjectOverviewPage,
+  ProjectDashboardPage,
   CONSTELLATION_SOURCE_COUNTS,
   type ProjectNavSection,
   type ProjectOverviewBrowseMode,
@@ -110,6 +114,7 @@ import {
   LuxiaGalaxyIcon,
   LuxiaHomeIcon,
   LuxiaNotificationsIcon,
+  LuxiaProjectsIcon,
   LuxiaSettingsIcon,
   LuxiaSupportIcon,
   LuxiaToolsGalleryIcon,
@@ -186,7 +191,6 @@ const SECTION_META: Record<SectionId, { label: string; icon: SectionIcon }> = {
   crawler: { label: "Crawler URLs", icon: Globe },
 };
 
-/** File-based Constellations (CSV + PDF) share a similar configuration shell. */
 const FILE_BASED_SECTIONS: SectionId[] = ["pdfFiles", "kb", "instr", "crawler"];
 
 const CONSTELLATION_SECTIONS: Record<ConstellationType, SectionId[]> = {
@@ -554,6 +558,53 @@ const INITIAL_MESSAGES: Record<string, Message[]> = Object.fromEntries(
     .map((chat) => [chat.id, makePrototypeMessages(chat.id, chat.label)]),
 );
 
+const DEFAULT_ACTIVE_CHAT_ID = "chat-01";
+const PROJECT_NAME_FALLBACK = "Project name 01";
+
+function findGalaxyChatForProject(
+  projectId: string,
+  chatList: readonly Chat[],
+  projects: readonly HomeProjectCard[] = HOME_PROJECTS,
+): Chat | undefined {
+  const galaxyId = projects.find((entry) => entry.id === projectId)?.galaxyId
+    ?? chatList.find((chat) => chat.chatType === "galaxy" && chat.projectId === projectId)?.id
+    ?? INITIAL_CHATS.find((chat) => chat.chatType === "galaxy" && chat.projectId === projectId)?.id;
+  if (!galaxyId) return undefined;
+  return chatList.find((chat) => chat.id === galaxyId && chat.chatType === "galaxy")
+    ?? INITIAL_CHATS.find((chat) => chat.id === galaxyId && chat.chatType === "galaxy");
+}
+
+function findChatById(chatId: string, chatList: readonly Chat[]): Chat | undefined {
+  return chatList.find((chat) => chat.id === chatId)
+    ?? INITIAL_CHATS.find((chat) => chat.id === chatId);
+}
+
+type LuxiaAppView = "home" | "chat" | "project";
+
+function readInitialShellFromLocation(): {
+  appView: LuxiaAppView;
+  activeProjectId: string | null;
+  activeChat: string;
+  projectBrowseMode: ProjectOverviewBrowseMode;
+} {
+  if (typeof window !== "undefined") {
+    const pathname = window.location.pathname;
+    if (pathname !== "/" && pathname !== "") {
+      window.history.replaceState({ luxiaView: "home" }, "", "/");
+    }
+  }
+
+  return {
+    appView: "home",
+    activeProjectId: null,
+    activeChat: DEFAULT_ACTIVE_CHAT_ID,
+    projectBrowseMode: "overview",
+  };
+}
+
+const INITIAL_SHELL = readInitialShellFromLocation();
+
+
 const EMPTY_PROMPTS = [
   "What information is available here?",
   "Give me a brief summary",
@@ -561,28 +612,46 @@ const EMPTY_PROMPTS = [
   "Walk me through the structure",
 ];
 
-const NAV_TOP_ITEMS = [
-  { icon: LuxiaHomeIcon, label: "Home page" },
-  { icon: LuxiaUserPermissionsIcon, label: "User & permissions" },
-  { icon: LuxiaDatasourceIcon, label: "Datasources" },
+const NAV_TOP_ITEMS: {
+  id: string;
+  icon: typeof LuxiaHomeIcon;
+  label: string;
+  available: boolean;
+}[] = [
+  { id: "home", icon: LuxiaHomeIcon, label: "Home", available: true },
+  { id: "users", icon: LuxiaUserPermissionsIcon, label: "Users & Permissions", available: false },
+  { id: "datasources", icon: LuxiaDatasourceIcon, label: "Data Sources", available: false },
 ];
+
 const NAV_PROJECT_ITEMS: {
   icon: typeof LuxiaGalaxyIcon;
   label: string;
   section: ProjectNavSection;
+  available: boolean;
 }[] = [
-  { icon: LuxiaGalaxyIcon, label: "Galaxy", section: "galaxy" },
-  { icon: LuxiaChatIcon, label: "Chats", section: "chats" },
-  { icon: LuxiaConstellationIcon, label: "Constellations", section: "constellations" },
-  { icon: LuxiaDashboardIcon, label: "Dashboard", section: "dashboard" },
-  { icon: LuxiaVirtualAssistantIcon, label: "Virtual Assistant", section: "virtual-assistant" },
+  { icon: LuxiaProjectsIcon, label: "Overview", section: "overview", available: true },
+  { icon: LuxiaGalaxyIcon, label: "Galaxy", section: "galaxy", available: true },
+  { icon: LuxiaDashboardIcon, label: "Dashboard", section: "dashboard", available: true },
+  { icon: LuxiaConstellationIcon, label: "Constellations", section: "constellations", available: false },
+  { icon: LuxiaChatIcon, label: "Chats", section: "chats", available: false },
+  { icon: LuxiaVirtualAssistantIcon, label: "Vidgets", section: "virtual-assistant", available: false },
 ];
-const NAV_BOTTOM_ITEMS = [
-  { icon: LuxiaNotificationsIcon, label: "Notifications" },
-  { icon: LuxiaToolsGalleryIcon, label: "Tools gallery" },
-  { icon: LuxiaSettingsIcon, label: "Settings" },
-  { icon: LuxiaSupportIcon, label: "Support" },
+
+const NAV_BOTTOM_ITEMS: {
+  id: string;
+  icon: typeof LuxiaNotificationsIcon;
+  label: string;
+  available: boolean;
+}[] = [
+  { id: "notifications", icon: LuxiaNotificationsIcon, label: "Notifications", available: false },
+  { id: "tools", icon: LuxiaToolsGalleryIcon, label: "Tools Gallery", available: false },
+  { id: "settings", icon: LuxiaSettingsIcon, label: "Settings", available: false },
+  { id: "support", icon: LuxiaSupportIcon, label: "Support", available: false },
 ];
+
+const SIDEBAR_PROFILE_NAME = "User name";
+const SIDEBAR_PROFILE_ROLE = "Administrator";
+const SIDEBAR_PROFILE_INITIALS = "UN";
 
 type NavIconComponent = (props: LuxiaIconProps) => ReactElement;
 
@@ -629,7 +698,6 @@ const INSPECTOR_NARROW_BREAKPOINT = 1280;
 const INSPECTOR_WIDTH_DEFAULT = 288;
 const INSPECTOR_WIDTH_MIN = 260;
 const INSPECTOR_WIDTH_HARD_MAX = 360;
-/** Minimized Constellation inspector capsule — compact icon rail (52–64px target). */
 const CONSTELLATION_COLLAPSED_WIDTH = 56;
 const CHAT_MIN_USABLE_WIDTH = 480;
 
@@ -675,24 +743,37 @@ function clampGalaxyWidth(width: number, viewportWidth: number, leftNavWidth: nu
   return Math.max(GALAXY_WIDTH_MIN, Math.min(maxWidth, width));
 }
 
-function NavItem({ icon: Icon, label, active, badge, chevron, collapsed, onClick }: {
+function NavItem({ icon: Icon, label, active, badge, collapsed, disabled, href, onClick }: {
   icon: NavIconComponent | LucideIcon;
-  label: string; active?: boolean; badge?: number; chevron?: boolean; collapsed?: boolean;
+  label: string;
+  active?: boolean;
+  badge?: number;
+  collapsed?: boolean;
+  disabled?: boolean;
+  href?: string;
   onClick?: () => void;
 }) {
-  const button = (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      aria-current={active ? "page" : undefined}
-      className={`w-full flex items-center rounded-[10px] transition-all group ${
-        collapsed ? "justify-center h-[40px] px-0" : "gap-3 px-3.5 h-[40px] text-left"
-      }`}
-      style={{ background: active ? "rgba(255,255,255,0.12)" : "transparent" }}
-      onMouseEnter={(e) => { if (!active) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.06)"; }}
-      onMouseLeave={(e) => { if (!active) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
-    >
+  const isDisabled = Boolean(disabled);
+  const className = `w-full flex items-center rounded-[10px] transition-all group no-underline ${
+    collapsed ? "justify-center h-[40px] px-0" : "gap-3 px-3.5 h-[40px] text-left"
+  } ${isDisabled ? "cursor-not-allowed" : ""}`;
+  const style = {
+    background: active ? "rgba(255,255,255,0.12)" : "transparent",
+    opacity: isDisabled && !active ? 0.48 : 1,
+  } as const;
+  const onMouseEnter = (e: ReactMouseEvent<HTMLElement>) => {
+    if (!active && !isDisabled) {
+      e.currentTarget.style.background = "rgba(255,255,255,0.06)";
+    }
+  };
+  const onMouseLeave = (e: ReactMouseEvent<HTMLElement>) => {
+    if (!active) {
+      e.currentTarget.style.background = "transparent";
+    }
+  };
+
+  const content = (
+    <>
       <span className="relative flex-shrink-0" aria-hidden>
         <Icon size={16} color={active ? "white" : "rgba(255,255,255,0.55)"} />
         {collapsed && badge ? (
@@ -706,27 +787,83 @@ function NavItem({ icon: Icon, label, active, badge, chevron, collapsed, onClick
       </span>
       {!collapsed ? (
         <>
-          <span className="flex-1 luxia-type-nav-sidebar truncate"
-            style={{ color: active ? "white" : "rgba(255,255,255,0.7)" }}>
+          <span
+            className="flex-1 luxia-type-nav-sidebar truncate"
+            style={{ color: active ? "white" : "rgba(255,255,255,0.7)" }}
+          >
             {label}
           </span>
-          {badge ? <span className="luxia-type-badge px-1.5 py-0.5 rounded-full" style={{ background: LX.error, color: "white" }}>{badge}</span> : null}
-          {chevron ? <ChevronRight size={12} color={active ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.22)"} aria-hidden /> : null}
+          {badge ? (
+            <span
+              className="luxia-type-badge px-1.5 py-0.5 rounded-full"
+              style={{ background: LX.error, color: "white" }}
+            >
+              {badge}
+            </span>
+          ) : null}
         </>
       ) : null}
+    </>
+  );
+
+  const item = isDisabled ? (
+    <button
+      type="button"
+      disabled
+      aria-label={label}
+      aria-current={active ? "page" : undefined}
+      aria-disabled
+      className={className}
+      style={style}
+    >
+      {content}
+    </button>
+  ) : href ? (
+    <a
+      href={href}
+      aria-label={label}
+      aria-current={active ? "page" : undefined}
+      className={className}
+      style={style}
+      onClick={(e) => {
+        e.preventDefault();
+        onClick?.();
+      }}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+    >
+      {content}
+    </a>
+  ) : (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      aria-current={active ? "page" : undefined}
+      className={className}
+      style={style}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+    >
+      {content}
     </button>
   );
 
   if (collapsed) {
+    const trigger = isDisabled ? (
+      <span className="block w-full">{item}</span>
+    ) : (
+      item
+    );
     return (
       <Tooltip>
-        <TooltipTrigger asChild>{button}</TooltipTrigger>
+        <TooltipTrigger asChild>{trigger}</TooltipTrigger>
         <TooltipContent side="right" sideOffset={8}>{label}</TooltipContent>
       </Tooltip>
     );
   }
 
-  return button;
+  return item;
 }
 
 const SIDEBAR_LOGO_WIDTH = 119.66;
@@ -816,6 +953,7 @@ function LeftNav({
   collapsed,
   onToggleCollapsed,
   homeActive,
+  projectId,
   projectLabel,
   activeProjectSection,
   onHomeClick,
@@ -824,16 +962,22 @@ function LeftNav({
   collapsed: boolean;
   onToggleCollapsed: () => void;
   homeActive?: boolean;
+  projectId?: string | null;
   projectLabel?: string | null;
   activeProjectSection?: ProjectNavSection | null;
   onHomeClick?: () => void;
   onProjectSectionClick?: (section: ProjectNavSection) => void;
 }) {
   const navPadding = collapsed ? "px-2" : "px-3";
+  const showProjectNav = Boolean(projectLabel);
+  const overviewHref = projectId ? getProjectPath(projectId) : undefined;
+  const galaxyHref = projectId ? getGalaxyPath(projectId) : undefined;
+  const dashboardHref = projectId ? getDashboardPath(projectId) : undefined;
 
   return (
     <aside
       className="relative h-full min-h-0 flex-shrink-0"
+      aria-label="Luxia sidebar"
       style={{
         width: collapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_EXPANDED,
         transition: "width 200ms ease",
@@ -865,46 +1009,77 @@ function LeftNav({
         </div>
 
         <div className="relative z-[2] min-h-0 flex-1 overflow-x-hidden overflow-y-auto luxia-scrollbar luxia-scrollbar-dark luxia-scrollbar-vertical luxia-scrollbar-sidebar">
-          <nav className={`${navPadding} space-y-px`}>
-            {NAV_TOP_ITEMS.map(({ icon, label }) => (
+          <nav className={`${navPadding} space-y-px`} aria-label="Global workspace">
+            {NAV_TOP_ITEMS.map(({ id, icon, label, available }) => (
               <NavItem
-                key={label}
+                key={id}
                 icon={icon}
                 label={label}
                 collapsed={collapsed}
-                active={label === "Home page" ? homeActive : false}
-                onClick={label === "Home page" ? onHomeClick : undefined}
+                active={id === "home" ? homeActive : false}
+                disabled={!available}
+                href={id === "home" && available ? "/" : undefined}
+                onClick={id === "home" ? onHomeClick : undefined}
               />
             ))}
           </nav>
 
-          <div
-            className={`my-2.5 ${collapsed ? "mx-2" : "mx-4"}`}
-            style={{ height: 1, background: "rgba(255,255,255,0.07)" }}
-          />
+          {showProjectNav ? (
+            <>
+              <div
+                className={`my-2.5 ${collapsed ? "mx-2" : "mx-4"}`}
+                style={{ height: 1, background: "rgba(255,255,255,0.07)" }}
+                role="separator"
+              />
 
-          {!homeActive && projectLabel ? (
-            <div className={navPadding}>
-              {!collapsed ? (
-                <p className="px-3 mb-1 luxia-type-overline-data"
-                  style={{ color: "rgba(150,219,251,0.55)" }}>
-                  {projectLabel}
-                </p>
-              ) : null}
-              <nav className="space-y-px">
-                {NAV_PROJECT_ITEMS.map(({ icon, label, section }) => (
-                  <NavItem
-                    key={label}
-                    icon={icon}
-                    label={label}
-                    active={activeProjectSection === section}
-                    chevron={!collapsed}
-                    collapsed={collapsed}
-                    onClick={() => onProjectSectionClick?.(section)}
-                  />
-                ))}
-              </nav>
-            </div>
+              <div className={navPadding}>
+                {!collapsed ? (
+                  <div className="mb-1.5 px-3.5">
+                    <p
+                      className="luxia-type-overline-data"
+                      style={{ color: "rgba(150,219,251,0.55)" }}
+                    >
+                      PROJECT
+                    </p>
+                    <p
+                      className="mt-1 truncate luxia-type-nav-sidebar"
+                      style={{ color: "rgba(255,255,255,0.88)" }}
+                      title={projectLabel ?? undefined}
+                    >
+                      {projectLabel}
+                    </p>
+                  </div>
+                ) : null}
+                <nav className="space-y-px" aria-label="Current project">
+                  {NAV_PROJECT_ITEMS.map(({ icon, label, section, available }) => (
+                    <NavItem
+                      key={section}
+                      icon={icon}
+                      label={label}
+                      active={activeProjectSection === section}
+                      collapsed={collapsed}
+                      disabled={!available}
+                      href={
+                        available
+                          ? section === "overview"
+                            ? overviewHref
+                            : section === "galaxy"
+                              ? galaxyHref
+                              : section === "dashboard"
+                                ? dashboardHref
+                                : undefined
+                          : undefined
+                      }
+                      onClick={
+                        available
+                          ? () => onProjectSectionClick?.(section)
+                          : undefined
+                      }
+                    />
+                  ))}
+                </nav>
+              </div>
+            </>
           ) : null}
         </div>
 
@@ -912,9 +1087,17 @@ function LeftNav({
           className={`relative z-[2] flex-shrink-0 ${navPadding} space-y-px pb-1 pt-2`}
           style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
         >
-          {NAV_BOTTOM_ITEMS.map(({ icon, label }) => (
-            <NavItem key={label} icon={icon} label={label} collapsed={collapsed} />
-          ))}
+          <nav className="space-y-px" aria-label="Utilities">
+            {NAV_BOTTOM_ITEMS.map(({ id, icon, label, available }) => (
+              <NavItem
+                key={id}
+                icon={icon}
+                label={label}
+                collapsed={collapsed}
+                disabled={!available}
+              />
+            ))}
+          </nav>
         </div>
 
         {collapsed ? (
@@ -923,15 +1106,19 @@ function LeftNav({
               <div
                 className="relative z-[2] flex flex-shrink-0 items-center justify-center px-2 py-2.5"
                 style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
+                aria-label={`${SIDEBAR_PROFILE_NAME}, ${SIDEBAR_PROFILE_ROLE}`}
               >
-                <div className="w-8 h-8 rounded-[8px] flex items-center justify-center text-white luxia-type-caption flex-shrink-0"
-                  style={{ background: "linear-gradient(135deg, #5BC8F5 0%, #2C7A9E 100%)" }}>
-                  HR
+                <div
+                  className="w-8 h-8 rounded-[8px] flex items-center justify-center text-white luxia-type-caption flex-shrink-0"
+                  style={{ background: "linear-gradient(135deg, #5BC8F5 0%, #2C7A9E 100%)" }}
+                  aria-hidden
+                >
+                  {SIDEBAR_PROFILE_INITIALS}
                 </div>
               </div>
             </TooltipTrigger>
             <TooltipContent side="right" sideOffset={8}>
-              Hoda Roshani — Administrator
+              {SIDEBAR_PROFILE_NAME} — {SIDEBAR_PROFILE_ROLE}
             </TooltipContent>
           </Tooltip>
         ) : (
@@ -939,15 +1126,24 @@ function LeftNav({
             className="relative z-[2] flex flex-shrink-0 items-center gap-2.5 px-4 py-2.5"
             style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
           >
-            <div className="w-8 h-8 rounded-[8px] flex items-center justify-center text-white luxia-type-caption flex-shrink-0"
-              style={{ background: "linear-gradient(135deg, #5BC8F5 0%, #2C7A9E 100%)" }}>
-              HR
+            <div
+              className="w-8 h-8 rounded-[8px] flex items-center justify-center text-white luxia-type-caption flex-shrink-0"
+              style={{ background: "linear-gradient(135deg, #5BC8F5 0%, #2C7A9E 100%)" }}
+              aria-hidden
+            >
+              {SIDEBAR_PROFILE_INITIALS}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-white luxia-type-profile-secondary truncate leading-tight">Hoda Roshani</p>
-              <p className="luxia-type-profile-secondary truncate leading-tight" style={{ color: "rgba(255,255,255,0.4)" }}>Administrator</p>
+              <p className="text-white luxia-type-profile-secondary truncate leading-tight">
+                {SIDEBAR_PROFILE_NAME}
+              </p>
+              <p
+                className="luxia-type-profile-secondary truncate leading-tight"
+                style={{ color: "rgba(255,255,255,0.4)" }}
+              >
+                {SIDEBAR_PROFILE_ROLE}
+              </p>
             </div>
-            <ChevronRight size={12} color="rgba(255,255,255,0.25)" />
           </div>
         )}
       </div>
@@ -1193,7 +1389,15 @@ function NewChatModal({
   );
 
   const projectOptions = useMemo(
-    () => PROJECTS.map((project) => ({ value: project.id, label: project.label })),
+    () => PROJECTS.map((project) => ({
+      value: project.id,
+      label: project.label,
+      content: (
+        <span className="truncate" style={{ color: "var(--luxia-text-project-title)" }}>
+          {project.label}
+        </span>
+      ),
+    })),
     [],
   );
 
@@ -2073,7 +2277,6 @@ function ResponseTypeDropdown({ constellationType }: { constellationType: Conste
   );
 }
 
-/** Must match --luxia-composer-input-max-height / min-height in luxia-tokens.css */
 const COMPOSER_INPUT_MIN_HEIGHT = 20;
 const COMPOSER_INPUT_MAX_HEIGHT = 40;
 
@@ -3348,10 +3551,6 @@ function ConstellationSelector({
     closeMenu(true);
   }
 
-  /**
-   * Single identity control: name + type badge + chevron → Change Constellation only.
-   * Open Constellation lives as a text link under the description (expanded header).
-   */
   return (
     <>
       <Tooltip>
@@ -3611,7 +3810,6 @@ function ConstellationSidebar({
 
   const railHit =
     "flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[10px] outline-none focus-visible:outline-none transition-colors";
-  /** Match expanded Collapse control size/position family for stable toggle. */
   const expandHit =
     "mt-px flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-[7px] outline-none focus-visible:outline-none";
 
@@ -3641,7 +3839,6 @@ function ConstellationSidebar({
             boxShadow: IC.shellShadow,
           }}
         >
-          {/* Top: Expand only — mirrors expanded Collapse anchor (pt-3 / h-7). */}
           <div className="flex w-full flex-shrink-0 items-start justify-center px-1.5 pt-3 pb-2">
             <Tooltip>
               <TooltipTrigger asChild>
@@ -3844,7 +4041,6 @@ function ConstellationSidebar({
                 <span className="luxia-type-caption select-none" style={{ color: IC.textMuted }} aria-hidden>
                   ·
                 </span>
-                {/* No Constellation Settings/detail route yet — prototype text only. */}
                 <span
                   className="luxia-type-caption select-none"
                   style={{ color: IC.textMuted, cursor: "default" }}
@@ -3961,7 +4157,6 @@ function ConstellationSidebar({
 
           const isInstr = sid === "instr";
           const showDrop = sid === "pdfFiles";
-          // Cast keeps the generic branch typed after specialized early-returns exhaust SectionId.
           const fallbackSid = sid as SectionId;
           const sectionItems: string[] = items[fallbackSid] ?? [];
           const FallbackIcon = SECTION_META[fallbackSid].icon;
@@ -4117,7 +4312,7 @@ function ConstellationSidebar({
 
 export default function App() {
   const [chats, setChats] = useState<Chat[]>(INITIAL_CHATS);
-  const [activeChat, setActiveChat] = useState("chat-01");
+  const [activeChat, setActiveChat] = useState(INITIAL_SHELL.activeChat);
   const [chatMessages, setChatMessages] = useState<Record<string, Message[]>>(INITIAL_MESSAGES);
   const [inputValue, setInputValue] = useState("");
   const [language, setLanguage] = useState("EN");
@@ -4125,9 +4320,11 @@ export default function App() {
   const [showNewChatModal, setShowNewChatModal] = useState(false);
   const [newChatLockedProjectId, setNewChatLockedProjectId] = useState<string | null>(null);
   const [showNewProjectModal, setShowNewProjectModal] = useState(false);
-  const [appView, setAppView] = useState<"home" | "chat" | "project">("home");
-  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
-  const [projectBrowseMode, setProjectBrowseMode] = useState<ProjectOverviewBrowseMode>("overview");
+  const [appView, setAppView] = useState<LuxiaAppView>(INITIAL_SHELL.appView);
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(INITIAL_SHELL.activeProjectId);
+  const [projectBrowseMode, setProjectBrowseMode] = useState<ProjectOverviewBrowseMode>(
+    INITIAL_SHELL.projectBrowseMode,
+  );
   const [runtimeConstellations, setRuntimeConstellations] = useState<Constellation[]>([]);
   const allConstellations = useMemo(
     () => [...CONSTELLATIONS, ...runtimeConstellations],
@@ -4170,6 +4367,10 @@ export default function App() {
   );
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const counterRef = useRef(200);
+  const chatsRef = useRef(chats);
+  chatsRef.current = chats;
+  const homeProjectsRef = useRef(homeProjects);
+  homeProjectsRef.current = homeProjects;
 
   const isLeftNavNarrow = viewportWidth < LEFT_NAV_NARROW_BREAKPOINT;
   const isInspectorNarrow = viewportWidth <= INSPECTOR_NARROW_BREAKPOINT;
@@ -4197,27 +4398,97 @@ export default function App() {
     try {
       localStorage.setItem(LEFT_NAV_COLLAPSED_STORAGE_KEY, String(leftNavCollapsedPreference));
     } catch {
-      /* ignore storage errors */
     }
   }, [leftNavCollapsedPreference]);
 
   useEffect(() => {
+    function goHome(replace: boolean) {
+      if (typeof window !== "undefined") {
+        const onRoot = window.location.pathname === "/" || window.location.pathname === "";
+        if (!onRoot) {
+          if (replace) {
+            window.history.replaceState({ luxiaView: "home" }, "", "/");
+          } else {
+            window.history.pushState({ luxiaView: "home" }, "", "/");
+          }
+        }
+      }
+      setAppView("home");
+      setHomeBrowseMode("overview");
+      setActiveProjectId(null);
+      setProjectBrowseMode("overview");
+    }
+
     function applyPath(pathname: string) {
-      const projectId = parseProjectIdFromPath(pathname);
-      if (projectId) {
-        setActiveProjectId(projectId);
+      const resolved = resolveLuxiaPathname(pathname);
+
+      if (resolved.kind === "home") {
+        if (resolved.normalizeToRoot && typeof window !== "undefined") {
+          window.history.replaceState({ luxiaView: "home" }, "", "/");
+        }
+        setAppView("home");
+        setHomeBrowseMode("overview");
+        setActiveProjectId(null);
+        setProjectBrowseMode("overview");
+        return;
+      }
+
+      if (resolved.kind === "project") {
+        setActiveProjectId(resolved.projectId);
         setProjectBrowseMode("overview");
         setAppView("project");
         return;
       }
-      if (isHomePath(pathname)) {
-        setAppView("home");
-        setHomeBrowseMode("overview");
-        setActiveProjectId(null);
-      }
-    }
 
-    applyPath(window.location.pathname);
+      if (resolved.kind === "dashboard") {
+        setActiveProjectId(resolved.projectId);
+        setProjectBrowseMode("dashboards");
+        setAppView("project");
+        return;
+      }
+
+      if (resolved.kind === "galaxy") {
+        const galaxyChat = findGalaxyChatForProject(
+          resolved.projectId,
+          chatsRef.current,
+          homeProjectsRef.current,
+        );
+        if (!galaxyChat) {
+          setActiveProjectId(resolved.projectId);
+          setProjectBrowseMode("overview");
+          setAppView("project");
+          if (typeof window !== "undefined") {
+            const overviewPath = getProjectPath(resolved.projectId);
+            if (window.location.pathname !== overviewPath) {
+              window.history.replaceState(
+                { luxiaView: "project", projectId: resolved.projectId },
+                "",
+                overviewPath,
+              );
+            }
+          }
+          return;
+        }
+        setActiveProjectId(resolved.projectId);
+        setActiveChat(galaxyChat.id);
+        setAppView("chat");
+        return;
+      }
+
+      if (resolved.kind === "chat") {
+        const chat = findChatById(resolved.chatId, chatsRef.current);
+        if (!chat) {
+          goHome(true);
+          return;
+        }
+        if (chat.projectId) setActiveProjectId(chat.projectId);
+        setActiveChat(chat.id);
+        setAppView("chat");
+        return;
+      }
+
+      goHome(true);
+    }
 
     function onPopState() {
       applyPath(window.location.pathname);
@@ -4248,13 +4519,15 @@ export default function App() {
   const activeConstellation = resolveChatConstellation(activeData, allConstellations);
   const messages = chatMessages[activeChat] ?? [];
 
-  const contextProjectId = appView === "project"
-    ? activeProjectId
-    : (activeData?.projectId ?? activeProjectId);
+  const contextProjectId = appView === "home"
+    ? null
+    : appView === "project"
+      ? activeProjectId
+      : (activeData?.projectId ?? activeProjectId);
 
   const contextProjectLabel = useMemo(() => {
     if (!contextProjectId) return null;
-    return getProjectNameById(contextProjectId, homeProjects, "") || null;
+    return getProjectNameById(contextProjectId, homeProjects, PROJECT_NAME_FALLBACK);
   }, [contextProjectId, homeProjects]);
 
   const activeProjectSection: ProjectNavSection | null = useMemo(() => {
@@ -4263,7 +4536,7 @@ export default function App() {
       if (projectBrowseMode === "constellations") return "constellations";
       if (projectBrowseMode === "dashboards") return "dashboard";
       if (projectBrowseMode === "virtual-assistants") return "virtual-assistant";
-      return null;
+      return "overview";
     }
     if (appView === "chat") {
       if (activeData?.chatType === "galaxy") return "galaxy";
@@ -4424,7 +4697,6 @@ export default function App() {
     setShowNewChatModal(true);
   }
 
-  /** Canonical global Home navigation — shared by every sidebar Home control. */
   function handleNavigateHome() {
     setAppView("home");
     setHomeBrowseMode("overview");
@@ -4434,8 +4706,12 @@ export default function App() {
     setNewChatLockedProjectId(null);
     setShowNewProjectModal(false);
     setHomeScrollRequest((value) => value + 1);
-    if (typeof window !== "undefined" && !isHomePath(window.location.pathname)) {
-      window.history.pushState({ luxiaView: "home" }, "", "/");
+    if (typeof window !== "undefined") {
+      if (window.location.pathname === "/home" || window.location.pathname === "/home/") {
+        window.history.replaceState({ luxiaView: "home" }, "", "/");
+      } else if (!isHomePath(window.location.pathname)) {
+        window.history.pushState({ luxiaView: "home" }, "", "/");
+      }
     }
   }
 
@@ -4447,6 +4723,32 @@ export default function App() {
     }
   }
 
+  function syncDashboardPath(projectId: string) {
+    if (typeof window === "undefined") return;
+    const next = getDashboardPath(projectId);
+    if (window.location.pathname !== next) {
+      window.history.pushState({ luxiaView: "dashboard", projectId }, "", next);
+    }
+  }
+
+  function syncWorkspacePathForChat(chat: Pick<Chat, "id" | "chatType" | "projectId">) {
+    if (typeof window === "undefined") return;
+    const next = chat.chatType === "galaxy"
+      ? getGalaxyPath(chat.projectId)
+      : getChatPath(chat.id);
+    if (window.location.pathname === next) return;
+    window.history.pushState(
+      {
+        luxiaView: "chat",
+        chatId: chat.id,
+        projectId: chat.projectId,
+        chatType: chat.chatType,
+      },
+      "",
+      next,
+    );
+  }
+
   function handleOpenProjectOverview(
     projectId: string,
     browseMode: ProjectOverviewBrowseMode = "overview",
@@ -4455,20 +4757,31 @@ export default function App() {
       ?? PROJECTS.find((entry) => entry.id === projectId);
     if (!project) {
       setActiveProjectId(projectId);
-      setProjectBrowseMode("overview");
+      setProjectBrowseMode(browseMode === "dashboards" ? "dashboards" : "overview");
       setAppView("project");
-      syncProjectPath(projectId);
+      if (browseMode === "dashboards") {
+        syncDashboardPath(projectId);
+      } else {
+        syncProjectPath(projectId);
+      }
       setHomeScrollRequest((value) => value + 1);
       console.warn(`[Luxia] Project "${projectId}" not found. Showing not-found state.`);
       return;
     }
     setActiveProjectId(projectId);
-    setProjectBrowseMode(browseMode);
+    setProjectBrowseMode(browseMode === "dashboards" ? "dashboards" : "overview");
     setAppView("project");
-    syncProjectPath(projectId);
+    if (browseMode === "dashboards") {
+      syncDashboardPath(projectId);
+    } else {
+      syncProjectPath(projectId);
+    }
     setHomeScrollRequest((value) => value + 1);
   }
 
+  function handleOpenProjectDashboard(projectId: string) {
+    handleOpenProjectOverview(projectId, "dashboards");
+  }
   function handleNavigateProjectDestination(
     destination: "galaxy" | "constellations" | "openProject",
     projectId: string,
@@ -4478,7 +4791,6 @@ export default function App() {
       return;
     }
     if (destination === "constellations") {
-      // Constellations library is not designed yet — open Project Overview instead.
       handleOpenProjectOverview(projectId, "overview");
       return;
     }
@@ -4493,7 +4805,6 @@ export default function App() {
         ? CONSTELLATIONS.find((entry) => entry.id === item.constellationId)
         : undefined;
       const projectCard = homeProjects.find((project) => project.id === item.projectId);
-      // Drop legacy duplicated projectName if present on stored/seed objects.
       const { projectName: _legacyProjectName, ...rest } = item;
       return {
         ...rest,
@@ -4505,7 +4816,6 @@ export default function App() {
     })
   ), [chats, homeProjects, pinnedEntityOrder]);
 
-  // Keep persisted Home-focus preference aligned with accessible Chat/Galaxy keys.
   useEffect(() => {
     const normalized = normalizeHomePrimaryPreference(
       primaryPreference,
@@ -4607,7 +4917,6 @@ export default function App() {
     }
   }
 
-  /** Clears manual Home focus so the invisible fallback resolver picks a Hero. */
   function clearManualHomeFocus() {
     const next = { mode: "automatic" as const, entityKey: null };
     setPrimaryPreference(next);
@@ -4624,7 +4933,6 @@ export default function App() {
     const next = [...new Set([...dismissedContinueKeys, entityKey])];
     setDismissedContinueKeys(next);
     writeDismissedContinueKeys(next);
-    // Hiding the manual Home-focus item makes it inaccessible — normalize immediately.
     if (primaryPreference.mode === "manual" && primaryPreference.entityKey === entityKey) {
       const automatic = { mode: "automatic" as const, entityKey: null };
       setPrimaryPreference(automatic);
@@ -4671,6 +4979,8 @@ export default function App() {
   function handleContinueWork(item: HomeRecentWorkItem) {
     if (item.projectId) setActiveProjectId(item.projectId);
     if (!ensureChatOpen(item.chatId)) return;
+    const chat = findChatById(item.chatId, chatsRef.current);
+    if (chat) syncWorkspacePathForChat(chat);
     setAppView("chat");
   }
 
@@ -4686,46 +4996,27 @@ export default function App() {
       return;
     }
 
-    const galaxyId = homeProject?.galaxyId
-      ?? INITIAL_CHATS.find((chat) => chat.chatType === "galaxy" && chat.projectId === projectId)?.id;
-
-    if (!galaxyId) {
-      console.warn(`[Luxia] No Galaxy ID associated with project "${projectId}". Navigation aborted.`);
-      return;
-    }
-
-    const galaxyChat = chats.find((chat) => chat.id === galaxyId && chat.chatType === "galaxy")
-      ?? INITIAL_CHATS.find((chat) => chat.id === galaxyId && chat.chatType === "galaxy");
+    const galaxyChat = findGalaxyChatForProject(projectId, chats, homeProjects);
 
     if (!galaxyChat || galaxyChat.projectId !== projectId) {
       console.warn(
-        `[Luxia] Galaxy "${galaxyId}" is missing or not bound to project "${projectId}". Navigation aborted.`,
+        `[Luxia] Galaxy is missing or not bound to project "${projectId}". Navigation aborted.`,
       );
       return;
     }
 
     setActiveProjectId(projectId);
     if (!ensureChatOpen(galaxyChat.id)) return;
+    syncWorkspacePathForChat(galaxyChat);
     setAppView("chat");
   }
 
-  /** Opens the Project Galaxy and expands the existing Galaxy Settings / intelligence panel. */
   function handleOpenGalaxySettingsFromOverview(projectId: string) {
-    const homeProject = homeProjects.find((entry) => entry.id === projectId);
-    const galaxyId = homeProject?.galaxyId
-      ?? INITIAL_CHATS.find((chat) => chat.chatType === "galaxy" && chat.projectId === projectId)?.id;
-
-    if (!galaxyId) {
-      console.warn(`[Luxia] No Galaxy ID associated with project "${projectId}". Settings navigation aborted.`);
-      return;
-    }
-
-    const galaxyChat = chats.find((chat) => chat.id === galaxyId && chat.chatType === "galaxy")
-      ?? INITIAL_CHATS.find((chat) => chat.id === galaxyId && chat.chatType === "galaxy");
+    const galaxyChat = findGalaxyChatForProject(projectId, chats, homeProjects);
 
     if (!galaxyChat || galaxyChat.projectId !== projectId) {
       console.warn(
-        `[Luxia] Galaxy "${galaxyId}" is missing or not bound to project "${projectId}". Settings navigation aborted.`,
+        `[Luxia] Galaxy is missing or not bound to project "${projectId}". Settings navigation aborted.`,
       );
       return;
     }
@@ -4740,6 +5031,7 @@ export default function App() {
       focusSection: "instruction",
     });
     expandGalaxyIntelligencePanel({ force: true });
+    syncWorkspacePathForChat(galaxyChat);
     setAppView("chat");
   }
 
@@ -4748,6 +5040,7 @@ export default function App() {
       ?? INITIAL_CHATS.find((entry) => entry.id === chatId);
     if (chat?.projectId) setActiveProjectId(chat.projectId);
     if (!ensureChatOpen(chatId)) return;
+    if (chat) syncWorkspacePathForChat(chat);
     setAppView("chat");
   }
 
@@ -4775,20 +5068,23 @@ export default function App() {
     setActiveProjectId(projectId);
     if (boundChat) {
       if (!ensureChatOpen(boundChat.id)) return;
+      syncWorkspacePathForChat(boundChat);
       setAppView("chat");
       return;
     }
 
     const id = `c${Date.now()}`;
-    setChats((prev) => [...prev, {
+    const created: Chat = {
       id,
       label: `${constellation.label} Chat`,
       chatType: "constellation",
       projectId,
       constellationId,
-    }]);
+    };
+    setChats((prev) => [...prev, created]);
     setChatMessages((prev) => ({ ...prev, [id]: [] }));
     setActiveChat(id);
+    syncWorkspacePathForChat(created);
     setAppView("chat");
   }
 
@@ -4823,25 +5119,17 @@ export default function App() {
     const projectId = contextProjectId;
     if (!projectId) return;
 
+    if (section === "overview") {
+      handleOpenProjectOverview(projectId, "overview");
+      return;
+    }
     if (section === "galaxy") {
       handleOpenGalaxyFromHome(projectId);
       return;
     }
-    if (section === "chats") {
-      // Chats library is not designed yet — open Project Overview instead.
-      handleOpenProjectOverview(projectId, "overview");
-      return;
-    }
-    if (section === "constellations") {
-      handleOpenProjectOverview(projectId, "overview");
-      return;
-    }
     if (section === "dashboard") {
-      handleOpenProjectOverview(projectId, "overview");
+      handleOpenProjectDashboard(projectId);
       return;
-    }
-    if (section === "virtual-assistant") {
-      handleOpenProjectOverview(projectId, "overview");
     }
   }
 
@@ -4906,6 +5194,11 @@ export default function App() {
     setShowNewChatModal(false);
     setNewChatLockedProjectId(null);
     setAppView("chat");
+    syncWorkspacePathForChat({
+      id,
+      chatType: payload.chatType,
+      projectId: payload.projectId,
+    });
   }
 
   function handleCloseChat(id: string) {
@@ -4918,7 +5211,18 @@ export default function App() {
     });
     if (activeChat === id) {
       const remaining = chats.filter(c => c.id !== id);
-      setActiveChat(remaining[remaining.length - 1]!.id);
+      const nextChat = remaining[remaining.length - 1]!;
+      setActiveChat(nextChat.id);
+      syncWorkspacePathForChat(nextChat);
+    }
+  }
+
+  function handleSelectChat(chatId: string) {
+    setActiveChat(chatId);
+    const chat = findChatById(chatId, chats);
+    if (chat) {
+      if (chat.projectId) setActiveProjectId(chat.projectId);
+      syncWorkspacePathForChat(chat);
     }
   }
 
@@ -4939,7 +5243,6 @@ export default function App() {
         [chatId]: {
           ...current,
           ...patch,
-          // Keep live session display name aligned with canonical Project data.
           projectName: getProjectNameById(projectId, homeProjects),
         },
       };
@@ -5140,18 +5443,21 @@ export default function App() {
     );
     if (existing) {
       setActiveChat(existing.id);
+      syncWorkspacePathForChat(existing);
       return;
     }
     const id = `c${Date.now()}`;
-    setChats((p) => [...p, {
+    const created: Chat = {
       id,
       label: match.label,
       chatType: "constellation",
       projectId: match.projectId,
       constellationId: match.id,
-    }]);
+    };
+    setChats((p) => [...p, created]);
     setChatMessages((p) => ({ ...p, [id]: [] }));
     setActiveChat(id);
+    syncWorkspacePathForChat(created);
   }
 
   function handleViewGalaxyActivity() {
@@ -5242,6 +5548,7 @@ export default function App() {
         collapsed={leftNavCollapsed}
         onToggleCollapsed={handleLeftNavToggle}
         homeActive={appView === "home"}
+        projectId={contextProjectId}
         projectLabel={contextProjectLabel}
         activeProjectSection={activeProjectSection}
         onHomeClick={handleNavigateHome}
@@ -5293,34 +5600,57 @@ export default function App() {
             scrollRequest={homeScrollRequest}
             contentMax={getLuxiaPageHeaderMaxWidth("overview")}
           >
-            <ProjectOverviewPage
-              projectId={activeProjectId}
-              projects={homeProjects}
-              galaxyNameById={galaxyNameById}
-              chats={overviewChats}
-              constellations={overviewConstellations}
-              initialBrowseMode={projectBrowseMode}
-              onBrowseModeChange={setProjectBrowseMode}
-              onNavigateHome={handleNavigateHome}
-              onViewProjects={() => {
-                setAppView("home");
-                setHomeBrowseMode("projects");
-                setActiveProjectId(null);
-                setHomeScrollRequest((value) => value + 1);
-                if (typeof window !== "undefined" && !isHomePath(window.location.pathname)) {
-                  window.history.pushState({ luxiaView: "home", browse: "projects" }, "", "/");
-                }
-              }}
-              onOpenGalaxy={handleOpenGalaxyFromHome}
-              onOpenGalaxySettings={handleOpenGalaxySettingsFromOverview}
-              onOpenChat={handleOpenChatFromHome}
-              onOpenConstellation={handleOpenConstellationFromProject}
-              onNewChat={handleNewChatFromProject}
-              onAddConstellation={handleAddConstellationToProject}
-              onRenameProject={handleRenameProject}
-              onRenameGalaxy={handleRenameGalaxy}
-              onArchiveProject={handleArchiveProject}
-            />
+            {projectBrowseMode === "dashboards" ? (
+              <ProjectDashboardPage
+                projectId={activeProjectId}
+                projects={homeProjects}
+                onNavigateHome={handleNavigateHome}
+                onViewProjects={() => {
+                  setAppView("home");
+                  setHomeBrowseMode("projects");
+                  setActiveProjectId(null);
+                  setProjectBrowseMode("overview");
+                  setHomeScrollRequest((value) => value + 1);
+                  if (typeof window !== "undefined" && !isHomePath(window.location.pathname)) {
+                    window.history.pushState({ luxiaView: "home", browse: "projects" }, "", "/");
+                  }
+                }}
+                onOpenProjectOverview={(projectId) => {
+                  handleOpenProjectOverview(projectId, "overview");
+                }}
+                onOpenGalaxy={handleOpenGalaxyFromHome}
+              />
+            ) : (
+              <ProjectOverviewPage
+                projectId={activeProjectId}
+                projects={homeProjects}
+                galaxyNameById={galaxyNameById}
+                chats={overviewChats}
+                constellations={overviewConstellations}
+                initialBrowseMode="overview"
+                onBrowseModeChange={setProjectBrowseMode}
+                onNavigateHome={handleNavigateHome}
+                onViewProjects={() => {
+                  setAppView("home");
+                  setHomeBrowseMode("projects");
+                  setActiveProjectId(null);
+                  setHomeScrollRequest((value) => value + 1);
+                  if (typeof window !== "undefined" && !isHomePath(window.location.pathname)) {
+                    window.history.pushState({ luxiaView: "home", browse: "projects" }, "", "/");
+                  }
+                }}
+                onOpenGalaxy={handleOpenGalaxyFromHome}
+                onOpenGalaxySettings={handleOpenGalaxySettingsFromOverview}
+                onOpenChat={handleOpenChatFromHome}
+                onOpenConstellation={handleOpenConstellationFromProject}
+                onNewChat={handleNewChatFromProject}
+                onAddConstellation={handleAddConstellationToProject}
+                onOpenDashboard={handleOpenProjectDashboard}
+                onRenameProject={handleRenameProject}
+                onRenameGalaxy={handleRenameGalaxy}
+                onArchiveProject={handleArchiveProject}
+              />
+            )}
           </HomePageShell>
         ) : (
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
@@ -5366,7 +5696,7 @@ export default function App() {
             tabs={(
               <ChatTabBar
                 chats={chats} activeId={activeChat}
-                onSelect={setActiveChat} onNew={handleNewChat}
+                onSelect={handleSelectChat} onNew={handleNewChat}
                 onClose={handleCloseChat}
                 onPin={handleChatPin}
                 onRename={(id, label) => setChats(p => p.map(c => c.id === id ? { ...c, label } : c))}

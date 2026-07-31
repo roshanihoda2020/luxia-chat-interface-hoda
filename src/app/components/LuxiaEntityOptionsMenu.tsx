@@ -10,17 +10,10 @@ import {
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
 
-/**
- * Shared named-entity Options menu item.
- * Prefer omitting unsupported actions; use `disabled` only for approved
- * visual prototypes that must remain non-functional.
- */
 export interface LuxiaEntityOptionsItem {
   id: string;
   label: string;
-  /** Optional accessible name; defaults to `label`. */
   ariaLabel?: string;
-  /** Omit or leave undefined for static/disabled prototype items. */
   onSelect?: () => void;
   disabled?: boolean;
   destructive?: boolean;
@@ -29,38 +22,19 @@ export interface LuxiaEntityOptionsItem {
 }
 
 export interface LuxiaEntityOptionsMenuProps {
-  /** Entity display name used in the accessible trigger label. */
   entityLabel: string;
-  /** Entity type word for a11y, e.g. Project, Galaxy, Chat. */
   entityType: string;
   items: LuxiaEntityOptionsItem[];
-  /**
-   * `icon` — compact utility ellipsis (entity cards).
-   * `text` — outlined page-level “Options” button (Project / Chat headers).
-   */
   triggerVariant?: "text" | "icon";
-  /**
-   * `default` — light card / page surfaces (matches Project Pin utility).
-   * `onDark` — dark Galaxy feature card.
-   */
   tone?: "default" | "onDark";
-  /**
-   * Override accessible name. Defaults to `{entityType} options`
-   * (e.g. “Galaxy options”, “Project options”).
-   */
   ariaLabel?: string;
   className?: string;
   align?: "start" | "center" | "end";
 }
 
-/** Compact utility hit area — matches Project-card Pin (~30×30). */
 export const ENTITY_UTILITY_HIT =
   "flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[8px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]";
 
-/**
- * Canonical Options trigger + menu for named-entity surfaces.
- * Gear/settings icons are reserved for real Settings actions — not used here.
- */
 export function LuxiaEntityOptionsMenu({
   entityLabel,
   entityType,

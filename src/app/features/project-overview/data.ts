@@ -1,8 +1,3 @@
-/**
- * Project Overview–specific seeds keyed by stable `projectId`.
- * Canonical Project records live in `HOME_PROJECTS` (`features/project`).
- * Do not duplicate Project name, description, Galaxy ID, or counts here.
- */
 import { HOME_PROJECTS } from "@/app/features/project/data";
 import type {
   ProjectActivityItem,
@@ -27,7 +22,6 @@ function projectIndex(projectId: string): number {
   return index >= 0 ? index : 0;
 }
 
-/** Project-scoped activity seeds. Counts vary by Project so Overview content is not identical. */
 export const PROJECT_ACTIVITY: ProjectActivityItem[] = PROJECT_IDS.flatMap((projectId) => {
   const index = projectIndex(projectId);
   const n = index + 1;
@@ -81,7 +75,7 @@ export const PROJECT_ACTIVITY: ProjectActivityItem[] = PROJECT_IDS.flatMap((proj
         id: `${projectId}-act-05`,
         projectId,
         type: "widget",
-        primary: "Widget name 01 was published",
+        primary: "Vidget name 01 was published",
         secondary: "Website",
         timestamp: "3 days ago",
         timestampValue: NOW - DAY_MS * 3,
@@ -115,7 +109,6 @@ export const PROJECT_ACTIVITY: ProjectActivityItem[] = PROJECT_IDS.flatMap((proj
   return base;
 });
 
-/** Visual Dashboard outputs for Project Overview gallery (symbolic preview only). */
 export const PROJECT_DASHBOARD_OUTPUTS: ProjectDashboardOutput[] = PROJECT_IDS.flatMap(
   (projectId) => {
     const homeProject = HOME_PROJECTS.find((project) => project.id === projectId);
@@ -126,6 +119,7 @@ export const PROJECT_DASHBOARD_OUTPUTS: ProjectDashboardOutput[] = PROJECT_IDS.f
         projectId,
         name: "Output name 01",
         outputType: "chart",
+        sourceType: "galaxy",
         sourceContext: "Galaxy",
         updatedAt: "2h ago",
         updatedAtTimestamp: NOW - HOUR_MS * 2,
@@ -135,6 +129,7 @@ export const PROJECT_DASHBOARD_OUTPUTS: ProjectDashboardOutput[] = PROJECT_IDS.f
         projectId,
         name: "Output name 02",
         outputType: "table",
+        sourceType: "constellation",
         sourceContext: "Constellation name 01",
         updatedAt: "yesterday",
         updatedAtTimestamp: NOW - DAY_MS,
@@ -144,6 +139,7 @@ export const PROJECT_DASHBOARD_OUTPUTS: ProjectDashboardOutput[] = PROJECT_IDS.f
         projectId,
         name: "Output name 03",
         outputType: "report",
+        sourceType: "chat",
         sourceContext: "Chat name 01",
         updatedAt: "3 days ago",
         updatedAtTimestamp: NOW - DAY_MS * 3,
@@ -153,6 +149,7 @@ export const PROJECT_DASHBOARD_OUTPUTS: ProjectDashboardOutput[] = PROJECT_IDS.f
         projectId,
         name: "Output name 04",
         outputType: "metric",
+        sourceType: "galaxy",
         sourceContext: "Galaxy",
         updatedAt: "4 days ago",
         updatedAtTimestamp: NOW - DAY_MS * 4,
@@ -162,6 +159,7 @@ export const PROJECT_DASHBOARD_OUTPUTS: ProjectDashboardOutput[] = PROJECT_IDS.f
         projectId,
         name: "Output name 05",
         outputType: "analysis",
+        sourceType: "constellation",
         sourceContext: "Constellation name 02",
         updatedAt: "5 days ago",
         updatedAtTimestamp: NOW - DAY_MS * 5,
@@ -171,6 +169,7 @@ export const PROJECT_DASHBOARD_OUTPUTS: ProjectDashboardOutput[] = PROJECT_IDS.f
         projectId,
         name: "Output name 06",
         outputType: "insight",
+        sourceType: "chat",
         sourceContext: "Chat name 02",
         updatedAt: "6 days ago",
         updatedAtTimestamp: NOW - DAY_MS * 6,
@@ -180,6 +179,7 @@ export const PROJECT_DASHBOARD_OUTPUTS: ProjectDashboardOutput[] = PROJECT_IDS.f
         projectId,
         name: "Output name 07",
         outputType: "comparison",
+        sourceType: "galaxy",
         sourceContext: "Galaxy",
         updatedAt: "1 week ago",
         updatedAtTimestamp: NOW - DAY_MS * 7,
@@ -189,6 +189,7 @@ export const PROJECT_DASHBOARD_OUTPUTS: ProjectDashboardOutput[] = PROJECT_IDS.f
         projectId,
         name: "Output name 08",
         outputType: "mixed",
+        sourceType: "chat",
         sourceContext: "Chat name 03",
         updatedAt: "1 week ago",
         updatedAtTimestamp: NOW - DAY_MS * 7 - HOUR_MS,
@@ -197,7 +198,6 @@ export const PROJECT_DASHBOARD_OUTPUTS: ProjectDashboardOutput[] = PROJECT_IDS.f
   },
 );
 
-/** Legacy list seeds for unfinished Dashboards library surface. */
 export const PROJECT_DASHBOARDS: ProjectDashboardItem[] = PROJECT_IDS.flatMap((projectId) => {
   const index = projectIndex(projectId);
   const homeProject = HOME_PROJECTS.find((project) => project.id === projectId);
@@ -249,7 +249,7 @@ export const PROJECT_WIDGETS: ProjectWidgetItem[] = PROJECT_IDS.flatMap((project
   return Array.from({ length: count }, (_, i) => ({
     id: `${projectId}-va-${pad(i + 1)}`,
     projectId,
-    name: `Widget name ${pad(Math.min(n + i, 10))}`,
+    name: `Vidget name ${pad(Math.min(n + i, 10))}`,
     deployment: WIDGET_DEPLOYMENTS[i % WIDGET_DEPLOYMENTS.length],
     language: i % 2 === 0 ? "English" : "Spanish",
     status: i === 1 ? ("Draft" as const) : ("Published" as const),
@@ -274,7 +274,6 @@ export const PROJECT_MEMBERS: ProjectMemberItem[] = PROJECT_IDS.flatMap((project
   }));
 });
 
-/** Synthetic Source counts for Constellations that exist in App seed data. */
 export const CONSTELLATION_SOURCE_COUNTS: Record<string, number> = {
   con1: 4,
   con2: 2,

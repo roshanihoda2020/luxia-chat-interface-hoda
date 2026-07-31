@@ -1,8 +1,5 @@
 import type { CSSProperties, HTMLAttributes } from "react";
 
-/**
- * Canonical Luxia icons — imports SVG files from this folder by exact filename.
- */
 import aiUrl from "./Ai.svg";
 import arrowRightUrl from "./arrow-right.svg";
 import chatUrl from "./chat.svg";
@@ -21,7 +18,6 @@ import virtualAssistantUrl from "./Virtual assisstance.svg";
 
 export interface LuxiaIconProps extends Omit<HTMLAttributes<HTMLSpanElement>, "color" | "children"> {
   size?: number;
-  /** Lucide-compatible color prop for shared call sites. */
   color?: string;
   title?: string;
 }

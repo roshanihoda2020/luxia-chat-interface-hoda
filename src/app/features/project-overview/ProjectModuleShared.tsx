@@ -3,10 +3,6 @@ import { LuxiaArrowRightIcon } from "@/assets/icons";
 import { Button } from "@/app/components/ui/button";
 import { HS } from "@/app/features/home/homeSurfaces";
 
-/**
- * Local Project Overview semantic card surfaces.
- * Soft purple/blue tints only — not used on Home, libraries, or Galaxy.
- */
 export type ProjectModuleSurface =
   | "default"
   | "knowledge"
@@ -102,7 +98,6 @@ export function ProjectViewAllLink({
   onClick,
 }: {
   label: string;
-  /** When omitted, renders as static prototype UI with no navigation. */
   onClick?: () => void;
 }) {
   const content = (
@@ -142,7 +137,6 @@ export function ProjectOutlineButton({
   ariaLabel,
 }: {
   label: string;
-  /** When omitted, renders as static prototype UI with no navigation. */
   onClick?: () => void;
   ariaLabel?: string;
 }) {
@@ -188,17 +182,13 @@ export function ProjectModuleCard({
   title: string;
   count: number;
   countLabel: string;
-  /** Secondary one-line explanation under the module heading. */
   description?: string;
   children: ReactNode;
   footer: ReactNode;
-  /** Optional Home-style top-right domain marker. */
   marker?: ReactNode;
   headingColor?: string;
   iconColor?: string;
-  /** Local Project Overview hierarchy variant — does not affect Home cards. */
   size?: "primary" | "knowledge" | "output" | "supporting";
-  /** Local semantic surface tint — Project Overview only. */
   surface?: ProjectModuleSurface;
 }) {
   const sizeClass =
@@ -219,11 +209,11 @@ export function ProjectModuleCard({
 
   return (
     <section
-      className={`relative flex min-w-0 flex-col overflow-hidden rounded-[var(--luxia-radius-16)] border ${sizeClass}`}
+      className={`relative flex h-full min-w-0 flex-col overflow-hidden rounded-[var(--luxia-radius-16)] border ${sizeClass}`}
       style={sectionStyle}
     >
       {marker}
-      <header className={`mb-2 flex min-w-0 items-center gap-2.5 ${marker ? "pr-11" : ""}`}>
+      <header className={`mb-2 flex min-w-0 shrink-0 items-center gap-2.5 ${marker ? "pr-11" : ""}`}>
         <span className="inline-flex shrink-0" style={{ color: iconColor }} aria-hidden>
           {icon}
         </span>
@@ -234,7 +224,7 @@ export function ProjectModuleCard({
       </header>
       {description ? (
         <p
-          className={`mb-3 line-clamp-2 luxia-type-caption ${marker ? "pr-11" : ""}`}
+          className={`mb-3 shrink-0 line-clamp-2 luxia-type-caption ${marker ? "pr-11" : ""}`}
           style={{ color: "var(--luxia-neutral-600, #475569)" }}
         >
           {description}
@@ -242,7 +232,7 @@ export function ProjectModuleCard({
       ) : null}
       <div className="flex min-h-0 flex-1 flex-col">{children}</div>
       <footer
-        className="mt-4 flex flex-nowrap items-center justify-between gap-3 pt-3"
+        className="mt-4 flex shrink-0 flex-nowrap items-center justify-between gap-3 pt-3"
         style={{ borderTop: `1px solid ${surfaceStyle.footerBorder}` }}
       >
         {footer}

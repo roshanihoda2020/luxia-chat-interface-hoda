@@ -33,15 +33,22 @@ export type {
   ProjectDestination,
 } from "./types";
 
-/** Project domain re-exports for App shell convenience (canonical owner: features/project). */
 export {
   NewProjectModal,
   ProjectsBrowser,
   HOME_PROJECTS,
   getProjectPath,
+  getGalaxyPath,
+  getDashboardPath,
+  getChatPath,
   parseProjectIdFromPath,
+  parseGalaxyProjectIdFromPath,
+  parseDashboardProjectIdFromPath,
+  parseChatIdFromPath,
   isHomePath,
+  resolveLuxiaPathname,
   readPinnedProjectIds,
   togglePinnedProjectId,
   writePinnedProjectIds,
 } from "@/app/features/project";
+export type { LuxiaResolvedPath } from "@/app/features/project";

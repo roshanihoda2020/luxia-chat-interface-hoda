@@ -9,10 +9,8 @@ import {
 import { Check, Pencil, X } from "lucide-react";
 import { HS } from "@/app/features/home/homeSurfaces";
 
-/** Intentional contained header max-width variants — not used for Chat/Galaxy workspace headers. */
 export type LuxiaPageHeaderWidthVariant = "overview" | "library";
 
-/** Shared max-width tokens for centered overview/library page bodies. */
 export const LUXIA_PAGE_HEADER_WIDTH: Record<LuxiaPageHeaderWidthVariant, string> = {
   overview: HS.overviewContentMax,
   library: HS.libraryContentMax,
@@ -22,10 +20,6 @@ export function getLuxiaPageHeaderMaxWidth(variant: LuxiaPageHeaderWidthVariant)
   return LUXIA_PAGE_HEADER_WIDTH[variant];
 }
 
-/**
- * Shared page-intro rhythm for Project, Chat, and Galaxy headings.
- * Horizontal padding matches HomePageShell (`HS.pagePadInline`).
- */
 export const LUXIA_PAGE_INTRO = {
   padTop: "2rem",
   padInline: HS.pagePadInline,
@@ -40,64 +34,28 @@ export const LUXIA_PAGE_HEADER_SHELL = {
   padInline: LUXIA_PAGE_INTRO.padInline,
 } as const;
 
-/** Compact title-row utility hit area (~30×30). */
 const TITLE_HIT =
   "inline-flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[8px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)] disabled:pointer-events-none disabled:opacity-40";
 
 export interface LuxiaPageHeaderProps {
-  /** Primary page title — rendered as the sole page `h1` when a string. */
   title: ReactNode;
-  /**
-   * Compact uppercase page-type label above a user-defined entity name
-   * (e.g. PROJECT, GALAXY, CHAT). Prefer this over a freeform `eyebrow`
-   * for named entity workspaces.
-   */
   pageTypeLabel?: string;
-  /** Optional freeform label above the title when `pageTypeLabel` is not used. */
   eyebrow?: ReactNode;
-  /** Breadcrumb trail — typically `LuxiaBreadcrumb`. */
   breadcrumb?: ReactNode;
-  /** Optional supporting description under the breadcrumb. */
   description?: ReactNode;
-  /** Optional metadata chips / counts under description. */
   metadata?: ReactNode;
-  /**
-   * Enables inline title Rename when provided with a string `title`.
-   * Receives trimmed non-empty name. Caller preserves stable entity ID.
-   */
   onRename?: (name: string) => void;
-  /** Accessible name for the rename pencil, e.g. `Rename Project name 01`. */
   renameLabel?: string;
-  /**
-   * Named-entity action hierarchy (preferred):
-   * primary → important secondary → Options.
-   * Composed with `actions` when both are provided.
-   */
   primaryAction?: ReactNode;
   secondaryAction?: ReactNode;
-  /** Typically `LuxiaEntityOptionsMenu` for named-entity detail pages. */
   options?: ReactNode;
-  /**
-   * Page-level actions aligned top-right on desktop.
-   * Prefer `primaryAction` / `secondaryAction` / `options` for named entities;
-   * `actions` remains for freeform or legacy composition.
-   */
   actions?: ReactNode;
-  /** Optional tab strip / sub-navigation; omitted when unused (no empty space). */
   tabs?: ReactNode;
-  /** Extra trailing content below the main header block. */
   trailing?: ReactNode;
   className?: string;
   style?: CSSProperties;
-  /** Title typography class — defaults to Chat-matched page title. */
   titleClassName?: string;
   titleStyle?: CSSProperties;
-  /**
-   * Spacing under the header block before page content.
-   * - `chat`: tight (Chat/Galaxy shell)
-   * - `page`: compact page gap (Project / archives)
-   * - `none`: caller owns outer gap
-   */
   contentGap?: "chat" | "page" | "none";
 }
 
@@ -171,11 +129,6 @@ function TitleUtilityButton({
   );
 }
 
-/**
- * Full-width operational page header shell for Chat/Galaxy.
- * Spans the complete main-content width after the Sidebar.
- * Inspector width does not constrain this region.
- */
 export function LuxiaPageHeaderShell({
   children,
   trailing,
@@ -183,7 +136,6 @@ export function LuxiaPageHeaderShell({
   style,
 }: {
   children: ReactNode;
-  /** Full-width tab strip below the title block. */
   trailing?: ReactNode;
   className?: string;
   style?: CSSProperties;
@@ -211,12 +163,6 @@ export function LuxiaPageHeaderShell({
   );
 }
 
-/**
- * Shared Luxia page heading region.
- * Canonical layout mirrors Project Overview:
- * optional page-type label, title (+ optional inline Rename) + actions on one row,
- * breadcrumb under the title.
- */
 export function LuxiaPageHeader({
   title,
   pageTypeLabel,

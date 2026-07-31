@@ -35,7 +35,6 @@ interface ProjectGalaxyCardProps {
   galaxyName: string;
   onOpenGalaxy: () => void;
   onOpenGalaxySettings: () => void;
-  /** Renames the Project Galaxy (updates the Galaxy chat label). */
   onRenameGalaxy?: (name: string) => void;
 }
 
@@ -326,10 +325,6 @@ function InlineNameEdit({
   );
 }
 
-/**
- * Inline text edit with the pencil anchored to the content block
- * (top-right of the field), not floating between sections.
- */
 function InlineTextEdit({
   value,
   onSave,
@@ -599,7 +594,7 @@ export function ProjectGalaxyCard({
       />
 
       <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:items-start lg:gap-6">
-        {/* ~60% — Galaxy identity leads the card */}
+        
         <div className="flex min-w-0 flex-col pr-14 sm:pr-16">
           <div className="flex min-h-9 min-w-0 flex-wrap items-center gap-1">
             <h2
@@ -625,7 +620,7 @@ export function ProjectGalaxyCard({
             )}
           </div>
 
-          {/* Instruction sits where the Galaxy description previously lived */}
+          
           <div className="mt-4 max-w-[36rem]">
             <p
               className="mb-1.5 luxia-type-overline-data"
@@ -645,7 +640,7 @@ export function ProjectGalaxyCard({
             />
           </div>
 
-          {/* Compact action family — fixed group widths, not distributed across the column */}
+          
           <div
             className="mt-5 flex max-w-full flex-wrap items-start gap-x-4 gap-y-4"
             aria-label="Galaxy actions"
@@ -670,7 +665,7 @@ export function ProjectGalaxyCard({
             <GalaxyActionGroup
               descriptionId={createWidgetDescId}
               helperId={createWidgetHelperId}
-              description="Create an external AI assistant"
+              description="A configurable AI assistant powered by Galaxy."
               helper="For website, totem, kiosk, or embedded experiences."
             >
               <Button
@@ -678,12 +673,12 @@ export function ProjectGalaxyCard({
                 variant="secondary"
                 disabled
                 aria-disabled="true"
-                aria-label="Create Widget"
+                aria-label="Create Vidget"
                 aria-describedby={`${createWidgetDescId} ${createWidgetHelperId}`}
                 className="luxia-button--on-dark w-full min-w-[9.75rem] sm:w-auto"
               >
                 <LuxiaVirtualAssistantIcon size={16} aria-hidden color="currentColor" />
-                Create Widget
+                Create Vidget
               </Button>
             </GalaxyActionGroup>
 
@@ -706,10 +701,7 @@ export function ProjectGalaxyCard({
           </div>
         </div>
 
-        {/*
-          Helios is a subordinate subsection inside Galaxy — not a peer title.
-          Desktop: starts lower (near Galaxy name / instruction). Mobile: stacks below.
-        */}
+        
         <div className="flex min-w-0 flex-col pr-12 pt-1 sm:pr-14 lg:pt-7">
           <h3
             id="project-helios-heading"

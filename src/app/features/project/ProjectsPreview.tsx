@@ -14,7 +14,6 @@ import { ProjectCardFooter, ProjectCardMeta } from "./ProjectCardMeta";
 import { ProjectCornerMarker } from "./ProjectCornerMarker";
 import type { HomeProjectCard, ProjectDestination } from "./types";
 
-/** Build Project-card Options for active vs archived lifecycle states. */
 export function buildProjectCardOptions(
   project: HomeProjectCard,
   handlers: {
@@ -74,7 +73,6 @@ export function buildProjectCardOptions(
 interface ProjectDestinationActionsProps {
   projectId: string;
   projectName: string;
-  /** Featured card shows Constellations; supporting / View all stay compact. */
   compact?: boolean;
   onOpenProject: (projectId: string) => void;
   onNavigate?: (destination: ProjectDestination, projectId: string) => void;

@@ -53,14 +53,12 @@ function activityIconShell(type: ProjectActivityType) {
   );
 }
 
-/** Real Chat destinations only — Constellation/library pages are not designed yet. */
 function activityHasDestination(item: ProjectActivityItem): boolean {
   return Boolean(item.chatId);
 }
 
 interface RecentActivityCardProps {
   items: ProjectActivityItem[];
-  /** Activity archive is not designed yet — omit to keep View all static. */
   onViewAll?: () => void;
   onOpenActivity: (item: ProjectActivityItem) => void;
 }

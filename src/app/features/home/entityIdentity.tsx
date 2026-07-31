@@ -77,7 +77,6 @@ interface EntityIdentityRowProps {
   quiet?: boolean;
   size?: EntityIdentitySize;
   iconSize?: number;
-  /** When true, keep the PROJECT/CHAT/GALAXY label without a second inline icon. */
   hideIcon?: boolean;
   className?: string;
 }

@@ -31,20 +31,22 @@ export function outputPreviewAriaLabel(type: ProjectDashboardOutputType): string
   return `Symbolic ${outputTypeLabel(type).toLowerCase()} preview`;
 }
 
-/**
- * Reusable symbolic Dashboard output thumbnail.
- * Visual format only — never represents real Project data.
- */
+export type DashboardOutputPreviewSize = "compact" | "full";
+
 export function DashboardOutputPreviewGraphic({
   variant,
+  size = "compact",
 }: {
   variant: ProjectDashboardOutputType;
+  size?: DashboardOutputPreviewSize;
 }) {
   return (
     <div
       role="img"
       aria-label={outputPreviewAriaLabel(variant)}
-      className="relative h-[96px] w-full overflow-hidden rounded-[10px]"
+      className={`relative w-full overflow-hidden rounded-[10px] ${
+        size === "full" ? "h-[170px]" : "h-[96px]"
+      }`}
       style={FRAME_STYLE}
     >
       <div aria-hidden="true" className="h-full w-full">

@@ -17,15 +17,10 @@ const AUTOMATIC_PREFERENCE: HomePrimaryPreference = {
   entityKey: null,
 };
 
-/** Sole guard for manual Home-focus preference (internal; not a user-facing mode label). */
 export function isManualHomeFocus(preference: HomePrimaryPreference): boolean {
   return preference.mode === "manual";
 }
 
-/**
- * Normalize stored preference against the live Chat/Galaxy work collection.
- * Invalid or inaccessible manual keys fall back to the internal resolver — UI and persistence stay aligned.
- */
 export function normalizeHomePrimaryPreference(
   preference: HomePrimaryPreference,
   workItems: HomeRecentWorkItem[],
@@ -83,13 +78,11 @@ export function writeHomePrimaryPreference(pref: HomePrimaryPreference): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(pref));
   } catch {
-    /* ignore */
   }
 }
 
 const DISMISSED_KEY = "luxia-home-dismissed-continue";
 
-/** Prototype seed: one non-focus item hidden for Hide/Restore testing. */
 export const DEFAULT_DISMISSED_CONTINUE_KEYS: HomeEntityKey[] = ["chat:chat-07"];
 
 export function readDismissedContinueKeys(): HomeEntityKey[] {
@@ -106,7 +99,6 @@ export function writeDismissedContinueKeys(keys: HomeEntityKey[]): void {
   try {
     localStorage.setItem(DISMISSED_KEY, JSON.stringify(keys));
   } catch {
-    /* ignore */
   }
 }
 
@@ -152,7 +144,6 @@ export function resolveHomeHero(options: {
     (item) => item.kind === "chat" || item.kind === "galaxySession",
   );
 
-  // Choose Home focus always lists every Chat/Galaxy (hidden + visible).
   const allPrimaryItems = options.recentWork
     .filter((item) => item.kind === "chat" || item.kind === "galaxySession")
     .slice()

@@ -501,7 +501,6 @@ export function GalaxyActivityPanel({
       const target = e.target as Node;
       if (selectorTriggerRef.current?.contains(target)) return;
       if (selectorPanelRef.current?.contains(target)) return;
-      // Keep clear control inside the closed field from treating as outside
       const field = (e.target as HTMLElement | null)?.closest?.("[data-galaxy-selected-trigger]");
       if (field) return;
       setSelectorOpen(false);

@@ -52,11 +52,14 @@ export type ProjectDashboardOutputType =
   | "comparison"
   | "mixed";
 
+export type ProjectDashboardSourceType = "galaxy" | "constellation" | "chat";
+
 export interface ProjectDashboardOutput {
   id: string;
   projectId: string;
   name: string;
   outputType: ProjectDashboardOutputType;
+  sourceType: ProjectDashboardSourceType;
   sourceContext: string;
   updatedAt: string;
   updatedAtTimestamp: number;
@@ -91,7 +94,6 @@ export interface ProjectWidgetItem {
   constellationCount: number;
 }
 
-/** Stable ID alias — Overview now surfaces Widgets; IDs remain `*-va-*`. */
 export type ProjectVirtualAssistantItem = ProjectWidgetItem;
 
 export interface ProjectMemberItem {

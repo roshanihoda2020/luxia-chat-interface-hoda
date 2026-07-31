@@ -64,7 +64,6 @@ export function ChatsModule({
 }: {
   chats: ProjectOverviewChat[];
   onOpenChat: (chatId: string) => void;
-  /** Chats archive is not designed yet — omit to keep View all static. */
   onViewAll?: () => void;
   onNewChat: () => void;
 }) {
@@ -76,7 +75,7 @@ export function ChatsModule({
       count={chats.length}
       countLabel={chats.length === 1 ? "Chat" : "Chats"}
       description="Continue conversations with Galaxy or individual Constellations."
-      size="primary"
+      size="knowledge"
       surface="interaction"
       marker={
         <ProjectDomainMarker
@@ -209,8 +208,10 @@ export function ConstellationsModule({
 
 export function DashboardsModule({
   outputs,
+  onOpenDashboard,
 }: {
   outputs: ProjectDashboardOutput[];
+  onOpenDashboard?: () => void;
 }) {
   const preview = outputs.slice(0, 8);
   const lastUpdated = preview[0]?.updatedAt;
@@ -234,7 +235,7 @@ export function DashboardsModule({
       }
       footer={
         <>
-          <ProjectViewAllLink label="Open Dashboard" />
+          <ProjectViewAllLink label="Open Dashboard" onClick={onOpenDashboard} />
           <span />
         </>
       }
@@ -303,10 +304,10 @@ export function WidgetsModule({
   return (
     <ProjectModuleCard
       icon={<LuxiaVirtualAssistantIcon size={20} aria-hidden color="currentColor" />}
-      title="Widgets"
+      title="Vidgets"
       count={widgets.length}
-      countLabel={widgets.length === 1 ? "Widget" : "Widgets"}
-      description="Configure and deploy AI experiences powered by this Project’s Galaxy and Helios."
+      countLabel={widgets.length === 1 ? "Vidget" : "Vidgets"}
+      description="Configure and deploy a Vidget powered by Galaxy across websites, embedded interfaces, kiosks, and totems."
       iconColor="var(--luxia-purple-60)"
       size="supporting"
       surface="assistant"
@@ -318,36 +319,18 @@ export function WidgetsModule({
       }
       footer={
         <>
-          <ProjectViewAllLink label="View all Widgets" />
+          <ProjectViewAllLink label="View all Vidgets" />
           <span />
         </>
       }
     >
       {preview.length === 0 ? (
         <ProjectModuleEmptyState
-          title="No Widgets yet"
+          title="No Vidgets yet"
           description="Deployed Galaxy experiences for this Project will appear here when available."
         />
       ) : (
         <div className="flex flex-col gap-2">
-          <div
-            className="mb-1 flex flex-wrap gap-1.5"
-            aria-label="Deployment types"
-          >
-            {["Website", "Totem", "Embedded"].map((label) => (
-              <span
-                key={label}
-                className="inline-flex items-center rounded-[6px] px-2 py-0.5 luxia-type-caption"
-                style={{
-                  color: "var(--luxia-purple-70)",
-                  background: "var(--luxia-opacity-purple-08)",
-                  border: "1px solid color-mix(in srgb, var(--luxia-purple-20) 40%, var(--luxia-neutral-200))",
-                }}
-              >
-                {label}
-              </span>
-            ))}
-          </div>
           {preview.map((item) => (
             <ProjectPreviewRow
               key={item.id}

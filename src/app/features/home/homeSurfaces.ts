@@ -1,18 +1,12 @@
 export const HS = {
   pageBg: "var(--luxia-surface-subtle)",
-  /** Shared Home content max-width — center leftover space on wide CSS viewports */
   contentMax: "1240px",
-  /** Generous centered max-width for Project Overview and project-scoped libraries */
   overviewContentMax: "1480px",
-  /** Library/archive max-width for full-page libraries outside Home's approved cap */
   libraryContentMax: "1480px",
-  /** Alias of contentMax for section call sites */
   sectionMax: "1240px",
   /** @deprecated alias of sectionMax — keep for existing call sites */
   heroSectionMax: "1240px",
-  /** Fluid Home page horizontal padding (viewport-based; not zoom detection) */
   pagePadInline: "clamp(var(--luxia-spacing-24), 3vw, var(--luxia-spacing-48))",
-  /** Chat/Galaxy main workspace horizontal inset — matches message column padding */
   workspacePadInline: "clamp(var(--luxia-spacing-24), 2vw, 40px)",
 
   heroSurface: "var(--luxia-gradient-galaxy-panel)",
@@ -21,13 +15,10 @@ export const HS = {
   heroText: "var(--luxia-text-inverse)",
   heroMuted: "var(--luxia-opacity-white-64)",
   heroSoft: "var(--luxia-opacity-white-48)",
-  /** Secondary body on Hero — ~76% on-dark contrast */
   heroDescription: "rgba(255, 255, 255, 0.76)",
-  /** Context values on Hero — stronger than labels */
   heroContextValue: "rgba(255, 255, 255, 0.88)",
   heroAccent: "var(--luxia-brand-tertiary)",
   heroRadius: "var(--luxia-radius-16)",
-  /** Internal Hero copy column — keeps title/description from stretching */
   heroInnerContentMax: "720px",
   heroDescriptionMax: "720px",
 
@@ -44,6 +35,7 @@ export const HS = {
   accentGalaxySoft: "var(--luxia-opacity-brand-primary-08)",
   accentChat: "var(--luxia-blue-60)",
   accentProject: "var(--luxia-purple-70)",
+  projectTitle: "var(--luxia-text-project-title)",
   projectIcon: "var(--luxia-purple-50)",
   pinActive: "var(--luxia-purple-70)",
   recentHover: "var(--luxia-opacity-brand-primary-04)",
@@ -106,7 +98,7 @@ export function getHomeCardStyle(variant: HomeCardVariant): HomeCardStyle {
 
 export function getProjectCardTypography(style: HomeCardStyle) {
   return {
-    title: "var(--luxia-purple-70)",
+    title: HS.projectTitle,
     primary: "var(--luxia-text-secondary)",
     secondary: "var(--luxia-text-muted)",
     accent: HS.accentProject,

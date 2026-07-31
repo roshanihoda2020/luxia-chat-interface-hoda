@@ -3,10 +3,6 @@ import { HS } from "@/app/features/home/homeSurfaces";
 
 export type ProjectCornerMarkerSize = "featured" | "supporting";
 
-/**
- * Integrated top-right Project identity marker (Hero-style geometry, smaller).
- * Decorative only — PROJECT text label remains the accessible identity.
- */
 export function ProjectCornerMarker({
   size = "supporting",
 }: {
