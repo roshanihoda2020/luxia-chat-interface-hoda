@@ -9,14 +9,14 @@ interface PinButtonProps {
   onToggle: () => void;
 }
 
-export const HERO_CONTROL_HIT =
-  "flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]";
-
-export const HERO_HEADER_CONTROL_HIT =
-  "flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]";
-
-const PROJECT_CONTROL_HIT =
+export const COMPACT_CONTROL_HIT =
   "flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[8px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]";
+
+export const HERO_CONTROL_HIT = COMPACT_CONTROL_HIT;
+
+export const HERO_HEADER_CONTROL_HIT = COMPACT_CONTROL_HIT;
+
+const COMPACT_ICON_SIZE = 14;
 
 export function PinButton({
   pinned,
@@ -25,33 +25,26 @@ export function PinButton({
   controlSize = "default",
   onToggle,
 }: PinButtonProps) {
-  const isHero = controlSize === "hero";
-  const isProject = controlSize === "project";
-  const hitClass = isHero
-    ? HERO_HEADER_CONTROL_HIT
-    : isProject
-      ? PROJECT_CONTROL_HIT
-      : HERO_CONTROL_HIT;
-  const iconSize = isProject ? 15 : 17;
+  void controlSize;
 
   const idleColor = tone === "dark"
-    ? (isHero ? "rgba(255, 255, 255, 0.82)" : "var(--luxia-opacity-white-72)")
+    ? "rgba(255, 255, 255, 0.82)"
     : "var(--luxia-text-secondary)";
   const hoverBg = tone === "dark" ? "var(--luxia-opacity-white-08)" : HS.menuHover;
   const activeColor = tone === "dark"
-    ? (isHero ? "var(--luxia-text-inverse)" : "var(--luxia-opacity-white-92)")
+    ? "var(--luxia-text-inverse)"
     : HS.pinActive;
   const pinnedBg = tone === "dark"
-    ? (isHero ? "var(--luxia-opacity-brand-secondary-20)" : "var(--luxia-opacity-white-12)")
+    ? "var(--luxia-opacity-brand-secondary-20)"
     : "var(--luxia-opacity-brand-primary-08)";
 
-  const tooltip = pinned ? "Unpin Project" : "Pin Project";
+  const tooltip = pinned ? "Unpin" : "Pin";
   const ariaLabel = pinned ? `Unpin ${label}` : `Pin ${label}`;
 
   return (
     <button
       type="button"
-      className={hitClass}
+      className={COMPACT_CONTROL_HIT}
       style={{
         color: pinned ? activeColor : idleColor,
         background: pinned ? pinnedBg : "transparent",
@@ -71,7 +64,11 @@ export function PinButton({
         (e.currentTarget as HTMLElement).style.background = pinned ? pinnedBg : "transparent";
       }}
     >
-      <Pin size={iconSize} strokeWidth={pinned ? 2.25 : 1.75} fill={pinned ? "currentColor" : "none"} />
+      <Pin
+        size={COMPACT_ICON_SIZE}
+        strokeWidth={pinned ? 2.25 : 1.75}
+        fill={pinned ? "currentColor" : "none"}
+      />
     </button>
   );
 }

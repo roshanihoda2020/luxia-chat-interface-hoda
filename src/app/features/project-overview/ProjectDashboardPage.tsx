@@ -7,7 +7,12 @@ import {
 import { LuxiaPageHeader } from "@/app/components/LuxiaPageHeader";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
-import { FilterChip, FilterGroup } from "@/app/features/home/browserShared";
+import {
+  BrowserFilterSelect,
+  CollectionFilterBar,
+  FilteredEmptyState,
+  ResultsCount,
+} from "@/app/features/home/browserShared";
 import { HS } from "@/app/features/home/homeSurfaces";
 import { getProjectNameById } from "@/app/features/project";
 import type { HomeProjectCard } from "@/app/features/project/types";
@@ -19,45 +24,15 @@ import { getProjectDashboardOutputs } from "./data";
 import { ProjectNotFoundState } from "./ProjectHeader";
 import { ProjectModuleEmptyState } from "./ProjectModuleShared";
 import type {
+  ProjectDashboardConversationSource,
   ProjectDashboardOutput,
   ProjectDashboardOutputType,
-  ProjectDashboardSourceType,
 } from "./types";
 
 type OutputTypeFilter = "all" | ProjectDashboardOutputType;
-type SourceFilter = "all" | ProjectDashboardSourceType;
-
-const OUTPUT_TYPE_FILTERS: { id: OutputTypeFilter; label: string }[] = [
-  { id: "all", label: "All" },
-  { id: "chart", label: "Charts" },
-  { id: "table", label: "Tables" },
-  { id: "report", label: "Reports" },
-  { id: "metric", label: "Metrics" },
-  { id: "analysis", label: "Analysis" },
-  { id: "insight", label: "Insights" },
-  { id: "comparison", label: "Comparisons" },
-  { id: "mixed", label: "Mixed" },
-];
-
-const SOURCE_FILTERS: { id: SourceFilter; label: string }[] = [
-  { id: "all", label: "All sources" },
-  { id: "galaxy", label: "Galaxy" },
-  { id: "constellation", label: "Constellations" },
-  { id: "chat", label: "Chats" },
-];
+type ConversationSourceFilter = "all" | ProjectDashboardConversationSource;
 
 const PROJECT_NAME_FALLBACK = "Project name 01";
-
-function summarizeOutputs(outputs: readonly ProjectDashboardOutput[]) {
-  const charts = outputs.filter((item) => item.outputType === "chart").length;
-  const tables = outputs.filter((item) => item.outputType === "table").length;
-  return {
-    total: outputs.length,
-    charts,
-    tables,
-    other: Math.max(0, outputs.length - charts - tables),
-  };
-}
 
 function matchesSearch(item: ProjectDashboardOutput, query: string): boolean {
   const q = query.trim().toLowerCase();
@@ -67,6 +42,10 @@ function matchesSearch(item: ProjectDashboardOutput, query: string): boolean {
     || outputTypeLabel(item.outputType).toLowerCase().includes(q)
     || item.sourceContext.toLowerCase().includes(q)
   );
+}
+
+function outputCountLabel(count: number): string {
+  return `${count} ${count === 1 ? "output" : "outputs"}`;
 }
 
 export interface ProjectDashboardPageProps {
@@ -87,7 +66,7 @@ export function ProjectDashboardPage({
   onOpenGalaxy,
 }: ProjectDashboardPageProps) {
   const [typeFilter, setTypeFilter] = useState<OutputTypeFilter>("all");
-  const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
+  const [sourceFilter, setSourceFilter] = useState<ConversationSourceFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
 
   const project = projectId
@@ -103,12 +82,10 @@ export function ProjectDashboardPage({
     [projectId],
   );
 
-  const summary = useMemo(() => summarizeOutputs(outputs), [outputs]);
-
   const filteredOutputs = useMemo(() => {
     return outputs.filter((item) => {
       if (typeFilter !== "all" && item.outputType !== typeFilter) return false;
-      if (sourceFilter !== "all" && item.sourceType !== sourceFilter) return false;
+      if (sourceFilter !== "all" && item.conversationSource !== sourceFilter) return false;
       return matchesSearch(item, searchQuery);
     });
   }, [outputs, typeFilter, sourceFilter, searchQuery]);
@@ -140,7 +117,7 @@ export function ProjectDashboardPage({
     <div className="min-w-0 w-full">
       <LuxiaPageHeader
         contentGap="page"
-        className="mb-5"
+        className="mb-4"
         pageTypeLabel="DASHBOARD"
         title="Dashboard"
         titleStyle={{ color: "var(--luxia-purple-70)" }}
@@ -168,7 +145,7 @@ export function ProjectDashboardPage({
             style={{ color: "var(--luxia-neutral-600, #475569)" }}
           >
             <span>
-              {summary.total} {summary.total === 1 ? "saved output" : "saved outputs"}
+              {outputs.length} {outputs.length === 1 ? "saved output" : "saved outputs"}
             </span>
             {lastUpdated ? (
               <>
@@ -183,45 +160,8 @@ export function ProjectDashboardPage({
       />
 
       {outputs.length > 0 ? (
-        <div
-          className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4"
-          aria-label="Dashboard summary"
-        >
-          {[
-            { label: "Outputs", value: summary.total },
-            { label: "Charts", value: summary.charts },
-            { label: "Tables", value: summary.tables },
-            { label: "Other outputs", value: summary.other },
-          ].map((item) => (
-            <div
-              key={item.label}
-              className="min-w-0 rounded-[10px] px-3.5 py-3"
-              style={{
-                background: "var(--luxia-surface)",
-                border:
-                  "1px solid color-mix(in srgb, var(--luxia-blue-20) 40%, var(--luxia-neutral-200))",
-              }}
-            >
-              <p
-                className="luxia-type-caption"
-                style={{ color: "var(--luxia-neutral-500, #64748B)" }}
-              >
-                {item.label}
-              </p>
-              <p
-                className="mt-1 luxia-type-body-dense-strong"
-                style={{ color: "var(--luxia-text-primary)" }}
-              >
-                {item.value}
-              </p>
-            </div>
-          ))}
-        </div>
-      ) : null}
-
-      {outputs.length > 0 ? (
-        <div className="mb-5 space-y-3">
-          <label className="block max-w-md">
+        <div className="mb-4 space-y-4">
+          <label className="block w-full max-w-full">
             <span className="sr-only">Search outputs</span>
             <div className="relative">
               <Search
@@ -235,7 +175,7 @@ export function ProjectDashboardPage({
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder="Search outputs"
-                className="h-10 pl-9"
+                className="h-10 w-full pl-9"
                 style={{
                   background: HS.searchBg,
                   borderColor: HS.searchBorder,
@@ -244,29 +184,51 @@ export function ProjectDashboardPage({
             </div>
           </label>
 
-          <FilterGroup label="Output type">
-            {OUTPUT_TYPE_FILTERS.map((filter) => (
-              <FilterChip
-                key={filter.id}
-                active={typeFilter === filter.id}
-                onClick={() => setTypeFilter(filter.id)}
-              >
-                {filter.label}
-              </FilterChip>
-            ))}
-          </FilterGroup>
+          <CollectionFilterBar
+            trailing={(
+              <>
+                {filtersActive ? (
+                  <Button
+                    type="button"
+                    variant="tertiary"
+                    size="compact"
+                    onClick={clearFilters}
+                  >
+                    Clear filters
+                  </Button>
+                ) : null}
+                <ResultsCount>{outputCountLabel(filteredOutputs.length)}</ResultsCount>
+              </>
+            )}
+          >
+            <BrowserFilterSelect
+              label="Output type"
+              value={typeFilter}
+              aria-label="Output type"
+              onChange={(event) => setTypeFilter(event.target.value as OutputTypeFilter)}
+            >
+              <option value="all">All output types</option>
+              <option value="chart">Chart</option>
+              <option value="table">Table</option>
+              <option value="report">Report</option>
+              <option value="metric">Metric</option>
+              <option value="analysis">Analysis</option>
+              <option value="insight">Insight</option>
+              <option value="comparison">Comparison</option>
+              <option value="mixed">Mixed</option>
+            </BrowserFilterSelect>
 
-          <FilterGroup label="Source">
-            {SOURCE_FILTERS.map((filter) => (
-              <FilterChip
-                key={filter.id}
-                active={sourceFilter === filter.id}
-                onClick={() => setSourceFilter(filter.id)}
-              >
-                {filter.label}
-              </FilterChip>
-            ))}
-          </FilterGroup>
+            <BrowserFilterSelect
+              label="Conversation source"
+              value={sourceFilter}
+              aria-label="Conversation source"
+              onChange={(event) => setSourceFilter(event.target.value as ConversationSourceFilter)}
+            >
+              <option value="all">All conversations</option>
+              <option value="galaxy">Galaxy</option>
+              <option value="constellation-chat">Constellation Chats</option>
+            </BrowserFilterSelect>
+          </CollectionFilterBar>
         </div>
       ) : null}
 
@@ -297,26 +259,10 @@ export function ProjectDashboardPage({
           />
         </div>
       ) : filteredOutputs.length === 0 ? (
-        <div
-          className="rounded-[12px] px-6 py-12"
-          style={{
-            background: "var(--luxia-surface)",
-            border:
-              "1px solid color-mix(in srgb, var(--luxia-blue-20) 40%, var(--luxia-neutral-200))",
-          }}
-        >
-          <ProjectModuleEmptyState
-            title="No matching outputs"
-            description="Try another output type or search term."
-            action={
-              filtersActive ? (
-                <Button type="button" variant="secondary" size="compact" onClick={clearFilters}>
-                  Clear filters
-                </Button>
-              ) : undefined
-            }
-          />
-        </div>
+        <FilteredEmptyState
+          title="No matching outputs"
+          onClear={filtersActive ? clearFilters : undefined}
+        />
       ) : (
         <div
           className="grid min-w-0 grid-cols-1 items-stretch gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
@@ -337,7 +283,7 @@ export function ProjectDashboardPage({
               <div className="mt-3 flex min-w-0 flex-1 flex-col gap-1 px-0.5">
                 <h2
                   className="truncate luxia-type-body-dense-strong"
-                  style={{ color: "var(--luxia-text-primary)" }}
+                  style={{ color: "var(--luxia-purple-70)" }}
                 >
                   {item.name}
                 </h2>
@@ -345,13 +291,7 @@ export function ProjectDashboardPage({
                   className="truncate luxia-type-caption"
                   style={{ color: "var(--luxia-neutral-600, #475569)" }}
                 >
-                  {outputTypeLabel(item.outputType)}
-                </p>
-                <p
-                  className="truncate luxia-type-caption"
-                  style={{ color: "var(--luxia-neutral-500, #64748B)" }}
-                >
-                  {item.sourceContext}
+                  {outputTypeLabel(item.outputType)} · {item.sourceContext}
                 </p>
                 <p
                   className="mt-auto pt-1 luxia-type-caption"

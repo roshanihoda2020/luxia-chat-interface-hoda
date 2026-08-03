@@ -52,14 +52,18 @@ export type ProjectDashboardOutputType =
   | "comparison"
   | "mixed";
 
-export type ProjectDashboardSourceType = "galaxy" | "constellation" | "chat";
+export type ProjectDashboardConversationSource = "galaxy" | "constellation-chat";
+
+/** @deprecated Use ProjectDashboardConversationSource */
+export type ProjectDashboardSourceType = ProjectDashboardConversationSource;
 
 export interface ProjectDashboardOutput {
   id: string;
   projectId: string;
   name: string;
   outputType: ProjectDashboardOutputType;
-  sourceType: ProjectDashboardSourceType;
+  /** Frontend-only conversation-source classification for Dashboard filtering. */
+  conversationSource: ProjectDashboardConversationSource;
   sourceContext: string;
   updatedAt: string;
   updatedAtTimestamp: number;

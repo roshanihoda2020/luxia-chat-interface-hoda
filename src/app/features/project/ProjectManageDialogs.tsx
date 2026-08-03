@@ -1,0 +1,239 @@
+import { useEffect, useId, useRef, useState } from "react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/app/components/ui/alert-dialog";
+import { Button } from "@/app/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/app/components/ui/dialog";
+import { Input } from "@/app/components/ui/input";
+import { Label } from "@/app/components/ui/label";
+import { Textarea } from "@/app/components/ui/textarea";
+import type { HomeProjectCard } from "./types";
+
+export type ProjectManageMode = "edit" | "delete";
+
+export interface ProjectDetailsDraft {
+  name: string;
+  description: string;
+}
+
+const EDIT_DIALOG_CONTENT_CLASS =
+  "w-full min-w-0 max-w-[min(32rem,calc(100vw-2rem))] gap-4 overflow-x-hidden sm:max-w-[min(32rem,calc(100vw-2rem))]";
+
+function restoreProjectOptionsFocus(projectName: string | undefined) {
+  if (!projectName) return;
+  const label = `Project options for ${projectName}`;
+  window.requestAnimationFrame(() => {
+    const trigger = document.querySelector<HTMLElement>(
+      `button[aria-label="${CSS.escape(label)}"]`,
+    );
+    trigger?.focus();
+  });
+}
+
+interface EditProjectDialogProps {
+  open: boolean;
+  project: HomeProjectCard | null;
+  onClose: () => void;
+  onSave: (projectId: string, details: ProjectDetailsDraft) => void;
+}
+
+export function EditProjectDialog({
+  open,
+  project,
+  onClose,
+  onSave,
+}: EditProjectDialogProps) {
+  const nameId = useId();
+  const descriptionId = useId();
+  const nameRef = useRef<HTMLInputElement>(null);
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+
+  useEffect(() => {
+    if (open && project) {
+      setName(project.name);
+      setDescription(project.description ?? "");
+      const frame = window.requestAnimationFrame(() => {
+        nameRef.current?.focus();
+        nameRef.current?.select();
+      });
+      return () => window.cancelAnimationFrame(frame);
+    }
+    return undefined;
+  }, [open, project]);
+
+  const trimmedName = name.trim();
+  const trimmedDescription = description.trim();
+  const initialName = project?.name.trim() ?? "";
+  const initialDescription = (project?.description ?? "").trim();
+  const unchanged = trimmedName === initialName && trimmedDescription === initialDescription;
+  const canSave = trimmedName.length > 0 && !unchanged;
+
+  function handleClose() {
+    const projectName = project?.name;
+    onClose();
+    restoreProjectOptionsFocus(projectName);
+  }
+
+  function handleSave() {
+    if (!project || !canSave) return;
+    onSave(project.id, {
+      name: trimmedName,
+      description: trimmedDescription,
+    });
+    handleClose();
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(next) => !next && handleClose()}>
+      <DialogContent className={EDIT_DIALOG_CONTENT_CLASS}>
+        <DialogHeader className="min-w-0 pr-10 text-left">
+          <DialogTitle>Edit Project</DialogTitle>
+        </DialogHeader>
+
+        <div className="flex min-w-0 w-full flex-col gap-4 overflow-x-hidden">
+          <div className="flex min-w-0 w-full flex-col gap-2">
+            <Label htmlFor={nameId}>Project name</Label>
+            <Input
+              ref={nameRef}
+              id={nameId}
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="Project name"
+              className="box-border w-full max-w-full min-w-0"
+              aria-invalid={trimmedName.length === 0}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  handleSave();
+                }
+              }}
+            />
+          </div>
+
+          <div className="flex min-w-0 w-full flex-col gap-2">
+            <Label htmlFor={descriptionId}>Project description</Label>
+            <Textarea
+              id={descriptionId}
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+              placeholder="Add a short Project description"
+              rows={4}
+              className="box-border min-h-24 w-full max-w-full min-w-0 resize-y"
+            />
+          </div>
+        </div>
+
+        <DialogFooter className="min-w-0 w-full">
+          <Button type="button" variant="secondary" onClick={handleClose}>
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            variant="primary"
+            onClick={handleSave}
+            disabled={!canSave}
+          >
+            Save
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** @deprecated Use EditProjectDialog */
+export const EditProjectDetailsDialog = EditProjectDialog;
+
+interface DeleteProjectDialogProps {
+  open: boolean;
+  project: HomeProjectCard | null;
+  onClose: () => void;
+  onConfirm: (projectId: string) => void;
+}
+
+export function DeleteProjectDialog({
+  open,
+  project,
+  onClose,
+  onConfirm,
+}: DeleteProjectDialogProps) {
+  function handleClose() {
+    const projectName = project?.name;
+    onClose();
+    restoreProjectOptionsFocus(projectName);
+  }
+
+  return (
+    <AlertDialog open={open} onOpenChange={(next) => !next && handleClose()}>
+      <AlertDialogContent className="w-full min-w-0 max-w-[min(32rem,calc(100vw-2rem))] overflow-x-hidden">
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete Project?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This will remove the Project and its associated content. This action cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            className="text-white hover:opacity-90"
+            style={{ background: "var(--luxia-error)" }}
+            onClick={() => {
+              if (!project) return;
+              onConfirm(project.id);
+              handleClose();
+            }}
+          >
+            Delete Project
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
+interface ProjectManageDialogsProps {
+  mode: ProjectManageMode | null;
+  project: HomeProjectCard | null;
+  onClose: () => void;
+  onEditDetails: (projectId: string, details: ProjectDetailsDraft) => void;
+  onDelete: (projectId: string) => void;
+}
+
+export function ProjectManageDialogs({
+  mode,
+  project,
+  onClose,
+  onEditDetails,
+  onDelete,
+}: ProjectManageDialogsProps) {
+  return (
+    <>
+      <EditProjectDialog
+        open={mode === "edit"}
+        project={project}
+        onClose={onClose}
+        onSave={onEditDetails}
+      />
+      <DeleteProjectDialog
+        open={mode === "delete"}
+        project={project}
+        onClose={onClose}
+        onConfirm={onDelete}
+      />
+    </>
+  );
+}

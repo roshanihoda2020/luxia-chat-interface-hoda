@@ -17,17 +17,18 @@ import type { HomeProjectCard, ProjectDestination } from "./types";
 export function buildProjectCardOptions(
   project: HomeProjectCard,
   handlers: {
+    onEditProject?: (projectId: string) => void;
     onArchiveProject?: (projectId: string) => void;
     onRestoreProject?: (projectId: string) => void;
+    onDeleteProject?: (projectId: string) => void;
   } = {},
 ): LuxiaEntityOptionsItem[] {
   const archived = isProjectArchived(project);
+  const canEdit = Boolean(handlers.onEditProject);
+  const canDelete = Boolean(handlers.onDeleteProject);
 
-  if (archived) {
-    return [
-      { id: "rename", label: "Rename Project", disabled: true },
-      { id: "edit-details", label: "Edit Project details", disabled: true },
-      {
+  const lifecycleItem: LuxiaEntityOptionsItem = archived
+    ? {
         id: "restore",
         label: "Restore Project",
         ariaLabel: `Restore ${project.name}`,
@@ -35,35 +36,32 @@ export function buildProjectCardOptions(
           ? () => handlers.onRestoreProject!(project.id)
           : undefined,
         disabled: !handlers.onRestoreProject,
-      },
-      {
-        id: "delete",
-        label: "Delete Project",
-        ariaLabel: `Delete ${project.name}`,
-        disabled: true,
-        destructive: true,
-        separatorBefore: true,
-      },
-    ];
-  }
+      }
+    : {
+        id: "archive",
+        label: "Archive Project",
+        ariaLabel: `Archive ${project.name}`,
+        onSelect: handlers.onArchiveProject
+          ? () => handlers.onArchiveProject!(project.id)
+          : undefined,
+        disabled: !handlers.onArchiveProject,
+      };
 
   return [
-    { id: "rename", label: "Rename Project", disabled: true },
-    { id: "edit-details", label: "Edit Project details", disabled: true },
     {
-      id: "archive",
-      label: "Archive Project",
-      ariaLabel: `Archive ${project.name}`,
-      onSelect: handlers.onArchiveProject
-        ? () => handlers.onArchiveProject!(project.id)
-        : undefined,
-      disabled: !handlers.onArchiveProject,
+      id: "edit",
+      label: "Edit Project",
+      ariaLabel: `Edit ${project.name}`,
+      onSelect: canEdit ? () => handlers.onEditProject!(project.id) : undefined,
+      disabled: !canEdit,
     },
+    lifecycleItem,
     {
       id: "delete",
       label: "Delete Project",
       ariaLabel: `Delete ${project.name}`,
-      disabled: true,
+      onSelect: canDelete ? () => handlers.onDeleteProject!(project.id) : undefined,
+      disabled: !canDelete,
       destructive: true,
       separatorBefore: true,
     },
@@ -166,6 +164,8 @@ interface ProjectCardShellProps {
   onToggleProjectPin: (projectId: string) => void;
   onArchiveProject?: (projectId: string) => void;
   onRestoreProject?: (projectId: string) => void;
+  onEditProject?: (projectId: string) => void;
+  onDeleteProject?: (projectId: string) => void;
   onOpenProject: (projectId: string) => void;
   onNavigate?: (destination: ProjectDestination, projectId: string) => void;
 }
@@ -184,6 +184,8 @@ function ProjectCardShell({
   onToggleProjectPin,
   onArchiveProject,
   onRestoreProject,
+  onEditProject,
+  onDeleteProject,
   onOpenProject,
   onNavigate,
 }: ProjectCardShellProps) {
@@ -192,8 +194,10 @@ function ProjectCardShell({
   const contentPadRight = isFeatured ? 128 : 116;
   const archived = isProjectArchived(project);
   const optionsItems = buildProjectCardOptions(project, {
+    onEditProject,
     onArchiveProject,
     onRestoreProject,
+    onDeleteProject,
   });
 
   return (
@@ -285,6 +289,8 @@ interface ProjectsPreviewProps {
   onToggleProjectPin: (projectId: string) => void;
   onArchiveProject?: (projectId: string) => void;
   onRestoreProject?: (projectId: string) => void;
+  onEditProject?: (projectId: string) => void;
+  onDeleteProject?: (projectId: string) => void;
   onOpenProject: (projectId: string) => void;
   onNavigateProjectDestination?: (destination: ProjectDestination, projectId: string) => void;
 }
@@ -296,6 +302,8 @@ export function ProjectsPreview({
   onToggleProjectPin,
   onArchiveProject,
   onRestoreProject,
+  onEditProject,
+  onDeleteProject,
   onOpenProject,
   onNavigateProjectDestination,
 }: ProjectsPreviewProps) {
@@ -333,6 +341,8 @@ export function ProjectsPreview({
           onToggleProjectPin={onToggleProjectPin}
           onArchiveProject={onArchiveProject}
           onRestoreProject={onRestoreProject}
+          onEditProject={onEditProject}
+          onDeleteProject={onDeleteProject}
           onOpenProject={onOpenProject}
           onNavigate={onNavigateProjectDestination}
         />
@@ -355,6 +365,8 @@ export function ProjectsPreview({
             onToggleProjectPin={onToggleProjectPin}
             onArchiveProject={onArchiveProject}
             onRestoreProject={onRestoreProject}
+            onEditProject={onEditProject}
+            onDeleteProject={onDeleteProject}
             onOpenProject={onOpenProject}
             onNavigate={onNavigateProjectDestination}
           />

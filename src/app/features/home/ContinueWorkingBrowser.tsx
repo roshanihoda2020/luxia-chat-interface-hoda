@@ -11,10 +11,17 @@ import { ChangePrimaryDialog } from "./ChangePrimaryDialog";
 import {
   BROWSER_CONTENT_MAX,
   BROWSER_PAGE_SIZE,
+  BrowserFilterSelect,
   BrowserPagination,
   BrowserShell,
+  BrowserSortSelect,
+  CollectionFilterBar,
   FilterChip,
-  FilterGroup,
+  FilteredEmptyState,
+  FilterField,
+  ResultsCount,
+  SegmentedFilterGroup,
+  WORK_ARCHIVE_GRID,
 } from "./browserShared";
 import {
   areAllWorkItemsHidden,
@@ -32,17 +39,19 @@ import {
   buildContinueFocusMenuItems,
   HomeContinueMenu,
 } from "./HomeContinueMenu";
-import { getSourceAccentColor, HS } from "./homeSurfaces";
+import { getHomeCardStyle, getSourceAccentColor, HS } from "./homeSurfaces";
 import type { HomeEntityKey } from "./homeEntityKeys";
 import { workItemEntityKey } from "./homeEntityKeys";
 import { PinButton } from "./PinButton";
 import type { HomeProjectCard, HomeRecentWorkItem } from "./types";
 
+const PAGE_TITLE = "Chats & Galaxies";
+const PAGE_DESCRIPTION = "Search, organize, and continue your Chats and Galaxies.";
+
 interface ContinueWorkingBrowserProps {
   items: HomeRecentWorkItem[];
   dismissedKeys: HomeEntityKey[];
   heroEntityKey: HomeEntityKey | null;
-  pinnedEntityOrder: HomeEntityKey[];
   projects: HomeProjectCard[];
   onBack: () => void;
   onContinue: (item: HomeRecentWorkItem) => void;
@@ -74,7 +83,7 @@ function SourceTag({ source }: { source: "database" | "csv" | "pdf" }) {
   );
 }
 
-function WorkItemRow({
+function WorkItemCard({
   item,
   isHidden,
   isHomeFocus,
@@ -100,6 +109,7 @@ function WorkItemRow({
     ? HS.accentGalaxy
     : (getSourceAccentColor(item.constellationSource, "soft") ?? HS.accentChat);
   const projectName = getProjectNameById(item.projectId);
+  const cardStyle = getHomeCardStyle("supportingProject");
 
   const menuItems = buildContinueFocusMenuItems({
     title: item.title,
@@ -113,116 +123,119 @@ function WorkItemRow({
 
   return (
     <article
-      className="rounded-[12px] border px-5 py-[18px] transition-colors hover:border-[var(--luxia-opacity-brand-primary-16)]"
+      className="relative flex h-full min-w-0 flex-col overflow-hidden p-4 transition-colors hover:border-[var(--luxia-opacity-brand-primary-16)]"
       style={{
-        borderColor: "var(--luxia-border-default)",
-        background: "var(--luxia-surface)",
-        minHeight: 128,
+        background: cardStyle.bg,
+        border: `1px solid ${cardStyle.border}`,
+        borderRadius: "var(--luxia-radius-12)",
       }}
     >
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-        <div className="min-w-0 flex-1">
-          <EntityIdentityRow
-            entityType={entityType}
-            iconColor={entityColor}
-            size="row"
-          />
-
-          <h2
-            className="mt-1.5 line-clamp-1 luxia-type-body-default-strong"
-            style={{ color: "var(--luxia-text-primary)" }}
-            title={item.title}
-          >
-            {item.title}
-          </h2>
-
-          <div className="mt-1.5 space-y-0.5">
-            <p
-              className="truncate luxia-type-body-dense"
-              style={{ color: "var(--luxia-text-secondary)" }}
-              aria-label={`Project: ${projectName}`}
-            >
-              {projectName}
-            </p>
-            {item.constellationName ? (
-              <p
-                className="flex min-w-0 items-center gap-1.5 truncate luxia-type-body-dense"
-                style={{ color: "var(--luxia-text-secondary)" }}
-                aria-label={`Constellation: ${item.constellationName}${
-                  item.constellationSource
-                    ? `, Source: ${
-                        item.constellationSource === "database"
-                          ? "DB"
-                          : item.constellationSource === "csv"
-                            ? "CSV"
-                            : "PDF"
-                      }`
-                    : ""
-                }`}
-              >
-                <span className="truncate">{item.constellationName}</span>
-                {item.constellationSource ? (
-                  <SourceTag source={item.constellationSource} />
-                ) : null}
-              </p>
-            ) : null}
-          </div>
-
-          <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1">
-            <p className="luxia-type-body-small" style={{ color: "var(--luxia-text-muted)" }}>
-              {formatWorkLastOpened(item)}
-            </p>
-            {isHomeFocus ? (
-              <span
-                className="inline-flex rounded-[6px] px-1.5 py-0.5 luxia-type-overline-data"
-                style={{
-                  color: HS.accentGalaxy,
-                  background: "var(--luxia-opacity-brand-primary-08)",
-                  letterSpacing: "0.04em",
-                }}
-              >
-                HOME FOCUS
-              </span>
-            ) : null}
-            {isHidden ? (
-              <span
-                className="inline-flex rounded-[6px] px-1.5 py-0.5 luxia-type-overline-data"
-                style={{
-                  color: "var(--luxia-text-muted)",
-                  background: "var(--luxia-surface-subtle)",
-                  letterSpacing: "0.04em",
-                }}
-              >
-                HIDDEN FROM HOME
-              </span>
-            ) : null}
-          </div>
-        </div>
-
-        <div className="flex shrink-0 items-center gap-1 self-start sm:self-center">
-          <PinButton
-            pinned={Boolean(item.isPinned)}
+      <div
+        className="absolute z-[2] flex shrink-0 items-center gap-1"
+        style={{ top: 8, right: 8 }}
+      >
+        <PinButton
+          pinned={Boolean(item.isPinned)}
+          label={item.title}
+          controlSize="project"
+          onToggle={onTogglePin}
+        />
+        {menuItems.length > 0 ? (
+          <HomeContinueMenu
             label={item.title}
-            controlSize="hero"
-            onToggle={onTogglePin}
+            controlSize="default"
+            items={menuItems}
           />
-          {menuItems.length > 0 ? (
-            <HomeContinueMenu
-              label={item.title}
-              controlSize="hero"
-              items={menuItems}
-            />
-          ) : null}
-          <Button
-            type="button"
-            variant="primary"
-            size="compact"
-            className="ml-1"
-            onClick={onContinue}
+        ) : null}
+      </div>
+
+      <div className="relative z-[1] min-w-0" style={{ paddingRight: 72 }}>
+        <EntityIdentityRow
+          entityType={entityType}
+          iconColor={entityColor}
+          size="compact"
+        />
+
+        <h3
+          className="mt-1.5 line-clamp-2 luxia-type-title-card"
+          style={{ color: HS.workCardTitle }}
+          title={item.title}
+        >
+          {item.title}
+        </h3>
+
+        <div className="mt-1.5 space-y-0.5">
+          <p
+            className="truncate luxia-type-body-dense"
+            style={{ color: "var(--luxia-text-secondary)" }}
+            aria-label={`Project: ${projectName}`}
           >
-            Continue
-          </Button>
+            {projectName}
+          </p>
+          {item.constellationName ? (
+            <p
+              className="flex min-w-0 items-center gap-1.5 truncate luxia-type-body-dense"
+              style={{ color: "var(--luxia-text-secondary)" }}
+              aria-label={`Constellation: ${item.constellationName}${
+                item.constellationSource
+                  ? `, Source: ${
+                      item.constellationSource === "database"
+                        ? "DB"
+                        : item.constellationSource === "csv"
+                          ? "CSV"
+                          : "PDF"
+                    }`
+                  : ""
+              }`}
+            >
+              <span className="truncate">{item.constellationName}</span>
+              {item.constellationSource ? (
+                <SourceTag source={item.constellationSource} />
+              ) : null}
+            </p>
+          ) : null}
         </div>
+
+        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+          <p className="luxia-type-caption" style={{ color: "var(--luxia-text-muted)" }}>
+            {formatWorkLastOpened(item)}
+          </p>
+          {isHomeFocus ? (
+            <span
+              className="inline-flex rounded-[6px] px-1.5 py-0.5 luxia-type-overline-data"
+              style={{
+                color: HS.accentGalaxy,
+                background: "var(--luxia-opacity-brand-primary-08)",
+                letterSpacing: "0.04em",
+              }}
+            >
+              HOME FOCUS
+            </span>
+          ) : null}
+          {isHidden ? (
+            <span
+              className="inline-flex rounded-[6px] px-1.5 py-0.5 luxia-type-overline-data"
+              style={{
+                color: "var(--luxia-text-muted)",
+                background: "var(--luxia-surface-subtle)",
+                letterSpacing: "0.04em",
+              }}
+            >
+              HIDDEN FROM HOME
+            </span>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="relative z-[1] mt-auto flex flex-wrap items-center pt-3">
+        <Button
+          type="button"
+          variant="primary"
+          size="compact"
+          onClick={onContinue}
+        >
+          Continue
+        </Button>
       </div>
     </article>
   );
@@ -239,21 +252,21 @@ function PageHeaderStack({
     <div className="mx-auto min-w-0 w-full" style={{ maxWidth: BROWSER_CONTENT_MAX }}>
       <LuxiaPageHeader
         contentGap="page"
-        title="Your work"
+        title={PAGE_TITLE}
         titleStyle={{ color: HS.sectionHeading }}
         breadcrumb={
           <LuxiaBreadcrumb
             tone="page"
             items={buildHomeArchiveBreadcrumbItems({
               archiveId: "your-work",
-              archiveLabel: "Your work",
+              archiveLabel: PAGE_TITLE,
             })}
             handlers={{ onHome: onBack }}
           />
         }
         description={
           <p className="luxia-type-body-small" style={{ color: "var(--luxia-neutral-600, #475569)" }}>
-            Search, organize, and continue your Chats and Galaxies.
+            {PAGE_DESCRIPTION}
           </p>
         }
       />
@@ -266,7 +279,6 @@ export function ContinueWorkingBrowser({
   items,
   dismissedKeys,
   heroEntityKey,
-  pinnedEntityOrder,
   projects,
   onBack,
   onContinue,
@@ -292,8 +304,6 @@ export function ContinueWorkingBrowser({
   const allHidden = areAllWorkItemsHidden(items, dismissedKeys);
   const genuinelyEmpty = collection.length === 0;
 
-  const effectiveSort = entityFilter === "pinned" ? "pinned" : sortMode;
-
   const filteredItems = useMemo(
     () => sortContinueWorkItems(
       filterContinueWorkItems(items, {
@@ -303,8 +313,7 @@ export function ContinueWorkingBrowser({
         visibilityFilter,
         dismissedKeys: dismissedSet,
       }),
-      effectiveSort,
-      pinnedEntityOrder,
+      sortMode,
     ),
     [
       items,
@@ -313,8 +322,7 @@ export function ContinueWorkingBrowser({
       sourceFilter,
       visibilityFilter,
       dismissedSet,
-      effectiveSort,
-      pinnedEntityOrder,
+      sortMode,
     ],
   );
 
@@ -324,6 +332,22 @@ export function ContinueWorkingBrowser({
     (currentPage - 1) * BROWSER_PAGE_SIZE,
     currentPage * BROWSER_PAGE_SIZE,
   );
+
+  const hasActiveFilters = Boolean(
+    query.trim()
+    || entityFilter !== "all"
+    || sourceFilter !== "all"
+    || visibilityFilter !== "all"
+    || sortMode !== "opened",
+  );
+
+  const clearFilters = () => {
+    setQuery("");
+    setEntityFilter("all");
+    setSourceFilter("all");
+    setVisibilityFilter("all");
+    setSortMode("opened");
+  };
 
   useEffect(() => {
     setPage(1);
@@ -368,7 +392,7 @@ export function ContinueWorkingBrowser({
 
   const allHiddenBanner = allHidden ? (
     <div
-      className="mb-4 flex flex-col gap-3 rounded-[10px] border px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between"
+      className="mb-3 flex flex-col gap-3 rounded-[10px] border px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between"
       style={{
         borderColor: "var(--luxia-opacity-brand-primary-16)",
         background: "var(--luxia-opacity-brand-primary-04)",
@@ -417,73 +441,80 @@ export function ContinueWorkingBrowser({
   return (
     <>
       <BrowserShell
-        title="Your work"
+        title={PAGE_TITLE}
         archiveId="your-work"
-        description="Search, organize, and continue your Chats and Galaxies."
+        description={PAGE_DESCRIPTION}
         onBack={onBack}
         searchLabel="Search Chats and Galaxies"
         searchPlaceholder="Search Chats and Galaxies"
         searchValue={query}
         onSearchChange={setQuery}
         banner={allHiddenBanner}
+        controlsSpacing="compact"
         filters={(
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-            <FilterGroup label="Type">
-              <FilterChip active={entityFilter === "all"} onClick={() => setEntityFilter("all")}>All</FilterChip>
-              <FilterChip active={entityFilter === "chat"} onClick={() => setEntityFilter("chat")}>Chat</FilterChip>
-              <FilterChip active={entityFilter === "galaxy"} onClick={() => setEntityFilter("galaxy")}>Galaxy</FilterChip>
-              <FilterChip active={entityFilter === "pinned"} onClick={() => setEntityFilter("pinned")}>Pinned</FilterChip>
-            </FilterGroup>
-            <span
-              className="hidden h-4 w-px shrink-0 sm:block"
-              style={{ background: "var(--luxia-border-default)" }}
-              aria-hidden
-            />
-            <FilterGroup label="Source">
-              <FilterChip active={sourceFilter === "all"} onClick={() => setSourceFilter("all")}>All sources</FilterChip>
-              <FilterChip active={sourceFilter === "database"} onClick={() => setSourceFilter("database")}>Database</FilterChip>
-              <FilterChip active={sourceFilter === "pdf"} onClick={() => setSourceFilter("pdf")}>PDF</FilterChip>
-            </FilterGroup>
-            <span
-              className="hidden h-4 w-px shrink-0 sm:block"
-              style={{ background: "var(--luxia-border-default)" }}
-              aria-hidden
-            />
-            <FilterGroup label="Visibility">
-              <FilterChip active={visibilityFilter === "all"} onClick={() => setVisibilityFilter("all")}>All visibility</FilterChip>
-              <FilterChip active={visibilityFilter === "visible"} onClick={() => setVisibilityFilter("visible")}>Visible on Home</FilterChip>
-              <FilterChip active={visibilityFilter === "hidden"} onClick={() => setVisibilityFilter("hidden")}>Hidden from Home</FilterChip>
-            </FilterGroup>
-          </div>
-        )}
-        sortControls={(
-          <label className="flex items-center gap-2 luxia-type-body-dense" style={{ color: "var(--luxia-text-muted)" }}>
-            <span>Sort</span>
-            <select
-              value={effectiveSort}
+          <CollectionFilterBar
+            trailing={(
+              <>
+                {hasActiveFilters ? (
+                  <Button type="button" variant="tertiary" size="compact" onClick={clearFilters}>
+                    Clear filters
+                  </Button>
+                ) : null}
+                <ResultsCount>
+                  {filteredItems.length} {filteredItems.length === 1 ? "result" : "results"}
+                </ResultsCount>
+              </>
+            )}
+          >
+            <FilterField label="Type">
+              <SegmentedFilterGroup label="Type">
+                <FilterChip active={entityFilter === "all"} onClick={() => setEntityFilter("all")}>
+                  All
+                </FilterChip>
+                <FilterChip active={entityFilter === "chat"} onClick={() => setEntityFilter("chat")}>
+                  Chats
+                </FilterChip>
+                <FilterChip active={entityFilter === "galaxy"} onClick={() => setEntityFilter("galaxy")}>
+                  Galaxies
+                </FilterChip>
+              </SegmentedFilterGroup>
+            </FilterField>
+
+            <BrowserFilterSelect
+              label="Source"
+              value={sourceFilter}
+              aria-label="Filter by source"
+              onChange={(event) => setSourceFilter(event.target.value as ContinueSourceFilter)}
+            >
+              <option value="all">All sources</option>
+              <option value="database">Database</option>
+              <option value="csv">CSV</option>
+              <option value="pdf">PDF</option>
+            </BrowserFilterSelect>
+
+            <BrowserFilterSelect
+              label="Visibility"
+              value={visibilityFilter}
+              aria-label="Filter by visibility"
+              onChange={(event) => setVisibilityFilter(event.target.value as ContinueVisibilityFilter)}
+            >
+              <option value="all">All visibility</option>
+              <option value="visible">Visible on Home</option>
+              <option value="hidden">Hidden from Home</option>
+            </BrowserFilterSelect>
+
+            <BrowserSortSelect
+              value={sortMode}
+              aria-label="Sort Chats and Galaxies"
               onChange={(event) => setSortMode(event.target.value as ContinueSortMode)}
-              className="h-8 rounded-[8px] border px-2 outline-none focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]"
-              style={{
-                borderColor: "var(--luxia-border-default)",
-                background: "var(--luxia-surface)",
-                color: "var(--luxia-text-primary)",
-              }}
-              aria-label="Sort your work"
             >
               <option value="opened">Recently opened</option>
-              <option value="pinned">Recently pinned</option>
-              <option value="name">Name</option>
-            </select>
-          </label>
-        )}
-        resultSummary={(
-          <p
-            className="luxia-type-body-dense"
-            style={{ color: "var(--luxia-text-muted)" }}
-            aria-live="polite"
-          >
-            {filteredItems.length} {filteredItems.length === 1 ? "result" : "results"}
-          </p>
+              <option value="opened-oldest">Oldest opened</option>
+              <option value="name-asc">Name A–Z</option>
+              <option value="name-desc">Name Z–A</option>
+              <option value="pinned">Pinned first</option>
+            </BrowserSortSelect>
+          </CollectionFilterBar>
         )}
         footer={(
           <BrowserPagination
@@ -494,40 +525,19 @@ export function ContinueWorkingBrowser({
         )}
       >
         {pageItems.length === 0 ? (
-          <div
-            className="rounded-[12px] border px-4 py-5 text-center"
-            style={{
-              borderColor: "var(--luxia-border-default)",
-              background: "var(--luxia-surface-subtle)",
-            }}
-          >
-            <p className="luxia-type-body-default" style={{ color: "var(--luxia-text-secondary)" }}>
-              No matching Chats or Galaxies.
-            </p>
-            <Button
-              type="button"
-              variant="outline"
-              size="compact"
-              className="mt-3"
-              onClick={() => {
-                setQuery("");
-                setEntityFilter("all");
-                setSourceFilter("all");
-                setVisibilityFilter("all");
-              }}
-            >
-              Clear search and filters
-            </Button>
-          </div>
+          <FilteredEmptyState
+            title="No matching Chats or Galaxies"
+            onClear={hasActiveFilters ? clearFilters : undefined}
+          />
         ) : (
-          <div className="space-y-2.5">
+          <div className={WORK_ARCHIVE_GRID}>
             {pageItems.map((item) => {
               const entityKey = workItemEntityKey(item);
               const isHidden = dismissedSet.has(entityKey);
               const isHomeFocus = heroEntityKey === entityKey && !isHidden;
 
               return (
-                <WorkItemRow
+                <WorkItemCard
                   key={item.id}
                   item={item}
                   isHidden={isHidden}

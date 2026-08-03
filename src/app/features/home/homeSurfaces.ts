@@ -36,6 +36,7 @@ export const HS = {
   accentChat: "var(--luxia-blue-60)",
   accentProject: "var(--luxia-purple-70)",
   projectTitle: "var(--luxia-text-project-title)",
+  workCardTitle: "var(--luxia-purple-70)",
   projectIcon: "var(--luxia-purple-50)",
   pinActive: "var(--luxia-purple-70)",
   recentHover: "var(--luxia-opacity-brand-primary-04)",

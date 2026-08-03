@@ -3,10 +3,15 @@ import type { HomeEntityKey } from "./homeEntityKeys";
 import { workItemEntityKey } from "./homeEntityKeys";
 import type { HomeRecentWorkItem } from "./types";
 
-export type ContinueEntityFilter = "all" | "galaxy" | "chat" | "pinned";
-export type ContinueSourceFilter = "all" | "database" | "pdf";
+export type ContinueEntityFilter = "all" | "galaxy" | "chat";
+export type ContinueSourceFilter = "all" | "database" | "csv" | "pdf";
 export type ContinueVisibilityFilter = "all" | "visible" | "hidden";
-export type ContinueSortMode = "opened" | "pinned" | "name";
+export type ContinueSortMode =
+  | "opened"
+  | "opened-oldest"
+  | "name-asc"
+  | "name-desc"
+  | "pinned";
 
 const DAY_MS = 86_400_000;
 const HOUR_MS = 3_600_000;
@@ -85,10 +90,12 @@ export function filterContinueWorkItems(
 
     if (options.entityFilter === "galaxy" && item.kind !== "galaxySession") return false;
     if (options.entityFilter === "chat" && item.kind !== "chat") return false;
-    if (options.entityFilter === "pinned" && !item.isPinned) return false;
 
     if (options.sourceFilter === "database") {
       return item.constellationSource === "database";
+    }
+    if (options.sourceFilter === "csv") {
+      return item.constellationSource === "csv";
     }
     if (options.sourceFilter === "pdf") {
       return item.constellationSource === "pdf";
@@ -98,43 +105,34 @@ export function filterContinueWorkItems(
   });
 }
 
-function pinOrderIndex(
-  item: HomeRecentWorkItem,
-  pinnedEntityOrder: HomeEntityKey[],
-): number {
-  const key = workItemEntityKey(item);
-  const index = pinnedEntityOrder.indexOf(key);
-  return index >= 0 ? index : Number.MAX_SAFE_INTEGER;
+function compareOpenedDesc(a: HomeRecentWorkItem, b: HomeRecentWorkItem): number {
+  return (b.lastOpenedAt ?? 0) - (a.lastOpenedAt ?? 0);
 }
 
 export function sortContinueWorkItems(
   items: HomeRecentWorkItem[],
   sortMode: ContinueSortMode,
-  pinnedEntityOrder: HomeEntityKey[],
 ): HomeRecentWorkItem[] {
   const sorted = [...items];
 
   sorted.sort((a, b) => {
-    if (sortMode === "name") {
+    if (sortMode === "name-asc") {
       return a.title.localeCompare(b.title, undefined, { sensitivity: "base" });
     }
-
+    if (sortMode === "name-desc") {
+      return b.title.localeCompare(a.title, undefined, { sensitivity: "base" });
+    }
+    if (sortMode === "opened-oldest") {
+      return (a.lastOpenedAt ?? 0) - (b.lastOpenedAt ?? 0);
+    }
     if (sortMode === "pinned") {
-      const pinA = pinOrderIndex(a, pinnedEntityOrder);
-      const pinB = pinOrderIndex(b, pinnedEntityOrder);
-      if (pinA !== pinB) return pinA - pinB;
-      return (b.lastOpenedAt ?? 0) - (a.lastOpenedAt ?? 0);
+      const pinnedA = a.isPinned ? 1 : 0;
+      const pinnedB = b.isPinned ? 1 : 0;
+      if (pinnedA !== pinnedB) return pinnedB - pinnedA;
+      return compareOpenedDesc(a, b);
     }
 
-    const pinnedA = a.isPinned ? 1 : 0;
-    const pinnedB = b.isPinned ? 1 : 0;
-    if (pinnedA !== pinnedB) return pinnedB - pinnedA;
-
-    const pinOrderA = pinOrderIndex(a, pinnedEntityOrder);
-    const pinOrderB = pinOrderIndex(b, pinnedEntityOrder);
-    if (pinOrderA !== pinOrderB) return pinOrderA - pinOrderB;
-
-    return (b.lastOpenedAt ?? 0) - (a.lastOpenedAt ?? 0);
+    return compareOpenedDesc(a, b);
   });
 
   return sorted;

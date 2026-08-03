@@ -69,7 +69,8 @@ import {
   writePinnedProjectIds,
 } from "@/app/features/home";
 import type { HomeBrowseMode, HomeProjectCard, HomeRecentWorkItem } from "@/app/features/home";
-import { getProjectNameById } from "@/app/features/project";
+import { getProjectNameById, ProjectManageDialogs } from "@/app/features/project";
+import type { ProjectManageMode } from "@/app/features/project";
 import {
   ProjectOverviewPage,
   ProjectDashboardPage,
@@ -4320,6 +4321,8 @@ export default function App() {
   const [showNewChatModal, setShowNewChatModal] = useState(false);
   const [newChatLockedProjectId, setNewChatLockedProjectId] = useState<string | null>(null);
   const [showNewProjectModal, setShowNewProjectModal] = useState(false);
+  const [projectManageMode, setProjectManageMode] = useState<ProjectManageMode | null>(null);
+  const [projectManageId, setProjectManageId] = useState<string | null>(null);
   const [appView, setAppView] = useState<LuxiaAppView>(INITIAL_SHELL.appView);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(INITIAL_SHELL.activeProjectId);
   const [projectBrowseMode, setProjectBrowseMode] = useState<ProjectOverviewBrowseMode>(
@@ -4798,22 +4801,24 @@ export default function App() {
   }
 
   const recentWork = useMemo<HomeRecentWorkItem[]>(() => (
-    HOME_RECENT_WORK.map((item) => {
-      const chat = chats.find((c) => c.id === item.chatId);
-      const key = workItemEntityKey(item);
-      const constellation = item.constellationId
-        ? CONSTELLATIONS.find((entry) => entry.id === item.constellationId)
-        : undefined;
-      const projectCard = homeProjects.find((project) => project.id === item.projectId);
-      const { projectName: _legacyProjectName, ...rest } = item;
-      return {
-        ...rest,
-        title: chat?.label ?? item.title,
-        isPinned: pinnedEntityOrder.includes(key) || Boolean(chat?.pinned),
-        constellationDescription: constellation?.description,
-        projectDescription: projectCard?.description,
-      };
-    })
+    HOME_RECENT_WORK
+      .filter((item) => homeProjects.some((project) => project.id === item.projectId))
+      .map((item) => {
+        const chat = chats.find((c) => c.id === item.chatId);
+        const key = workItemEntityKey(item);
+        const constellation = item.constellationId
+          ? CONSTELLATIONS.find((entry) => entry.id === item.constellationId)
+          : undefined;
+        const projectCard = homeProjects.find((project) => project.id === item.projectId);
+        const { projectName: _legacyProjectName, ...rest } = item;
+        return {
+          ...rest,
+          title: chat?.label ?? item.title,
+          isPinned: pinnedEntityOrder.includes(key) || Boolean(chat?.pinned),
+          constellationDescription: constellation?.description,
+          projectDescription: projectCard?.description,
+        };
+      })
   ), [chats, homeProjects, pinnedEntityOrder]);
 
   useEffect(() => {
@@ -4887,6 +4892,60 @@ export default function App() {
     setHomeProjects((prev) => prev.map((project) => (
       project.id === projectId ? { ...project, name: trimmed } : project
     )));
+  }
+
+  function handleEditProjectDetails(
+    projectId: string,
+    details: { name: string; description: string },
+  ) {
+    const trimmedName = details.name.trim();
+    if (!trimmedName) return;
+    setHomeProjects((prev) => prev.map((project) => (
+      project.id === projectId
+        ? {
+            ...project,
+            name: trimmedName,
+            description: details.description.trim() || undefined,
+          }
+        : project
+    )));
+  }
+
+  function requestEditProjectDetails(projectId: string) {
+    setProjectManageId(projectId);
+    setProjectManageMode("edit");
+  }
+
+  function requestDeleteProject(projectId: string) {
+    setProjectManageId(projectId);
+    setProjectManageMode("delete");
+  }
+
+  function closeProjectManageDialogs() {
+    setProjectManageMode(null);
+    setProjectManageId(null);
+  }
+
+  function handleDeleteProject(projectId: string) {
+    const target = homeProjects.find((project) => project.id === projectId);
+    if (!target) return;
+
+    const viewingDeletedProject = activeProjectId === projectId
+      || activeData?.projectId === projectId;
+
+    setHomeProjects((prev) => prev.filter((project) => project.id !== projectId));
+
+    if (pinnedProjectIds.includes(projectId)) {
+      const nextPins = pinnedProjectIds.filter((id) => id !== projectId);
+      setPinnedProjectIds(nextPins);
+      writePinnedProjectIds(nextPins);
+    }
+
+    setChats((prev) => prev.filter((chat) => chat.projectId !== projectId));
+
+    if (viewingDeletedProject) {
+      handleNavigateHome();
+    }
   }
 
   function handleRenameGalaxy(projectId: string, name: string) {
@@ -5578,6 +5637,8 @@ export default function App() {
               onToggleProjectPin={handleToggleProjectPin}
               onArchiveProject={handleArchiveProject}
               onRestoreProject={handleRestoreProject}
+              onEditProject={requestEditProjectDetails}
+              onDeleteProject={requestDeleteProject}
               onToggleWorkPin={handleToggleWorkPin}
               onContinueWork={handleContinueWork}
               onOpenProject={handleOpenProjectFromHome}
@@ -5848,6 +5909,17 @@ export default function App() {
           onCreate={handleCreateProject}
         />
       )}
+      <ProjectManageDialogs
+        mode={projectManageMode}
+        project={
+          projectManageId
+            ? homeProjects.find((project) => project.id === projectManageId) ?? null
+            : null
+        }
+        onClose={closeProjectManageDialogs}
+        onEditDetails={handleEditProjectDetails}
+        onDelete={handleDeleteProject}
+      />
     </div>
   );
 }

@@ -35,6 +35,8 @@ export function HomePage({
   onToggleProjectPin,
   onArchiveProject,
   onRestoreProject,
+  onEditProject,
+  onDeleteProject,
   onToggleWorkPin,
   onContinueWork,
   onOpenProject,
@@ -173,7 +175,6 @@ export function HomePage({
         items={workWithPin}
         dismissedKeys={dismissedContinueKeys}
         heroEntityKey={heroResolution.heroEntityKey}
-        pinnedEntityOrder={pinnedEntityOrder}
         projects={projectsWithPin}
         onBack={() => onBrowseModeChange("overview")}
         onContinue={onContinueWork}
@@ -197,6 +198,8 @@ export function HomePage({
         onToggleProjectPin={onToggleProjectPin}
         onArchiveProject={onArchiveProject}
         onRestoreProject={onRestoreProject}
+        onEditProject={onEditProject}
+        onDeleteProject={onDeleteProject}
         onOpenProject={onOpenProject}
         onNavigateProjectDestination={handleNavigate}
         onNewProject={onNewProject}
@@ -241,6 +244,8 @@ export function HomePage({
         onToggleProjectPin={onToggleProjectPin}
         onArchiveProject={onArchiveProject}
         onRestoreProject={onRestoreProject}
+        onEditProject={onEditProject}
+        onDeleteProject={onDeleteProject}
         onOpenProject={onOpenProject}
         onNavigateProjectDestination={handleNavigate}
       />

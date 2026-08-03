@@ -1,4 +1,11 @@
 export { NewProjectModal } from "./NewProjectModal";
+export {
+  ProjectManageDialogs,
+  EditProjectDialog,
+  EditProjectDetailsDialog,
+  DeleteProjectDialog,
+} from "./ProjectManageDialogs";
+export type { ProjectManageMode, ProjectDetailsDraft } from "./ProjectManageDialogs";
 export { ProjectsBrowser } from "./ProjectsBrowser";
 export {
   ProjectsPreview,

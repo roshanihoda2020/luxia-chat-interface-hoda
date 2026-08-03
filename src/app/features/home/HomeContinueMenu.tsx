@@ -7,7 +7,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/app/components/ui/dropdown-menu";
-import { HERO_CONTROL_HIT, HERO_HEADER_CONTROL_HIT } from "./PinButton";
+import { COMPACT_CONTROL_HIT } from "./PinButton";
 import { HS } from "./homeSurfaces";
 
 export interface ContinueMenuItem {
@@ -35,10 +35,9 @@ export function HomeContinueMenu({
   controlSize = "default",
   items,
 }: HomeContinueMenuProps) {
-  const isHero = controlSize === "hero";
-  const hitClass = isHero ? HERO_HEADER_CONTROL_HIT : HERO_CONTROL_HIT;
+  void controlSize;
   const idleColor = tone === "dark"
-    ? (isHero ? "rgba(255, 255, 255, 0.72)" : "var(--luxia-opacity-white-48)")
+    ? "rgba(255, 255, 255, 0.72)"
     : "var(--luxia-text-muted)";
   const hoverBg = tone === "dark" ? "var(--luxia-opacity-white-08)" : HS.menuHover;
 
@@ -51,7 +50,7 @@ export function HomeContinueMenu({
           type="button"
           aria-label={`More actions for ${label}`}
           aria-haspopup="menu"
-          className={hitClass}
+          className={COMPACT_CONTROL_HIT}
           style={{ color: idleColor, background: "transparent" }}
           onClick={(e) => {
             e.preventDefault();
@@ -64,7 +63,7 @@ export function HomeContinueMenu({
             (e.currentTarget as HTMLElement).style.background = "transparent";
           }}
         >
-          <MoreHorizontal size={17} strokeWidth={1.75} aria-hidden />
+          <MoreHorizontal size={14} strokeWidth={1.75} aria-hidden />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
