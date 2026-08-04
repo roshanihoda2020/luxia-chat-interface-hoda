@@ -2,8 +2,6 @@ const PINNED_PROJECTS_KEY = "luxia-home-pinned-projects";
 
 export const DEFAULT_PINNED_PROJECT_IDS: string[] = [
   "project-02",
-  "project-05",
-  "project-09",
 ];
 
 function readJson<T>(key: string, fallback: T): T {
@@ -24,7 +22,15 @@ function writeJson(key: string, value: unknown): void {
 }
 
 export function readPinnedProjectIds(): string[] {
-  return readJson<string[]>(PINNED_PROJECTS_KEY, DEFAULT_PINNED_PROJECT_IDS);
+  const ids = readJson<string[]>(PINNED_PROJECTS_KEY, DEFAULT_PINNED_PROJECT_IDS);
+  const removedSeeded = new Set([
+    "project-07",
+    "project-08",
+    "project-09",
+    "project-10",
+  ]);
+  const filtered = ids.filter((id) => !removedSeeded.has(id));
+  return filtered.length > 0 ? filtered : [...DEFAULT_PINNED_PROJECT_IDS];
 }
 
 export function writePinnedProjectIds(ids: string[]): void {

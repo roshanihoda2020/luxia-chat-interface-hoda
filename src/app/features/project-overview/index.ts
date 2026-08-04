@@ -17,6 +17,7 @@ export {
   getProjectVirtualAssistants,
   getProjectWidgets,
 } from "./data";
+export { ConstellationsLibrary } from "./ProjectLibraries";
 export {
   DashboardOutputPreviewGraphic,
   outputTypeLabel,

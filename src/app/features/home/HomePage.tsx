@@ -1,5 +1,10 @@
 import { useMemo, useEffect, useRef, type ReactNode } from "react";
 import {
+  LuxiaPageFrame,
+  type LuxiaPageFrameVariant,
+} from "@/app/components/LuxiaPageFrame";
+import { LUXIA_PAGE_LAYOUT } from "@/app/components/luxiaPageLayout";
+import {
   homePrimaryPreferencesEqual,
   normalizeHomePrimaryPreference,
   resolveHomeHero,
@@ -194,6 +199,7 @@ export function HomePage({
     return (
       <ProjectsBrowser
         projects={projectsWithPin}
+        pinnedProjectOrder={pinnedProjectIds}
         onBack={() => onBrowseModeChange("overview")}
         onToggleProjectPin={onToggleProjectPin}
         onArchiveProject={onArchiveProject}
@@ -256,11 +262,20 @@ export function HomePage({
 export function HomePageShell({
   children,
   scrollRequest = 0,
-  contentMax = HS.contentMax,
+  /** @deprecated Prefer `variant`. Kept for existing Project Overview call sites. */
+  contentMax,
+  variant = "standard",
+  /**
+   * When false, only provide the scroll surface (no LuxiaPageFrame).
+   * Use for pages that already render their own LuxiaPageFrame.
+   */
+  framed = true,
 }: {
   children: ReactNode;
   scrollRequest?: number;
   contentMax?: string;
+  variant?: LuxiaPageFrameVariant;
+  framed?: boolean;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -273,19 +288,26 @@ export function HomePageShell({
     <div
       ref={scrollRef}
       className="luxia-home-shell luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical min-h-0 flex-1 overflow-x-hidden overflow-y-auto"
-      style={{ background: HS.pageBg }}
+      style={{ background: HS.pageBg, scrollbarGutter: "stable" }}
     >
-      <div
-        className="w-full py-8"
-        style={{ paddingInline: HS.pagePadInline }}
-      >
-        <div
-          className="luxia-home-content mx-auto w-full min-w-0"
-          style={{ maxWidth: contentMax }}
+      {framed ? (
+        <LuxiaPageFrame
+          variant={variant}
+          withGutter
+          style={
+            contentMax
+              ? {
+                  maxWidth: contentMax,
+                  paddingBlockStart: LUXIA_PAGE_LAYOUT.padTop,
+                }
+              : undefined
+          }
         >
           {children}
-        </div>
-      </div>
+        </LuxiaPageFrame>
+      ) : (
+        children
+      )}
     </div>
   );
 }

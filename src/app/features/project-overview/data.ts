@@ -1,4 +1,5 @@
 import { HOME_PROJECTS } from "@/app/features/project/data";
+import { buildConstellationSourceCountMap } from "@/app/features/constellation/catalog";
 import type {
   ProjectActivityItem,
   ProjectDashboardItem,
@@ -274,16 +275,9 @@ export const PROJECT_MEMBERS: ProjectMemberItem[] = PROJECT_IDS.flatMap((project
   }));
 });
 
-export const CONSTELLATION_SOURCE_COUNTS: Record<string, number> = {
-  con1: 4,
-  con2: 2,
-  con3: 6,
-  con4: 3,
-  con5: 5,
-  con6: 2,
-  con7: 1,
-  con8: 3,
-};
+/** Derived from the canonical Constellation catalog — do not hardcode. */
+export const CONSTELLATION_SOURCE_COUNTS: Record<string, number> =
+  buildConstellationSourceCountMap();
 
 export function getProjectActivity(projectId: string): ProjectActivityItem[] {
   return PROJECT_ACTIVITY

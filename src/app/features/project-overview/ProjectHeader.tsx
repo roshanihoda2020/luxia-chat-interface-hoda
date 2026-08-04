@@ -7,7 +7,7 @@ import {
   LuxiaBreadcrumb,
   buildProjectOverviewBreadcrumbItems,
 } from "@/app/components/LuxiaBreadcrumb";
-import { LuxiaPageHeader } from "@/app/components/LuxiaPageHeader";
+import { LuxiaPageHeader, LUXIA_PAGE_HEADER_ACTION } from "@/app/components/LuxiaPageHeader";
 import { LuxiaEntityOptionsMenu } from "@/app/components/LuxiaEntityOptionsMenu";
 
 interface ProjectHeaderProps {
@@ -15,6 +15,7 @@ interface ProjectHeaderProps {
   onNavigateHome: () => void;
   onRenameProject?: (name: string) => void;
   onArchiveProject?: (projectId: string) => void;
+  onOpenMembers?: (projectId: string) => void;
 }
 
 export function ProjectHeader({
@@ -22,6 +23,7 @@ export function ProjectHeader({
   onNavigateHome,
   onRenameProject,
   onArchiveProject,
+  onOpenMembers,
 }: ProjectHeaderProps) {
   const description = project.description?.trim();
   const crumbItems = buildProjectOverviewBreadcrumbItems({
@@ -47,21 +49,8 @@ export function ProjectHeader({
           handlers={{ onHome: onNavigateHome }}
         />
       }
-      description={
-        description ? (
-          <p
-            className="line-clamp-2 luxia-type-body-dense"
-            style={{
-              color: "var(--luxia-neutral-600, #475569)",
-              overflowWrap: "anywhere",
-              lineHeight: 1.5,
-            }}
-          >
-            {description}
-          </p>
-        ) : null
-      }
-      metadata={
+      guide={description ? description : undefined}
+      context={
         <ProjectCardMeta
           project={project}
           density="featured"
@@ -70,21 +59,31 @@ export function ProjectHeader({
         />
       }
       secondaryAction={
-        <span
-          className={cn(
-            buttonVariants({ variant: "tertiary", size: "compact" }),
-            "pointer-events-none select-none",
-          )}
-        >
-          Manage roles
-        </span>
+        onOpenMembers ? (
+          <Button
+            type="button"
+            {...LUXIA_PAGE_HEADER_ACTION.secondary}
+            onClick={() => onOpenMembers(project.id)}
+          >
+            Manage roles
+          </Button>
+        ) : (
+          <span
+            className={cn(
+              buttonVariants({ variant: "secondary", size: "compact" }),
+              "pointer-events-none select-none",
+            )}
+          >
+            Manage roles
+          </span>
+        )
       }
       options={
         <LuxiaEntityOptionsMenu
           entityType="Project"
           entityLabel={project.name}
           ariaLabel="Project options"
-          triggerVariant="text"
+          triggerVariant="icon"
           items={[
             { id: "edit-details", label: "Edit Project details", disabled: true },
             {

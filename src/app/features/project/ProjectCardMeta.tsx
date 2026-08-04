@@ -111,15 +111,13 @@ export function ProjectCardMeta({
           singular="Constellation"
           plural="Constellations"
         />
-        {typeof project.sourceCount === "number" ? (
-          <ProjectStatGroup
-            icon={<LuxiaDatasourceIcon size={iconSize} />}
-            iconColor="var(--luxia-blue-60)"
-            count={project.sourceCount}
-            singular="Source"
-            plural="Sources"
-          />
-        ) : null}
+        <ProjectStatGroup
+          icon={<LuxiaDatasourceIcon size={iconSize} />}
+          iconColor="var(--luxia-blue-60)"
+          count={project.sourceCount ?? 0}
+          singular="Source"
+          plural="Sources"
+        />
         <ProjectStatGroup
           icon={<Users size={iconSize} strokeWidth={1.75} />}
           iconColor="var(--luxia-text-muted)"

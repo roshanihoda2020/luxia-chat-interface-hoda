@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/app/components/ui/button";
 import { LuxiaEntityOptionsMenu } from "@/app/components/LuxiaEntityOptionsMenu";
+import { LUXIA_PAGE_HEADER_ACTION } from "@/app/components/LuxiaPageHeader";
 import {
   BROWSER_COLLECTION_GRID,
   BROWSER_PAGE_SIZE,
@@ -21,7 +22,7 @@ import {
   HS,
 } from "@/app/features/home/homeSurfaces";
 import { PinButton } from "@/app/features/home/PinButton";
-import { isProjectActive, isProjectArchived } from "./data";
+import { isProjectActive, isProjectArchived, rankProjectsForPreview } from "./data";
 import { ProjectCardFooter, ProjectCardMeta } from "./ProjectCardMeta";
 import { ProjectCornerMarker } from "./ProjectCornerMarker";
 import { getProjectPath } from "./projectPaths";
@@ -44,6 +45,7 @@ type ProjectSortMode =
 
 interface ProjectsBrowserProps {
   projects: HomeProjectCard[];
+  pinnedProjectOrder?: string[];
   onBack: () => void;
   onToggleProjectPin: (projectId: string) => void;
   onArchiveProject?: (projectId: string) => void;
@@ -70,9 +72,7 @@ function matchesProjectSearch(
     project.name,
     project.description ?? "",
     `${project.constellationCount}`,
-    typeof project.sourceCount === "number"
-      ? `${project.sourceCount}`
-      : "",
+    `${project.sourceCount ?? 0}`,
     "constellation",
     "constellations",
     "source",
@@ -97,6 +97,7 @@ function compareUpdatedDesc(
 
 export function ProjectsBrowser({
   projects,
+  pinnedProjectOrder = [],
   onBack,
   onToggleProjectPin,
   onArchiveProject,
@@ -133,6 +134,14 @@ export function ProjectsBrowser({
   );
 
   const filtered = useMemo(() => {
+    if (
+      lifecycleTab === "active"
+      && !query.trim()
+      && sortMode === "updated"
+    ) {
+      return rankProjectsForPreview(projects, pinnedProjectOrder);
+    }
+
     let next = projects.filter((project) =>
       lifecycleTab === "archived"
         ? isProjectArchived(project)
@@ -176,7 +185,7 @@ export function ProjectsBrowser({
 
       return compareUpdatedDesc(a, b);
     });
-  }, [lifecycleTab, projects, query, sortMode]);
+  }, [lifecycleTab, pinnedProjectOrder, projects, query, sortMode]);
 
   const pageCount = Math.max(
     1,
@@ -205,6 +214,7 @@ export function ProjectsBrowser({
   return (
     <BrowserShell
       title="Projects"
+      pageTypeLabel="PROJECTS"
       archiveId="projects"
       description="Browse active Projects or restore archived ones. Pin and open Project-level Galaxies from Active."
       onBack={onBack}
@@ -213,8 +223,7 @@ export function ProjectsBrowser({
           <Button
             key="new-project-action"
             type="button"
-            variant="primary"
-            size="compact"
+            {...LUXIA_PAGE_HEADER_ACTION.primary}
             onClick={onNewProject}
           >
             New Project

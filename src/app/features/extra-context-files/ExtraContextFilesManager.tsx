@@ -1,5 +1,5 @@
 import { FolderOpen, Plus, Search, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import { Button } from "@/app/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/app/components/ui/dialog";
 import { Input } from "@/app/components/ui/input";
@@ -18,24 +18,34 @@ export function ExtraContextFilesManager({
     files,
     onCommit,
     onCancel,
+    presentation = "dialog",
+    closeRef,
+    hideChrome,
 }: {
     open: boolean;
     files: ExtraContextFile[];
     onCommit: (nextFiles: ExtraContextFile[]) => void;
     onCancel: () => void;
+    presentation?: "dialog" | "page";
+    closeRef?: MutableRefObject<(() => void) | null>;
+    hideChrome?: boolean;
 }) {
+    const isPage = presentation === "page";
+    const effectiveOpen = isPage ? true : open;
+    const showHeaderChrome = !hideChrome && !isPage;
     const [draft, setDraft] = useState<ExtraContextFile[]>(() => cloneFiles(files));
     const [search, setSearch] = useState("");
     const [addOpen, setAddOpen] = useState(false);
     const [previewId, setPreviewId] = useState<string | null>(null);
     const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
     const [discardOpen, setDiscardOpen] = useState(false);
+    const [discardIntent, setDiscardIntent] = useState<"leave" | "reset">("leave");
     const [saving, setSaving] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
     const initialRef = useRef(cloneFiles(files));
 
     useEffect(() => {
-        if (!open) return;
+        if (!effectiveOpen) return;
         const snapshot = cloneFiles(files);
         initialRef.current = snapshot;
         setDraft(snapshot);
@@ -46,7 +56,7 @@ export function ExtraContextFilesManager({
         setDiscardOpen(false);
         setSaving(false);
         setSaveError(null);
-    }, [open, files]);
+    }, [effectiveOpen, files]);
 
     const dirty = filesSignature(draft) !== filesSignature(initialRef.current);
     const filtered = useMemo(() => {
@@ -59,13 +69,28 @@ export function ExtraContextFilesManager({
     const removeFile = draft.find((file) => file.id === confirmRemoveId) ?? null;
     const count = activeFileCount(draft);
 
-    function requestClose() {
+    function requestLeave() {
         if (dirty) {
+            setDiscardIntent("leave");
             setDiscardOpen(true);
             return;
         }
         onCancel();
     }
+
+    function requestCancelEdits() {
+        if (!dirty) {
+            if (!isPage) onCancel();
+            return;
+        }
+        setDiscardIntent(isPage ? "reset" : "leave");
+        setDiscardOpen(true);
+    }
+
+    useEffect(() => {
+        if (closeRef) closeRef.current = requestLeave;
+        return () => { if (closeRef) closeRef.current = null; };
+    });
 
     function markRemove(id: string) {
         setDraft((current) => current.map((file) => file.id === id ? { ...file, markedForRemoval: true } : file));
@@ -98,18 +123,18 @@ export function ExtraContextFilesManager({
                 .filter((file) => !file.markedForRemoval)
                 .map((file) => ({ ...file, status: "ready" as const, markedForRemoval: false }));
             onCommit(committed);
+            initialRef.current = cloneFiles(committed);
+            setDraft(cloneFiles(committed));
             setSaving(false);
-            onCancel();
+            if (!isPage) onCancel();
         }, 500);
     }
 
-    if (!open) return null;
+    if (!effectiveOpen) return null;
 
-    return (
-        <>
-            <Dialog open={open} onOpenChange={(next) => { if (!next) requestClose(); }}>
-                <DialogContent hideCloseButton className="overflow-hidden p-0" style={{ width: "min(92vw, 760px)", maxWidth: "min(92vw, 760px)", maxHeight: "88vh" }}>
-                    <div className="flex max-h-[88vh] flex-col">
+    const shell = (
+                    <div className={isPage ? "flex min-h-0 flex-1 flex-col" : "flex max-h-[88vh] flex-col"}>
+                        {showHeaderChrome ? (
                         <DialogHeader className="border-b px-6 py-5 text-left" style={{ borderColor: LX.border }}>
                             <div className="flex items-start gap-3">
                                 <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-[12px]" style={{ background: LX.blueT10 }}>
@@ -119,14 +144,16 @@ export function ExtraContextFilesManager({
                                     <DialogTitle className="luxia-type-title-modal" style={{ color: LX.primary }}>Extra Context Files</DialogTitle>
                                     <DialogDescription className="mt-1 luxia-type-metadata" style={{ color: LX.textMuted }}>Changes are local until saved.</DialogDescription>
                                 </div>
-                                <Button type="button" variant="outline" size="icon" className="h-9 w-9 " aria-label="Close extra context files" onClick={requestClose}>
+                                <Button type="button" variant="outline" size="icon" className="h-9 w-9 " aria-label="Close extra context files" onClick={requestLeave}>
                                     <X size={15} style={{ color: LX.textMuted }} />
                                 </Button>
                             </div>
                         </DialogHeader>
+                        ) : null}
 
                         <div className="border-b px-6 py-3" style={{ borderColor: LX.border }}>
-                            <div className="flex items-center gap-2 rounded-[14px] border px-3 py-2" style={{ borderColor: LX.border, background: LX.subtle }}>
+                            <div className="flex flex-wrap items-center gap-2">
+                            <div className="flex min-w-0 flex-1 items-center gap-2 rounded-[14px] border px-3 py-2" style={{ borderColor: LX.border, background: LX.subtle }}>
                                 <Search size={14} style={{ color: LX.textMuted }} />
                                 <Input
                                     value={search}
@@ -140,6 +167,10 @@ export function ExtraContextFilesManager({
                                         <X size={12} style={{ color: LX.textMuted }} />
                                     </Button>
                                 ) : null}
+                            </div>
+                            <Button type="button" variant="primary" size="compact" onClick={() => setAddOpen(true)}>
+                                <Plus size={14} />Add Extra Context File
+                            </Button>
                             </div>
                         </div>
 
@@ -176,27 +207,41 @@ export function ExtraContextFilesManager({
                         </div>
 
                         <div className="border-t px-6 py-4" style={{ borderColor: LX.border }}>
-                            {filtered.length > 0 ? (
-                                <Button type="button" variant="outline" className="mb-4 w-full " onClick={() => setAddOpen(true)}>
-                                    <Plus size={14} />Add files
-                                </Button>
-                            ) : null}
                             {saveError ? <p className="mb-3 luxia-type-metadata" style={{ color: LX.error }} role="alert">{saveError}</p> : null}
                             <div className="flex items-center justify-between gap-3">
                                 <span className="luxia-type-metadata" style={{ color: LX.textMuted }}>
                                     {count} {count === 1 ? "item" : "items"}{dirty ? " · Unsaved changes" : ""}
                                 </span>
                                 <div className="flex items-center gap-2">
-                                    <Button type="button" variant="secondary" className="px-4" onClick={requestClose}>Cancel</Button>
-                                    <Button type="button" className="min-w-[132px] px-4" disabled={!dirty || saving} onClick={save}>
+                                    <Button type="button" variant="secondary" className="px-4" onClick={requestCancelEdits} disabled={isPage && !dirty}>Cancel</Button>
+                                    <Button
+                                        type="button"
+                                        variant="primary"
+                                        className="min-w-[132px] px-4 !bg-[var(--luxia-purple-70)] !bg-none disabled:!opacity-[0.45]"
+                                        disabled={!dirty || saving}
+                                        onClick={save}
+                                    >
                                         {saving ? "Saving…" : "Save Changes"}
                                     </Button>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </DialogContent>
-            </Dialog>
+    );
+
+    return (
+        <>
+            {isPage ? (
+                <div className="flex flex-col overflow-hidden rounded-[12px] border" style={{ borderColor: LX.border }}>
+                    {shell}
+                </div>
+            ) : (
+                <Dialog open={open} onOpenChange={(next) => { if (!next) requestLeave(); }}>
+                    <DialogContent hideCloseButton className="overflow-hidden p-0" style={{ width: "min(92vw, 760px)", maxWidth: "min(92vw, 760px)", maxHeight: "88vh" }}>
+                        {shell}
+                    </DialogContent>
+                </Dialog>
+            )}
 
             <AddExtraContextFilesDialog
                 open={addOpen}
@@ -219,7 +264,14 @@ export function ExtraContextFilesManager({
             <DiscardExtraContextChangesDialog
                 open={discardOpen}
                 onOpenChange={setDiscardOpen}
-                onDiscard={() => { setDiscardOpen(false); onCancel(); }}
+                onDiscard={() => {
+                    setDiscardOpen(false);
+                    if (discardIntent === "reset") {
+                        setDraft(cloneFiles(initialRef.current));
+                        return;
+                    }
+                    onCancel();
+                }}
             />
         </>
     );

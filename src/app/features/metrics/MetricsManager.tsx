@@ -1,5 +1,5 @@
 import { BarChart3, Plus, Search, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import { AddMetricDialog } from "./AddMetricDialog";
 import { DiscardMetricChangesDialog } from "./DiscardMetricChangesDialog";
 import { EditMetricDialog } from "./EditMetricDialog";
@@ -19,12 +19,21 @@ export function MetricsManager({
     metrics,
     onCommit,
     onCancel,
+    presentation = "dialog",
+    closeRef,
+    hideChrome,
 }: {
     open: boolean;
     metrics: MetricRecord[];
     onCommit: (next: MetricRecord[]) => void;
     onCancel: () => void;
+    presentation?: "dialog" | "page";
+    closeRef?: MutableRefObject<(() => void) | null>;
+    hideChrome?: boolean;
 }) {
+    const isPage = presentation === "page";
+    const effectiveOpen = isPage ? true : open;
+    const showHeaderChrome = !hideChrome && !isPage;
     const [draft, setDraft] = useState<MetricRecord[]>(() => cloneMetrics(metrics));
     const [search, setSearch] = useState("");
     const [addOpen, setAddOpen] = useState(false);
@@ -32,12 +41,13 @@ export function MetricsManager({
     const [editId, setEditId] = useState<string | null>(null);
     const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
     const [discardOpen, setDiscardOpen] = useState(false);
+    const [discardIntent, setDiscardIntent] = useState<"leave" | "reset">("leave");
     const [saving, setSaving] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
     const initialRef = useRef(cloneMetrics(metrics));
 
     useEffect(() => {
-        if (!open) return;
+        if (!effectiveOpen) return;
         const snapshot = cloneMetrics(metrics);
         initialRef.current = snapshot;
         setDraft(snapshot);
@@ -49,7 +59,7 @@ export function MetricsManager({
         setDiscardOpen(false);
         setSaving(false);
         setSaveError(null);
-    }, [open, metrics]);
+    }, [effectiveOpen, metrics]);
 
     const dirty = metricsSignature(draft) !== metricsSignature(initialRef.current);
     const visibleDraft = useMemo(() => draft.filter((item) => !item.markedForRemoval), [draft]);
@@ -64,13 +74,28 @@ export function MetricsManager({
     const editItem = visibleDraft.find((item) => item.id === editId) ?? null;
     const count = activeMetricCount(draft);
 
-    function requestClose() {
+    function requestLeave() {
         if (dirty) {
+            setDiscardIntent("leave");
             setDiscardOpen(true);
             return;
         }
         onCancel();
     }
+
+    function requestCancelEdits() {
+        if (!dirty) {
+            if (!isPage) onCancel();
+            return;
+        }
+        setDiscardIntent(isPage ? "reset" : "leave");
+        setDiscardOpen(true);
+    }
+
+    useEffect(() => {
+        if (closeRef) closeRef.current = requestLeave;
+        return () => { if (closeRef) closeRef.current = null; };
+    });
 
     function markRemove(id: string) {
         setDraft((current) => current.map((item) => item.id === id ? { ...item, markedForRemoval: true } : item));
@@ -106,18 +131,18 @@ export function MetricsManager({
                 .filter((item) => !item.markedForRemoval)
                 .map((item) => ({ ...item, markedForRemoval: false }));
             onCommit(committed);
+            initialRef.current = cloneMetrics(committed);
+            setDraft(cloneMetrics(committed));
             setSaving(false);
-            onCancel();
+            if (!isPage) onCancel();
         }, 500);
     }
 
-    if (!open) return null;
+    if (!effectiveOpen) return null;
 
-    return (
-        <>
-            <Dialog open={open} onOpenChange={(next) => { if (!next) requestClose(); }}>
-                <DialogContent hideCloseButton className="overflow-hidden p-0" style={{ width: "min(92vw, 760px)", maxWidth: "min(92vw, 760px)", maxHeight: "88vh" }}>
-                    <div className="flex max-h-[88vh] flex-col">
+    const shell = (
+                    <div className={isPage ? "flex min-h-0 flex-1 flex-col" : "flex max-h-[88vh] flex-col"}>
+                        {showHeaderChrome ? (
                         <DialogHeader className="flex-shrink-0 border-b px-6 py-5 text-left" style={{ borderColor: LX.border }}>
                             <div className="flex items-start gap-3">
                                 <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-[12px]" style={{ background: LX.blueT10 }}>
@@ -127,14 +152,16 @@ export function MetricsManager({
                                     <DialogTitle className="luxia-type-title-modal" style={{ color: LX.primary }}>Metrics</DialogTitle>
                                     <DialogDescription className="mt-1 luxia-type-metadata" style={{ color: LX.textMuted }}>Changes are local until saved.</DialogDescription>
                                 </div>
-                                <Button type="button" variant="outline" size="icon" className="h-9 w-9 " aria-label="Close metrics manager" onClick={requestClose}>
+                                <Button type="button" variant="outline" size="icon" className="h-9 w-9 " aria-label="Close metrics manager" onClick={requestLeave}>
                                     <X size={15} style={{ color: LX.textMuted }} />
                                 </Button>
                             </div>
                         </DialogHeader>
+                        ) : null}
 
                         <div className="flex-shrink-0 border-b px-6 py-3" style={{ borderColor: LX.border }}>
-                            <div className="flex items-center gap-2 rounded-[14px] border px-3 py-2" style={{ borderColor: LX.border, background: LX.subtle }}>
+                            <div className="flex flex-wrap items-center gap-2">
+                            <div className="flex min-w-0 flex-1 items-center gap-2 rounded-[14px] border px-3 py-2" style={{ borderColor: LX.border, background: LX.subtle }}>
                                 <Search size={14} style={{ color: LX.textMuted }} />
                                 <Input
                                     value={search}
@@ -148,6 +175,10 @@ export function MetricsManager({
                                         <X size={12} style={{ color: LX.textMuted }} />
                                     </Button>
                                 ) : null}
+                            </div>
+                            <Button type="button" variant="primary" size="compact" onClick={() => setAddOpen(true)}>
+                                <Plus size={14} />Add Metric
+                            </Button>
                             </div>
                         </div>
 
@@ -185,27 +216,41 @@ export function MetricsManager({
                         </div>
 
                         <div className="flex-shrink-0 border-t px-6 py-4" style={{ borderColor: LX.border }}>
-                            {filtered.length > 0 ? (
-                                <Button type="button" variant="outline" className="mb-4 w-full " onClick={() => setAddOpen(true)}>
-                                    <Plus size={14} />Add item
-                                </Button>
-                            ) : null}
                             {saveError ? <p className="mb-3 luxia-type-metadata" role="alert" style={{ color: LX.error }}>{saveError}</p> : null}
                             <div className="flex items-center justify-between gap-3">
                                 <span className="luxia-type-metadata" style={{ color: LX.textMuted }}>
                                     {count} {count === 1 ? "item" : "items"}{dirty ? " · Unsaved changes" : ""}
                                 </span>
                                 <div className="flex items-center gap-2">
-                                    <Button type="button" variant="secondary" className="px-4" onClick={requestClose}>Cancel</Button>
-                                    <Button type="button" className="min-w-[132px] px-4" disabled={!dirty || saving} onClick={save}>
+                                    <Button type="button" variant="secondary" className="px-4" onClick={requestCancelEdits} disabled={isPage && !dirty}>Cancel</Button>
+                                    <Button
+                                        type="button"
+                                        variant="primary"
+                                        className="min-w-[132px] px-4 !bg-[var(--luxia-purple-70)] !bg-none disabled:!opacity-[0.45]"
+                                        disabled={!dirty || saving}
+                                        onClick={save}
+                                    >
                                         {saving ? "Saving…" : "Save Changes"}
                                     </Button>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </DialogContent>
-            </Dialog>
+    );
+
+    return (
+        <>
+            {isPage ? (
+                <div className="flex flex-col overflow-hidden rounded-[12px] border" style={{ borderColor: LX.border }}>
+                    {shell}
+                </div>
+            ) : (
+                <Dialog open={open} onOpenChange={(next) => { if (!next) requestLeave(); }}>
+                    <DialogContent hideCloseButton className="overflow-hidden p-0" style={{ width: "min(92vw, 760px)", maxWidth: "min(92vw, 760px)", maxHeight: "88vh" }}>
+                        {shell}
+                    </DialogContent>
+                </Dialog>
+            )}
 
             <AddMetricDialog open={addOpen} onOpenChange={setAddOpen} onAdd={addMetric} />
 
@@ -233,7 +278,14 @@ export function MetricsManager({
             <DiscardMetricChangesDialog
                 open={discardOpen}
                 onOpenChange={setDiscardOpen}
-                onDiscard={() => { setDiscardOpen(false); onCancel(); }}
+                onDiscard={() => {
+                    setDiscardOpen(false);
+                    if (discardIntent === "reset") {
+                        setDraft(cloneMetrics(initialRef.current));
+                        return;
+                    }
+                    onCancel();
+                }}
             />
         </>
     );

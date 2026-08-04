@@ -34,6 +34,8 @@ export interface ProjectOverviewPageProps {
   onOpenGalaxySettings: (projectId: string) => void;
   onOpenChat: (chatId: string) => void;
   onOpenConstellation: (projectId: string, constellationId: string) => void;
+  onOpenConstellationSettings?: (projectId: string, constellationId: string) => void;
+  onViewAllConstellations?: (projectId: string) => void;
   onNewChat: (projectId: string) => void;
   onAddConstellation: (projectId: string, name: string, type: "database" | "csv" | "pdf") => void;
   onOpenDashboard?: (projectId: string) => void;
@@ -43,6 +45,7 @@ export interface ProjectOverviewPageProps {
   onRenameProject?: (projectId: string, name: string) => void;
   onRenameGalaxy?: (projectId: string, name: string) => void;
   onArchiveProject?: (projectId: string) => void;
+  onOpenMembers?: (projectId: string) => void;
 }
 
 const DESIGNED_BROWSE_MODES: ProjectOverviewBrowseMode[] = ["overview"];
@@ -70,12 +73,17 @@ export function ProjectOverviewPage({
   onOpenGalaxy,
   onOpenGalaxySettings,
   onOpenChat,
+  onOpenConstellation,
   onNewChat,
+  onAddConstellation,
   onOpenDashboard,
   onBrowseModeChange,
   onRenameProject,
   onRenameGalaxy,
   onArchiveProject,
+  onOpenMembers,
+  onOpenConstellationSettings,
+  onViewAllConstellations,
 }: ProjectOverviewPageProps) {
   const [browseMode, setBrowseMode] = useState<ProjectOverviewBrowseMode>(
     DESIGNED_BROWSE_MODES.includes(initialBrowseMode) ? initialBrowseMode : "overview",
@@ -155,6 +163,7 @@ export function ProjectOverviewPage({
         onNavigateHome={onNavigateHome}
         onRenameProject={(name) => onRenameProject?.(resolvedProject.id, name)}
         onArchiveProject={onArchiveProject}
+        onOpenMembers={onOpenMembers}
       />
 
       <div className="flex min-w-0 flex-col gap-5">
@@ -188,7 +197,16 @@ export function ProjectOverviewPage({
         <section className="min-w-0">
           <OverviewLabel>Knowledge and interactions</OverviewLabel>
           <div className="grid min-w-0 grid-cols-1 items-stretch gap-4 xl:grid-cols-2">
-            <ConstellationsModule constellations={projectConstellations} />
+            <ConstellationsModule
+              projectId={resolvedProject.id}
+              constellations={projectConstellations}
+              onOpenConstellation={onOpenConstellation}
+              onOpenConstellationSettings={onOpenConstellationSettings}
+              onViewAll={() => onViewAllConstellations?.(resolvedProject.id)}
+              onAddConstellation={() =>
+                onAddConstellation(resolvedProject.id, "Constellation name", "database")
+              }
+            />
             <ChatsModule
               chats={projectChats}
               onOpenChat={onOpenChat}

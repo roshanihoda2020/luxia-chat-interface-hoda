@@ -27,7 +27,7 @@ import {
 } from "./ProjectModuleShared";
 
 function sourceBadgeLabel(type: HomeConstellationSource): string {
-  if (type === "pdf") return "File";
+  if (type === "pdf") return "PDF";
   if (type === "csv") return "CSV";
   return "Database";
 }
@@ -132,18 +132,33 @@ export function ChatsModule({
 
 export function ConstellationsModule({
   constellations,
+  projectId,
+  onOpenConstellation,
+  onOpenConstellationSettings,
+  onViewAll,
+  onAddConstellation,
 }: {
   constellations: ProjectOverviewConstellation[];
+  projectId: string;
+  onOpenConstellation: (projectId: string, constellationId: string) => void;
+  onOpenConstellationSettings?: (projectId: string, constellationId: string) => void;
+  onViewAll?: () => void;
+  onAddConstellation?: () => void;
 }) {
   const preview = constellations.slice(0, 3);
   const counts = countByType(constellations);
+  const total = constellations.length;
+  const viewAllLabel =
+    total === 0
+      ? "View all Constellations"
+      : `View all ${total} ${total === 1 ? "Constellation" : "Constellations"}`;
 
   return (
     <ProjectModuleCard
       icon={<LuxiaConstellationIcon size={20} aria-hidden color="currentColor" />}
       title="Constellations"
-      count={constellations.length}
-      countLabel={constellations.length === 1 ? "Constellation" : "Constellations"}
+      count={total}
+      countLabel={total === 1 ? "Constellation" : "Constellations"}
       description="Focused knowledge environments built from connected Project data sources."
       size="knowledge"
       surface="knowledge"
@@ -155,16 +170,16 @@ export function ConstellationsModule({
       }
       footer={
         <>
-          <ProjectViewAllLink label="View all Constellations" />
-          <ProjectOutlineButton label="Add Constellation" />
+          <ProjectViewAllLink label={viewAllLabel} onClick={onViewAll} />
+          <ProjectOutlineButton label="Add Constellation" onClick={onAddConstellation} />
         </>
       }
     >
       {preview.length === 0 ? (
         <ProjectModuleEmptyState
           title="No Constellations yet"
-          description="Add a Database, CSV, or File Constellation to begin."
-          action={<ProjectOutlineButton label="Add Constellation" />}
+          description="No Constellations have been added to this Project yet."
+          action={<ProjectOutlineButton label="Add Constellation" onClick={onAddConstellation} />}
         />
       ) : (
         <div className="flex flex-col gap-3">
@@ -179,7 +194,7 @@ export function ConstellationsModule({
               <ProjectMetaText>{counts.csv} CSV</ProjectMetaText>
             ) : null}
             {counts.file > 0 ? (
-              <ProjectMetaText>{counts.file} File</ProjectMetaText>
+              <ProjectMetaText>{counts.file} PDF</ProjectMetaText>
             ) : null}
           </div>
           <div className="flex flex-col">
@@ -188,14 +203,27 @@ export function ConstellationsModule({
                 key={item.id}
                 icon={<LuxiaConstellationIcon size={18} aria-hidden color="currentColor" />}
                 title={item.label}
-                ariaLabel={item.label}
+                ariaLabel={`Open Settings for ${item.label}`}
+                onClick={() =>
+                  (onOpenConstellationSettings ?? onOpenConstellation)(projectId, item.id)
+                }
+                showChevron={false}
                 meta={
                   <>
-                    <ProjectMetaText>{sourceBadgeLabel(item.type)}</ProjectMetaText>
+                    <SourceBadge type={item.type} />
                     <ProjectMetaText>
                       {item.sourceCount} {item.sourceCount === 1 ? "source" : "sources"}
                     </ProjectMetaText>
                   </>
+                }
+                actions={
+                  onOpenConstellationSettings ? (
+                    <ProjectOutlineButton
+                      label="Settings"
+                      ariaLabel={`Open Settings for ${item.label}`}
+                      onClick={() => onOpenConstellationSettings(projectId, item.id)}
+                    />
+                  ) : null
                 }
               />
             ))}

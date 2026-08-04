@@ -9,10 +9,12 @@ import {
   type LuxiaBreadcrumbHandlers,
 } from "@/app/components/LuxiaBreadcrumb";
 import { LuxiaPageHeader } from "@/app/components/LuxiaPageHeader";
+import { LUXIA_PAGE_LAYOUT } from "@/app/components/luxiaPageLayout";
 import { HS } from "./homeSurfaces";
 
 export const BROWSER_PAGE_SIZE = 20;
-export const BROWSER_CONTENT_MAX = "1200px";
+/** @deprecated Prefer LuxiaPageFrame variant="standard". Archives inherit shared standard max-width. */
+export const BROWSER_CONTENT_MAX = LUXIA_PAGE_LAYOUT.maxWidth.standard;
 
 export const BROWSER_COLLECTION_GRID =
   "grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(min(100%,18.5rem),1fr))] items-stretch";
@@ -28,6 +30,7 @@ const FILTER_LABEL_STYLE = {
 
 interface BrowserShellProps {
   title: string;
+  pageTypeLabel?: string;
   description?: string;
   archiveId?: string;
   onBack: () => void;
@@ -47,6 +50,7 @@ interface BrowserShellProps {
 
 export function BrowserShell({
   title,
+  pageTypeLabel,
   description,
   archiveId = "archive",
   onBack,
@@ -71,9 +75,10 @@ export function BrowserShell({
     : "mb-4 space-y-4";
 
   return (
-    <div className="mx-auto min-w-0 w-full" style={{ maxWidth: BROWSER_CONTENT_MAX }}>
+    <div className="min-w-0 w-full">
       <LuxiaPageHeader
         contentGap="page"
+        pageTypeLabel={pageTypeLabel}
         title={title}
         titleStyle={{ color: HS.sectionHeading }}
         breadcrumb={
@@ -86,14 +91,8 @@ export function BrowserShell({
             handlers={crumbHandlers}
           />
         }
-        description={
-          description ? (
-            <p className="luxia-type-body-small" style={{ color: "var(--luxia-neutral-600, #475569)" }}>
-              {description}
-            </p>
-          ) : null
-        }
-        actions={actions}
+        guide={description ?? undefined}
+        primaryAction={actions}
       />
 
       {banner}

@@ -1,11 +1,16 @@
 export type LuxiaBreadcrumbDestination =
   | { kind: "home" }
   | { kind: "project"; projectId: string }
+  | { kind: "constellations"; projectId: string }
   | { kind: "constellation"; projectId: string; constellationId: string }
+  | { kind: "constellation-settings"; projectId: string; constellationId: string }
   | { kind: "chat"; projectId: string; chatId: string; constellationId?: string }
   | { kind: "galaxy"; projectId: string; galaxyId: string }
   | { kind: "dashboard"; projectId: string; dashboardId?: string }
   | { kind: "virtual-assistant"; projectId: string; virtualAssistantId?: string }
+  | { kind: "access-levels" }
+  | { kind: "members"; projectId: string }
+  | { kind: "data-source-settings"; dataSourceId: string }
   | { kind: "current" };
 
 export interface LuxiaBreadcrumbItem {
@@ -17,11 +22,16 @@ export interface LuxiaBreadcrumbItem {
 export interface LuxiaBreadcrumbHandlers {
   onHome?: () => void;
   onProject?: (projectId: string) => void;
+  onConstellations?: (projectId: string) => void;
   onConstellation?: (projectId: string, constellationId: string) => void;
+  onConstellationSettings?: (projectId: string, constellationId: string) => void;
   onChat?: (projectId: string, chatId: string, constellationId?: string) => void;
   onGalaxy?: (projectId: string, galaxyId: string) => void;
   onDashboard?: (projectId: string, dashboardId?: string) => void;
   onVirtualAssistant?: (projectId: string, virtualAssistantId?: string) => void;
+  onAccessLevels?: () => void;
+  onMembers?: (projectId: string) => void;
+  onDataSourceSettings?: (dataSourceId: string) => void;
 }
 
 function resolveNavigate(
@@ -35,9 +45,31 @@ function resolveNavigate(
       return handlers.onProject
         ? () => handlers.onProject!(destination.projectId)
         : undefined;
+    case "constellations":
+      return handlers.onConstellations
+        ? () => handlers.onConstellations!(destination.projectId)
+        : undefined;
     case "constellation":
       return handlers.onConstellation
         ? () => handlers.onConstellation!(destination.projectId, destination.constellationId)
+        : undefined;
+    case "constellation-settings":
+      return handlers.onConstellationSettings
+        ? () =>
+          handlers.onConstellationSettings!(
+            destination.projectId,
+            destination.constellationId,
+          )
+        : undefined;
+    case "access-levels":
+      return handlers.onAccessLevels;
+    case "members":
+      return handlers.onMembers
+        ? () => handlers.onMembers!(destination.projectId)
+        : undefined;
+    case "data-source-settings":
+      return handlers.onDataSourceSettings
+        ? () => handlers.onDataSourceSettings!(destination.dataSourceId)
         : undefined;
     case "chat":
       return handlers.onChat
@@ -77,7 +109,7 @@ export function LuxiaBreadcrumb({
   if (items.length === 0) return null;
 
   const textClass = tone === "page" ? "luxia-type-caption" : "luxia-type-metadata";
-  const muted = tone === "page" ? "var(--luxia-text-muted)" : "#697077";
+  const muted = tone === "page" ? "var(--luxia-text-breadcrumb)" : "#697077";
   const current = tone === "page" ? "var(--luxia-text-secondary)" : "var(--luxia-brand-primary, #30214E)";
 
   return (
@@ -270,6 +302,86 @@ export function buildProjectLibraryBreadcrumbItems(input: {
     {
       id: `library-${input.libraryId}`,
       label: input.libraryLabel,
+      destination: { kind: "current" },
+    },
+  ];
+}
+
+export function buildConstellationSettingsBreadcrumbItems(input: {
+  projectId: string;
+  projectName: string;
+  constellationId: string;
+  constellationName: string;
+}): LuxiaBreadcrumbItem[] {
+  return [
+    { id: "home", label: "Home", destination: { kind: "home" } },
+    {
+      id: `project-${input.projectId}`,
+      label: input.projectName,
+      destination: { kind: "project", projectId: input.projectId },
+    },
+    {
+      id: `constellations-${input.projectId}`,
+      label: "Constellations",
+      destination: { kind: "constellations", projectId: input.projectId },
+    },
+    {
+      id: `constellation-${input.constellationId}`,
+      label: input.constellationName,
+      destination: {
+        kind: "constellation",
+        projectId: input.projectId,
+        constellationId: input.constellationId,
+      },
+    },
+    {
+      id: "settings",
+      label: "Settings",
+      destination: { kind: "current" },
+    },
+  ];
+}
+
+export function buildConstellationCapabilityBreadcrumbItems(input: {
+  projectId: string;
+  projectName: string;
+  constellationId: string;
+  constellationName: string;
+  capabilityLabel: string;
+}): LuxiaBreadcrumbItem[] {
+  return [
+    { id: "home", label: "Home", destination: { kind: "home" } },
+    {
+      id: `project-${input.projectId}`,
+      label: input.projectName,
+      destination: { kind: "project", projectId: input.projectId },
+    },
+    {
+      id: `constellations-${input.projectId}`,
+      label: "Constellations",
+      destination: { kind: "constellations", projectId: input.projectId },
+    },
+    {
+      id: `constellation-${input.constellationId}`,
+      label: input.constellationName,
+      destination: {
+        kind: "constellation",
+        projectId: input.projectId,
+        constellationId: input.constellationId,
+      },
+    },
+    {
+      id: "settings",
+      label: "Settings",
+      destination: {
+        kind: "constellation-settings",
+        projectId: input.projectId,
+        constellationId: input.constellationId,
+      },
+    },
+    {
+      id: "capability",
+      label: input.capabilityLabel,
       destination: { kind: "current" },
     },
   ];

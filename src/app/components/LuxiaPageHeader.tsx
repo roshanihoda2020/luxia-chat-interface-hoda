@@ -7,19 +7,28 @@ import {
   type CSSProperties,
   type ReactNode,
 } from "react";
-import { Check, Pencil, X } from "lucide-react";
-import { HS } from "@/app/features/home/homeSurfaces";
+import { Check, CircleHelp, Pencil, X } from "lucide-react";
+import { LUXIA_PAGE_LAYOUT } from "@/app/components/luxiaPageLayout";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/app/components/ui/tooltip";
 
 export type LuxiaPageHeaderWidthVariant =
   | "overview"
-  | "library";
+  | "library"
+  | "default"
+  | "wide";
 
 export const LUXIA_PAGE_HEADER_WIDTH: Record<
   LuxiaPageHeaderWidthVariant,
   string
 > = {
-  overview: HS.overviewContentMax,
-  library: HS.libraryContentMax,
+  overview: LUXIA_PAGE_LAYOUT.maxWidth.standard,
+  library: LUXIA_PAGE_LAYOUT.maxWidth.standard,
+  default: LUXIA_PAGE_LAYOUT.maxWidth.standard,
+  wide: LUXIA_PAGE_LAYOUT.maxWidth.wide,
 };
 
 export function getLuxiaPageHeaderMaxWidth(
@@ -29,11 +38,18 @@ export function getLuxiaPageHeaderMaxWidth(
 }
 
 export const LUXIA_PAGE_INTRO = {
-  padTop: "2rem",
-  padInline: HS.pagePadInline,
+  padTop: LUXIA_PAGE_LAYOUT.padTop,
+  padInline: LUXIA_PAGE_LAYOUT.gutter,
+  eyebrowGapClass: "mb-1.5",
+  titleToBreadcrumbGapClass: "mb-1.5",
+  contextGapClass: "mt-3",
+  guideGapClass: "mt-2",
   trailingGapClass: "mt-3",
   contentBelowClass: "mb-4",
   descriptionMax: "780px",
+  /** Informational guide tone — soft blue, not alert. */
+  guideColor: "var(--luxia-blue-70)",
+  contextColor: "var(--luxia-text-secondary)",
 } as const;
 
 /** @deprecated Use LUXIA_PAGE_INTRO */
@@ -48,10 +64,23 @@ const TITLE_HIT =
 export interface LuxiaPageHeaderProps {
   title: ReactNode;
   pageTypeLabel?: string;
+  /** Custom eyebrow when pageTypeLabel is not used. */
   eyebrow?: ReactNode;
   breadcrumb?: ReactNode;
-  description?: ReactNode;
+  /**
+   * Compact factual metadata (type · status · project).
+   * Preferred over legacy `metadata`.
+   */
+  context?: ReactNode;
+  /** @deprecated Prefer `context`. */
   metadata?: ReactNode;
+  /**
+   * Optional one-line guide / explanation under context.
+   * Preferred over legacy `description`. Auto-wraps with guide icon treatment.
+   */
+  guide?: ReactNode;
+  /** @deprecated Prefer `guide`. */
+  description?: ReactNode;
   onRename?: (name: string) => void;
   renameLabel?: string;
   primaryAction?: ReactNode;
@@ -65,7 +94,41 @@ export interface LuxiaPageHeaderProps {
   titleClassName?: string;
   titleStyle?: CSSProperties;
   contentGap?: "chat" | "page" | "none";
+  /**
+   * Optional leading icon for the title row (capability pages).
+   * Rendered only when provided — never an empty placeholder column.
+   */
+  titleLeading?: ReactNode;
+  /**
+   * @deprecated No longer reserves an empty icon column.
+   * Pass `titleLeading` when an icon is needed; omit it otherwise.
+   */
+  reserveTitleLeading?: boolean;
 }
+
+export const LUXIA_PAGE_TITLE_LEADING_SLOT =
+  "inline-flex h-7 w-7 shrink-0 items-center justify-center";
+
+/**
+ * Shared page-header action conventions.
+ * Prefer these over page-specific Button sizes/variants.
+ *
+ * Visual LTR order in the header cluster:
+ * secondary / tertiary / back → miscellaneous `actions` → primary → options menu
+ */
+export const LUXIA_PAGE_HEADER_ACTION = {
+  size: "compact" as const,
+  primary: { variant: "primary" as const, size: "compact" as const },
+  secondary: { variant: "secondary" as const, size: "compact" as const },
+  /** Low-emphasis / help — transparent, no permanent border. */
+  tertiary: { variant: "tertiary" as const, size: "compact" as const },
+  /** Explicit back when breadcrumb alone is insufficient. */
+  back: { variant: "secondary" as const, size: "compact" as const },
+  /** Bordered settings-style secondary (Chat/Galaxy Settings). */
+  settings: { variant: "secondary" as const, size: "compact" as const },
+  /** Overflow / three-dot — prefer LuxiaEntityOptionsMenu icon trigger. */
+  menuTrigger: "icon" as const,
+} as const;
 
 const GAP: Record<
   NonNullable<LuxiaPageHeaderProps["contentGap"]>,
@@ -101,6 +164,63 @@ function PageTypeLabel({
       {children}
     </p>
   );
+}
+
+export function LuxiaPageContext({
+  children,
+  className = "",
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`min-w-0 luxia-type-caption ${className}`.trim()}
+      style={{ color: LUXIA_PAGE_INTRO.contextColor }}
+    >
+      {children}
+    </div>
+  );
+}
+
+export function LuxiaPageGuide({
+  children,
+  className = "",
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`flex min-w-0 items-start gap-1.5 ${className}`.trim()}
+      style={{ color: LUXIA_PAGE_INTRO.guideColor }}
+    >
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span
+            className="mt-0.5 inline-flex shrink-0"
+            style={{ color: LUXIA_PAGE_INTRO.guideColor }}
+          >
+            <CircleHelp size={14} strokeWidth={1.75} aria-hidden />
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="top" sideOffset={6}>
+          Guide
+        </TooltipContent>
+      </Tooltip>
+      <div className="min-w-0 luxia-type-body-small" style={{ color: LUXIA_PAGE_INTRO.guideColor }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function wrapGuideContent(guide: ReactNode): ReactNode {
+  if (guide == null || guide === false) return null;
+  if (typeof guide === "string" || typeof guide === "number") {
+    return <LuxiaPageGuide>{String(guide)}</LuxiaPageGuide>;
+  }
+  return <LuxiaPageGuide>{guide}</LuxiaPageGuide>;
 }
 
 function TitleUtilityButton({
@@ -203,6 +323,8 @@ export function LuxiaPageHeader({
   breadcrumb,
   description,
   metadata,
+  context,
+  guide,
   onRename,
   renameLabel,
   primaryAction,
@@ -216,6 +338,8 @@ export function LuxiaPageHeader({
   titleClassName = "luxia-type-title-page",
   titleStyle,
   contentGap = "page",
+  titleLeading,
+  reserveTitleLeading: _reserveTitleLeading = false,
 }: LuxiaPageHeaderProps) {
   const typeLabel =
     pageTypeLabel?.trim() || null;
@@ -228,6 +352,9 @@ export function LuxiaPageHeader({
   ) : eyebrow ? (
     <div>{eyebrow}</div>
   ) : null;
+
+  const contextNode = context ?? metadata ?? null;
+  const guideNode = wrapGuideContent(guide ?? description ?? null);
 
   const stringTitle =
     typeof title === "string" ||
@@ -369,6 +496,14 @@ export function LuxiaPageHeader({
     );
   }
 
+  const showTitleLeading = Boolean(titleLeading);
+
+  const titleLeadingSlot = showTitleLeading ? (
+    <span className={LUXIA_PAGE_TITLE_LEADING_SLOT} aria-hidden>
+      {titleLeading}
+    </span>
+  ) : null;
+
   const titleHeading = stringTitle ? (
     <h1
       className={`min-w-0 line-clamp-2 ${titleClassName}`}
@@ -384,12 +519,21 @@ export function LuxiaPageHeader({
     title
   );
 
+  const titledHeadingRow = showTitleLeading ? (
+    <div className="inline-flex max-w-full min-w-0 items-center gap-2.5">
+      {titleLeadingSlot}
+      <div className="min-w-0 flex-1">{titleHeading}</div>
+    </div>
+  ) : (
+    titleHeading
+  );
+
   const titleBlock =
     canRename && isEditing ? (
       <div
         ref={editRootRef}
         className={`w-fit max-w-full min-w-0${
-          breadcrumb ? " mb-1.5" : ""
+          breadcrumb ? ` ${LUXIA_PAGE_INTRO.titleToBreadcrumbGapClass}` : ""
         }`}
       >
         <h1 className="sr-only">
@@ -397,6 +541,7 @@ export function LuxiaPageHeader({
         </h1>
 
         <div className="inline-flex w-fit max-w-full min-w-0 items-center gap-2">
+          {titleLeadingSlot}
           <input
             ref={inputRef}
             type="text"
@@ -510,7 +655,7 @@ export function LuxiaPageHeader({
           breadcrumb ? " mb-1.5" : ""
         }`}
       >
-        {titleHeading}
+        {titledHeadingRow}
 
         <button
           ref={pencilRef}
@@ -553,31 +698,33 @@ export function LuxiaPageHeader({
     ) : stringTitle ? (
       <div
         className={
-          breadcrumb ? "mb-1.5" : undefined
+          breadcrumb
+            ? LUXIA_PAGE_INTRO.titleToBreadcrumbGapClass
+            : undefined
         }
       >
-        {titleHeading}
+        {titledHeadingRow}
       </div>
     ) : (
-      titleHeading
+      titledHeadingRow
     );
 
   const actionNodes = [
-    {
-      key: "primary-action",
-      node: primaryAction,
-    },
     {
       key: "secondary-action",
       node: secondaryAction,
     },
     {
-      key: "options",
-      node: options,
-    },
-    {
       key: "actions",
       node: actions,
+    },
+    {
+      key: "primary-action",
+      node: primaryAction,
+    },
+    {
+      key: "options",
+      node: options,
     },
   ].filter(
     (
@@ -596,7 +743,7 @@ export function LuxiaPageHeader({
       <div className="flex w-full min-w-0 flex-wrap items-start justify-between gap-x-6 gap-y-3">
         <div className="min-w-0 flex-1">
           {labelNode ? (
-            <div className="mb-1.5">
+            <div className={LUXIA_PAGE_INTRO.eyebrowGapClass}>
               {labelNode}
             </div>
           ) : null}
@@ -611,7 +758,7 @@ export function LuxiaPageHeader({
         </div>
 
         {actionNodes.length > 0 ? (
-          <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-2">
+          <div className="ml-auto flex min-h-[40px] min-w-[11rem] shrink-0 flex-wrap items-center justify-end gap-2">
             {actionNodes.map(
               ({ key, node }) => (
                 <Fragment key={key}>
@@ -623,21 +770,20 @@ export function LuxiaPageHeader({
         ) : null}
       </div>
 
-      {description ? (
-        <div
-          className="mt-3 min-w-0"
-          style={{
-            maxWidth:
-              LUXIA_PAGE_INTRO.descriptionMax,
-          }}
-        >
-          {description}
+      {contextNode ? (
+        <div className={`min-w-0 ${LUXIA_PAGE_INTRO.contextGapClass}`}>
+          {contextNode}
         </div>
       ) : null}
 
-      {metadata ? (
-        <div className="mt-3 min-w-0">
-          {metadata}
+      {guideNode ? (
+        <div
+          className={`min-w-0 ${LUXIA_PAGE_INTRO.guideGapClass}`}
+          style={{
+            maxWidth: LUXIA_PAGE_INTRO.descriptionMax,
+          }}
+        >
+          {guideNode}
         </div>
       ) : null}
 

@@ -9,7 +9,6 @@ import {
 import { LuxiaPageHeader } from "@/app/components/LuxiaPageHeader";
 import { ChangePrimaryDialog } from "./ChangePrimaryDialog";
 import {
-  BROWSER_CONTENT_MAX,
   BROWSER_PAGE_SIZE,
   BrowserFilterSelect,
   BrowserPagination,
@@ -249,9 +248,10 @@ function PageHeaderStack({
   children: ReactNode;
 }) {
   return (
-    <div className="mx-auto min-w-0 w-full" style={{ maxWidth: BROWSER_CONTENT_MAX }}>
+    <div className="min-w-0 w-full">
       <LuxiaPageHeader
         contentGap="page"
+        pageTypeLabel="CHATS & GALAXIES"
         title={PAGE_TITLE}
         titleStyle={{ color: HS.sectionHeading }}
         breadcrumb={
@@ -264,11 +264,7 @@ function PageHeaderStack({
             handlers={{ onHome: onBack }}
           />
         }
-        description={
-          <p className="luxia-type-body-small" style={{ color: "var(--luxia-neutral-600, #475569)" }}>
-            {PAGE_DESCRIPTION}
-          </p>
-        }
+        guide={PAGE_DESCRIPTION}
       />
       {children}
     </div>
@@ -442,6 +438,7 @@ export function ContinueWorkingBrowser({
     <>
       <BrowserShell
         title={PAGE_TITLE}
+        pageTypeLabel="CHATS & GALAXIES"
         archiveId="your-work"
         description={PAGE_DESCRIPTION}
         onBack={onBack}

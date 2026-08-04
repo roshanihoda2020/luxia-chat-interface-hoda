@@ -248,6 +248,8 @@ export function ProjectPreviewRow({
   onClick,
   ariaLabel,
   iconColor = "var(--luxia-purple-60)",
+  actions,
+  showChevron = true,
 }: {
   icon: ReactNode;
   title: string;
@@ -255,12 +257,16 @@ export function ProjectPreviewRow({
   onClick?: () => void;
   ariaLabel: string;
   iconColor?: string;
+  /** Secondary controls (e.g. Settings). Rendered outside the primary Open control. */
+  actions?: ReactNode;
+  /** Hide trailing chevron when it duplicates another visible action. */
+  showChevron?: boolean;
 }) {
   const interactive = Boolean(onClick);
-  const className =
+  const rowClass =
     "group flex w-full min-w-0 items-center gap-3 rounded-[10px] px-2 py-2.5 text-left outline-none transition-colors";
 
-  const body = (
+  const identity = (
     <>
       <span className="inline-flex shrink-0" style={{ color: iconColor }} aria-hidden>
         {icon}
@@ -278,19 +284,41 @@ export function ProjectPreviewRow({
           </span>
         ) : null}
       </span>
-      {interactive ? (
-        <LuxiaArrowRightIcon
-          size={14}
-          aria-hidden
-          color="var(--luxia-text-muted)"
-          className="opacity-70 transition-opacity group-hover:opacity-100"
-        />
-      ) : null}
     </>
   );
 
-  if (!interactive) {
-    return <div className={className}>{body}</div>;
+  const chevron = showChevron ? (
+    <LuxiaArrowRightIcon
+      size={14}
+      aria-hidden
+      color="var(--luxia-text-muted)"
+      className="opacity-70 transition-opacity group-hover:opacity-100"
+    />
+  ) : null;
+
+  if (!interactive && !actions) {
+    return <div className={rowClass}>{identity}</div>;
+  }
+
+  if (actions) {
+    return (
+      <div className={`${rowClass} hover:bg-[var(--luxia-opacity-brand-primary-04)]`}>
+        {interactive ? (
+          <button
+            type="button"
+            onClick={onClick}
+            aria-label={ariaLabel}
+            className="flex min-w-0 flex-1 items-center gap-3 rounded-[8px] text-left outline-none focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]"
+          >
+            {identity}
+            {chevron}
+          </button>
+        ) : (
+          <div className="flex min-w-0 flex-1 items-center gap-3">{identity}</div>
+        )}
+        <div className="flex shrink-0 items-center gap-1">{actions}</div>
+      </div>
+    );
   }
 
   return (
@@ -298,9 +326,10 @@ export function ProjectPreviewRow({
       type="button"
       onClick={onClick}
       aria-label={ariaLabel}
-      className={`${className} hover:bg-[var(--luxia-opacity-brand-primary-04)] focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]`}
+      className={`${rowClass} hover:bg-[var(--luxia-opacity-brand-primary-04)] focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]`}
     >
-      {body}
+      {identity}
+      {chevron}
     </button>
   );
 }

@@ -307,7 +307,10 @@ export function ProjectsPreview({
   onOpenProject,
   onNavigateProjectDestination,
 }: ProjectsPreviewProps) {
-  const { featured, supporting } = getProjectPreview(projects, pinnedProjectOrder);
+  const { featured, supporting, showViewAll } = getProjectPreview(
+    projects,
+    pinnedProjectOrder,
+  );
   if (!featured) return null;
 
   const featuredStyle = getHomeCardStyle("featuredProject");
@@ -322,7 +325,7 @@ export function ProjectsPreview({
         titleId="home-projects-heading"
         icon={<LuxiaProjectsIcon size={22} />}
         iconColor={HS.sectionIconProjects}
-        onViewAll={onViewAll}
+        onViewAll={showViewAll ? onViewAll : undefined}
         viewAllAriaLabel="View all Projects"
       />
 

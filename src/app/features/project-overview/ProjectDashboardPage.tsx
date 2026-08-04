@@ -131,18 +131,10 @@ export function ProjectDashboardPage({
             }}
           />
         }
-        description={
-          <p
-            className="luxia-type-body-small"
-            style={{ color: "var(--luxia-neutral-600, #475569)", maxWidth: 780 }}
-          >
-            Saved charts, tables, reports, metrics, and analyses from Project conversations.
-          </p>
-        }
-        metadata={
+        context={
           <div
             className="flex flex-wrap items-center gap-x-3 gap-y-1 luxia-type-caption"
-            style={{ color: "var(--luxia-neutral-600, #475569)" }}
+            style={{ color: "var(--luxia-text-secondary)" }}
           >
             <span>
               {outputs.length} {outputs.length === 1 ? "saved output" : "saved outputs"}
@@ -157,6 +149,7 @@ export function ProjectDashboardPage({
             <span className="truncate">{projectName}</span>
           </div>
         }
+        guide="Saved charts, tables, reports, metrics, and analyses from Project conversations."
       />
 
       {outputs.length > 0 ? (

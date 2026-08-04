@@ -66,7 +66,7 @@ export function LuxiaEntityOptionsMenu({
         <DropdownMenuTrigger asChild>
           <Button
             type="button"
-            variant="outline"
+            variant="secondary"
             size="compact"
             aria-label={resolvedAria}
             aria-haspopup="menu"

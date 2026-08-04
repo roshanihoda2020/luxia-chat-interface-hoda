@@ -16,6 +16,8 @@ import {
 } from "@/assets/icons";
 import { activityIcon } from "./RecentActivityCard";
 import { ProjectMetaText, ProjectOutlineButton, ProjectPreviewRow } from "./ProjectModuleShared";
+import { Button } from "@/app/components/ui/button";
+import { LUXIA_PAGE_HEADER_ACTION } from "@/app/components/LuxiaPageHeader";
 import type {
   ProjectActivityItem,
   ProjectActivityType,
@@ -62,6 +64,7 @@ function LibraryShell({
     <div className="min-w-0 w-full">
       <LuxiaPageHeader
         contentGap="page"
+        pageTypeLabel={title.toUpperCase()}
         title={title}
         titleStyle={{ color: HS.sectionHeading }}
         breadcrumb={
@@ -79,17 +82,13 @@ function LibraryShell({
             }}
           />
         }
-        description={
-          <p className="luxia-type-body-small" style={{ color: "var(--luxia-neutral-600, #475569)" }}>
-            {description}
-          </p>
-        }
-        metadata={
-          <p className="luxia-type-caption" style={{ color: "var(--luxia-neutral-500, #64748B)" }}>
+        context={
+          <p className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
             {countLabel}
           </p>
         }
-        actions={actions}
+        guide={description}
+        primaryAction={actions}
       />
 
       <div className="mb-4 space-y-3">
@@ -304,7 +303,11 @@ export function ChatsLibrary({
       countLabel={`${filtered.length} ${filtered.length === 1 ? "Chat" : "Chats"}`}
       onNavigateHome={onNavigateHome}
       onBackToProject={onBack}
-      actions={<ProjectOutlineButton label="New Chat" onClick={onNewChat} />}
+      actions={
+        <Button type="button" {...LUXIA_PAGE_HEADER_ACTION.primary} onClick={onNewChat}>
+          New Chat
+        </Button>
+      }
       searchLabel="Search Chats"
       searchValue={query}
       onSearchChange={setQuery}
@@ -377,6 +380,7 @@ export function ConstellationsLibrary({
   onNavigateHome,
   onBack,
   onOpen,
+  onOpenSettings,
   onAdd,
 }: {
   projectId: string;
@@ -385,10 +389,11 @@ export function ConstellationsLibrary({
   onNavigateHome: () => void;
   onBack: () => void;
   onOpen: (id: string) => void;
+  onOpenSettings?: (id: string) => void;
   onAdd: () => void;
 }) {
   const [query, setQuery] = useState("");
-  const [sourceFilter, setSourceFilter] = useState<"all" | "database" | "pdf">("all");
+  const [sourceFilter, setSourceFilter] = useState<"all" | "database" | "pdf" | "csv">("all");
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -409,26 +414,38 @@ export function ConstellationsLibrary({
       countLabel={`${filtered.length} ${filtered.length === 1 ? "Constellation" : "Constellations"}`}
       onNavigateHome={onNavigateHome}
       onBackToProject={onBack}
-      actions={<ProjectOutlineButton label="Add Constellation" onClick={onAdd} />}
+      actions={
+        <Button type="button" {...LUXIA_PAGE_HEADER_ACTION.primary} onClick={onAdd}>
+          Add Constellation
+        </Button>
+      }
       searchLabel="Search Constellations"
       searchValue={query}
       onSearchChange={setQuery}
       filters={(
         <select
-          aria-label="Filter by source"
+          aria-label="Filter by type"
           value={sourceFilter}
           onChange={(e) => setSourceFilter(e.target.value as typeof sourceFilter)}
           className="rounded-[8px] px-2 py-2 luxia-type-caption"
           style={{ border: "1px solid var(--luxia-border-default)" }}
         >
-          <option value="all">All sources</option>
-          <option value="database">DB</option>
+          <option value="all">All types</option>
+          <option value="database">Database</option>
           <option value="pdf">PDF</option>
+          <option value="csv">CSV</option>
         </select>
       )}
     >
       {filtered.length === 0 ? (
-        <EmptyLibrary title="No Constellations found" description="Add a DB or PDF Constellation to begin." />
+        <EmptyLibrary
+          title={constellations.length === 0 ? "No Constellations" : "No Constellations found"}
+          description={
+            constellations.length === 0
+              ? "No Constellations have been added to this Project yet."
+              : "Try a different search or type filter."
+          }
+        />
       ) : (
         <div
           className="overflow-hidden rounded-[var(--luxia-radius-16)] border bg-white"
@@ -439,20 +456,33 @@ export function ConstellationsLibrary({
               key={item.id}
               icon={<LuxiaConstellationIcon size={16} aria-hidden color="currentColor" />}
               title={item.label}
-              ariaLabel={`Open ${item.label}`}
+              ariaLabel={`Open Settings for ${item.label}`}
               onClick={() => onOpen(item.id)}
+              showChevron={false}
               meta={
                 <>
                   <Badge
-                    variant={item.type === "pdf" ? "pdf" : "database"}
+                    variant={
+                      item.type === "pdf" ? "pdf" : item.type === "csv" ? "csv" : "database"
+                    }
                     className="min-h-0 h-[15px] px-1 py-0 luxia-type-badge"
                   >
-                    {item.type === "pdf" ? "PDF" : "DB"}
+                    {item.type === "pdf" ? "PDF" : item.type === "csv" ? "CSV" : "Database"}
                   </Badge>
+                  <ProjectMetaText>Active</ProjectMetaText>
                   <ProjectMetaText>
                     {item.sourceCount} {item.sourceCount === 1 ? "Source" : "Sources"}
                   </ProjectMetaText>
                 </>
+              }
+              actions={
+                onOpenSettings ? (
+                  <ProjectOutlineButton
+                    label="Settings"
+                    ariaLabel={`Open Settings for ${item.label}`}
+                    onClick={() => onOpenSettings(item.id)}
+                  />
+                ) : null
               }
             />
           ))}
@@ -495,7 +525,11 @@ export function DashboardsLibrary({
       countLabel={`${filtered.length} ${filtered.length === 1 ? "Dashboard" : "Dashboards"}`}
       onNavigateHome={onNavigateHome}
       onBackToProject={onBack}
-      actions={<ProjectOutlineButton label="New Dashboard" onClick={onNew} />}
+      actions={
+        <Button type="button" {...LUXIA_PAGE_HEADER_ACTION.primary} onClick={onNew}>
+          New Dashboard
+        </Button>
+      }
       searchLabel="Search Dashboards"
       searchValue={query}
       onSearchChange={setQuery}

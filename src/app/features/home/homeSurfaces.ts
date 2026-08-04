@@ -1,12 +1,15 @@
+import { LUXIA_PAGE_LAYOUT } from "@/app/components/luxiaPageLayout";
+
 export const HS = {
   pageBg: "var(--luxia-surface-subtle)",
-  contentMax: "1240px",
-  overviewContentMax: "1480px",
-  libraryContentMax: "1480px",
+  /** @deprecated Prefer LuxiaPageFrame variant — alias to shared standard max-width. */
+  contentMax: LUXIA_PAGE_LAYOUT.maxWidth.standard,
+  overviewContentMax: LUXIA_PAGE_LAYOUT.maxWidth.standard,
+  libraryContentMax: LUXIA_PAGE_LAYOUT.maxWidth.standard,
   sectionMax: "1240px",
   /** @deprecated alias of sectionMax — keep for existing call sites */
   heroSectionMax: "1240px",
-  pagePadInline: "clamp(var(--luxia-spacing-24), 3vw, var(--luxia-spacing-48))",
+  pagePadInline: LUXIA_PAGE_LAYOUT.gutter,
   workspacePadInline: "clamp(var(--luxia-spacing-24), 2vw, 40px)",
 
   heroSurface: "var(--luxia-gradient-galaxy-panel)",

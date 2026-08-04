@@ -20,9 +20,11 @@ export {
 export { ProjectCornerMarker } from "./ProjectCornerMarker";
 export {
   HOME_PROJECTS,
+  HOME_PROJECT_PREVIEW_LIMIT,
   PROJECTS_BY_ID,
   PROJECT_DESCRIPTION_PLACEHOLDER,
   UNKNOWN_PROJECT_NAME,
+  deriveProjectEntityCounts,
   filterActiveProjects,
   filterArchivedProjects,
   formatProjectMeta,
@@ -32,7 +34,9 @@ export {
   isProjectActive,
   isProjectArchived,
   rankProjectsForPreview,
+  uniqueSourceCountForProject,
 } from "./data";
+export type { ProjectConstellationSourceEntry } from "./data";
 export {
   DEFAULT_PINNED_PROJECT_IDS,
   readPinnedProjectIds,
@@ -43,11 +47,21 @@ export {
   getProjectPath,
   getGalaxyPath,
   getDashboardPath,
+  getConstellationsPath,
+  getConstellationSettingsPath,
+  getConstellationSettingsCapabilityPath,
+  getProjectMembersPath,
+  getAccessLevelsPath,
+  getAccessLevelPath,
+  getDataSourcesPath,
+  getDataSourceSettingsPath,
   getChatPath,
+  getConstellationChatPath,
   parseProjectIdFromPath,
   parseGalaxyProjectIdFromPath,
   parseDashboardProjectIdFromPath,
   parseChatIdFromPath,
+  parseConstellationChatFromPath,
   isHomePath,
   resolveLuxiaPathname,
 } from "./projectPaths";

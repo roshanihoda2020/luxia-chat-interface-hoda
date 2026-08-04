@@ -1,5 +1,5 @@
 import { GripVertical, Plus, Search, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import { Button } from "@/app/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/app/components/ui/dialog";
 import {
@@ -32,6 +32,9 @@ export function ActiveDataTablesManager({
     onPreview,
     onEditDetails,
     onConfigureColumns,
+    presentation = "dialog",
+    closeRef,
+    hideChrome,
 }: {
     open: boolean;
     tables: DataTableRecord[];
@@ -41,7 +44,13 @@ export function ActiveDataTablesManager({
     onPreview: (id: string) => void;
     onEditDetails: (id: string) => void;
     onConfigureColumns: (id: string) => void;
+    presentation?: "dialog" | "page";
+    closeRef?: MutableRefObject<(() => void) | null>;
+    hideChrome?: boolean;
 }) {
+    const isPage = presentation === "page";
+    const effectiveOpen = isPage ? true : open;
+    const showHeaderChrome = !hideChrome && !isPage;
     const [draft, setDraft] = useState<DataTableRecord[]>(() => cloneTables(tables));
     const [search, setSearch] = useState("");
     const [addMode, setAddMode] = useState(false);
@@ -51,10 +60,11 @@ export function ActiveDataTablesManager({
     const [draggingId, setDraggingId] = useState<string | null>(null);
     const [dropId, setDropId] = useState<string | null>(null);
     const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
+    const [discardIntent, setDiscardIntent] = useState<"leave" | "reset">("leave");
     const initialRef = useRef(cloneTables(tables));
 
     useEffect(() => {
-        if (!open) return;
+        if (!effectiveOpen) return;
         const snapshot = cloneTables(tables);
         initialRef.current = snapshot;
         setDraft(snapshot);
@@ -65,7 +75,8 @@ export function ActiveDataTablesManager({
         setConfirmRemoveId(null);
         setDraggingId(null);
         setDropId(null);
-    }, [open, tables]);
+        setDiscardConfirmOpen(false);
+    }, [effectiveOpen, tables]);
 
     const dirty = tableSignature(draft) !== tableSignature(initialRef.current);
     const filtered = useMemo(() => {
@@ -121,29 +132,42 @@ export function ActiveDataTablesManager({
     }
 
     function save() {
-        onCommit(cloneTables(draft));
+        const next = cloneTables(draft);
+        onCommit(next);
+        initialRef.current = next;
+        setDraft(next);
         setDiscardConfirmOpen(false);
-        onCancel();
+        if (!isPage) onCancel();
     }
 
-    function requestClose() {
+    function requestLeave() {
         if (dirty) {
+            setDiscardIntent("leave");
             setDiscardConfirmOpen(true);
             return;
         }
         onCancel();
     }
 
-    if (!open) return null;
+    function requestCancelEdits() {
+        if (!dirty) {
+            if (!isPage) onCancel();
+            return;
+        }
+        setDiscardIntent(isPage ? "reset" : "leave");
+        setDiscardConfirmOpen(true);
+    }
 
-    return (
-        <>
-            <Dialog open={open} onOpenChange={(next) => { if (!next) requestClose(); }}>
-                <DialogContent
-                    hideCloseButton
-                    className="flex max-h-[calc(100vh-48px)] flex-col gap-0 overflow-hidden p-0"
-                    style={{ width: "min(92vw, 1200px)", maxWidth: "min(92vw, 1200px)" }}
-                >
+    useEffect(() => {
+        if (closeRef) closeRef.current = requestLeave;
+        return () => { if (closeRef) closeRef.current = null; };
+    });
+
+    if (!effectiveOpen) return null;
+
+    const shell = (
+                <>
+                    {showHeaderChrome ? (
                     <DialogHeader className="flex-shrink-0 border-b px-6 py-5 text-left" style={{ borderColor: LX.border }}>
                         <div className="flex items-start gap-3">
                             <div className="min-w-0 flex-1">
@@ -151,11 +175,12 @@ export function ActiveDataTablesManager({
                                 <DialogDescription className="sr-only">Manage which data tables are available to this constellation.</DialogDescription>
                                 <p className="mt-1 luxia-type-metadata" style={{ color: LX.textMuted }}>Manage tables available to this constellation.</p>
                             </div>
-                            <button type="button" onClick={requestClose} className="flex h-9 w-9 items-center justify-center rounded-full border transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2" style={{ borderColor: LX.border, color: LX.textMuted }} aria-label="Close active data tables manager">
+                            <button type="button" onClick={requestLeave} className="flex h-9 w-9 items-center justify-center rounded-full border transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2" style={{ borderColor: LX.border, color: LX.textMuted }} aria-label="Close active data tables manager">
                                 <X size={15} />
                             </button>
                         </div>
                     </DialogHeader>
+                    ) : null}
 
                     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
                         {!addMode ? (
@@ -166,8 +191,8 @@ export function ActiveDataTablesManager({
                                             <Search size={14} style={{ color: LX.textMuted }} />
                                             <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search data tables..." className="h-8 border-0 bg-transparent px-0 luxia-type-input-search-dense shadow-none focus-visible:ring-0" aria-label="Search data tables" />
                                         </div>
-                                        <Button variant="outline" className="px-4" onClick={() => setAddMode(true)}>
-                                            <Plus size={14} />Add data table
+                                        <Button variant="primary" size="compact" onClick={() => setAddMode(true)}>
+                                            <Plus size={14} />Add Data Table
                                         </Button>
                                     </div>
                                 </div>
@@ -282,14 +307,34 @@ export function ActiveDataTablesManager({
                             <div className="flex items-center justify-between gap-3">
                                 <span className="luxia-type-metadata" style={{ color: LX.textMuted }}>{activeCount} active tables</span>
                                 <div className="flex items-center gap-2">
-                                    <Button variant="secondary" className="px-4" onClick={requestClose}>Cancel</Button>
-                                    <Button className="px-4" disabled={!dirty} onClick={save}>Save changes</Button>
+                                    {dirty || !isPage ? (
+                                        <Button variant="secondary" className="px-4" onClick={requestCancelEdits}>Cancel</Button>
+                                    ) : null}
+                                    <Button variant="primary" className="px-4 !bg-[var(--luxia-purple-70)] !bg-none disabled:!opacity-[0.45]" disabled={!dirty} onClick={save}>Save changes</Button>
                                 </div>
                             </div>
                         </div>
                     ) : null}
-                </DialogContent>
-            </Dialog>
+                </>
+    );
+
+    return (
+        <>
+            {isPage ? (
+                <div className="flex flex-col overflow-hidden rounded-[12px] border" style={{ borderColor: LX.border }}>
+                    {shell}
+                </div>
+            ) : (
+                <Dialog open={open} onOpenChange={(next) => { if (!next) requestLeave(); }}>
+                    <DialogContent
+                        hideCloseButton
+                        className="flex max-h-[calc(100vh-48px)] flex-col gap-0 overflow-hidden p-0"
+                        style={{ width: "min(92vw, 1200px)", maxWidth: "min(92vw, 1200px)" }}
+                    >
+                        {shell}
+                    </DialogContent>
+                </Dialog>
+            )}
             <AlertDialog open={discardConfirmOpen} onOpenChange={setDiscardConfirmOpen}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
@@ -298,7 +343,20 @@ export function ActiveDataTablesManager({
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel onClick={() => setDiscardConfirmOpen(false)}>Keep editing</AlertDialogCancel>
-                        <AlertDialogAction style={{ background: LX.error }} className="text-white hover:opacity-90" onClick={onCancel}>Discard</AlertDialogAction>
+                        <AlertDialogAction
+                            style={{ background: LX.error }}
+                            className="text-white hover:opacity-90"
+                            onClick={() => {
+                                setDiscardConfirmOpen(false);
+                                if (discardIntent === "reset") {
+                                    setDraft(cloneTables(initialRef.current));
+                                    return;
+                                }
+                                onCancel();
+                            }}
+                        >
+                            Discard
+                        </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
