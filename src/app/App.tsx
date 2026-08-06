@@ -6878,6 +6878,7 @@ export default function App() {
               <ProjectDashboardPage
                 projectId={activeProjectId}
                 projects={homeProjects}
+                projectRole={prototypeProjectRole}
                 onNavigateHome={handleNavigateHome}
                 onViewProjects={() => {
                   setAppView("home");

@@ -95,7 +95,7 @@ function GalaxyActionGroup({
   children: ReactNode;
 }) {
   return (
-    <div className="flex w-full min-w-0 flex-col items-stretch sm:w-[11.25rem] sm:items-start">
+    <div className="flex w-full min-w-0 flex-col items-stretch sm:w-[11.5rem] sm:items-stretch">
       {children}
       <p
         id={descriptionId}
@@ -116,6 +116,9 @@ function GalaxyActionGroup({
     </div>
   );
 }
+
+const GALAXY_ACTION_BUTTON_CLASS =
+  "luxia-button--on-dark h-10 min-h-10 w-full justify-center gap-2 px-3.5";
 
 function DarkEditButton({
   label,
@@ -652,10 +655,11 @@ export function ProjectGalaxyCard({
               <Button
                 type="button"
                 variant="primary"
+                size="compact"
                 onClick={onOpenGalaxy}
                 aria-label="Open Galaxy"
                 aria-describedby={openGalaxyDescId}
-                className="luxia-button--on-dark w-full min-w-[9.75rem] sm:w-auto"
+                className={GALAXY_ACTION_BUTTON_CLASS}
               >
                 <LuxiaGalaxyIcon size={16} aria-hidden color="currentColor" />
                 Open Galaxy
@@ -668,18 +672,28 @@ export function ProjectGalaxyCard({
               description="A configurable AI assistant powered by Galaxy."
               helper="For website, totem, kiosk, or embedded experiences."
             >
-              <Button
-                type="button"
-                variant="secondary"
-                disabled
-                aria-disabled="true"
-                aria-label="Create Vidget"
-                aria-describedby={`${createWidgetDescId} ${createWidgetHelperId}`}
-                className="luxia-button--on-dark w-full min-w-[9.75rem] sm:w-auto"
-              >
-                <LuxiaVirtualAssistantIcon size={16} aria-hidden color="currentColor" />
-                Create Vidget
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex w-full">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="compact"
+                      disabled
+                      aria-disabled="true"
+                      aria-label="Create Vidget"
+                      aria-describedby={`${createWidgetDescId} ${createWidgetHelperId}`}
+                      className={GALAXY_ACTION_BUTTON_CLASS}
+                    >
+                      <LuxiaVirtualAssistantIcon size={16} aria-hidden color="currentColor" />
+                      Create Vidget
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" sideOffset={6}>
+                  Vidget creation is not available in this prototype.
+                </TooltipContent>
+              </Tooltip>
             </GalaxyActionGroup>
 
             <GalaxyActionGroup
@@ -688,11 +702,12 @@ export function ProjectGalaxyCard({
             >
               <Button
                 type="button"
-                variant="tertiary"
+                variant="secondary"
+                size="compact"
                 onClick={onOpenGalaxySettings}
-                aria-label="Open Galaxy Settings"
+                aria-label="Galaxy Settings"
                 aria-describedby={galaxySettingsDescId}
-                className="luxia-button--on-dark w-full min-w-[9.75rem] sm:w-auto"
+                className={GALAXY_ACTION_BUTTON_CLASS}
               >
                 <LuxiaSettingsIcon size={16} aria-hidden color="currentColor" />
                 Galaxy Settings

@@ -50,18 +50,6 @@ function SourceBadge({ type }: { type: HomeConstellationSource }) {
   );
 }
 
-function countByType(constellations: ProjectOverviewConstellation[]) {
-  let database = 0;
-  let csv = 0;
-  let file = 0;
-  for (const item of constellations) {
-    if (item.type === "database") database += 1;
-    else if (item.type === "csv") csv += 1;
-    else file += 1;
-  }
-  return { database, csv, file };
-}
-
 export function ChatsModule({
   chats,
   onOpenChat,
@@ -90,7 +78,7 @@ export function ChatsModule({
       countLabel={total === 1 ? "Chat" : "Chats"}
       description="Continue conversations with Galaxy or individual Constellations."
       size="knowledge"
-      surface="interaction"
+      surface="knowledge"
       marker={
         <ProjectDomainMarker
           tone="chat"
@@ -162,7 +150,6 @@ export function ConstellationsModule({
   const { total, preview } = deriveProjectSummaryPreview(constellations, {
     getRecencyTimestamp: (item) => item.updatedAtTimestamp,
   });
-  const counts = countByType(constellations);
   const viewAllLabel = buildProjectViewAllLabel(total, {
     zeroLabel: "View all Constellations",
     singular: "Constellation",
@@ -203,56 +190,40 @@ export function ConstellationsModule({
           action={<ProjectOutlineButton label="Add Constellation" onClick={onAddConstellation} />}
         />
       ) : (
-        <div className="flex flex-col gap-3">
-          <div
-            className="flex flex-wrap gap-x-3 gap-y-1"
-            aria-label="Constellation type summary"
-          >
-            {counts.database > 0 ? (
-              <ProjectMetaText>{counts.database} Database</ProjectMetaText>
-            ) : null}
-            {counts.csv > 0 ? (
-              <ProjectMetaText>{counts.csv} CSV</ProjectMetaText>
-            ) : null}
-            {counts.file > 0 ? (
-              <ProjectMetaText>{counts.file} PDF</ProjectMetaText>
-            ) : null}
-          </div>
-          <div className="flex flex-col">
-            {preview.map((item) => {
-              const settingsLabel = `Open settings for ${item.label}`;
-              return (
-                <ProjectPreviewRow
-                  key={item.id}
-                  icon={<LuxiaConstellationIcon size={18} aria-hidden color="currentColor" />}
-                  title={item.label}
-                  ariaLabel={`Open ${item.label}`}
-                  onClick={() => onOpenConstellation(projectId, item.id)}
-                  showChevron={false}
-                  meta={
-                    <ProjectMetaText>
-                      {sourceBadgeLabel(item.type)} · {item.sourceCount}{" "}
-                      {item.sourceCount === 1 ? "source" : "sources"}
-                    </ProjectMetaText>
-                  }
-                  actions={
-                    <Button
-                      type="button"
-                      variant="tertiary"
-                      size="iconCompact"
-                      aria-label={settingsLabel}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        openConstellationSettings(item.id);
-                      }}
-                    >
-                      <LuxiaSettingsIcon size={16} aria-hidden color="currentColor" />
-                    </Button>
-                  }
-                />
-              );
-            })}
-          </div>
+        <div className="flex flex-col">
+          {preview.map((item) => {
+            const settingsLabel = `Open settings for ${item.label}`;
+            return (
+              <ProjectPreviewRow
+                key={item.id}
+                icon={<LuxiaConstellationIcon size={18} aria-hidden color="currentColor" />}
+                title={item.label}
+                ariaLabel={`Open ${item.label}`}
+                onClick={() => onOpenConstellation(projectId, item.id)}
+                showChevron={false}
+                meta={
+                  <ProjectMetaText>
+                    {sourceBadgeLabel(item.type)} · {item.sourceCount}{" "}
+                    {item.sourceCount === 1 ? "source" : "sources"}
+                  </ProjectMetaText>
+                }
+                actions={
+                  <Button
+                    type="button"
+                    variant="tertiary"
+                    size="iconCompact"
+                    aria-label={settingsLabel}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      openConstellationSettings(item.id);
+                    }}
+                  >
+                    <LuxiaSettingsIcon size={16} aria-hidden color="currentColor" />
+                  </Button>
+                }
+              />
+            );
+          })}
         </div>
       )}
     </ProjectModuleCard>
