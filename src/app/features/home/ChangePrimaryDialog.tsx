@@ -13,13 +13,14 @@ import { FilterChip, FilterGroup } from "./browserShared";
 import { EntityIdentityRow } from "./entityIdentity";
 import { getSourceAccentColor, HS } from "./homeSurfaces";
 import type { HomeEntityKey } from "./homeEntityKeys";
-import type { HomeRecentWorkItem } from "./types";
+import type { HomeProjectCard, HomeRecentWorkItem } from "./types";
 import { workItemEntityKey } from "./homeEntityKeys";
 
 interface ChangePrimaryDialogProps {
   open: boolean;
   items: HomeRecentWorkItem[];
   currentKey: HomeEntityKey | null;
+  projects: readonly HomeProjectCard[];
   onClose: () => void;
   onSelect: (entityKey: HomeEntityKey) => void;
 }
@@ -30,6 +31,7 @@ export function ChangePrimaryDialog({
   open,
   items,
   currentKey,
+  projects,
   onClose,
   onSelect,
 }: ChangePrimaryDialogProps) {
@@ -43,7 +45,7 @@ export function ChangePrimaryDialog({
       if (entityFilter === "galaxy" && item.kind !== "galaxySession") return false;
 
       if (!q) return true;
-      const projectName = getProjectNameById(item.projectId);
+      const projectName = getProjectNameById(item.projectId, projects);
       return (
         item.title.toLowerCase().includes(q)
         || projectName.toLowerCase().includes(q)
@@ -52,7 +54,7 @@ export function ChangePrimaryDialog({
         || (item.constellationSource ?? "").includes(q)
       );
     });
-  }, [entityFilter, items, query]);
+  }, [entityFilter, items, projects, query]);
 
   function handleClose() {
     setQuery("");
@@ -106,7 +108,7 @@ export function ChangePrimaryDialog({
               ? HS.accentGalaxy
               : (sourceColor ?? HS.accentChat);
             const selected = key === currentKey;
-            const projectName = getProjectNameById(item.projectId);
+            const projectName = getProjectNameById(item.projectId, projects);
 
             return (
               <button

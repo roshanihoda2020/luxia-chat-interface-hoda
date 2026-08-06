@@ -14,12 +14,20 @@ export function getConstellationsPath(projectId: string): string {
   return `/projects/${encodeURIComponent(projectId)}/constellations`;
 }
 
+export function getProjectChatsPath(projectId: string): string {
+  return `/projects/${encodeURIComponent(projectId)}/chats`;
+}
+
+export function getConstellationCreatePath(projectId: string): string {
+  return `/projects/${encodeURIComponent(projectId)}/constellations/new`;
+}
+
 export type ConstellationSettingsTabQuery =
   | "general"
   | "configuration"
   | "connected-data-sources"
   | "access"
-  | "danger-zone";
+  | "lifecycle";
 
 export function getConstellationSettingsPath(
   projectId: string,
@@ -104,8 +112,20 @@ export function parseDashboardProjectIdFromPath(pathname: string): string | null
   return decodePathSegment(match[1]);
 }
 
+export function parseConstellationCreateProjectIdFromPath(pathname: string): string | null {
+  const match = pathname.match(/^\/projects\/([^/]+)\/constellations\/new\/?$/);
+  if (!match?.[1]) return null;
+  return decodePathSegment(match[1]);
+}
+
 export function parseConstellationsProjectIdFromPath(pathname: string): string | null {
   const match = pathname.match(/^\/projects\/([^/]+)\/constellations\/?$/);
+  if (!match?.[1]) return null;
+  return decodePathSegment(match[1]);
+}
+
+export function parseProjectChatsProjectIdFromPath(pathname: string): string | null {
+  const match = pathname.match(/^\/projects\/([^/]+)\/chats\/?$/);
   if (!match?.[1]) return null;
   return decodePathSegment(match[1]);
 }
@@ -200,6 +220,8 @@ export type LuxiaResolvedPath =
   | { kind: "galaxy"; projectId: string }
   | { kind: "dashboard"; projectId: string }
   | { kind: "constellations"; projectId: string }
+  | { kind: "project-chats"; projectId: string }
+  | { kind: "constellation-create"; projectId: string }
   | {
     kind: "constellation-settings";
     projectId: string;
@@ -284,9 +306,19 @@ export function resolveLuxiaPathname(pathname: string): LuxiaResolvedPath {
     return { kind: "project-members", projectId: membersProjectId };
   }
 
+  const constellationCreateProjectId = parseConstellationCreateProjectIdFromPath(pathname);
+  if (constellationCreateProjectId) {
+    return { kind: "constellation-create", projectId: constellationCreateProjectId };
+  }
+
   const constellationsProjectId = parseConstellationsProjectIdFromPath(pathname);
   if (constellationsProjectId) {
     return { kind: "constellations", projectId: constellationsProjectId };
+  }
+
+  const projectChatsId = parseProjectChatsProjectIdFromPath(pathname);
+  if (projectChatsId) {
+    return { kind: "project-chats", projectId: projectChatsId };
   }
 
   const projectId = parseProjectIdFromPath(pathname);

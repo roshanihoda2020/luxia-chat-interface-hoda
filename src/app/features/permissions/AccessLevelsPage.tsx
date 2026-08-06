@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import {
   LuxiaBreadcrumb,
   type LuxiaBreadcrumbItem,
@@ -14,6 +14,16 @@ import { LuxiaPageHeader, LUXIA_PAGE_HEADER_ACTION } from "@/app/components/Luxi
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/app/components/ui/alert-dialog";
+import {
   BrowserFilterSelect,
   BrowserSortSelect,
   CollectionFilterBar,
@@ -23,16 +33,14 @@ import {
   ResultsCount,
 } from "@/app/features/home/browserShared";
 import { HS } from "@/app/features/home/homeSurfaces";
-import { highestPermission } from "./data";
+import {
+  LUXIA_SETTINGS_CONTENT_SURFACE_CLASS,
+} from "@/app/features/shared/luxiaSettingsUx";
 import { ACCESS_LEVELS_GUIDANCE } from "./ia";
 import { LuxiaAccessGuide } from "./LuxiaAccessGuide";
 import type { AccessLevelPermission, AccessLevelRecord } from "./types";
 
-const PARENT_SURFACE_STYLE = {
-  background: "var(--luxia-surface)",
-  border: "1px solid var(--luxia-border-default)",
-  borderRadius: "var(--luxia-radius-12)",
-} as const;
+const PARENT_SURFACE_CLASS = `${LUXIA_SETTINGS_CONTENT_SURFACE_CLASS} is-flush`;
 
 type StatusFilter = "all" | AccessLevelRecord["status"];
 type PermissionFilter = "all" | AccessLevelPermission;
@@ -46,10 +54,21 @@ function formatUpdated(iso: string): string {
   });
 }
 
-function levelHighestPermission(
-  level: AccessLevelRecord,
-): AccessLevelPermission | null {
-  return highestPermission(level.sourceGrants.map((grant) => grant.permission));
+function permissionDistribution(level: AccessLevelRecord): string {
+  let view = 0;
+  let use = 0;
+  let manage = 0;
+  for (const grant of level.sourceGrants) {
+    if (grant.permission === "View") view += 1;
+    else if (grant.permission === "Use") use += 1;
+    else manage += 1;
+  }
+  const parts: string[] = [];
+  if (view) parts.push(`${view} View`);
+  if (use) parts.push(`${use} Use`);
+  if (manage) parts.push(`${manage} Manage`);
+  if (parts.length === 0) return "No Data Source permissions";
+  return parts.join(" · ");
 }
 
 export interface AccessLevelsPageProps {
@@ -59,6 +78,7 @@ export interface AccessLevelsPageProps {
   onDelete: (id: string) => void;
   onNavigateHome: () => void;
   onOpenAccessGuide?: () => void;
+  canAdminister?: boolean;
 }
 
 export function AccessLevelsPage({
@@ -67,12 +87,14 @@ export function AccessLevelsPage({
   onCreate,
   onDelete,
   onNavigateHome,
+  canAdminister = true,
 }: AccessLevelsPageProps) {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [permissionFilter, setPermissionFilter] =
     useState<PermissionFilter>("all");
   const [sortKey, setSortKey] = useState<SortKey>("updated-desc");
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   const breadcrumbItems: LuxiaBreadcrumbItem[] = [
     { id: "home", label: "Home", destination: { kind: "home" } },
@@ -95,8 +117,8 @@ export function AccessLevelsPage({
         return false;
       }
 
-      const peak = levelHighestPermission(level);
-      if (permissionFilter !== "all" && peak !== permissionFilter) {
+      const grants = level.sourceGrants.map((grant) => grant.permission);
+      if (permissionFilter !== "all" && !grants.includes(permissionFilter)) {
         return false;
       }
 
@@ -146,19 +168,47 @@ export function AccessLevelsPage({
             handlers={breadcrumbHandlers}
           />
         }
-        guide={
+        guide={ACCESS_LEVELS_GUIDANCE.listPageDescription}
+        context={
           <div className="space-y-1">
-            <p>{ACCESS_LEVELS_GUIDANCE.listPageDescription}</p>
-            <p className="luxia-type-caption" style={{ color: "var(--luxia-blue-60)" }}>
+            <p className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
               {ACCESS_LEVELS_GUIDANCE.listPageRule}
             </p>
+            {!canAdminister ? (
+              <div
+                className="space-y-0.5"
+                role="status"
+                aria-label="Read only. Only Organization Admins can create or edit Access Levels."
+              >
+                <p
+                  className="luxia-type-caption"
+                  style={{ color: "var(--luxia-text-secondary)" }}
+                >
+                  Read only
+                </p>
+                <p
+                  className="luxia-type-caption"
+                  style={{ color: "var(--luxia-text-muted)" }}
+                >
+                  Only Organization Admins can create or edit Access Levels.
+                </p>
+              </div>
+            ) : null}
           </div>
         }
-        secondaryAction={<LuxiaAccessGuide />}
+        actions={<LuxiaAccessGuide />}
         primaryAction={
-          <Button type="button" {...LUXIA_PAGE_HEADER_ACTION.primary} onClick={onCreate}>
-            Create Access Level
-          </Button>
+          canAdminister ? (
+            <Button
+              type="button"
+              {...LUXIA_PAGE_HEADER_ACTION.primary}
+              aria-label="Create Access Level"
+              onClick={onCreate}
+            >
+              <Plus size={16} strokeWidth={2} aria-hidden className="shrink-0" />
+              Create Access Level
+            </Button>
+          ) : null
         }
       />
 
@@ -203,16 +253,16 @@ export function AccessLevelsPage({
               </BrowserFilterSelect>
 
               <BrowserFilterSelect
-                label="Highest permission"
+                label="Data Source permission"
                 value={permissionFilter}
                 onChange={(event) =>
                   setPermissionFilter(event.target.value as PermissionFilter)
                 }
               >
-                <option value="all">Any permission</option>
-                <option value="View">View</option>
-                <option value="Use">Use</option>
-                <option value="Manage">Manage</option>
+                <option value="all">Any Data Source permission</option>
+                <option value="View">Includes View</option>
+                <option value="Use">Includes Use</option>
+                <option value="Manage">Includes Manage</option>
               </BrowserFilterSelect>
 
               <BrowserSortSelect
@@ -234,25 +284,49 @@ export function AccessLevelsPage({
           </ResultsCount>
         </FilterToolbar>
 
-        {filtered.length === 0 ? (
+        {accessLevels.length === 0 ? (
+          <div className="flex flex-col items-start gap-4 py-10">
+            <div className="space-y-1.5">
+              <h2
+                className="luxia-type-title-section"
+                style={{ color: "var(--luxia-text-primary)" }}
+              >
+                {canAdminister ? "No Access Levels yet" : "No Access Levels available"}
+              </h2>
+              <p
+                className="max-w-xl luxia-type-body-dense"
+                style={{ color: "var(--luxia-text-secondary)" }}
+              >
+                {canAdminister
+                  ? "Create an Access Level to give members View, Use, or Manage permission on selected Data Sources."
+                  : "Access Levels are managed by Organization Admins."}
+              </p>
+            </div>
+            {canAdminister ? (
+              <Button
+                type="button"
+                {...LUXIA_PAGE_HEADER_ACTION.primary}
+                aria-label="Create Access Level"
+                onClick={onCreate}
+              >
+                <Plus size={16} strokeWidth={2} aria-hidden className="shrink-0" />
+                Create Access Level
+              </Button>
+            ) : null}
+          </div>
+        ) : filtered.length === 0 ? (
           <FilteredEmptyState
             title="No Access Levels match"
             onClear={clearFilters}
           />
         ) : (
-          <div style={PARENT_SURFACE_STYLE}>
+          <div className={PARENT_SURFACE_CLASS}>
             <ul>
-              {filtered.map((level, index) => {
-                const peak = levelHighestPermission(level);
+              {filtered.map((level) => {
                 return (
                   <li
                     key={level.id}
-                    className="flex flex-wrap items-start gap-3 px-4 py-4"
-                    style={
-                      index > 0
-                        ? { borderTop: "1px solid var(--luxia-border-subtle)" }
-                        : undefined
-                    }
+                    className="luxia-settings-row is-interactive flex flex-wrap items-start gap-3 px-4 py-4"
                   >
                     <button
                       type="button"
@@ -276,15 +350,16 @@ export function AccessLevelsPage({
                         style={{ color: "var(--luxia-text-muted)" }}
                       >
                         <span>{level.memberUserIds.length} members</span>
-                        <span>{level.sourceGrants.length} sources</span>
-                        <span style={{ textTransform: "capitalize" }}>
-                          {level.status}
-                        </span>
-                        <span>
-                          Highest: {peak ?? "—"}
-                        </span>
-                        <span>Updated {formatUpdated(level.updatedAt)}</span>
+                        <span>{level.sourceGrants.length} Data Sources</span>
+                        <span style={{ textTransform: "capitalize" }}>{level.status}</span>
+                        <span>{permissionDistribution(level)}</span>
                       </div>
+                      <p
+                        className="mt-1 luxia-type-caption"
+                        style={{ color: "var(--luxia-text-secondary)" }}
+                      >
+                        Updated {formatUpdated(level.updatedAt)}
+                      </p>
                     </button>
 
                     <LuxiaEntityOptionsMenu
@@ -293,21 +368,20 @@ export function AccessLevelsPage({
                       items={[
                         {
                           id: "open",
-                          label: "Open",
+                          label: canAdminister ? "Open Access Level" : "View details",
                           onSelect: () => onOpen(level.id),
                         },
-                        {
-                          id: "edit",
-                          label: "Edit",
-                          onSelect: () => onOpen(level.id),
-                        },
-                        {
-                          id: "delete",
-                          label: "Delete",
-                          destructive: true,
-                          separatorBefore: true,
-                          onSelect: () => onDelete(level.id),
-                        },
+                        ...(canAdminister
+                          ? [
+                              {
+                                id: "delete",
+                                label: "Delete",
+                                destructive: true as const,
+                                separatorBefore: true,
+                                onSelect: () => setPendingDeleteId(level.id),
+                              },
+                            ]
+                          : []),
                       ]}
                     />
                   </li>
@@ -317,6 +391,32 @@ export function AccessLevelsPage({
           </div>
         )}
       </LuxiaPageBody>
+
+      <AlertDialog
+        open={Boolean(pendingDeleteId)}
+        onOpenChange={(open) => !open && setPendingDeleteId(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this Access Level?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Members will lose the Data Source permissions granted by this Access Level. Data Sources and Constellations will not be deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="luxia-button luxia-button--destructive"
+              onClick={() => {
+                if (pendingDeleteId) onDelete(pendingDeleteId);
+                setPendingDeleteId(null);
+              }}
+            >
+              Delete Access Level
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </LuxiaPageFrame>
   );
 }

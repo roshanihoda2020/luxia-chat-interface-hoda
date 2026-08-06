@@ -2,6 +2,10 @@ export type AccessLevelPermission = "View" | "Use" | "Manage";
 
 export type AccessLevelStatus = "active" | "inactive";
 
+export type DataSourceStatus = "active" | "inactive" | "archived";
+
+export type DataSourceTypeLabel = "Database" | "PDF" | "CSV";
+
 export interface OrganizationUser {
   id: string;
   name: string;
@@ -44,9 +48,8 @@ export interface ProjectMembership {
 export interface DataSourceCatalogItem {
   id: string;
   name: string;
-  type: string;
+  type: DataSourceTypeLabel | string;
   ownership: "organizational" | "private";
   ownerUserId: string;
-  ownerName: string;
-  status: string;
+  status: DataSourceStatus;
 }

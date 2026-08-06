@@ -5,8 +5,9 @@ import {
   useRef,
   useState,
   type FormEvent,
+  type ReactNode,
 } from "react";
-import { Search } from "lucide-react";
+import { CircleHelp, Search } from "lucide-react";
 import {
   LuxiaBreadcrumb,
   type LuxiaBreadcrumbHandlers,
@@ -16,7 +17,12 @@ import {
   LuxiaPageBody,
   LuxiaPageFrame,
 } from "@/app/components/LuxiaPageFrame";
-import { LuxiaPageHeader, LUXIA_PAGE_HEADER_ACTION } from "@/app/components/LuxiaPageHeader";
+import {
+  LuxiaPageGuide,
+  LuxiaPageHeader,
+  LUXIA_PAGE_HEADER_ACTION,
+  LuxiaPageEntityUpdatedMeta,
+} from "@/app/components/LuxiaPageHeader";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,10 +44,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/app/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/app/components/ui/tabs";
 import { Textarea } from "@/app/components/ui/textarea";
+import {
+  LuxiaArrowRightIcon,
+  LuxiaConstellationIcon,
+  LuxiaDatasourceIcon,
+  LuxiaProjectsIcon,
+} from "@/assets/icons";
 import {
   LUXIA_CREATE_VS_EDIT,
   LUXIA_DIRTY_STATE_COPY,
+  LUXIA_SETTINGS_CONTENT_SURFACE_CLASS,
+  LUXIA_SETTINGS_LIST_SURFACE_CLASS,
+  LUXIA_SETTINGS_TAB_PANEL_CLASS,
+  LUXIA_SETTINGS_TAB_TRIGGER_CLASS,
+  LUXIA_SETTINGS_TABLIST_CLASS,
 } from "@/app/features/shared/luxiaSettingsUx";
 import {
   BrowserFilterSelect,
@@ -50,12 +68,21 @@ import {
 import { HS } from "@/app/features/home/homeSurfaces";
 import {
   DATA_SOURCE_CATALOG,
-  MOCK_ACCESS_LEVEL_IMPACT,
   ORGANIZATION_USERS,
+  buildAccessLevelImpactPreview,
+  formatDataSourceType,
+  getDataSourceById,
+  getOrganizationUserById,
+  isDataSourceUsable,
 } from "./data";
+import {
+  getDataSourceOwnerDisplay,
+  ORGANIZATIONAL_MANAGED_LABEL,
+} from "./ownershipDisplay";
 import {
   ACCESS_LEVEL_EDITOR_SECTIONS,
   ACCESS_LEVELS_GUIDANCE,
+  type AccessLevelEditorSectionId,
 } from "./ia";
 import { LuxiaAccessGuide } from "./LuxiaAccessGuide";
 import type {
@@ -64,18 +91,157 @@ import type {
   AccessLevelSourceGrant,
 } from "./types";
 
-const PARENT_SURFACE_STYLE = {
-  background: "var(--luxia-surface)",
-  border: "1px solid var(--luxia-border-default)",
-  borderRadius: "var(--luxia-radius-12)",
-} as const;
+const PARENT_SURFACE_CLASS = LUXIA_SETTINGS_CONTENT_SURFACE_CLASS;
 
-const SECTION_DIVIDER = {
-  borderTop: "1px solid var(--luxia-border-subtle)",
-} as const;
+/** Shared settings-form column — readable, not full-bleed. */
+const SETTINGS_FORM_COLUMN_CLASS = "w-full max-w-[45rem]";
+
+/** Tab panels inherit surface padding — no per-tab outer p-*. */
+const SETTINGS_TAB_PANEL_CLASS = LUXIA_SETTINGS_TAB_PANEL_CLASS;
+
+function formatAccessLevelUpdatedAt(iso: string): string {
+  return new Date(iso).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
 
 function recordsEqual(a: AccessLevelRecord, b: AccessLevelRecord): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
+}
+
+function sourceStatusLabel(status: string): string {
+  if (status === "active") return "Active";
+  if (status === "archived") return "Archived";
+  return "Inactive";
+}
+
+function userInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return (parts[0]?.slice(0, 2) ?? "?").toUpperCase();
+  return `${parts[0]?.[0] ?? ""}${parts[1]?.[0] ?? ""}`.toUpperCase();
+}
+
+function ImpactSectionHeader({
+  title,
+  countLabel,
+}: {
+  title: string;
+  countLabel: string;
+}) {
+  return (
+    <div className="mb-3 flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+      <h3
+        className="luxia-type-body-dense-strong"
+        style={{ color: "var(--luxia-text-primary)" }}
+      >
+        {title}
+      </h3>
+      <p
+        className="luxia-type-caption tabular-nums"
+        style={{ color: "var(--luxia-text-muted)" }}
+      >
+        {countLabel}
+      </p>
+    </div>
+  );
+}
+
+function ImpactEntityRow({
+  icon,
+  title,
+  secondary,
+  trailing,
+  onOpen,
+  ariaLabel,
+}: {
+  icon: ReactNode;
+  title: string;
+  secondary?: ReactNode;
+  trailing?: ReactNode;
+  onOpen?: () => void;
+  ariaLabel: string;
+}) {
+  const interactive = Boolean(onOpen);
+  const body = (
+    <>
+      <span
+        className="mt-0.5 inline-flex shrink-0"
+        style={{ color: "var(--luxia-purple-60)" }}
+        aria-hidden
+      >
+        {icon}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span
+          className="block truncate luxia-type-body-dense-strong"
+          style={{ color: "var(--luxia-text-primary)" }}
+        >
+          {title}
+        </span>
+        {secondary ? (
+          <span className="mt-0.5 block luxia-type-caption" style={{ color: "var(--luxia-text-muted)" }}>
+            {secondary}
+          </span>
+        ) : null}
+      </span>
+      {trailing ? <span className="shrink-0 self-center">{trailing}</span> : null}
+      {interactive ? (
+        <span
+          className="inline-flex shrink-0 self-center"
+          style={{ color: "var(--luxia-text-muted)" }}
+          aria-hidden
+        >
+          <LuxiaArrowRightIcon size={14} color="currentColor" />
+        </span>
+      ) : null}
+    </>
+  );
+
+  return (
+    <li className="luxia-settings-row">
+      {interactive ? (
+        <button
+          type="button"
+          aria-label={ariaLabel}
+          onClick={onOpen}
+          className="flex w-full min-w-0 items-start gap-3 py-3 text-left outline-none transition-colors hover:bg-[var(--luxia-settings-hover-bg)] focus-visible:bg-[var(--luxia-settings-hover-bg)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--luxia-settings-tab-focus-ring)]"
+        >
+          {body}
+        </button>
+      ) : (
+        <div className="flex w-full min-w-0 items-start gap-3 py-3">
+          {body}
+        </div>
+      )}
+    </li>
+  );
+}
+
+function ImpactInfoCallout({ children }: { children: ReactNode }) {
+  return (
+    <div
+      className="flex min-w-0 items-start gap-2.5 rounded-[var(--luxia-radius-12)] px-3.5 py-3"
+      style={{
+        background: "var(--luxia-settings-section-bg)",
+        border: "1px solid var(--luxia-settings-section-border)",
+      }}
+      role="note"
+    >
+      <CircleHelp
+        size={15}
+        strokeWidth={1.75}
+        aria-hidden
+        className="mt-0.5 shrink-0"
+        style={{ color: "var(--luxia-text-muted)" }}
+      />
+      <p className="min-w-0 luxia-type-body-dense" style={{ color: "var(--luxia-text-secondary)" }}>
+        {children}
+      </p>
+    </div>
+  );
 }
 
 export interface AccessLevelEditorPageProps {
@@ -86,7 +252,15 @@ export interface AccessLevelEditorPageProps {
   onDelete: (id: string) => void;
   onNavigateHome: () => void;
   onOpenAccessLevels: () => void;
+  onOpenDataSourceSettings?: (dataSourceId: string) => void;
+  onOpenConstellationSettings?: (projectId: string, constellationId: string) => void;
+  onOpenProject?: (projectId: string) => void;
   projectNames?: Record<string, string>;
+  /**
+   * When false: disables Save/Create, hides Delete/Archive, and makes fields
+   * (inputs/checkboxes/selects) read-only. Defaults to true.
+   */
+  canAdminister?: boolean;
 }
 
 export function AccessLevelEditorPage({
@@ -97,6 +271,10 @@ export function AccessLevelEditorPage({
   onDelete,
   onNavigateHome,
   onOpenAccessLevels,
+  onOpenDataSourceSettings,
+  onOpenConstellationSettings,
+  onOpenProject,
+  canAdminister = true,
 }: AccessLevelEditorPageProps) {
   const initialRef = useRef(record);
   const [draft, setDraft] = useState(() => structuredClone(record));
@@ -104,6 +282,8 @@ export function AccessLevelEditorPage({
   const [sourceQuery, setSourceQuery] = useState("");
   const [nameError, setNameError] = useState<string | null>(null);
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
+  const [activeSection, setActiveSection] =
+    useState<AccessLevelEditorSectionId>("general");
   const [leaveOpen, setLeaveOpen] = useState(false);
   const [leaveTarget, setLeaveTarget] = useState<"home" | "list">("list");
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -116,6 +296,7 @@ export function AccessLevelEditorPage({
 
   const isNew = Boolean(draft.isNew);
   const isDirty = !recordsEqual(draft, initialRef.current);
+  const readOnly = !canAdminister;
 
   useEffect(() => {
     initialRef.current = record;
@@ -123,6 +304,20 @@ export function AccessLevelEditorPage({
     setNameError(null);
     setSaveNotice(null);
   }, [record]);
+
+  const visibleSections = useMemo(
+    () =>
+      ACCESS_LEVEL_EDITOR_SECTIONS.filter(
+        (section) => !(section.id === "lifecycle" && isNew),
+      ),
+    [isNew],
+  );
+
+  useEffect(() => {
+    if (!visibleSections.some((section) => section.id === activeSection)) {
+      setActiveSection("general");
+    }
+  }, [visibleSections, activeSection]);
 
   const breadcrumbItems: LuxiaBreadcrumbItem[] = [
     { id: "home", label: "Home", destination: { kind: "home" } },
@@ -177,9 +372,15 @@ export function AccessLevelEditorPage({
       return (
         source.name.toLowerCase().includes(q)
         || source.type.toLowerCase().includes(q)
+        || getDataSourceOwnerDisplay(source).toLowerCase().includes(q)
       );
     });
   }, [sourceQuery]);
+
+  const impactPreview = useMemo(
+    () => buildAccessLevelImpactPreview(draft),
+    [draft],
+  );
 
   const validateName = useCallback(
     (name: string): string | null => {
@@ -198,9 +399,12 @@ export function AccessLevelEditorPage({
 
   function handleSave(event?: FormEvent) {
     event?.preventDefault();
+    if (!canAdminister) return;
+
     const error = validateName(draft.name);
     if (error) {
       setNameError(error);
+      setActiveSection("general");
       return;
     }
 
@@ -219,16 +423,31 @@ export function AccessLevelEditorPage({
   }
 
   function requestCancel() {
-    if (isDirty) {
-      setLeaveTarget("list");
-      setLeaveOpen(true);
+    if (isNew) {
+      if (isDirty) {
+        setLeaveTarget("list");
+        setLeaveOpen(true);
+        return;
+      }
+      onCancel();
       return;
     }
+
+    if (isDirty) {
+      setDraft(structuredClone(initialRef.current));
+      setNameError(null);
+      setSaveNotice(null);
+      return;
+    }
+
     onCancel();
   }
 
   function confirmLeave() {
     setLeaveOpen(false);
+    setDraft(structuredClone(initialRef.current));
+    setNameError(null);
+    setSaveNotice(null);
     if (leaveTarget === "home") {
       onNavigateHome();
       return;
@@ -242,6 +461,7 @@ export function AccessLevelEditorPage({
         ...prev,
         memberUserIds: [...prev.memberUserIds, userId],
       }));
+      setSaveNotice(null);
       return;
     }
     setPendingMemberRemove(userId);
@@ -256,6 +476,7 @@ export function AccessLevelEditorPage({
       ),
     }));
     setPendingMemberRemove(null);
+    setSaveNotice(null);
   }
 
   function getGrant(dataSourceId: string): AccessLevelSourceGrant | undefined {
@@ -265,7 +486,11 @@ export function AccessLevelEditorPage({
   }
 
   function toggleSource(dataSourceId: string, checked: boolean) {
+    const source = DATA_SOURCE_CATALOG.find((item) => item.id === dataSourceId);
     if (checked) {
+      if (source && !isDataSourceUsable(source.status)) {
+        return;
+      }
       setDraft((prev) => {
         if (prev.sourceGrants.some((g) => g.dataSourceId === dataSourceId)) {
           return prev;
@@ -278,6 +503,7 @@ export function AccessLevelEditorPage({
           ],
         };
       });
+      setSaveNotice(null);
       return;
     }
     setPendingSourceRemove(dataSourceId);
@@ -292,6 +518,7 @@ export function AccessLevelEditorPage({
       ),
     }));
     setPendingSourceRemove(null);
+    setSaveNotice(null);
   }
 
   function setSourcePermission(
@@ -306,6 +533,18 @@ export function AccessLevelEditorPage({
     }));
   }
 
+  function handleArchive() {
+    if (readOnly || draft.status === "inactive") return;
+    setDraft((prev) => ({ ...prev, status: "inactive" }));
+    setSaveNotice(null);
+  }
+
+  function handleReactivate() {
+    if (readOnly || draft.status === "active") return;
+    setDraft((prev) => ({ ...prev, status: "active" }));
+    setSaveNotice(null);
+  }
+
   const pageTitle = isNew
     ? LUXIA_CREATE_VS_EDIT.accessLevel.createTitle
     : draft.name || "Access Level";
@@ -313,6 +552,16 @@ export function AccessLevelEditorPage({
   const primaryLabel = isNew
     ? LUXIA_CREATE_VS_EDIT.accessLevel.createPrimary
     : LUXIA_DIRTY_STATE_COPY.save;
+
+  const showCancel = canAdminister && (isDirty || isNew);
+  const archivePending =
+    isDirty
+    && draft.status === "inactive"
+    && initialRef.current.status === "active";
+  const reactivatePending =
+    isDirty
+    && draft.status === "active"
+    && initialRef.current.status === "inactive";
 
   return (
     <LuxiaPageFrame variant={ACCESS_LEVELS_GUIDANCE.pageVariant}>
@@ -329,182 +578,366 @@ export function AccessLevelEditorPage({
           />
         }
         guide={ACCESS_LEVELS_GUIDANCE.editorPageDescription}
-        secondaryAction={
-          <>
-            <LuxiaAccessGuide />
-            {!isNew ? (
-              <Button
-                type="button"
-                {...LUXIA_PAGE_HEADER_ACTION.secondary}
-                onClick={requestCancel}
-              >
-                {LUXIA_DIRTY_STATE_COPY.cancel}
-              </Button>
-            ) : null}
-          </>
-        }
         primaryAction={
-          <Button
-            type="button"
-            {...LUXIA_PAGE_HEADER_ACTION.primary}
-            disabled={!isNew && !isDirty}
-            onClick={() => handleSave()}
-          >
-            {primaryLabel}
-          </Button>
-        }
-        metadata={
-          isDirty && !isNew ? (
-            <p
-              className="luxia-type-caption"
-              style={{ color: "var(--luxia-purple-60)" }}
+          canAdminister ? (
+            <Button
+              type="button"
+              {...LUXIA_PAGE_HEADER_ACTION.primary}
+              disabled={!isNew && !isDirty}
+              onClick={() => handleSave()}
             >
-              {LUXIA_DIRTY_STATE_COPY.unsaved}
-            </p>
-          ) : saveNotice ? (
-            <p
-              className="luxia-type-caption"
-              style={{ color: "var(--luxia-text-muted)" }}
-            >
-              {saveNotice}
-            </p>
+              {primaryLabel}
+            </Button>
           ) : null
+        }
+        secondaryAction={
+          showCancel ? (
+            <Button
+              type="button"
+              {...LUXIA_PAGE_HEADER_ACTION.secondary}
+              onClick={requestCancel}
+            >
+              {LUXIA_DIRTY_STATE_COPY.cancel}
+            </Button>
+          ) : null
+        }
+        actions={<LuxiaAccessGuide />}
+        context={
+          <div className="space-y-1">
+            {!isNew && draft.updatedAt ? (
+              <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
+                <LuxiaPageEntityUpdatedMeta
+                  updatedAt={formatAccessLevelUpdatedAt(draft.updatedAt)}
+                />
+              </div>
+            ) : null}
+            {isDirty && !isNew ? (
+              <p
+                className="luxia-type-caption"
+                style={{ color: "var(--luxia-text-secondary)" }}
+              >
+                {LUXIA_DIRTY_STATE_COPY.unsaved}
+              </p>
+            ) : saveNotice ? (
+              <p
+                className="luxia-type-caption"
+                style={{ color: "var(--luxia-text-muted)" }}
+              >
+                {saveNotice}
+              </p>
+            ) : null}
+            {readOnly ? (
+              <div
+                className="space-y-0.5"
+                role="status"
+                aria-label="Read only. Only Organization Admins can edit Access Levels."
+              >
+                <p
+                  className="luxia-type-caption"
+                  style={{ color: "var(--luxia-text-secondary)" }}
+                >
+                  Read only
+                </p>
+                <p
+                  className="luxia-type-caption"
+                  style={{ color: "var(--luxia-text-muted)" }}
+                >
+                  Only Organization Admins can edit Access Levels.
+                </p>
+              </div>
+            ) : null}
+          </div>
         }
       />
 
       <LuxiaPageBody>
         <form onSubmit={handleSave}>
-          <div style={PARENT_SURFACE_STYLE}>
-            {ACCESS_LEVEL_EDITOR_SECTIONS.map((section, sectionIndex) => {
-              if (section.id === "danger" && isNew) {
-                return null;
+          <Tabs
+            value={activeSection}
+            className="w-full min-w-0 gap-0"
+            onValueChange={(value) => {
+              if (
+                !visibleSections.some((section) => section.id === value)
+              ) {
+                return;
               }
-
-              return (
-                <section
-                  key={section.id}
-                  className="px-4 py-5"
-                  style={sectionIndex > 0 ? SECTION_DIVIDER : undefined}
-                >
-                  <h2
-                    className="mb-4 luxia-type-body-default-strong"
-                    style={{ color: "var(--luxia-text-primary)" }}
+              if (value === activeSection) return;
+              setActiveSection(value as AccessLevelEditorSectionId);
+            }}
+          >
+            <div className="mb-4 w-full min-w-0 overflow-x-auto">
+              <TabsList
+                aria-label="Access Level editor sections"
+                className={LUXIA_SETTINGS_TABLIST_CLASS}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: `repeat(${visibleSections.length}, minmax(0, 1fr))`,
+                  width: "100%",
+                  minWidth: `${visibleSections.length * 8.8}rem`,
+                  boxSizing: "border-box",
+                }}
+              >
+                {visibleSections.map((section) => (
+                  <TabsTrigger
+                    key={section.id}
+                    value={section.id}
+                    title={section.label}
+                    className={LUXIA_SETTINGS_TAB_TRIGGER_CLASS}
                   >
-                    {section.label}
-                  </h2>
+                    <span className="block w-full truncate text-center">
+                      {section.label}
+                    </span>
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </div>
 
-                  {section.id === "general" ? (
-                    <div className="space-y-4 max-w-xl">
-                      <FilterField label="Name" htmlFor="al-name">
-                        <Input
-                          id="al-name"
-                          value={draft.name}
-                          onChange={(event) => {
-                            setDraft((prev) => ({
-                              ...prev,
-                              name: event.target.value,
-                            }));
-                            if (nameError) setNameError(null);
-                          }}
-                          placeholder="Access Level name"
-                          aria-invalid={Boolean(nameError)}
-                        />
-                      </FilterField>
-                      {nameError ? (
-                        <p
-                          className="luxia-type-caption"
-                          style={{ color: "var(--luxia-error)" }}
-                        >
-                          {nameError}
-                        </p>
-                      ) : null}
-
-                      <FilterField label="Description" htmlFor="al-description">
-                        <Textarea
-                          id="al-description"
-                          value={draft.description}
-                          onChange={(event) =>
-                            setDraft((prev) => ({
-                              ...prev,
-                              description: event.target.value,
-                            }))
-                          }
-                          placeholder="Describe who this level is for"
-                          rows={3}
-                        />
-                      </FilterField>
-
-                      <BrowserFilterSelect
-                        label="Status"
-                        value={draft.status}
-                        onChange={(event) =>
-                          setDraft((prev) => ({
-                            ...prev,
-                            status: event.target.value as AccessLevelRecord["status"],
-                          }))
-                        }
-                      >
-                        <option value="active">Active</option>
-                        <option value="inactive">Inactive</option>
-                      </BrowserFilterSelect>
-                      <p
-                        className="luxia-type-caption -mt-2"
+            <div className={`w-full min-w-0 ${PARENT_SURFACE_CLASS}`}>
+              <TabsContent value="general" className={SETTINGS_TAB_PANEL_CLASS}>
+                {readOnly ? (
+                  <dl className={`space-y-4 ${SETTINGS_FORM_COLUMN_CLASS}`}>
+                    <div>
+                      <dt
+                        className="luxia-type-metadata"
                         style={{ color: "var(--luxia-text-muted)" }}
                       >
-                        Inactive levels stop granting new access but remain visible
-                        for audit.
-                      </p>
+                        Name
+                      </dt>
+                      <dd
+                        className="mt-1 luxia-type-body-dense"
+                        style={{ color: "var(--luxia-text-primary)" }}
+                      >
+                        {draft.name || "—"}
+                      </dd>
                     </div>
-                  ) : null}
+                    <div>
+                      <dt
+                        className="luxia-type-metadata"
+                        style={{ color: "var(--luxia-text-muted)" }}
+                      >
+                        Description
+                      </dt>
+                      <dd
+                        className="mt-1 luxia-type-body-dense"
+                        style={{ color: "var(--luxia-text-primary)" }}
+                      >
+                        {draft.description.trim() || "No description"}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt
+                        className="luxia-type-metadata"
+                        style={{ color: "var(--luxia-text-muted)" }}
+                      >
+                        Status
+                      </dt>
+                      <dd
+                        className="mt-1 luxia-type-body-dense"
+                        style={{ color: "var(--luxia-text-primary)" }}
+                      >
+                        {draft.status === "active" ? "Active" : "Inactive"}
+                      </dd>
+                    </div>
+                    {draft.status === "inactive" ? (
+                      <p
+                        className="luxia-type-caption"
+                        style={{ color: "var(--luxia-text-muted)" }}
+                      >
+                        Inactive Access Levels keep their members and permissions but
+                        no longer grant effective Data Source access.
+                      </p>
+                    ) : null}
+                  </dl>
+                ) : (
+                  <div className={`space-y-4 ${SETTINGS_FORM_COLUMN_CLASS}`}>
+                    <FilterField label="Name" htmlFor="al-name">
+                      <Input
+                        id="al-name"
+                        value={draft.name}
+                        onChange={(event) => {
+                          setDraft((prev) => ({
+                            ...prev,
+                            name: event.target.value,
+                          }));
+                          if (nameError) setNameError(null);
+                          setSaveNotice(null);
+                        }}
+                        placeholder="Access level name"
+                        aria-invalid={Boolean(nameError)}
+                      />
+                    </FilterField>
+                    {nameError ? (
+                      <p
+                        className="luxia-type-caption"
+                        style={{ color: "var(--luxia-error)" }}
+                      >
+                        {nameError}
+                      </p>
+                    ) : null}
 
-                  {section.id === "members" ? (
-                    <div className="space-y-4">
+                    <FilterField label="Description" htmlFor="al-description">
+                      <Textarea
+                        id="al-description"
+                        value={draft.description}
+                        onChange={(event) => {
+                          setDraft((prev) => ({
+                            ...prev,
+                            description: event.target.value,
+                          }));
+                          setSaveNotice(null);
+                        }}
+                        placeholder="Describe who this level is for"
+                        rows={3}
+                      />
+                    </FilterField>
+
+                    <BrowserFilterSelect
+                      label="Status"
+                      value={draft.status}
+                      onChange={(event) => {
+                        setDraft((prev) => ({
+                          ...prev,
+                          status: event.target.value as AccessLevelRecord["status"],
+                        }));
+                        setSaveNotice(null);
+                      }}
+                    >
+                      <option value="active">Active</option>
+                      <option value="inactive">Inactive</option>
+                    </BrowserFilterSelect>
+                    <p
+                      className="luxia-type-caption -mt-2"
+                      style={{ color: "var(--luxia-text-muted)" }}
+                    >
+                      Inactive Access Levels keep their members and permissions but
+                      no longer grant effective Data Source access.
+                    </p>
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="members" className={SETTINGS_TAB_PANEL_CLASS}>
+                {readOnly ? (
+                  <div className="space-y-4">
+                    <p
+                      className="luxia-type-body-dense"
+                      style={{ color: "var(--luxia-text-secondary)" }}
+                    >
+                      Organization users included in this Access Level.
+                    </p>
+                    {draft.memberUserIds.length === 0 ? (
+                      <p
+                        className="luxia-type-caption"
+                        style={{ color: "var(--luxia-text-muted)" }}
+                      >
+                        This Access Level does not include any members yet.
+                      </p>
+                    ) : (
+                      <ul className={`${LUXIA_SETTINGS_LIST_SURFACE_CLASS} px-4`}>
+                        {draft.memberUserIds.map((userId) => {
+                          const user = getOrganizationUserById(userId);
+                          return (
+                            <li
+                              key={userId}
+                              className="luxia-settings-row flex items-start gap-3 py-3.5"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <p
+                                  className="luxia-type-body-dense-strong"
+                                  style={{ color: "var(--luxia-text-primary)" }}
+                                >
+                                  {user?.name ?? userId}
+                                </p>
+                                <p
+                                  className="mt-0.5 luxia-type-caption"
+                                  style={{ color: "var(--luxia-text-secondary)" }}
+                                >
+                                  {user?.email ?? "—"}
+                                </p>
+                                <p
+                                  className="mt-0.5 luxia-type-caption"
+                                  style={{ color: "var(--luxia-text-secondary)" }}
+                                >
+                                  Organization role: {user?.orgRole ?? "—"}
+                                </p>
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
                       <p
                         className="luxia-type-body-dense"
                         style={{ color: "var(--luxia-text-secondary)" }}
                       >
-                        {ACCESS_LEVELS_GUIDANCE.membersLabel}: assign organization
-                        users to this Access Level.
+                        Assign organization users to this Access Level.
                       </p>
-                      <label className="block max-w-md">
-                        <span className="sr-only">Search members</span>
-                        <div className="relative">
-                          <Search
-                            size={16}
-                            strokeWidth={1.75}
-                            aria-hidden
-                            className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2"
-                            style={{ color: "var(--luxia-text-muted)" }}
-                          />
-                          <Input
-                            value={memberQuery}
-                            onChange={(event) =>
-                              setMemberQuery(event.target.value)
-                            }
-                            placeholder="Search users"
-                            aria-label="Search users"
-                            className="pl-9"
-                          />
-                        </div>
-                      </label>
-                      <ul>
-                        {filteredUsers.map((user, index) => {
+                      <p
+                        className="luxia-type-caption"
+                        style={{ color: "var(--luxia-text-muted)" }}
+                      >
+                        {draft.memberUserIds.length} of {ORGANIZATION_USERS.length}{" "}
+                        selected
+                      </p>
+                    </div>
+                    {draft.memberUserIds.length === 0 ? (
+                      <p
+                        className="luxia-type-caption"
+                        style={{ color: "var(--luxia-text-muted)" }}
+                      >
+                        This Access Level does not include any members yet.
+                      </p>
+                    ) : null}
+                    <label className="block max-w-md">
+                      <span className="sr-only">Search members</span>
+                      <div className="relative">
+                        <Search
+                          size={16}
+                          strokeWidth={1.75}
+                          aria-hidden
+                          className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2"
+                          style={{ color: "var(--luxia-text-muted)" }}
+                        />
+                        <Input
+                          value={memberQuery}
+                          onChange={(event) =>
+                            setMemberQuery(event.target.value)
+                          }
+                          placeholder="Search users"
+                          aria-label="Search users"
+                          className="pl-9"
+                        />
+                      </div>
+                    </label>
+                    {filteredUsers.length === 0 ? (
+                      <p
+                        className="luxia-type-body-dense py-6 text-center"
+                        style={{ color: "var(--luxia-text-muted)" }}
+                      >
+                        No users match your search.
+                      </p>
+                    ) : (
+                      <ul className={`${LUXIA_SETTINGS_LIST_SURFACE_CLASS} px-4`}>
+                        {filteredUsers.map((user) => {
                           const checked = draft.memberUserIds.includes(user.id);
                           const inputId = `member-${user.id}`;
                           return (
                             <li
                               key={user.id}
-                              className="flex items-start gap-3 py-3"
-                              style={
-                                index > 0 ? SECTION_DIVIDER : undefined
-                              }
+                              className={`luxia-settings-row flex items-start gap-3 py-3.5 ${checked ? "is-selected" : ""}`}
                             >
                               <Checkbox
                                 id={inputId}
                                 checked={checked}
-                                onCheckedChange={(value) =>
-                                  toggleMember(user.id, value === true)
-                                }
+                                className="mt-0.5"
+                                onCheckedChange={(value) => {
+                                  toggleMember(user.id, value === true);
+                                  setSaveNotice(null);
+                                }}
                               />
                               <Label
                                 htmlFor={inputId}
@@ -517,69 +950,188 @@ export function AccessLevelEditorPage({
                                   {user.name}
                                 </span>
                                 <span
-                                  className="block luxia-type-caption"
-                                  style={{ color: "var(--luxia-text-muted)" }}
+                                  className="mt-0.5 block luxia-type-caption"
+                                  style={{ color: "var(--luxia-text-secondary)" }}
                                 >
-                                  {user.email} · {user.orgRole}
+                                  {user.email}
+                                </span>
+                                <span
+                                  className="mt-0.5 block luxia-type-caption"
+                                  style={{ color: "var(--luxia-text-secondary)" }}
+                                >
+                                  Organization role: {user.orgRole}
                                 </span>
                               </Label>
                             </li>
                           );
                         })}
                       </ul>
-                    </div>
-                  ) : null}
+                    )}
+                  </div>
+                )}
+              </TabsContent>
 
-                  {section.id === "sources-permissions" ? (
-                    <div className="space-y-4">
+              <TabsContent
+                value="sources-permissions"
+                className={SETTINGS_TAB_PANEL_CLASS}
+              >
+                {readOnly ? (
+                  <div className="space-y-4">
+                    <LuxiaPageGuide>
+                      {ACCESS_LEVELS_GUIDANCE.sourcesPermissionHierarchy} View does
+                      not allow Constellation use where Use is required.
+                    </LuxiaPageGuide>
+                    <p
+                      className="luxia-type-body-dense"
+                      style={{ color: "var(--luxia-text-secondary)" }}
+                    >
+                      Data Sources included in this Access Level and the Data Source
+                      permission granted to members.
+                    </p>
+                    {draft.sourceGrants.length === 0 ? (
+                      <p
+                        className="luxia-type-caption"
+                        style={{ color: "var(--luxia-text-muted)" }}
+                      >
+                        No Data Sources have been added to this Access Level.
+                      </p>
+                    ) : (
+                      <ul className={`${LUXIA_SETTINGS_LIST_SURFACE_CLASS} px-4`}>
+                        {draft.sourceGrants.map((grant) => {
+                          const source = getDataSourceById(grant.dataSourceId);
+                          if (!source) return null;
+                          return (
+                            <li
+                              key={grant.dataSourceId}
+                              className="luxia-settings-row flex flex-wrap items-start justify-between gap-3 py-3.5"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <p
+                                  className="luxia-type-body-dense-strong"
+                                  style={{ color: "var(--luxia-text-primary)" }}
+                                >
+                                  {source.name}
+                                </p>
+                                <p
+                                  className="mt-0.5 luxia-type-caption"
+                                  style={{ color: "var(--luxia-text-muted)" }}
+                                >
+                                  {formatDataSourceType(source.type)}
+                                  {" · "}
+                                  {source.ownership === "organizational"
+                                    ? `Organizational · ${ORGANIZATIONAL_MANAGED_LABEL}`
+                                    : `Private · owner ${getDataSourceOwnerDisplay(source)}`}
+                                  {" · "}
+                                  {sourceStatusLabel(source.status)}
+                                </p>
+                              </div>
+                              <div className="shrink-0 text-right">
+                                <p
+                                  className="luxia-type-metadata"
+                                  style={{ color: "var(--luxia-text-muted)" }}
+                                >
+                                  Data Source permission
+                                </p>
+                                <p
+                                  className="mt-0.5 luxia-type-body-dense-strong"
+                                  style={{ color: "var(--luxia-text-primary)" }}
+                                >
+                                  {grant.permission}
+                                </p>
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <LuxiaPageGuide>
+                      {ACCESS_LEVELS_GUIDANCE.sourcesPermissionHierarchy} View does
+                      not allow Constellation use where Use is required.
+                    </LuxiaPageGuide>
+                    <div className="flex flex-wrap items-center justify-between gap-3">
                       <p
                         className="luxia-type-body-dense"
                         style={{ color: "var(--luxia-text-secondary)" }}
                       >
                         {ACCESS_LEVELS_GUIDANCE.sourcesPermissionsDescription}
                       </p>
-                      <label className="block max-w-md">
-                        <span className="sr-only">Search Data Sources</span>
-                        <div className="relative">
-                          <Search
-                            size={16}
-                            strokeWidth={1.75}
-                            aria-hidden
-                            className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2"
-                            style={{ color: "var(--luxia-text-muted)" }}
-                          />
-                          <Input
-                            value={sourceQuery}
-                            onChange={(event) =>
-                              setSourceQuery(event.target.value)
-                            }
-                            placeholder="Search Data Sources"
-                            aria-label="Search Data Sources"
-                            className="pl-9"
-                          />
-                        </div>
-                      </label>
-                      <ul>
-                        {filteredSources.map((source, index) => {
+                      <p
+                        className="luxia-type-caption"
+                        style={{ color: "var(--luxia-text-muted)" }}
+                      >
+                        {draft.sourceGrants.length} of {DATA_SOURCE_CATALOG.length}{" "}
+                        selected
+                      </p>
+                    </div>
+                    {draft.sourceGrants.length === 0 ? (
+                      <p
+                        className="luxia-type-caption"
+                        style={{ color: "var(--luxia-text-muted)" }}
+                      >
+                        No Data Sources have been added to this Access Level.
+                      </p>
+                    ) : null}
+                    <label className="block max-w-md">
+                      <span className="sr-only">Search Data Sources</span>
+                      <div className="relative">
+                        <Search
+                          size={16}
+                          strokeWidth={1.75}
+                          aria-hidden
+                          className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2"
+                          style={{ color: "var(--luxia-text-muted)" }}
+                        />
+                        <Input
+                          value={sourceQuery}
+                          onChange={(event) =>
+                            setSourceQuery(event.target.value)
+                          }
+                          placeholder="Search Data Sources"
+                          aria-label="Search Data Sources"
+                          className="pl-9"
+                        />
+                      </div>
+                    </label>
+                    {filteredSources.length === 0 ? (
+                      <p
+                        className="luxia-type-body-dense py-6 text-center"
+                        style={{ color: "var(--luxia-text-muted)" }}
+                      >
+                        No Data Sources match your search.
+                      </p>
+                    ) : (
+                      <ul className={`${LUXIA_SETTINGS_LIST_SURFACE_CLASS} px-4`}>
+                        {filteredSources.map((source) => {
                           const grant = getGrant(source.id);
                           const checked = Boolean(grant);
+                          const usable = isDataSourceUsable(source.status);
+                          const cannotAdd = !usable && !checked;
                           const inputId = `source-${source.id}`;
                           return (
                             <li
                               key={source.id}
-                              className="flex flex-wrap items-center gap-3 py-3"
-                              style={index > 0 ? SECTION_DIVIDER : undefined}
+                              className={`luxia-settings-row flex flex-wrap items-center gap-3 py-3.5 ${checked ? "is-selected" : ""}`}
                             >
                               <Checkbox
                                 id={inputId}
                                 checked={checked}
+                                disabled={cannotAdd}
+                                className="mt-0.5"
+                                title={
+                                  cannotAdd
+                                    ? "Inactive or archived Data Sources cannot be newly selected."
+                                    : undefined
+                                }
                                 onCheckedChange={(value) =>
                                   toggleSource(source.id, value === true)
                                 }
                               />
                               <Label
                                 htmlFor={inputId}
-                                className="min-w-0 flex-1 cursor-pointer"
+                                className={`min-w-0 flex-1 ${cannotAdd ? "cursor-default" : "cursor-pointer"}`}
                               >
                                 <span
                                   className="block luxia-type-body-dense-strong"
@@ -588,29 +1140,41 @@ export function AccessLevelEditorPage({
                                   {source.name}
                                 </span>
                                 <span
-                                  className="block luxia-type-caption"
+                                  className="mt-0.5 block luxia-type-caption"
                                   style={{ color: "var(--luxia-text-muted)" }}
                                 >
-                                  {source.type} · {source.ownership}
-                                  {source.ownership === "private"
-                                    ? ` · owner ${source.ownerUserId}`
-                                    : ""}
+                                  {formatDataSourceType(source.type)}
+                                  {" · "}
+                                  {source.ownership === "organizational"
+                                    ? `Organizational · ${ORGANIZATIONAL_MANAGED_LABEL}`
+                                    : `Private · owner ${getDataSourceOwnerDisplay(source)}`}
+                                  {" · "}
+                                  {sourceStatusLabel(source.status)}
                                 </span>
+                                {cannotAdd ? (
+                                  <span
+                                    className="mt-0.5 block luxia-type-caption"
+                                    style={{ color: "var(--luxia-text-muted)" }}
+                                  >
+                                    Cannot newly grant an inactive or archived Data Source.
+                                  </span>
+                                ) : null}
                               </Label>
                               {checked && grant ? (
                                 <Select
                                   value={grant.permission}
-                                  onValueChange={(value) =>
+                                  onValueChange={(value) => {
                                     setSourcePermission(
                                       source.id,
                                       value as AccessLevelPermission,
-                                    )
-                                  }
+                                    );
+                                    setSaveNotice(null);
+                                  }}
                                 >
                                   <SelectTrigger
                                     className="w-[8.5rem]"
                                     size="sm"
-                                    aria-label={`Permission for ${source.name}`}
+                                    aria-label={`Data Source permission for ${source.name}`}
                                   >
                                     <SelectValue />
                                   </SelectTrigger>
@@ -625,113 +1189,368 @@ export function AccessLevelEditorPage({
                           );
                         })}
                       </ul>
-                    </div>
-                  ) : null}
+                    )}
+                  </div>
+                )}
+              </TabsContent>
 
-                  {section.id === "impact" ? (
+              <TabsContent value="impact" className={SETTINGS_TAB_PANEL_CLASS}>
+                <div className="space-y-4">
+                  <div>
+                    <h2
+                      className="luxia-type-body-default-strong"
+                      style={{ color: "var(--luxia-text-primary)" }}
+                    >
+                      Impact preview
+                    </h2>
+                    <p
+                      className="mt-1 luxia-type-caption"
+                      style={{ color: "var(--luxia-text-secondary)" }}
+                    >
+                      Impact preview based on the current prototype data
+                      {isDirty ? " (includes unsaved draft changes)" : ""}.
+                    </p>
+                  </div>
+
+                  <ImpactInfoCallout>
+                    {draft.status !== "active"
+                      ? "This Access Level is inactive, so configured grants do not contribute to effective permission."
+                      : impactPreview.dataSources.length === 0
+                        ? "Saving with no Data Sources means members receive no source grants from this level."
+                        : "After saving, members receive the strongest active permission across all Access Levels they belong to. Removing grants may make related Constellations unavailable for Use."}
+                  </ImpactInfoCallout>
+
+                  <div
+                    className="luxia-settings-section-surface overflow-hidden"
+                    style={{ padding: 0 }}
+                  >
+                    <div className="px-4 pt-4">
+                      <ImpactSectionHeader
+                        title="Members affected"
+                        countLabel={`${impactPreview.members.length} ${impactPreview.members.length === 1 ? "member" : "members"}`}
+                      />
+                      {impactPreview.members.length === 0 ? (
+                        <p className="luxia-type-body-dense pb-4" style={{ color: "var(--luxia-text-secondary)" }}>
+                          No members assigned yet.
+                        </p>
+                      ) : (
+                        <ul>
+                          {impactPreview.members.map((member) => {
+                            const user = getOrganizationUserById(member.id);
+                            return (
+                              <ImpactEntityRow
+                                key={member.id}
+                                ariaLabel={member.name}
+                                icon={
+                                  <span
+                                    className="inline-flex h-7 w-7 items-center justify-center rounded-full luxia-type-caption"
+                                    style={{
+                                      background: "var(--luxia-opacity-brand-secondary-12)",
+                                      color: "var(--luxia-purple-70)",
+                                    }}
+                                    aria-hidden
+                                  >
+                                    {userInitials(member.name)}
+                                  </span>
+                                }
+                                title={member.name}
+                                secondary={
+                                  user
+                                    ? `Organization role: ${user.orgRole}`
+                                    : "Assigned to this Access Level"
+                                }
+                              />
+                            );
+                          })}
+                        </ul>
+                      )}
+                    </div>
+
+                    <div
+                      className="px-4"
+                      style={{ borderTop: "1px solid var(--luxia-settings-row-divider)" }}
+                    >
+                      <div className="pt-4">
+                        <ImpactSectionHeader
+                          title="Data Sources included"
+                          countLabel={`${impactPreview.dataSources.length} Data Source${impactPreview.dataSources.length === 1 ? "" : "s"}`}
+                        />
+                      </div>
+                      {impactPreview.dataSources.length === 0 ? (
+                        <p className="luxia-type-body-dense pb-4" style={{ color: "var(--luxia-text-secondary)" }}>
+                          No Data Sources included yet.
+                        </p>
+                      ) : (
+                        <ul>
+                          {impactPreview.dataSources.map((item) => {
+                            const source = getDataSourceById(item.id);
+                            const ownershipLabel = source
+                              ? source.ownership === "organizational"
+                                ? "Organizational"
+                                : "Private"
+                              : null;
+                            const metaParts = [
+                              source ? formatDataSourceType(source.type) : null,
+                              ownershipLabel,
+                              source && source.status !== "active"
+                                ? sourceStatusLabel(source.status)
+                                : null,
+                            ].filter(Boolean);
+                            return (
+                              <ImpactEntityRow
+                                key={item.id}
+                                ariaLabel={`Open ${item.name}`}
+                                icon={<LuxiaDatasourceIcon size={18} aria-hidden color="currentColor" />}
+                                title={item.name}
+                                secondary={
+                                  <>
+                                    {metaParts.join(" · ")}
+                                    <span className="mt-0.5 block">
+                                      Data Source permission: {item.permission}
+                                    </span>
+                                  </>
+                                }
+                                onOpen={
+                                  onOpenDataSourceSettings
+                                    ? () => onOpenDataSourceSettings(item.id)
+                                    : undefined
+                                }
+                              />
+                            );
+                          })}
+                        </ul>
+                      )}
+                    </div>
+
+                    <div
+                      className="px-4"
+                      style={{ borderTop: "1px solid var(--luxia-settings-row-divider)" }}
+                    >
+                      <div className="pt-4">
+                        <ImpactSectionHeader
+                          title="Constellations using these sources"
+                          countLabel={`${impactPreview.constellations.length} Constellation${impactPreview.constellations.length === 1 ? "" : "s"}`}
+                        />
+                      </div>
+                      {impactPreview.constellations.length === 0 ? (
+                        <p className="luxia-type-body-dense pb-4" style={{ color: "var(--luxia-text-secondary)" }}>
+                          No Constellations currently use these Data Sources.
+                        </p>
+                      ) : (
+                        <ul>
+                          {impactPreview.constellations.map((item) => (
+                            <ImpactEntityRow
+                              key={item.id}
+                              ariaLabel={`Open ${item.name}`}
+                              icon={<LuxiaConstellationIcon size={18} aria-hidden color="currentColor" />}
+                              title={item.name}
+                              secondary={item.projectName}
+                              onOpen={
+                                onOpenConstellationSettings
+                                  ? () => onOpenConstellationSettings(item.projectId, item.id)
+                                  : undefined
+                              }
+                            />
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+
+                    <div
+                      className="px-4 pb-4"
+                      style={{ borderTop: "1px solid var(--luxia-settings-row-divider)" }}
+                    >
+                      <div className="pt-4">
+                        <ImpactSectionHeader
+                          title="Projects indirectly affected"
+                          countLabel={`${impactPreview.projects.length} Project${impactPreview.projects.length === 1 ? "" : "s"}`}
+                        />
+                      </div>
+                      {impactPreview.projects.length === 0 ? (
+                        <p className="luxia-type-body-dense" style={{ color: "var(--luxia-text-secondary)" }}>
+                          No Projects currently depend on these grants.
+                        </p>
+                      ) : (
+                        <ul>
+                          {impactPreview.projects.map((item) => {
+                            const affectedCount = impactPreview.constellations.filter(
+                              (constellation) => constellation.projectId === item.id,
+                            ).length;
+                            return (
+                              <ImpactEntityRow
+                                key={item.id}
+                                ariaLabel={`Open ${item.name}`}
+                                icon={<LuxiaProjectsIcon size={18} aria-hidden color="currentColor" />}
+                                title={item.name}
+                                secondary={
+                                  affectedCount > 0
+                                    ? `${affectedCount} affected Constellation${affectedCount === 1 ? "" : "s"}`
+                                    : undefined
+                                }
+                                onOpen={
+                                  onOpenProject
+                                    ? () => onOpenProject(item.id)
+                                    : undefined
+                                }
+                              />
+                            );
+                          })}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+
+              {!isNew ? (
+                <TabsContent
+                  value="lifecycle"
+                  className={SETTINGS_TAB_PANEL_CLASS}
+                >
+                  {readOnly ? (
                     <div className="space-y-4">
+                      <dl className={`space-y-4 ${SETTINGS_FORM_COLUMN_CLASS}`}>
+                        <div>
+                          <dt
+                            className="luxia-type-metadata"
+                            style={{ color: "var(--luxia-text-muted)" }}
+                          >
+                            Status
+                          </dt>
+                          <dd
+                            className="mt-1 luxia-type-body-dense"
+                            style={{ color: "var(--luxia-text-primary)" }}
+                          >
+                            {draft.status === "active" ? "Active" : "Inactive"}
+                          </dd>
+                        </div>
+                      </dl>
                       <p
                         className="luxia-type-body-dense"
                         style={{ color: "var(--luxia-text-secondary)" }}
                       >
-                        Read-only preview of dependent entities (prototype mock).
+                        {draft.status === "inactive"
+                          ? "This Access Level is inactive. Its members and permissions remain configured, but it no longer grants effective Data Source access."
+                          : "This Access Level is active. Only Organization Admins can archive or delete Access Levels."}
                       </p>
-                      <div>
-                        <h3
-                          className="luxia-type-body-dense-strong mb-2"
-                          style={{ color: "var(--luxia-text-primary)" }}
-                        >
-                          Constellations
-                        </h3>
-                        <ul
-                          className="luxia-type-body-dense"
-                          style={{ color: "var(--luxia-text-secondary)" }}
-                        >
-                          {MOCK_ACCESS_LEVEL_IMPACT.constellations.map((item) => (
-                            <li key={item.id}>
-                              {item.name} · {item.projectName}
-                            </li>
-                          ))}
-                        </ul>
+                    </div>
+                  ) : (
+                    <div
+                      className={`${LUXIA_SETTINGS_LIST_SURFACE_CLASS} divide-y px-4`}
+                      style={{ borderColor: "var(--luxia-settings-row-divider)" }}
+                    >
+                      <div className="luxia-settings-row flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="min-w-0 flex-1">
+                          <p
+                            className="luxia-type-body-dense-strong"
+                            style={{ color: "var(--luxia-text-primary)" }}
+                          >
+                            {draft.status === "inactive"
+                              ? "Reactivate this Access Level"
+                              : "Archive this Access Level"}
+                          </p>
+                          <p
+                            className="mt-1 luxia-type-body-dense"
+                            style={{ color: "var(--luxia-text-secondary)" }}
+                          >
+                            {draft.status === "inactive"
+                              ? "Sets this Access Level back to active so its configured members and permissions can grant effective Data Source access again."
+                              : "Sets this Access Level to inactive. Its members and permissions remain configured, but it no longer grants effective Data Source access."}
+                          </p>
+                          {archivePending ? (
+                            <p
+                              className="mt-1 luxia-type-caption"
+                              style={{ color: "var(--luxia-text-secondary)" }}
+                            >
+                              Set to inactive in this draft — save changes to apply.
+                            </p>
+                          ) : null}
+                          {reactivatePending ? (
+                            <p
+                              className="mt-1 luxia-type-caption"
+                              style={{ color: "var(--luxia-text-secondary)" }}
+                            >
+                              Set to active in this draft — save changes to apply.
+                            </p>
+                          ) : null}
+                        </div>
+                        {draft.status === "inactive" ? (
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="compact"
+                            className="shrink-0 self-start sm:self-center"
+                            onClick={handleReactivate}
+                          >
+                            Reactivate
+                          </Button>
+                        ) : (
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="compact"
+                            className="shrink-0 self-start sm:self-center"
+                            onClick={handleArchive}
+                          >
+                            Archive
+                          </Button>
+                        )}
                       </div>
-                      <div>
-                        <h3
-                          className="luxia-type-body-dense-strong mb-2"
-                          style={{ color: "var(--luxia-text-primary)" }}
+
+                      <div className="flex flex-col gap-3 py-4 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="min-w-0 flex-1">
+                          <p
+                            className="luxia-type-body-dense-strong"
+                            style={{ color: "var(--luxia-error)" }}
+                          >
+                            Delete this Access Level
+                          </p>
+                          <p
+                            className="mt-1 luxia-type-body-dense"
+                            style={{ color: "var(--luxia-text-secondary)" }}
+                          >
+                            Removes this Access Level only. Data Sources are not
+                            deleted. Affected users may lose effective source access
+                            from this level.
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="compact"
+                          className="shrink-0 self-start sm:self-center"
+                          onClick={() => setDeleteOpen(true)}
                         >
-                          Projects
-                        </h3>
-                        <ul
-                          className="luxia-type-body-dense"
-                          style={{ color: "var(--luxia-text-secondary)" }}
-                        >
-                          {MOCK_ACCESS_LEVEL_IMPACT.projects.map((item) => (
-                            <li key={item.id}>{item.name}</li>
-                          ))}
-                        </ul>
+                          Delete Access Level
+                        </Button>
                       </div>
                     </div>
-                  ) : null}
-
-                  {section.id === "danger" ? (
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <p
-                          className="luxia-type-body-dense-strong"
-                          style={{ color: "var(--luxia-text-primary)" }}
-                        >
-                          Delete this Access Level
-                        </p>
-                        <p
-                          className="mt-1 luxia-type-body-dense"
-                          style={{ color: "var(--luxia-text-secondary)" }}
-                        >
-                          Members lose grants from this level. Review Impact before
-                          deleting.
-                        </p>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="compact"
-                        onClick={() => setDeleteOpen(true)}
-                      >
-                        Delete Access Level
-                      </Button>
-                    </div>
-                  ) : null}
-                </section>
-              );
-            })}
-          </div>
-
-          {isNew ? (
-            <div className="mt-4 flex flex-wrap gap-2">
-              <Button
-                type="button"
-                variant="secondary"
-                size="compact"
-                onClick={requestCancel}
-              >
-                {LUXIA_DIRTY_STATE_COPY.cancel}
-              </Button>
+                  )}
+                </TabsContent>
+              ) : null}
             </div>
-          ) : null}
+          </Tabs>
         </form>
       </LuxiaPageBody>
 
       <AlertDialog open={leaveOpen} onOpenChange={setLeaveOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{LUXIA_DIRTY_STATE_COPY.leaveTitle}</AlertDialogTitle>
+            <AlertDialogTitle>
+              {isNew ? "Discard this Access Level draft?" : LUXIA_DIRTY_STATE_COPY.leaveTitle}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              {LUXIA_DIRTY_STATE_COPY.leaveDescription}
+              {isNew
+                ? "Your draft has not been created. Discarding removes this draft for the current session."
+                : LUXIA_DIRTY_STATE_COPY.leaveDescription}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{LUXIA_DIRTY_STATE_COPY.cancel}</AlertDialogCancel>
+            <AlertDialogCancel>
+              {isNew ? "Keep editing" : LUXIA_DIRTY_STATE_COPY.cancel}
+            </AlertDialogCancel>
             <AlertDialogAction onClick={confirmLeave}>
-              Leave without saving
+              {isNew ? "Discard draft" : "Leave without saving"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -745,9 +1564,9 @@ export function AccessLevelEditorPage({
           <AlertDialogHeader>
             <AlertDialogTitle>Remove member?</AlertDialogTitle>
             <AlertDialogDescription>
-              Removing a member revokes Data Source permissions granted through
-              this Access Level. Constellations that depend on those sources may
-              become unreachable.
+              {pendingMemberRemove
+                ? `Remove ${ORGANIZATION_USERS.find((user) => user.id === pendingMemberRemove)?.name ?? "this user"} from this Access Level? They will lose ${draft.sourceGrants.length} Data Source grant${draft.sourceGrants.length === 1 ? "" : "s"} from this level only. Ownership and Project roles are unchanged. Save is still required to apply draft changes.`
+                : "Removing a member revokes Data Source permissions granted through this Access Level."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -767,8 +1586,9 @@ export function AccessLevelEditorPage({
           <AlertDialogHeader>
             <AlertDialogTitle>Remove Data Source?</AlertDialogTitle>
             <AlertDialogDescription>
-              Members of this Access Level will lose permission to the removed
-              source. Review Impact for dependent constellations and projects.
+              {pendingSourceRemove
+                ? `Remove ${DATA_SOURCE_CATALOG.find((source) => source.id === pendingSourceRemove)?.name ?? "this Data Source"} from this Access Level only? The Data Source itself and Constellation connections stay intact. Other grants on this level are preserved. Save is still required.`
+                : "Members of this Access Level will lose permission to the removed source."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -783,14 +1603,9 @@ export function AccessLevelEditorPage({
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Access Level?</AlertDialogTitle>
+            <AlertDialogTitle>Delete this Access Level?</AlertDialogTitle>
             <AlertDialogDescription>
-              This removes grants for {draft.memberUserIds.length} member
-              {draft.memberUserIds.length === 1 ? "" : "s"} across{" "}
-              {draft.sourceGrants.length} Data Source
-              {draft.sourceGrants.length === 1 ? "" : "s"}. Mock impact:{" "}
-              {MOCK_ACCESS_LEVEL_IMPACT.constellations.length} constellations,{" "}
-              {MOCK_ACCESS_LEVEL_IMPACT.projects.length} projects.
+              Members will lose the Data Source permissions granted by this Access Level. Data Sources and Constellations will not be deleted.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -30,6 +30,11 @@ import type {
 } from "@/app/features/constellation/capsuleCapabilities";
 import type { CapabilitySummary } from "./types";
 
+export type CsvParseConfig = {
+  delimiter: string;
+  hasHeader: boolean;
+};
+
 export type ConstellationCapabilityBundle = {
   tables: DataTableRecord[];
   knowledgeBase: KnowledgeBaseEntry[];
@@ -39,6 +44,8 @@ export type ConstellationCapabilityBundle = {
   metrics: MetricRecord[];
   pdfFiles: PDFFileRecord[];
   crawler: CrawlerState;
+  /** CSV parse options when the Constellation type is CSV. */
+  csvParseConfig: CsvParseConfig | null;
 };
 
 const DEFAULT_INSTRUCTION =
@@ -134,6 +141,7 @@ export function createDefaultCapabilityBundle(
     metrics: cloneMetrics(INITIAL_METRICS),
     pdfFiles: clonePdfFiles(INITIAL_PDF_FILES),
     crawler: cloneCrawlerState(INITIAL_CRAWLER_STATE),
+    csvParseConfig: null,
   };
 }
 
@@ -159,6 +167,7 @@ export function createSeedCapabilityBundle(
       metrics: sliceMetrics(1 + ((n - 1) % 4)),
       pdfFiles: [],
       crawler: { entries: [], settings: { ...INITIAL_CRAWLER_STATE.settings } },
+      csvParseConfig: null,
     };
   }
 
@@ -171,6 +180,7 @@ export function createSeedCapabilityBundle(
     metrics: [],
     pdfFiles: slicePdfs(2 + ((n - 1) % 4)),
     crawler: sliceCrawler(1 + ((n - 1) % 2)),
+    csvParseConfig: type === "csv" ? { delimiter: ",", hasHeader: true } : null,
   };
 }
 
@@ -191,6 +201,9 @@ export function cloneCapabilityBundle(
     metrics: cloneMetrics(bundle.metrics),
     pdfFiles: clonePdfFiles(bundle.pdfFiles),
     crawler: cloneCrawlerState(bundle.crawler),
+    csvParseConfig: bundle.csvParseConfig
+      ? { ...bundle.csvParseConfig }
+      : null,
   };
 }
 

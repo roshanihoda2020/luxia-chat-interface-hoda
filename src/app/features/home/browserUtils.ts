@@ -1,4 +1,5 @@
 import { getProjectNameById } from "@/app/features/project/data";
+import type { HomeProjectCard } from "@/app/features/project/types";
 import type { HomeEntityKey } from "./homeEntityKeys";
 import { workItemEntityKey } from "./homeEntityKeys";
 import type { HomeRecentWorkItem } from "./types";
@@ -43,7 +44,11 @@ function entityTypeToken(item: HomeRecentWorkItem): string {
   return item.kind === "galaxySession" ? "galaxy" : "chat";
 }
 
-export function matchesContinueSearch(item: HomeRecentWorkItem, query: string): boolean {
+export function matchesContinueSearch(
+  item: HomeRecentWorkItem,
+  query: string,
+  projects?: readonly HomeProjectCard[],
+): boolean {
   const q = query.trim().toLowerCase();
   if (!q) return true;
 
@@ -59,7 +64,7 @@ export function matchesContinueSearch(item: HomeRecentWorkItem, query: string): 
 
   const haystack = [
     item.title,
-    getProjectNameById(item.projectId),
+    getProjectNameById(item.projectId, projects),
     item.constellationName ?? "",
     sourceType,
     entityType,
@@ -77,10 +82,11 @@ export function filterContinueWorkItems(
     sourceFilter: ContinueSourceFilter;
     visibilityFilter: ContinueVisibilityFilter;
     dismissedKeys: Set<HomeEntityKey>;
+    projects?: readonly HomeProjectCard[];
   },
 ): HomeRecentWorkItem[] {
   return listContinueWorkingCollection(items).filter((item) => {
-    if (!matchesContinueSearch(item, options.query)) return false;
+    if (!matchesContinueSearch(item, options.query, options.projects)) return false;
 
     const entityKey = workItemEntityKey(item);
     const isHidden = options.dismissedKeys.has(entityKey);

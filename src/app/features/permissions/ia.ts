@@ -8,7 +8,7 @@ export type AccessLevelEditorSectionId =
   | "members"
   | "sources-permissions"
   | "impact"
-  | "danger";
+  | "lifecycle";
 
 export const ACCESS_LEVEL_EDITOR_SECTIONS: {
   id: AccessLevelEditorSectionId;
@@ -18,17 +18,20 @@ export const ACCESS_LEVEL_EDITOR_SECTIONS: {
   { id: "members", label: "Members" },
   { id: "sources-permissions", label: "Data Sources & Permissions" },
   { id: "impact", label: "Impact" },
-  { id: "danger", label: "Danger Zone" },
+  { id: "lifecycle", label: "Lifecycle" },
 ];
 
 export const ACCESS_LEVELS_GUIDANCE = {
-  listPageDescription: "Control Data Source access for users and groups.",
+  listPageDescription:
+    "Group members and control which Data Sources they can View, Use, or Manage.",
   listPageRule:
-    "Access Levels apply to Data Sources only—not Project roles or Constellations.",
+    "Access Levels apply to Data Sources, not Projects or Constellations.",
   editorPageDescription:
-    "Define who belongs to this Access Level and which Data Source permissions they receive.",
+    "Choose the members and Data Source permissions included in this Access Level.",
   sourcesPermissionsDescription:
-    "Select Data Sources and set one permission per source. Manage includes Use and View; Use includes View.",
+    "Select Data Sources and set one permission per source.",
+  sourcesPermissionHierarchy:
+    "Manage includes Use and View. Use includes View.",
   membersLabel: "Members",
   /** Groups only when a real Group selector exists; otherwise use Members. */
   useGroupsLabel: false,
@@ -45,9 +48,10 @@ export type ProjectMembersSectionFocus =
   | "source-readiness";
 
 export const PROJECT_MEMBERS_GUIDANCE = {
-  pageDescription: "Manage who can access this Project and what they can do.",
+  pageDescription:
+    "Manage Project membership and what each person can do inside this Project.",
   pageRule:
-    "Project roles control Project actions. Data Source access is managed separately.",
+    "Data Source access is managed separately through Access Levels.",
   /** Do not place Data Source permission checkboxes on this page. */
   allowSourcePermissionCheckboxes: false,
   pageVariant: "standard" as const,

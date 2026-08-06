@@ -1231,7 +1231,9 @@ export function GalaxyActivityPanel({
                                     </p>
                                   ) : filteredAll.length === 0 ? (
                                     <p className="px-2 py-3 luxia-type-caption" style={{ color: GC.textSecondary }}>
-                                      {query.trim() ? "No constellations found" : "No constellations available"}
+                                      {query.trim()
+                                        ? "No constellations found"
+                                        : "No accessible Constellations are currently available in this Project."}
                                     </p>
                                   ) : (
                                     visibleResults.map((option, index) => {

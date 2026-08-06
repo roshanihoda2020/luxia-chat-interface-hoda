@@ -7,7 +7,7 @@ import {
   type CSSProperties,
   type ReactNode,
 } from "react";
-import { Check, CircleHelp, Pencil, X } from "lucide-react";
+import { Check, CircleHelp, Clock, Pencil, X } from "lucide-react";
 import { LUXIA_PAGE_LAYOUT } from "@/app/components/luxiaPageLayout";
 import {
   Tooltip,
@@ -83,6 +83,11 @@ export interface LuxiaPageHeaderProps {
   description?: ReactNode;
   onRename?: (name: string) => void;
   renameLabel?: string;
+  /**
+   * Quiet entity timestamp metadata on the title row (e.g. Updated 2h ago).
+   * Renders after the title / rename control and before page actions.
+   */
+  titleMetadata?: ReactNode;
   primaryAction?: ReactNode;
   secondaryAction?: ReactNode;
   options?: ReactNode;
@@ -100,9 +105,11 @@ export interface LuxiaPageHeaderProps {
    */
   titleLeading?: ReactNode;
   /**
-   * @deprecated No longer reserves an empty icon column.
-   * Pass `titleLeading` when an icon is needed; omit it otherwise.
+   * When true, `titleLeading` is exposed to assistive technologies.
+   * Use for interactive controls such as Exit. Decorative icons should omit this.
    */
+  titleLeadingAccessible?: boolean;
+  /** @deprecated No longer reserves an empty icon column. */
   reserveTitleLeading?: boolean;
 }
 
@@ -114,7 +121,7 @@ export const LUXIA_PAGE_TITLE_LEADING_SLOT =
  * Prefer these over page-specific Button sizes/variants.
  *
  * Visual LTR order in the header cluster:
- * secondary / tertiary / back → miscellaneous `actions` → primary → options menu
+ * primary → secondary / cancel → miscellaneous `actions` (incl. tertiary help) → options menu
  */
 export const LUXIA_PAGE_HEADER_ACTION = {
   size: "compact" as const,
@@ -180,6 +187,34 @@ export function LuxiaPageContext({
     >
       {children}
     </div>
+  );
+}
+
+/** Quiet entity timestamp for the page-header title row — not a notification. */
+export function LuxiaPageEntityUpdatedMeta({
+  updatedAt,
+  prefix = "Updated",
+  className = "",
+}: {
+  updatedAt: string;
+  prefix?: string;
+  className?: string;
+}) {
+  const label = `${prefix} ${updatedAt}`.trim();
+  return (
+    <p
+      className={`inline-flex min-w-0 shrink-0 items-center gap-1 luxia-type-caption ${className}`.trim()}
+      style={{ color: "var(--luxia-text-muted)" }}
+      aria-label={label}
+    >
+      <Clock
+        size={13}
+        strokeWidth={1.75}
+        aria-hidden="true"
+        className="shrink-0"
+      />
+      <span className="truncate">{label}</span>
+    </p>
   );
 }
 
@@ -327,6 +362,7 @@ export function LuxiaPageHeader({
   guide,
   onRename,
   renameLabel,
+  titleMetadata,
   primaryAction,
   secondaryAction,
   options,
@@ -339,6 +375,7 @@ export function LuxiaPageHeader({
   titleStyle,
   contentGap = "page",
   titleLeading,
+  titleLeadingAccessible = false,
   reserveTitleLeading: _reserveTitleLeading = false,
 }: LuxiaPageHeaderProps) {
   const typeLabel =
@@ -499,9 +536,13 @@ export function LuxiaPageHeader({
   const showTitleLeading = Boolean(titleLeading);
 
   const titleLeadingSlot = showTitleLeading ? (
-    <span className={LUXIA_PAGE_TITLE_LEADING_SLOT} aria-hidden>
-      {titleLeading}
-    </span>
+    titleLeadingAccessible ? (
+      <span className={LUXIA_PAGE_TITLE_LEADING_SLOT}>{titleLeading}</span>
+    ) : (
+      <span className={LUXIA_PAGE_TITLE_LEADING_SLOT} aria-hidden>
+        {titleLeading}
+      </span>
+    )
   ) : null;
 
   const titleHeading = stringTitle ? (
@@ -532,9 +573,7 @@ export function LuxiaPageHeader({
     canRename && isEditing ? (
       <div
         ref={editRootRef}
-        className={`w-fit max-w-full min-w-0${
-          breadcrumb ? ` ${LUXIA_PAGE_INTRO.titleToBreadcrumbGapClass}` : ""
-        }`}
+        className="w-fit max-w-full min-w-0"
       >
         <h1 className="sr-only">
           {stringTitle}
@@ -651,9 +690,7 @@ export function LuxiaPageHeader({
       </div>
     ) : canRename ? (
       <div
-        className={`inline-flex max-w-full min-w-0 items-center gap-[6px]${
-          breadcrumb ? " mb-1.5" : ""
-        }`}
+        className="inline-flex max-w-full min-w-0 items-center gap-[6px]"
       >
         {titledHeadingRow}
 
@@ -696,20 +733,35 @@ export function LuxiaPageHeader({
         </button>
       </div>
     ) : stringTitle ? (
-      <div
-        className={
-          breadcrumb
-            ? LUXIA_PAGE_INTRO.titleToBreadcrumbGapClass
-            : undefined
-        }
-      >
-        {titledHeadingRow}
-      </div>
+      titledHeadingRow
     ) : (
       titledHeadingRow
     );
 
+  const titleRow = (
+    <div
+      className={`min-w-0 max-w-full${
+        breadcrumb ? ` ${LUXIA_PAGE_INTRO.titleToBreadcrumbGapClass}` : ""
+      }`}
+    >
+      {titleMetadata && !(canRename && isEditing) ? (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 min-w-0">
+          <div className="min-w-0">{titleBlock}</div>
+          <div className="min-w-0 shrink-0 basis-full sm:basis-auto sm:ml-auto">
+            {titleMetadata}
+          </div>
+        </div>
+      ) : (
+        titleBlock
+      )}
+    </div>
+  );
+
   const actionNodes = [
+    {
+      key: "primary-action",
+      node: primaryAction,
+    },
     {
       key: "secondary-action",
       node: secondaryAction,
@@ -717,10 +769,6 @@ export function LuxiaPageHeader({
     {
       key: "actions",
       node: actions,
-    },
-    {
-      key: "primary-action",
-      node: primaryAction,
     },
     {
       key: "options",
@@ -748,7 +796,7 @@ export function LuxiaPageHeader({
             </div>
           ) : null}
 
-          {titleBlock}
+          {titleRow}
 
           {breadcrumb ? (
             <div className="min-w-0">

@@ -124,9 +124,17 @@ export type GalaxyControlRouteOption = {
 
 export function buildGalaxyRouteCatalog(
   _projectName: string,
-  _seeds: Array<{ id: string; label: string; type: "PDF" | "CSV" | "DB" }> = [],
+  seeds: Array<{ id: string; label: string; type: "PDF" | "CSV" | "DB" }> = [],
   total = GALAXY_MOCK_ROUTE_OPTION_COUNT,
 ): GalaxyControlRouteOption[] {
+  if (seeds.length > 0) {
+    return seeds.map((seed) => ({
+      id: seed.id,
+      label: seed.label,
+      type: seed.type,
+    }));
+  }
+
   const out: GalaxyControlRouteOption[] = [];
   for (let i = 1; i <= total; i += 1) {
     out.push({

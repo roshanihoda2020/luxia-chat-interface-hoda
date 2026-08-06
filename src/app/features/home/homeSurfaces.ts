@@ -1,7 +1,8 @@
 import { LUXIA_PAGE_LAYOUT } from "@/app/components/luxiaPageLayout";
 
 export const HS = {
-  pageBg: "var(--luxia-surface-subtle)",
+  /** Soft canvas behind white settings/home panels — must stay distinct from --luxia-surface. */
+  pageBg: "var(--luxia-settings-canvas, var(--luxia-neutral-100))",
   /** @deprecated Prefer LuxiaPageFrame variant — alias to shared standard max-width. */
   contentMax: LUXIA_PAGE_LAYOUT.maxWidth.standard,
   overviewContentMax: LUXIA_PAGE_LAYOUT.maxWidth.standard,

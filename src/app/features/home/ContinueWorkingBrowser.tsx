@@ -84,6 +84,7 @@ function SourceTag({ source }: { source: "database" | "csv" | "pdf" }) {
 
 function WorkItemCard({
   item,
+  projects,
   isHidden,
   isHomeFocus,
   onContinue,
@@ -94,6 +95,7 @@ function WorkItemCard({
   onSetAsFocus,
 }: {
   item: HomeRecentWorkItem;
+  projects: readonly HomeProjectCard[];
   isHidden: boolean;
   isHomeFocus: boolean;
   onContinue: () => void;
@@ -107,7 +109,7 @@ function WorkItemCard({
   const entityColor = item.kind === "galaxySession"
     ? HS.accentGalaxy
     : (getSourceAccentColor(item.constellationSource, "soft") ?? HS.accentChat);
-  const projectName = getProjectNameById(item.projectId);
+  const projectName = getProjectNameById(item.projectId, projects);
   const cardStyle = getHomeCardStyle("supportingProject");
 
   const menuItems = buildContinueFocusMenuItems({
@@ -308,6 +310,7 @@ export function ContinueWorkingBrowser({
         sourceFilter,
         visibilityFilter,
         dismissedKeys: dismissedSet,
+        projects,
       }),
       sortMode,
     ),
@@ -319,6 +322,7 @@ export function ContinueWorkingBrowser({
       visibilityFilter,
       dismissedSet,
       sortMode,
+      projects,
     ],
   );
 
@@ -537,6 +541,7 @@ export function ContinueWorkingBrowser({
                 <WorkItemCard
                   key={item.id}
                   item={item}
+                  projects={projects}
                   isHidden={isHidden}
                   isHomeFocus={isHomeFocus}
                   onContinue={() => onContinue(item)}
@@ -556,6 +561,7 @@ export function ContinueWorkingBrowser({
         open={changePrimaryOpen}
         items={collection}
         currentKey={heroEntityKey}
+        projects={projects}
         onClose={() => setChangePrimaryOpen(false)}
         onSelect={(entityKey) => onSetPrimary(entityKey)}
       />

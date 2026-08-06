@@ -17,7 +17,7 @@ import {
 } from "./homeSurfaces";
 import { PinButton } from "./PinButton";
 import { SectionHeader } from "./SectionHeader";
-import type { HomeHeroContent, HomeRecentWorkItem, HomeShortcutEntityType } from "./types";
+import type { HomeHeroContent, HomeProjectCard, HomeRecentWorkItem, HomeShortcutEntityType } from "./types";
 import { useMemo, useState } from "react";
 
 interface HeroContextFields {
@@ -161,6 +161,7 @@ interface HomeHeroProps {
   hero: HomeHeroContent;
   heroEntityKey: HomeEntityKey | null;
   eligiblePrimaryItems: HomeRecentWorkItem[];
+  projects: readonly HomeProjectCard[];
   onPrimary: () => void;
   onSecondary?: () => void;
   onTogglePin?: () => void;
@@ -173,6 +174,7 @@ export function HomeHero({
   hero,
   heroEntityKey,
   eligiblePrimaryItems,
+  projects,
   onPrimary,
   onSecondary,
   onTogglePin,
@@ -258,6 +260,7 @@ export function HomeHero({
             open={changePrimaryOpen}
             items={eligiblePrimaryItems}
             currentKey={heroEntityKey}
+            projects={projects}
             onClose={() => setChangePrimaryOpen(false)}
             onSelect={onSetPrimary}
           />
@@ -417,6 +420,7 @@ export function HomeHero({
         open={changePrimaryOpen}
         items={eligiblePrimaryItems}
         currentKey={heroEntityKey}
+        projects={projects}
         onClose={() => setChangePrimaryOpen(false)}
         onSelect={onSetPrimary}
       />

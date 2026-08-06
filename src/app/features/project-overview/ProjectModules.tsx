@@ -1,9 +1,11 @@
 import { Badge } from "@/app/components/ui/badge";
+import { Button } from "@/app/components/ui/button";
 import type { HomeConstellationSource } from "@/app/features/home/types";
 import {
   LuxiaChatIcon,
   LuxiaConstellationIcon,
   LuxiaDashboardIcon,
+  LuxiaSettingsIcon,
   LuxiaVirtualAssistantIcon,
 } from "@/assets/icons";
 import {
@@ -25,6 +27,10 @@ import {
   ProjectPreviewRow,
   ProjectViewAllLink,
 } from "./ProjectModuleShared";
+import {
+  buildProjectViewAllLabel,
+  deriveProjectSummaryPreview,
+} from "./projectOverviewPreview";
 
 function sourceBadgeLabel(type: HomeConstellationSource): string {
   if (type === "pdf") return "PDF";
@@ -67,13 +73,21 @@ export function ChatsModule({
   onViewAll?: () => void;
   onNewChat: () => void;
 }) {
-  const preview = chats.slice(0, 3);
+  const { total, preview } = deriveProjectSummaryPreview(chats, {
+    getRecencyTimestamp: (chat) => chat.lastOpenedTimestamp,
+  });
+  const viewAllLabel = buildProjectViewAllLabel(total, {
+    zeroLabel: "View all Chats",
+    singular: "Chat",
+    plural: "Chats",
+  });
+
   return (
     <ProjectModuleCard
       icon={<LuxiaChatIcon size={20} aria-hidden color="currentColor" />}
       title="Chats"
-      count={chats.length}
-      countLabel={chats.length === 1 ? "Chat" : "Chats"}
+      count={total}
+      countLabel={total === 1 ? "Chat" : "Chats"}
       description="Continue conversations with Galaxy or individual Constellations."
       size="knowledge"
       surface="interaction"
@@ -85,7 +99,7 @@ export function ChatsModule({
       }
       footer={
         <>
-          <ProjectViewAllLink label="View all Chats" onClick={onViewAll} />
+          <ProjectViewAllLink label={viewAllLabel} onClick={onViewAll} />
           <ProjectOutlineButton label="New Chat" onClick={onNewChat} />
         </>
       }
@@ -145,13 +159,20 @@ export function ConstellationsModule({
   onViewAll?: () => void;
   onAddConstellation?: () => void;
 }) {
-  const preview = constellations.slice(0, 3);
+  const { total, preview } = deriveProjectSummaryPreview(constellations, {
+    getRecencyTimestamp: (item) => item.updatedAtTimestamp,
+  });
   const counts = countByType(constellations);
-  const total = constellations.length;
-  const viewAllLabel =
-    total === 0
-      ? "View all Constellations"
-      : `View all ${total} ${total === 1 ? "Constellation" : "Constellations"}`;
+  const viewAllLabel = buildProjectViewAllLabel(total, {
+    zeroLabel: "View all Constellations",
+    singular: "Constellation",
+    plural: "Constellations",
+    alwaysShowCount: true,
+  });
+
+  function openConstellationSettings(constellationId: string) {
+    (onOpenConstellationSettings ?? onOpenConstellation)(projectId, constellationId);
+  }
 
   return (
     <ProjectModuleCard
@@ -198,35 +219,39 @@ export function ConstellationsModule({
             ) : null}
           </div>
           <div className="flex flex-col">
-            {preview.map((item) => (
-              <ProjectPreviewRow
-                key={item.id}
-                icon={<LuxiaConstellationIcon size={18} aria-hidden color="currentColor" />}
-                title={item.label}
-                ariaLabel={`Open Settings for ${item.label}`}
-                onClick={() =>
-                  (onOpenConstellationSettings ?? onOpenConstellation)(projectId, item.id)
-                }
-                showChevron={false}
-                meta={
-                  <>
-                    <SourceBadge type={item.type} />
+            {preview.map((item) => {
+              const settingsLabel = `Open settings for ${item.label}`;
+              return (
+                <ProjectPreviewRow
+                  key={item.id}
+                  icon={<LuxiaConstellationIcon size={18} aria-hidden color="currentColor" />}
+                  title={item.label}
+                  ariaLabel={`Open ${item.label}`}
+                  onClick={() => onOpenConstellation(projectId, item.id)}
+                  showChevron={false}
+                  meta={
                     <ProjectMetaText>
-                      {item.sourceCount} {item.sourceCount === 1 ? "source" : "sources"}
+                      {sourceBadgeLabel(item.type)} · {item.sourceCount}{" "}
+                      {item.sourceCount === 1 ? "source" : "sources"}
                     </ProjectMetaText>
-                  </>
-                }
-                actions={
-                  onOpenConstellationSettings ? (
-                    <ProjectOutlineButton
-                      label="Settings"
-                      ariaLabel={`Open Settings for ${item.label}`}
-                      onClick={() => onOpenConstellationSettings(projectId, item.id)}
-                    />
-                  ) : null
-                }
-              />
-            ))}
+                  }
+                  actions={
+                    <Button
+                      type="button"
+                      variant="tertiary"
+                      size="iconCompact"
+                      aria-label={settingsLabel}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        openConstellationSettings(item.id);
+                      }}
+                    >
+                      <LuxiaSettingsIcon size={16} aria-hidden color="currentColor" />
+                    </Button>
+                  }
+                />
+              );
+            })}
           </div>
         </div>
       )}

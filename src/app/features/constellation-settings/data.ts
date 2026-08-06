@@ -5,9 +5,16 @@ import {
 } from "@/app/features/constellation";
 import { getProjectNameById } from "@/app/features/project/data";
 import {
+  ACCESS_LEVELS,
+  CURRENT_USER_ID,
   DATA_SOURCE_CATALOG,
   ORGANIZATION_USERS,
+  buildDataSourceAccessSummary,
   getDataSourceById,
+  getDataSourceOwnerDisplay,
+  isDataSourceUsable,
+  buildSourceAccessSummaryRow,
+  type AccessLevelRecord,
 } from "@/app/features/permissions";
 import type {
   ConstellationSettingsRecord,
@@ -40,16 +47,17 @@ function mapCatalogType(
 function connectedFromCatalog(sourceId: string): ConnectedDataSource | null {
   const item = getDataSourceById(sourceId);
   if (!item) return null;
+  const accessSummary = buildDataSourceAccessSummary(item, ACCESS_LEVELS, CURRENT_USER_ID);
+
   return {
     id: item.id,
     name: item.name,
     type: mapCatalogType(item.type),
     ownership: item.ownership,
     ownerUserId: item.ownerUserId,
-    owner: item.ownerName,
-    status: item.status === "inactive" ? "needs-attention" : "connected",
-    accessSummary:
-      item.ownership === "private" ? "Owner access" : "Use via Access Level name 01",
+    owner: getDataSourceOwnerDisplay(item),
+    status: !isDataSourceUsable(item.status) ? "needs-attention" : "connected",
+    accessSummary,
     lastUpdated: "Recently",
     usageInConstellation:
       mapCatalogType(item.type) === "database"
@@ -60,21 +68,21 @@ function connectedFromCatalog(sourceId: string): ConnectedDataSource | null {
   };
 }
 
-function accessRowFromSource(source: ConnectedDataSource): SourceAccessSummaryRow {
-  const isOwner = source.ownership === "private";
-  return {
-    sourceId: source.id,
-    sourceName: source.name,
-    sourceType: source.type,
-    ownership: source.ownership,
-    ownerUserId: source.ownerUserId,
-    owner: source.owner,
-    requiredPermission: "Use",
-    currentUserPermission: isOwner ? "Manage" : "Use",
-    accessLevelName: isOwner ? "—" : "Access Level name 01",
-    sourceStatus: source.status,
-    conflictStatus: isOwner ? "owner-access" : "none",
-  };
+function accessRowFromSource(
+  source: ConnectedDataSource,
+  accessLevels: AccessLevelRecord[],
+  userId: string = CURRENT_USER_ID,
+): SourceAccessSummaryRow {
+  return buildSourceAccessSummaryRow(source, accessLevels, userId);
+}
+
+/** Derive Access rows from live Access Level state (same session). */
+export function buildSourceAccessRows(
+  sources: ConnectedDataSource[],
+  accessLevels: AccessLevelRecord[],
+  userId: string = CURRENT_USER_ID,
+): SourceAccessSummaryRow[] {
+  return sources.map((source) => accessRowFromSource(source, accessLevels, userId));
 }
 
 function createdByLabel(userId: string): string {
@@ -124,7 +132,9 @@ function buildRecordFromCanonical(
     instructions: seed.instruction.text,
     defaultMessage: defaultMessageForType(item.type),
     connectedSources,
-    sourceAccessRows: connectedSources.map(accessRowFromSource),
+    sourceAccessRows: connectedSources.map((source) =>
+      accessRowFromSource(source, ACCESS_LEVELS),
+    ),
     projectRoleCapabilities: ROLE_MATRIX,
     capabilitySummaries: summarizeCapabilityBundle(seed),
   };
@@ -169,8 +179,8 @@ export function buildSettingsForConstellation(input: {
   type: CapsuleConstellationType;
 }): ConstellationSettingsRecord {
   const seed = createSeedCapabilityBundle(input.id, input.type, instructionsForType(input.type));
-  const fallbackSource = connectedFromCatalog(DATA_SOURCE_CATALOG[0]?.id ?? "ds-db-01");
-  const connectedSources = fallbackSource ? [fallbackSource] : [];
+  // New Constellations start with no connected sources — do not invent a first-catalog fallback.
+  const connectedSources: ConnectedDataSource[] = [];
   return {
     id: input.id,
     projectId: input.projectId,
@@ -185,7 +195,9 @@ export function buildSettingsForConstellation(input: {
     instructions: seed.instruction.text,
     defaultMessage: defaultMessageForType(input.type),
     connectedSources,
-    sourceAccessRows: connectedSources.map(accessRowFromSource),
+    sourceAccessRows: connectedSources.map((source) =>
+      accessRowFromSource(source, ACCESS_LEVELS),
+    ),
     projectRoleCapabilities: ROLE_MATRIX.map((item) => ({
       ...item,
       actions: [...item.actions],
@@ -202,7 +214,7 @@ export const AVAILABLE_SOURCES_CATALOG: ConnectedDataSource[] = DATA_SOURCE_CATA
       type: mapCatalogType(item.type),
       ownership: item.ownership,
       ownerUserId: item.ownerUserId,
-      owner: item.ownerName,
+      owner: getDataSourceOwnerDisplay(item),
       status: "connected" as const,
       accessSummary: "Use available",
       lastUpdated: "Recently",

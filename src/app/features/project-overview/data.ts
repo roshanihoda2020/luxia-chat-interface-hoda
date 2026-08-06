@@ -4,7 +4,6 @@ import type {
   ProjectActivityItem,
   ProjectDashboardItem,
   ProjectDashboardOutput,
-  ProjectMemberItem,
   ProjectWidgetItem,
 } from "./types";
 
@@ -96,7 +95,7 @@ export const PROJECT_ACTIVITY: ProjectActivityItem[] = PROJECT_IDS.flatMap((proj
         projectId,
         type: "member",
         primary: "User name was added",
-        secondary: "Editor",
+        secondary: "Analyst",
         timestamp: "5 days ago",
         timestampValue: NOW - DAY_MS * 5,
       },
@@ -261,20 +260,6 @@ export const PROJECT_WIDGETS: ProjectWidgetItem[] = PROJECT_IDS.flatMap((project
 /** @deprecated Alias — stable getter name for existing imports. */
 export const PROJECT_VIRTUAL_ASSISTANTS = PROJECT_WIDGETS;
 
-const ROLE_CYCLE = ["Administrator", "Editor", "Viewer", "Contributor"] as const;
-
-export const PROJECT_MEMBERS: ProjectMemberItem[] = PROJECT_IDS.flatMap((projectId) => {
-  const homeProject = HOME_PROJECTS.find((project) => project.id === projectId);
-  const memberCount = homeProject?.memberCount ?? 1;
-  return Array.from({ length: memberCount }, (_, i) => ({
-    id: `${projectId}-member-${pad(i + 1)}`,
-    projectId,
-    name: i === 0 ? "Hoda Roshani" : `User name ${pad(i + 1)}`,
-    role: ROLE_CYCLE[i % ROLE_CYCLE.length],
-    email: i === 0 ? "hoda@luxia.example" : `user${pad(i + 1)}@luxia.example`,
-  }));
-});
-
 /** Derived from the canonical Constellation catalog — do not hardcode. */
 export const CONSTELLATION_SOURCE_COUNTS: Record<string, number> =
   buildConstellationSourceCountMap();
@@ -306,8 +291,4 @@ export function getProjectWidgets(projectId: string): ProjectWidgetItem[] {
 
 export function getProjectVirtualAssistants(projectId: string): ProjectWidgetItem[] {
   return getProjectWidgets(projectId);
-}
-
-export function getProjectMembers(projectId: string): ProjectMemberItem[] {
-  return PROJECT_MEMBERS.filter((item) => item.projectId === projectId);
 }

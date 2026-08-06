@@ -1,0 +1,182 @@
+/**
+ * Shared Settings / Access / Creation surface hierarchy.
+ * Scoped to settings workflows — does not redefine global Chat tokens.
+ */
+
+:root {
+  --luxia-settings-canvas: var(--luxia-neutral-100);
+  --luxia-settings-panel-bg: var(--luxia-surface);
+  --luxia-settings-panel-border: var(--luxia-border-strong);
+  --luxia-settings-section-bg: var(--luxia-neutral-50);
+  --luxia-settings-section-border: var(--luxia-border-default);
+  --luxia-settings-row-divider: var(--luxia-border-default);
+  --luxia-settings-selected-bg: var(--luxia-opacity-brand-secondary-08);
+  --luxia-settings-selected-border: transparent;
+  --luxia-settings-hover-bg: var(--luxia-opacity-brand-primary-04);
+  --luxia-settings-tablist-bg: var(--luxia-neutral-50);
+  --luxia-settings-tablist-border: var(--luxia-border-default);
+  --luxia-settings-tab-active-bg: var(--luxia-opacity-brand-secondary-12);
+  --luxia-settings-tab-active-bg-hover: var(--luxia-opacity-brand-secondary-16);
+  --luxia-settings-tab-active-border: var(--luxia-purple-50);
+  --luxia-settings-tab-active-text: var(--luxia-purple-70);
+  --luxia-settings-tab-hover-bg: var(--luxia-opacity-brand-primary-08);
+  --luxia-settings-tab-focus-ring: var(--luxia-opacity-brand-secondary-32);
+}
+
+/* Level 2 — primary settings / creation content panel */
+.luxia-settings-content-surface {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  background: var(--luxia-settings-panel-bg);
+  border: 1px solid var(--luxia-settings-panel-border);
+  border-radius: var(--luxia-radius-12);
+  box-shadow: var(--luxia-shadow-xs);
+  padding: var(--luxia-spacing-24);
+}
+
+.luxia-settings-content-surface.is-flush {
+  padding: 0;
+}
+
+.luxia-settings-content-surface.is-padded-sm {
+  padding: var(--luxia-spacing-16);
+}
+
+/* Level 3 — grouped section / summary / matrix shell */
+.luxia-settings-section-surface {
+  box-sizing: border-box;
+  background: var(--luxia-settings-section-bg);
+  border: 1px solid var(--luxia-settings-section-border);
+  border-radius: var(--luxia-radius-12);
+  padding: var(--luxia-spacing-16);
+}
+
+.luxia-settings-summary-surface {
+  box-sizing: border-box;
+  background: var(--luxia-settings-section-bg);
+  border: 1px solid var(--luxia-settings-section-border);
+  border-radius: var(--luxia-radius-12);
+  padding: var(--luxia-spacing-16);
+}
+
+/* Level 3 — list / table containers */
+.luxia-settings-list-surface,
+.luxia-settings-table-surface {
+  box-sizing: border-box;
+  overflow: hidden;
+  background: var(--luxia-settings-panel-bg);
+  border: 1px solid var(--luxia-settings-section-border);
+  border-radius: var(--luxia-radius-12);
+}
+
+.luxia-settings-table-surface thead tr,
+.luxia-settings-table-surface [data-slot="table-header"] {
+  background: var(--luxia-settings-section-bg);
+}
+
+/* Level 4 — interactive / repeating rows */
+.luxia-settings-row {
+  border-top: 1px solid var(--luxia-settings-row-divider);
+  transition: background-color 140ms ease;
+}
+
+.luxia-settings-row:first-child {
+  border-top: 0;
+}
+
+/* Avoid double borders when Tailwind divide-y is also applied */
+.divide-y > .luxia-settings-row {
+  border-top: 0;
+}
+
+.luxia-settings-row.is-interactive:hover {
+  background: var(--luxia-settings-hover-bg);
+}
+
+.luxia-settings-row.is-selected {
+  background: var(--luxia-settings-selected-bg);
+  /* Soft tint only — checkbox is the primary selected indicator; no purple outline */
+  outline: none;
+}
+
+/* Stronger form control borders inside settings panels */
+.luxia-settings-content-surface [data-slot="input"],
+.luxia-settings-content-surface [data-slot="textarea"],
+.luxia-settings-content-surface [data-slot="select-trigger"] {
+  border-color: var(--luxia-border-strong);
+}
+
+.luxia-settings-content-surface [data-slot="input"]:hover,
+.luxia-settings-content-surface [data-slot="textarea"]:hover,
+.luxia-settings-content-surface [data-slot="select-trigger"]:hover {
+  border-color: color-mix(in srgb, var(--luxia-brand-primary) 28%, var(--luxia-border-strong));
+}
+
+.luxia-settings-content-surface [data-slot="input"]:focus-visible,
+.luxia-settings-content-surface [data-slot="textarea"]:focus-visible,
+.luxia-settings-content-surface [data-slot="select-trigger"]:focus-visible {
+  border-color: var(--luxia-purple-60);
+  box-shadow: 0 0 0 3px var(--luxia-opacity-brand-secondary-24);
+}
+
+/* Tab list — restrained frame + soft purple active state */
+.luxia-settings-tablist {
+  background: var(--luxia-settings-tablist-bg) !important;
+  border-color: var(--luxia-settings-tablist-border) !important;
+  box-shadow: none;
+}
+
+.luxia-settings-tablist [data-slot="tabs-trigger"] {
+  box-sizing: border-box;
+  background-color: transparent;
+  color: var(--luxia-text-primary);
+  border: 1px solid transparent;
+  outline: none;
+  box-shadow: none;
+  font-weight: 400;
+  transition:
+    color 140ms ease,
+    background-color 140ms ease,
+    border-color 140ms ease;
+}
+
+.luxia-settings-tablist [data-slot="tabs-trigger"]:hover:not(:disabled):not([data-state="active"]) {
+  background-color: var(--luxia-settings-tab-hover-bg);
+  color: var(--luxia-purple-70);
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.luxia-settings-tablist [data-slot="tabs-trigger"][data-state="active"] {
+  background-color: var(--luxia-settings-tab-active-bg);
+  color: var(--luxia-settings-tab-active-text);
+  border-color: var(--luxia-settings-tab-active-border);
+  box-shadow: none;
+}
+
+.luxia-settings-tablist [data-slot="tabs-trigger"][data-state="active"]:hover:not(:disabled) {
+  background-color: var(--luxia-settings-tab-active-bg-hover);
+  color: var(--luxia-settings-tab-active-text);
+  border-color: var(--luxia-settings-tab-active-border);
+  box-shadow: none;
+}
+
+/* Keyboard focus only — outline sits outside the active boundary, no permanent ring */
+.luxia-settings-tablist [data-slot="tabs-trigger"]:focus-visible {
+  outline: 2px solid var(--luxia-settings-tab-focus-ring);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+.luxia-settings-tablist [data-slot="tabs-trigger"][data-state="active"]:focus-visible {
+  outline: 2px solid var(--luxia-settings-tab-focus-ring);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+.luxia-settings-tablist [data-slot="tabs-trigger"]:disabled,
+.luxia-settings-tablist [data-slot="tabs-trigger"][disabled] {
+  color: var(--luxia-text-secondary);
+  opacity: 0.72;
+}

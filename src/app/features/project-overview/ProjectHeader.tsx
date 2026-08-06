@@ -49,14 +49,25 @@ export function ProjectHeader({
           handlers={{ onHome: onNavigateHome }}
         />
       }
-      guide={description ? description : undefined}
       context={
-        <ProjectCardMeta
-          project={project}
-          density="featured"
-          className="relative z-[1] min-w-0"
-          updatedClassName="mt-2"
-        />
+        <>
+          <ProjectCardMeta
+            project={project}
+            density="featured"
+            className="relative z-[1] min-w-0"
+          />
+          {description ? (
+            <p
+              className="mt-2 min-w-0 luxia-type-body-small"
+              style={{
+                color: "var(--luxia-text-secondary)",
+                maxWidth: "780px",
+              }}
+            >
+              {description}
+            </p>
+          ) : null}
+        </>
       }
       secondaryAction={
         onOpenMembers ? (
@@ -65,7 +76,7 @@ export function ProjectHeader({
             {...LUXIA_PAGE_HEADER_ACTION.secondary}
             onClick={() => onOpenMembers(project.id)}
           >
-            Manage roles
+            Members & Roles
           </Button>
         ) : (
           <span
@@ -74,7 +85,7 @@ export function ProjectHeader({
               "pointer-events-none select-none",
             )}
           >
-            Manage roles
+            Members & Roles
           </span>
         )
       }

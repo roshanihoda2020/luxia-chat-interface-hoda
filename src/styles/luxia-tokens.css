@@ -760,51 +760,5 @@
   box-shadow: none !important;
 }
 
-/* Constellation Settings section tabs — purple selected states (not grey/white surface). */
-.luxia-settings-tablist [data-slot="tabs-trigger"] {
-  box-sizing: border-box;
-  background-color: transparent;
-  color: var(--luxia-text-primary);
-  border-color: transparent;
-  box-shadow: none;
-  font-weight: 400;
-  transition: color 140ms ease, background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
-}
-
-.luxia-settings-tablist [data-slot="tabs-trigger"]:hover:not(:disabled):not([data-state="active"]) {
-  background-color: var(--luxia-opacity-brand-primary-08);
-  color: var(--luxia-purple-70);
-  border-color: transparent;
-  box-shadow: none;
-}
-
-.luxia-settings-tablist [data-slot="tabs-trigger"][data-state="active"] {
-  background-color: var(--luxia-opacity-brand-primary-16);
-  color: var(--luxia-purple-70);
-  border-color: var(--luxia-opacity-brand-primary-32);
-  box-shadow: none;
-}
-
-.luxia-settings-tablist [data-slot="tabs-trigger"][data-state="active"]:hover:not(:disabled) {
-  background-color: var(--luxia-opacity-brand-primary-24);
-  color: var(--luxia-purple-70);
-  border-color: var(--luxia-opacity-brand-primary-32);
-  box-shadow: none;
-}
-
-.luxia-settings-tablist [data-slot="tabs-trigger"]:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 3px var(--luxia-state-focus);
-}
-
-.luxia-settings-tablist [data-slot="tabs-trigger"]:disabled,
-.luxia-settings-tablist [data-slot="tabs-trigger"][disabled] {
-  opacity: 0.5;
-  cursor: not-allowed;
-  pointer-events: none;
-  background-color: transparent;
-  color: var(--luxia-text-muted);
-  border-color: transparent;
-  box-shadow: none;
-}
+/* Settings tablist active/hover states live in luxia-settings-surfaces.css */
 

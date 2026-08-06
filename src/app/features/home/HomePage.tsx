@@ -231,6 +231,7 @@ export function HomePage({
         hero={hero}
         heroEntityKey={heroResolution.heroEntityKey}
         eligiblePrimaryItems={heroResolution.eligiblePrimaryItems}
+        projects={activeProjects}
         onPrimary={() => handleHeroPrimary(hero)}
         onSecondary={() => handleHeroSecondary(hero)}
         onTogglePin={

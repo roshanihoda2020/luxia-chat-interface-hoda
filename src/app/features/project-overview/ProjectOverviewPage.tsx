@@ -36,6 +36,7 @@ export interface ProjectOverviewPageProps {
   onOpenConstellation: (projectId: string, constellationId: string) => void;
   onOpenConstellationSettings?: (projectId: string, constellationId: string) => void;
   onViewAllConstellations?: (projectId: string) => void;
+  onViewAllChats?: (projectId: string) => void;
   onNewChat: (projectId: string) => void;
   onAddConstellation: (projectId: string, name: string, type: "database" | "csv" | "pdf") => void;
   onOpenDashboard?: (projectId: string) => void;
@@ -84,6 +85,7 @@ export function ProjectOverviewPage({
   onOpenMembers,
   onOpenConstellationSettings,
   onViewAllConstellations,
+  onViewAllChats,
 }: ProjectOverviewPageProps) {
   const [browseMode, setBrowseMode] = useState<ProjectOverviewBrowseMode>(
     DESIGNED_BROWSE_MODES.includes(initialBrowseMode) ? initialBrowseMode : "overview",
@@ -210,6 +212,7 @@ export function ProjectOverviewPage({
             <ChatsModule
               chats={projectChats}
               onOpenChat={onOpenChat}
+              onViewAll={() => onViewAllChats?.(resolvedProject.id)}
               onNewChat={() => onNewChat(resolvedProject.id)}
             />
           </div>

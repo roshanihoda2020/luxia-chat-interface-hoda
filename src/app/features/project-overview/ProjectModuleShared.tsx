@@ -302,13 +302,15 @@ export function ProjectPreviewRow({
 
   if (actions) {
     return (
-      <div className={`${rowClass} hover:bg-[var(--luxia-opacity-brand-primary-04)]`}>
+      <div
+        className={`${rowClass} hover:bg-[var(--luxia-opacity-brand-primary-04)]`}
+      >
         {interactive ? (
           <button
             type="button"
             onClick={onClick}
             aria-label={ariaLabel}
-            className="flex min-w-0 flex-1 items-center gap-3 rounded-[8px] text-left outline-none focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]"
+            className="-mx-1 flex min-w-0 flex-1 items-center gap-3 rounded-[8px] px-1 py-0.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]"
           >
             {identity}
             {chevron}
@@ -316,7 +318,13 @@ export function ProjectPreviewRow({
         ) : (
           <div className="flex min-w-0 flex-1 items-center gap-3">{identity}</div>
         )}
-        <div className="flex shrink-0 items-center gap-1">{actions}</div>
+        <div
+          className="flex shrink-0 items-center gap-1"
+          onClick={(event) => event.stopPropagation()}
+          onKeyDown={(event) => event.stopPropagation()}
+        >
+          {actions}
+        </div>
       </div>
     );
   }

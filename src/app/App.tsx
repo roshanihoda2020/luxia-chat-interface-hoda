@@ -1,7 +1,5 @@
-import { useState, useRef, useEffect, useCallback, useMemo, type ReactElement, type MouseEvent as ReactMouseEvent } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import ReactDOM from "react-dom";
-import luxiaWordmarkUrl from "@/assets/brand/Luxia-Star.svg";
-import sidebarStarLogoUrl from "@/assets/brand/Star.svg";
 import flagUs from "@/assets/flags/us.svg";
 import flagIt from "@/assets/flags/it.svg";
 import flagSa from "@/assets/flags/sa.svg";
@@ -25,11 +23,6 @@ import {
   GalaxyProvenanceRow,
   GalaxyRouteSelector,
   GALAXY_COLLAPSED_WIDTH,
-  GALAXY_MOCK_ANSWER,
-  GALAXY_MOCK_CANDIDATES,
-  GALAXY_MOCK_CONSTELLATIONS_CHECKED,
-  GALAXY_MOCK_MATCHED,
-  GALAXY_MOCK_SOURCES,
   GALAXY_PANEL_OUTER_GAP,
   buildGalaxyRouteCatalog,
   createIdleGalaxySession,
@@ -53,6 +46,8 @@ import {
   getChatPath,
   getConstellationChatPath,
   getConstellationsPath,
+  getProjectChatsPath,
+  getConstellationCreatePath,
   getConstellationSettingsPath,
   getConstellationSettingsCapabilityPath,
   getProjectMembersPath,
@@ -82,10 +77,13 @@ import type { ProjectManageMode, ProjectConstellationSourceEntry } from "@/app/f
 import {
   ConstellationSettingsPage,
   ConstellationCapabilityManagePage,
-  NewConstellationModal,
+  ConstellationCreatePage,
   AVAILABLE_SOURCES_CATALOG,
   CONSTELLATION_SETTINGS_RECORDS,
   buildSettingsForConstellation,
+  buildConnectedSourceFromCreationDraft,
+  buildCapabilityBundleFromCreationDraft,
+  getReviewReadiness,
   cloneConstellationSettingsRecord,
   getConstellationSettingsRecord,
   createSeedCapabilityBundle,
@@ -96,10 +94,12 @@ import {
   type ConstellationSettingsSectionId,
   type ConnectedDataSource,
   type ConstellationCapabilityBundle,
-  type NewConstellationDraft,
+  type ConstellationCreationDraft,
+  type ConstellationCreateNavigationGuard,
   constellationSettingsSectionToTab,
   parseConstellationSettingsTabFromSearch,
 } from "@/app/features/constellation-settings";
+import { Toaster, toast } from "sonner";
 import {
   CAPSULE_CAPABILITY_ICON,
   CAPSULE_CAPABILITY_PATH,
@@ -119,13 +119,35 @@ import {
   PROJECT_MEMBERSHIPS,
   ORGANIZATION_USERS,
   DATA_SOURCE_CATALOG,
+  CURRENT_USER_ID,
+  getOrganizationUserById,
   buildEmptyAccessLevel,
   cloneAccessLevel,
   getDataSourceById,
+  getProjectRequiredDataSourceIds,
+  buildSourceAccessSummaryRow,
+  ACCESS_LEVEL_DENIED_MESSAGE,
+  ACCESS_LEVEL_CREATE_DENIED_MESSAGE,
+  CONSTELLATION_CONFIGURE_DENIED_MESSAGE,
+  PROJECT_ACTION_DENIED_MESSAGE,
+  canAdministerAccessLevels,
+  canArchiveConstellation,
+  canArchiveProject,
+  canConfigureConstellation,
+  canDeleteConstellation,
+  canDeleteProject,
+  countProjectMembers,
+  evaluateConstellationUseAccess,
+  getAccessibleConstellationIds,
+  getActiveProjectMembership,
+  setPrototypeCurrentUserId,
+  getDemoPersonaRoleLabel,
 } from "@/app/features/permissions";
+import type { AccessLevelRecord } from "@/app/features/permissions";
 import {
   ProjectOverviewPage,
   ProjectDashboardPage,
+  ChatsLibrary,
   ConstellationsLibrary,
   CONSTELLATION_SOURCE_COUNTS,
   type ProjectNavSection,
@@ -133,6 +155,7 @@ import {
   type ProjectOverviewChat,
   type ProjectOverviewConstellation,
 } from "@/app/features/project-overview";
+import { parseLuxiaRelativeTimestamp } from "@/app/features/project-overview/projectOverviewPreview";
 import {
   LuxiaBreadcrumb,
   buildChatBreadcrumbItems,
@@ -143,6 +166,16 @@ import { LuxiaEntityOptionsMenu } from "@/app/components/LuxiaEntityOptionsMenu"
 import { LX } from "@/app/features/active-data-tables/tokens";
 import { IC, IC_BTN_ICON, IC_BTN_OPEN, IC_CARD_HEADER, IC_INPUT_TEXT, IC_SEARCH_SHELL, IC_SEARCH_SHELL_STYLE, icCardStyle, icHoverOff, icHoverOn, icInspectorAccentStyle, icInspectorDescriptionColor, icInspectorTitleColor, icOpenActiveOn, icSearchShellBlur, icSearchShellFocus, icSearchShellHoverOff, icSearchShellHoverOn, icTextareaStyle } from "@/app/features/active-data-tables/inspectorTheme";
 import { Button } from "@/app/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/app/components/ui/alert-dialog";
 import { Badge } from "@/app/components/ui/badge";
 import { Label } from "@/app/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/app/components/ui/radio-group";
@@ -160,21 +193,17 @@ import {
 } from "lucide-react";
 import {
   LuxiaAiIcon,
-  LuxiaChatIcon,
-  LuxiaConstellationIcon,
-  LuxiaDashboardIcon,
-  LuxiaDatasourceIcon,
   LuxiaGalaxyIcon,
   LuxiaHomeIcon,
-  LuxiaNotificationsIcon,
-  LuxiaProjectsIcon,
   LuxiaSettingsIcon,
-  LuxiaSupportIcon,
-  LuxiaToolsGalleryIcon,
-  LuxiaUserPermissionsIcon,
-  LuxiaVirtualAssistantIcon,
-  type LuxiaIconProps,
 } from "@/assets/icons";
+import {
+  LeftNav,
+  SIDEBAR_WIDTH_EXPANDED,
+  SIDEBAR_WIDTH_COLLAPSED,
+  LEFT_NAV_COLLAPSED_STORAGE_KEY,
+  LEFT_NAV_MOBILE_BREAKPOINT,
+} from "@/app/features/navigation/LeftNav";
 
 const CONSTELLATION_STYLE: Record<string, {
   color: string; bg: string; activeBg: string;
@@ -431,8 +460,59 @@ function ConstellationNameWithSource({
   );
 }
 
-function getProjectConstellations(projectId: string, extra: Constellation[] = []) {
-  return [...CONSTELLATIONS, ...extra].filter((c) => c.projectId === projectId);
+function getProjectConstellations(
+  projectId: string,
+  catalog: Constellation[] = CONSTELLATIONS,
+) {
+  return catalog.filter((c) => c.projectId === projectId);
+}
+
+function applyConstellationNameOverrides(
+  constellations: Constellation[],
+  settingsById: Record<string, ConstellationSettingsRecord>,
+): Constellation[] {
+  return constellations.map((item) => {
+    const settings = settingsById[item.id];
+    if (!settings?.name) return item;
+    return {
+      ...item,
+      label: settings.name,
+      description: settings.description || item.description,
+    };
+  });
+}
+
+function homeProjectsAsSelectOptions(
+  projects: readonly HomeProjectCard[],
+): Project[] {
+  return projects.map((project) => ({
+    id: project.id,
+    label: project.name,
+  }));
+}
+
+function syncProjectNameInSettingsById(
+  prev: Record<string, ConstellationSettingsRecord>,
+  projectId: string,
+  projectName: string,
+): Record<string, ConstellationSettingsRecord> {
+  let changed = false;
+  const next = { ...prev };
+  for (const [id, record] of Object.entries(next)) {
+    if (record.projectId === projectId && record.projectName !== projectName) {
+      next[id] = { ...record, projectName };
+      changed = true;
+    }
+  }
+  return changed ? next : prev;
+}
+
+function withLiveProjectNameOnSettingsRecord(
+  record: ConstellationSettingsRecord,
+  projects: readonly HomeProjectCard[],
+): ConstellationSettingsRecord {
+  const projectName = getProjectNameById(record.projectId, projects);
+  return record.projectName === projectName ? record : { ...record, projectName };
 }
 
 function resolveChatConstellation(
@@ -530,11 +610,6 @@ function ResponseInsightsContent({ insights }: { insights: ResponseInsights }) {
   );
 }
 
-const PROJECTS: Project[] = HOME_PROJECTS.map((project) => ({
-  id: project.id,
-  label: project.name,
-}));
-
 const CONSTELLATIONS: Constellation[] = CANONICAL_CONSTELLATIONS.map((item) => ({
   id: item.id,
   label: item.name,
@@ -615,6 +690,7 @@ type LuxiaAppView =
   | "home"
   | "chat"
   | "project"
+  | "constellation-create"
   | "constellation-settings"
   | "project-members"
   | "access-levels"
@@ -664,49 +740,6 @@ const EMPTY_PROMPTS = [
   "Walk me through the structure",
 ];
 
-const NAV_TOP_ITEMS: {
-  id: string;
-  icon: typeof LuxiaHomeIcon;
-  label: string;
-  available: boolean;
-}[] = [
-  { id: "home", icon: LuxiaHomeIcon, label: "Home", available: true },
-  { id: "users", icon: LuxiaUserPermissionsIcon, label: "Users & Permissions", available: true },
-  { id: "datasources", icon: LuxiaDatasourceIcon, label: "Data Sources", available: false },
-];
-
-const NAV_PROJECT_ITEMS: {
-  icon: typeof LuxiaGalaxyIcon;
-  label: string;
-  section: ProjectNavSection;
-  available: boolean;
-}[] = [
-  { icon: LuxiaProjectsIcon, label: "Overview", section: "overview", available: true },
-  { icon: LuxiaGalaxyIcon, label: "Galaxy", section: "galaxy", available: true },
-  { icon: LuxiaDashboardIcon, label: "Dashboard", section: "dashboard", available: true },
-  { icon: LuxiaConstellationIcon, label: "Constellations", section: "constellations", available: false },
-  { icon: LuxiaChatIcon, label: "Chats", section: "chats", available: false },
-  { icon: LuxiaVirtualAssistantIcon, label: "Vidgets", section: "virtual-assistant", available: false },
-];
-
-const NAV_BOTTOM_ITEMS: {
-  id: string;
-  icon: typeof LuxiaNotificationsIcon;
-  label: string;
-  available: boolean;
-}[] = [
-  { id: "notifications", icon: LuxiaNotificationsIcon, label: "Notifications", available: false },
-  { id: "tools", icon: LuxiaToolsGalleryIcon, label: "Tools Gallery", available: false },
-  { id: "settings", icon: LuxiaSettingsIcon, label: "Settings", available: false },
-  { id: "support", icon: LuxiaSupportIcon, label: "Support", available: false },
-];
-
-const SIDEBAR_PROFILE_NAME = "User name";
-const SIDEBAR_PROFILE_ROLE = "Administrator";
-const SIDEBAR_PROFILE_INITIALS = "UN";
-
-type NavIconComponent = (props: LuxiaIconProps) => ReactElement;
-
 function renderMd(text: string) {
   return text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g).map((p, i) => {
     if (p.startsWith("**") && p.endsWith("**"))
@@ -736,16 +769,6 @@ function renderContent(content: string) {
   });
 }
 
-function SidebarBrandBackground() {
-  return null;
-}
-
-const SIDEBAR_WIDTH_EXPANDED = 280;
-const SIDEBAR_WIDTH_COLLAPSED = 76;
-const SIDEBAR_TOGGLE_SIZE = 42;
-const SIDEBAR_TOGGLE_INSET = SIDEBAR_TOGGLE_SIZE / 2;
-const LEFT_NAV_COLLAPSED_STORAGE_KEY = "luxia-left-nav-collapsed";
-const LEFT_NAV_NARROW_BREAKPOINT = 1600;
 const INSPECTOR_NARROW_BREAKPOINT = 1280;
 const INSPECTOR_WIDTH_DEFAULT = 288;
 const INSPECTOR_WIDTH_MIN = 260;
@@ -795,431 +818,13 @@ function clampGalaxyWidth(width: number, viewportWidth: number, leftNavWidth: nu
   return Math.max(GALAXY_WIDTH_MIN, Math.min(maxWidth, width));
 }
 
-function NavItem({ icon: Icon, label, active, badge, collapsed, disabled, href, onClick }: {
-  icon: NavIconComponent | LucideIcon;
-  label: string;
-  active?: boolean;
-  badge?: number;
-  collapsed?: boolean;
-  disabled?: boolean;
-  href?: string;
-  onClick?: () => void;
-}) {
-  const isDisabled = Boolean(disabled);
-  const className = `w-full flex items-center rounded-[10px] transition-all group no-underline ${
-    collapsed ? "justify-center h-[40px] px-0" : "gap-3 px-3.5 h-[40px] text-left"
-  } ${isDisabled ? "cursor-not-allowed" : ""}`;
-  const style = {
-    background: active ? "rgba(255,255,255,0.12)" : "transparent",
-    opacity: isDisabled && !active ? 0.48 : 1,
-  } as const;
-  const onMouseEnter = (e: ReactMouseEvent<HTMLElement>) => {
-    if (!active && !isDisabled) {
-      e.currentTarget.style.background = "rgba(255,255,255,0.06)";
-    }
-  };
-  const onMouseLeave = (e: ReactMouseEvent<HTMLElement>) => {
-    if (!active) {
-      e.currentTarget.style.background = "transparent";
-    }
-  };
-
-  const content = (
-    <>
-      <span className="relative flex-shrink-0" aria-hidden>
-        <Icon size={16} color={active ? "white" : "rgba(255,255,255,0.55)"} />
-        {collapsed && badge ? (
-          <span
-            className="absolute -top-1 -right-1 min-w-[14px] h-[14px] px-0.5 rounded-full luxia-type-badge flex items-center justify-center"
-            style={{ background: LX.error, color: "white" }}
-          >
-            {badge}
-          </span>
-        ) : null}
-      </span>
-      {!collapsed ? (
-        <>
-          <span
-            className="flex-1 luxia-type-nav-sidebar truncate"
-            style={{ color: active ? "white" : "rgba(255,255,255,0.7)" }}
-          >
-            {label}
-          </span>
-          {badge ? (
-            <span
-              className="luxia-type-badge px-1.5 py-0.5 rounded-full"
-              style={{ background: LX.error, color: "white" }}
-            >
-              {badge}
-            </span>
-          ) : null}
-        </>
-      ) : null}
-    </>
-  );
-
-  const item = isDisabled ? (
-    <button
-      type="button"
-      disabled
-      aria-label={label}
-      aria-current={active ? "page" : undefined}
-      aria-disabled
-      className={className}
-      style={style}
-    >
-      {content}
-    </button>
-  ) : href ? (
-    <a
-      href={href}
-      aria-label={label}
-      aria-current={active ? "page" : undefined}
-      className={className}
-      style={style}
-      onClick={(e) => {
-        e.preventDefault();
-        onClick?.();
-      }}
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
-    >
-      {content}
-    </a>
-  ) : (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      aria-current={active ? "page" : undefined}
-      className={className}
-      style={style}
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
-    >
-      {content}
-    </button>
-  );
-
-  if (collapsed) {
-    const trigger = isDisabled ? (
-      <span className="block w-full">{item}</span>
-    ) : (
-      item
-    );
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>{trigger}</TooltipTrigger>
-        <TooltipContent side="right" sideOffset={8}>{label}</TooltipContent>
-      </Tooltip>
-    );
-  }
-
-  return item;
-}
-
-const SIDEBAR_LOGO_WIDTH = 119.66;
-const SIDEBAR_LOGO_HEIGHT = 46.64;
-const SIDEBAR_BRAND_LEFT = 24;
-const SIDEBAR_BRAND_TOP = 16;
-const SIDEBAR_BRAND_BOTTOM = 12;
-
-const SIDEBAR_STAR_WIDTH = 538.11;
-const SIDEBAR_STAR_HEIGHT = 674.69;
-const SIDEBAR_STAR_INTERSECTION_X = 174;
-
-function LuxiaLogo() {
-  return (
-    <img
-      src={luxiaWordmarkUrl}
-      alt="Luxia"
-      width={SIDEBAR_LOGO_WIDTH}
-      height={SIDEBAR_LOGO_HEIGHT}
-      style={{ display: "block", objectFit: "contain", flexShrink: 0 }}
-    />
-  );
-}
-
-function SidebarStarDecoration() {
-  return (
-    <div
-      aria-hidden="true"
-      className="pointer-events-none select-none absolute z-0"
-      style={{
-        left: SIDEBAR_STAR_INTERSECTION_X,
-        top: "81%",
-        width: SIDEBAR_STAR_WIDTH,
-        height: SIDEBAR_STAR_HEIGHT,
-        transform: "translate(-50%, -50%) rotate(10deg)",
-        transformOrigin: "center",
-        opacity: 0.4,
-      }}
-    >
-      <img
-        src={sidebarStarLogoUrl}
-        alt=""
-        draggable={false}
-        style={{
-          display: "block",
-          width: "100%",
-          height: "100%",
-          objectFit: "contain",
-        }}
-      />
-    </div>
-  );
-}
-
-function SidebarCollapseToggle({
-  collapsed,
-  onToggle,
-}: {
-  collapsed: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-      aria-expanded={!collapsed}
-      className="absolute flex items-center justify-center rounded-full outline-none transition-shadow hover:shadow-[var(--luxia-shadow-md)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--luxia-border-focus)]"
-      style={{
-        top: SIDEBAR_BRAND_TOP + SIDEBAR_LOGO_HEIGHT / 2 - SIDEBAR_TOGGLE_INSET,
-        right: -SIDEBAR_TOGGLE_INSET,
-        width: SIDEBAR_TOGGLE_SIZE,
-        height: SIDEBAR_TOGGLE_SIZE,
-        zIndex: 50,
-        background: "var(--luxia-surface)",
-        border: "1px solid var(--luxia-border-default)",
-        boxShadow: "var(--luxia-shadow-sm)",
-        color: "var(--luxia-brand-primary)",
-      }}
-    >
-      {collapsed ? <ChevronRight size={18} strokeWidth={2.2} /> : <ChevronLeft size={18} strokeWidth={2.2} />}
-    </button>
-  );
-}
-
-function LeftNav({
-  collapsed,
-  onToggleCollapsed,
-  homeActive,
-  usersActive,
-  projectId,
-  projectLabel,
-  activeProjectSection,
-  onHomeClick,
-  onUsersClick,
-  onProjectSectionClick,
-}: {
-  collapsed: boolean;
-  onToggleCollapsed: () => void;
-  homeActive?: boolean;
-  usersActive?: boolean;
-  projectId?: string | null;
-  projectLabel?: string | null;
-  activeProjectSection?: ProjectNavSection | null;
-  onHomeClick?: () => void;
-  onUsersClick?: () => void;
-  onProjectSectionClick?: (section: ProjectNavSection) => void;
-}) {
-  const navPadding = collapsed ? "px-2" : "px-3";
-  const showProjectNav = Boolean(projectLabel);
-  const overviewHref = projectId ? getProjectPath(projectId) : undefined;
-  const galaxyHref = projectId ? getGalaxyPath(projectId) : undefined;
-  const dashboardHref = projectId ? getDashboardPath(projectId) : undefined;
-
-  return (
-    <aside
-      className="relative h-full min-h-0 flex-shrink-0"
-      aria-label="Luxia sidebar"
-      style={{
-        width: collapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_EXPANDED,
-        transition: "width 200ms ease",
-        overflow: "visible",
-      }}
-    >
-      <div
-        className="relative flex h-full min-h-0 flex-col overflow-hidden"
-        style={{ background: LX.gradient.nav, width: "100%" }}
-      >
-        {!collapsed ? <SidebarStarDecoration /> : null}
-
-        <div
-          className={`relative z-[2] flex-shrink-0 ${collapsed ? "flex justify-center" : ""}`}
-          style={{
-            paddingTop: SIDEBAR_BRAND_TOP,
-            paddingLeft: collapsed ? 0 : SIDEBAR_BRAND_LEFT,
-            paddingRight: collapsed ? 0 : SIDEBAR_BRAND_LEFT,
-            paddingBottom: SIDEBAR_BRAND_BOTTOM,
-          }}
-        >
-          {collapsed ? (
-            <div aria-label="Luxia" role="img">
-              <LuxiaStarLogo size={26} />
-            </div>
-          ) : (
-            <LuxiaLogo />
-          )}
-        </div>
-
-        <div className="relative z-[2] min-h-0 flex-1 overflow-x-hidden overflow-y-auto luxia-scrollbar luxia-scrollbar-dark luxia-scrollbar-vertical luxia-scrollbar-sidebar">
-          <nav className={`${navPadding} space-y-px`} aria-label="Global workspace">
-            {NAV_TOP_ITEMS.map(({ id, icon, label, available }) => (
-              <NavItem
-                key={id}
-                icon={icon}
-                label={label}
-                collapsed={collapsed}
-                active={id === "home" ? homeActive : id === "users" ? usersActive : false}
-                disabled={!available}
-                href={id === "home" && available ? "/" : undefined}
-                onClick={
-                  id === "home"
-                    ? onHomeClick
-                    : id === "users"
-                      ? onUsersClick
-                      : undefined
-                }
-              />
-            ))}
-          </nav>
-
-          {showProjectNav ? (
-            <>
-              <div
-                className={`my-2.5 ${collapsed ? "mx-2" : "mx-4"}`}
-                style={{ height: 1, background: "rgba(255,255,255,0.07)" }}
-                role="separator"
-              />
-
-              <div className={navPadding}>
-                {!collapsed ? (
-                  <div className="mb-1.5 px-3.5">
-                    <p
-                      className="luxia-type-overline-data"
-                      style={{ color: "rgba(150,219,251,0.55)" }}
-                    >
-                      PROJECT
-                    </p>
-                    <p
-                      className="mt-1 truncate luxia-type-nav-sidebar"
-                      style={{ color: "rgba(255,255,255,0.88)" }}
-                      title={projectLabel ?? undefined}
-                    >
-                      {projectLabel}
-                    </p>
-                  </div>
-                ) : null}
-                <nav className="space-y-px" aria-label="Current project">
-                  {NAV_PROJECT_ITEMS.map(({ icon, label, section, available }) => (
-                    <NavItem
-                      key={section}
-                      icon={icon}
-                      label={label}
-                      active={activeProjectSection === section}
-                      collapsed={collapsed}
-                      disabled={!available}
-                      href={
-                        available
-                          ? section === "overview"
-                            ? overviewHref
-                            : section === "galaxy"
-                              ? galaxyHref
-                              : section === "dashboard"
-                                ? dashboardHref
-                                : undefined
-                          : undefined
-                      }
-                      onClick={
-                        available
-                          ? () => onProjectSectionClick?.(section)
-                          : undefined
-                      }
-                    />
-                  ))}
-                </nav>
-              </div>
-            </>
-          ) : null}
-        </div>
-
-        <div
-          className={`relative z-[2] flex-shrink-0 ${navPadding} space-y-px pb-1 pt-2`}
-          style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
-        >
-          <nav className="space-y-px" aria-label="Utilities">
-            {NAV_BOTTOM_ITEMS.map(({ id, icon, label, available }) => (
-              <NavItem
-                key={id}
-                icon={icon}
-                label={label}
-                collapsed={collapsed}
-                disabled={!available}
-              />
-            ))}
-          </nav>
-        </div>
-
-        {collapsed ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div
-                className="relative z-[2] flex flex-shrink-0 items-center justify-center px-2 py-2.5"
-                style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
-                aria-label={`${SIDEBAR_PROFILE_NAME}, ${SIDEBAR_PROFILE_ROLE}`}
-              >
-                <div
-                  className="w-8 h-8 rounded-[8px] flex items-center justify-center text-white luxia-type-caption flex-shrink-0"
-                  style={{ background: "linear-gradient(135deg, #5BC8F5 0%, #2C7A9E 100%)" }}
-                  aria-hidden
-                >
-                  {SIDEBAR_PROFILE_INITIALS}
-                </div>
-              </div>
-            </TooltipTrigger>
-            <TooltipContent side="right" sideOffset={8}>
-              {SIDEBAR_PROFILE_NAME} — {SIDEBAR_PROFILE_ROLE}
-            </TooltipContent>
-          </Tooltip>
-        ) : (
-          <div
-            className="relative z-[2] flex flex-shrink-0 items-center gap-2.5 px-4 py-2.5"
-            style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
-          >
-            <div
-              className="w-8 h-8 rounded-[8px] flex items-center justify-center text-white luxia-type-caption flex-shrink-0"
-              style={{ background: "linear-gradient(135deg, #5BC8F5 0%, #2C7A9E 100%)" }}
-              aria-hidden
-            >
-              {SIDEBAR_PROFILE_INITIALS}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-white luxia-type-profile-secondary truncate leading-tight">
-                {SIDEBAR_PROFILE_NAME}
-              </p>
-              <p
-                className="luxia-type-profile-secondary truncate leading-tight"
-                style={{ color: "rgba(255,255,255,0.4)" }}
-              >
-                {SIDEBAR_PROFILE_ROLE}
-              </p>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <SidebarCollapseToggle collapsed={collapsed} onToggle={onToggleCollapsed} />
-    </aside>
-  );
-}
-
-function ChatTabBar({ chats, activeId, onSelect, onNew, onClose, onPin, onRename }: {
+function ChatTabBar({ chats, activeId, onSelect, onNew, onClose, onPin, onRename, projects, constellations }: {
   chats: Chat[]; activeId: string;
   onSelect: (id: string) => void; onNew: () => void;
   onClose: (id: string) => void; onPin: (id: string) => void;
   onRename: (id: string, v: string) => void;
+  projects: readonly HomeProjectCard[];
+  constellations: Constellation[];
 }) {
   const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
@@ -1239,13 +844,13 @@ function ChatTabBar({ chats, activeId, onSelect, onNew, onClose, onPin, onRename
       {chats.map((chat) => {
         const isActive = chat.id === activeId;
         const con = chat.chatType === "constellation" && chat.constellationId
-          ? CONSTELLATIONS.find((c) => c.id === chat.constellationId)
+          ? constellations.find((c) => c.id === chat.constellationId)
           : null;
         const style = con ? CONSTELLATION_STYLE[con.type] : null;
 
         const isGalaxyTab = chat.chatType === "galaxy";
         const galaxyProject = isGalaxyTab
-          ? getProjectNameById(chat.projectId)
+          ? getProjectNameById(chat.projectId, projects)
           : null;
         const tabLabel = isGalaxyTab ? galaxyProject! : chat.label;
 
@@ -1431,19 +1036,26 @@ function NewChatModal({
   onClose,
   lockedProjectId,
   constellations,
+  projects,
 }: {
   onCreate: (payload: NewChatPayload) => void;
   onClose: () => void;
   lockedProjectId?: string | null;
   constellations: Constellation[];
+  projects: Project[];
 }) {
   const [chatType, setChatType] = useState<ChatScope>("constellation");
-  const [projectId, setProjectId] = useState(lockedProjectId ?? PROJECTS[0]?.id ?? "");
+  const [projectId, setProjectId] = useState(lockedProjectId ?? projects[0]?.id ?? "");
   const [constellationId, setConstellationId] = useState("");
 
   useEffect(() => {
     if (lockedProjectId) setProjectId(lockedProjectId);
   }, [lockedProjectId]);
+
+  useEffect(() => {
+    if (projects.some((project) => project.id === projectId)) return;
+    setProjectId(lockedProjectId ?? projects[0]?.id ?? "");
+  }, [lockedProjectId, projectId, projects]);
 
   const projectConstellations = useMemo(
     () => constellations.filter((c) => c.projectId === projectId),
@@ -1451,7 +1063,7 @@ function NewChatModal({
   );
 
   const projectOptions = useMemo(
-    () => PROJECTS.map((project) => ({
+    () => projects.map((project) => ({
       value: project.id,
       label: project.label,
       content: (
@@ -1460,7 +1072,7 @@ function NewChatModal({
         </span>
       ),
     })),
-    [],
+    [projects],
   );
 
   const constellationOptions = useMemo(
@@ -4405,7 +4017,6 @@ export default function App() {
   const [showNewChatModal, setShowNewChatModal] = useState(false);
   const [newChatLockedProjectId, setNewChatLockedProjectId] = useState<string | null>(null);
   const [showNewProjectModal, setShowNewProjectModal] = useState(false);
-  const [showNewConstellationModal, setShowNewConstellationModal] = useState(false);
   const [projectManageMode, setProjectManageMode] = useState<ProjectManageMode | null>(null);
   const [projectManageId, setProjectManageId] = useState<string | null>(null);
   const [appView, setAppView] = useState<LuxiaAppView>(INITIAL_SHELL.appView);
@@ -4444,6 +4055,16 @@ export default function App() {
   const [projectMembershipsState, setProjectMembershipsState] = useState(() =>
     PROJECT_MEMBERSHIPS.map((membership) => ({ ...membership })),
   );
+  const [prototypeUserId, setPrototypeUserId] = useState(CURRENT_USER_ID);
+  const [constellationAccessBlock, setConstellationAccessBlock] = useState<{
+    projectId: string;
+    constellationId: string;
+    reason: string;
+  } | null>(null);
+  const [galaxyAccessBlock, setGalaxyAccessBlock] = useState<{
+    projectId: string;
+    reason: string;
+  } | null>(null);
   const [capabilityBundlesById, setCapabilityBundlesById] = useState<
     Record<string, ConstellationCapabilityBundle>
   >(() => {
@@ -4456,8 +4077,11 @@ export default function App() {
   });
   const [runtimeConstellations, setRuntimeConstellations] = useState<Constellation[]>([]);
   const allConstellations = useMemo(
-    () => [...CONSTELLATIONS, ...runtimeConstellations],
-    [runtimeConstellations],
+    () => applyConstellationNameOverrides(
+      [...CONSTELLATIONS, ...runtimeConstellations],
+      constellationSettingsById,
+    ),
+    [runtimeConstellations, constellationSettingsById],
   );
   const [homeBrowseMode, setHomeBrowseMode] = useState<HomeBrowseMode>("overview");
   const [homeScrollRequest, setHomeScrollRequest] = useState(0);
@@ -4485,7 +4109,7 @@ export default function App() {
   const galaxyExpandSignalSeenRef = useRef(0);
   const [sidebarCollapsedPreference, setSidebarCollapsedPreference] = useState(false);
   const [leftNavCollapsedPreference, setLeftNavCollapsedPreference] = useState(readLeftNavCollapsedPreference);
-  const [leftNavExpandedDespiteNarrow, setLeftNavExpandedDespiteNarrow] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [inspectorExpandedDespiteNarrow, setInspectorExpandedDespiteNarrow] = useState(false);
   const [viewportWidth, setViewportWidth] = useState(() =>
     typeof window !== "undefined" ? window.innerWidth : 1920
@@ -4496,19 +4120,25 @@ export default function App() {
   chatsRef.current = chats;
   const homeProjectsRef = useRef(homeProjects);
   homeProjectsRef.current = homeProjects;
+  const appViewRef = useRef(appView);
+  appViewRef.current = appView;
+  const activeProjectIdRef = useRef(activeProjectId);
+  activeProjectIdRef.current = activeProjectId;
+  const constellationCreateGuardRef = useRef<ConstellationCreateNavigationGuard | null>(null);
+  const accessLevelCreateDraftRef = useRef<AccessLevelRecord | null>(null);
 
-  const isLeftNavNarrow = viewportWidth < LEFT_NAV_NARROW_BREAKPOINT;
+  const isMobileNav = viewportWidth < LEFT_NAV_MOBILE_BREAKPOINT;
   const isInspectorNarrow = viewportWidth <= INSPECTOR_NARROW_BREAKPOINT;
 
-  const leftNavCollapsed = isLeftNavNarrow
-    ? !leftNavExpandedDespiteNarrow
-    : leftNavCollapsedPreference;
+  const leftNavCollapsed = isMobileNav ? true : leftNavCollapsedPreference;
 
   const sidebarCollapsed = isInspectorNarrow
     ? !inspectorExpandedDespiteNarrow
     : sidebarCollapsedPreference;
 
-  const leftNavWidth = leftNavCollapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_EXPANDED;
+  const leftNavWidth = isMobileNav
+    ? 0
+    : (leftNavCollapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_EXPANDED);
   const clampedInspectorWidth = clampInspectorWidth(sidebarWidth, viewportWidth, leftNavWidth);
   const clampedGalaxyWidth = clampGalaxyWidth(galaxyPanelWidth, viewportWidth, leftNavWidth);
   const isGalaxyNarrow = viewportWidth <= GALAXY_NARROW_BREAKPOINT;
@@ -4584,10 +4214,26 @@ export default function App() {
         return;
       }
 
+      if (resolved.kind === "constellation-create") {
+        clearSettingsRouteState();
+        setActiveProjectId(resolved.projectId);
+        setProjectBrowseMode("constellations");
+        setAppView("constellation-create");
+        return;
+      }
+
       if (resolved.kind === "constellations") {
         clearSettingsRouteState();
         setActiveProjectId(resolved.projectId);
         setProjectBrowseMode("constellations");
+        setAppView("project");
+        return;
+      }
+
+      if (resolved.kind === "project-chats") {
+        clearSettingsRouteState();
+        setActiveProjectId(resolved.projectId);
+        setProjectBrowseMode("chats");
         setAppView("project");
         return;
       }
@@ -4628,6 +4274,25 @@ export default function App() {
       }
 
       if (resolved.kind === "access-level") {
+        if (
+          resolved.accessLevelId === "new"
+          && !canAdministerAccessLevels()
+        ) {
+          toast.error(ACCESS_LEVEL_CREATE_DENIED_MESSAGE);
+          setActiveProjectId(null);
+          setSettingsConstellationId(null);
+          setSettingsCapabilityPath(null);
+          setAccessLevelId(null);
+          setDataSourceSettingsId(null);
+          setAppView("access-levels");
+          if (typeof window !== "undefined") {
+            const listPath = getAccessLevelsPath();
+            if (window.location.pathname !== listPath) {
+              window.history.replaceState({ luxiaView: "access-levels" }, "", listPath);
+            }
+          }
+          return;
+        }
         setActiveProjectId(null);
         setSettingsConstellationId(null);
         setSettingsCapabilityPath(null);
@@ -4710,7 +4375,28 @@ export default function App() {
     }
 
     function onPopState() {
-      applyPath(window.location.pathname, window.location.search);
+      const pathname = window.location.pathname;
+      const search = window.location.search;
+
+      if (appViewRef.current === "constellation-create") {
+        const guard = constellationCreateGuardRef.current;
+        const resolved = resolveLuxiaPathname(pathname);
+        if (guard?.isDirty() && resolved.kind !== "constellation-create") {
+          const projectId = activeProjectIdRef.current;
+          if (projectId) {
+            const createPath = getConstellationCreatePath(projectId);
+            window.history.pushState(
+              { luxiaView: "constellation-create", projectId },
+              "",
+              createPath,
+            );
+          }
+          guard.requestLeaveConfirmation(() => applyPath(pathname, search));
+          return;
+        }
+      }
+
+      applyPath(pathname, search);
     }
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
@@ -4718,8 +4404,14 @@ export default function App() {
 
 
   useEffect(() => {
-    if (!isLeftNavNarrow) setLeftNavExpandedDespiteNarrow(false);
-  }, [isLeftNavNarrow]);
+    if (!isMobileNav) setMobileNavOpen(false);
+  }, [isMobileNav]);
+
+  useEffect(() => {
+    const onResize = () => setViewportWidth(window.innerWidth);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   useEffect(() => {
     if (!isInspectorNarrow) setInspectorExpandedDespiteNarrow(false);
@@ -4748,7 +4440,7 @@ export default function App() {
 
   const contextProjectId = appView === "home" || appView === "access-levels" || appView === "access-level" || appView === "data-source-settings"
     ? null
-    : appView === "project" || appView === "constellation-settings" || appView === "project-members"
+    : appView === "project" || appView === "constellation-create" || appView === "constellation-settings" || appView === "project-members"
       ? activeProjectId
       : (activeData?.projectId ?? activeProjectId);
 
@@ -4766,7 +4458,8 @@ export default function App() {
       return "overview";
     }
     if (appView === "constellation-settings") return "constellations";
-    if (appView === "project-members") return "overview";
+    if (appView === "constellation-create") return "constellations";
+    if (appView === "project-members") return "members";
     if (appView === "chat") {
       if (activeData?.chatType === "galaxy") return "galaxy";
       return "chats";
@@ -4832,11 +4525,15 @@ export default function App() {
       .map((item) => {
         const settings = constellationSettingsById[item.id]
           ?? getConstellationSettingsRecord(item.id);
+        const canonical = getCanonicalConstellationById(item.id);
         const derivedSourceCount = settings
           ? settings.connectedSources.length
           : (getConstellationSourceCount(item.id)
             || CONSTELLATION_SOURCE_COUNTS[item.id]
             || 0);
+        const updatedAtLabel = settings?.updatedAt ?? canonical?.updatedAt ?? "";
+        const updatedAtTimestamp =
+          parseLuxiaRelativeTimestamp(updatedAtLabel) ?? 0;
         return {
           id: item.id,
           label: item.label,
@@ -4844,6 +4541,7 @@ export default function App() {
           projectId: item.projectId,
           sourceCount: derivedSourceCount,
           description: item.description,
+          updatedAtTimestamp,
         };
       }),
     [allConstellations, constellationSettingsById],
@@ -4917,8 +4615,8 @@ export default function App() {
   }
 
   function handleLeftNavToggle() {
-    if (isLeftNavNarrow) {
-      setLeftNavExpandedDespiteNarrow((prev) => !prev);
+    if (isMobileNav) {
+      setMobileNavOpen((prev) => !prev);
       return;
     }
     setLeftNavCollapsedPreference((prev) => !prev);
@@ -5068,6 +4766,24 @@ export default function App() {
     }
   }
 
+  function handleOpenChatsList(projectId: string) {
+    setActiveProjectId(projectId);
+    setProjectBrowseMode("chats");
+    setSettingsConstellationId(null);
+    setSettingsCapabilityPath(null);
+    setAppView("project");
+    if (typeof window !== "undefined") {
+      const next = getProjectChatsPath(projectId);
+      if (window.location.pathname !== next) {
+        window.history.pushState(
+          { luxiaView: "project", projectId, browse: "chats" },
+          "",
+          next,
+        );
+      }
+    }
+  }
+
   function handleOpenProjectMembers(projectId: string) {
     setActiveProjectId(projectId);
     setSettingsConstellationId(null);
@@ -5097,6 +4813,10 @@ export default function App() {
   }
 
   function handleOpenAccessLevel(id: string) {
+    if (id === "new" && !canAdministerAccessLevels(prototypeUserId)) {
+      toast.error(ACCESS_LEVEL_CREATE_DENIED_MESSAGE);
+      return;
+    }
     setActiveProjectId(null);
     setSettingsConstellationId(null);
     setSettingsCapabilityPath(null);
@@ -5112,6 +4832,11 @@ export default function App() {
   }
 
   function handleCreateAccessLevel() {
+    if (!canAdministerAccessLevels(prototypeUserId)) {
+      toast.error(ACCESS_LEVEL_CREATE_DENIED_MESSAGE);
+      return;
+    }
+    accessLevelCreateDraftRef.current = null;
     handleOpenAccessLevel("new");
   }
 
@@ -5138,7 +4863,9 @@ export default function App() {
     constellationId: string,
   ): ConstellationSettingsRecord | undefined {
     const existing = constellationSettingsById[constellationId];
-    if (existing) return existing;
+    if (existing) {
+      return withLiveProjectNameOnSettingsRecord(existing, homeProjects);
+    }
 
     const seeded = getConstellationSettingsRecord(constellationId);
     if (seeded) return cloneConstellationSettingsRecord(seeded);
@@ -5190,6 +4917,9 @@ export default function App() {
     constellationId: string,
     draft: ConstellationSettingsDraft,
   ) {
+    const current = resolveConstellationSettingsRecordForView(constellationId);
+    if (!current) return;
+    if (!guardConstellationConfigure(current.projectId)) return;
     upsertConstellationSettingsRecord(constellationId, (existing) => ({
       ...existing,
       name: draft.name,
@@ -5238,6 +4968,201 @@ export default function App() {
       .map((item) => resolveConstellationSourceEntry(item, settingsById));
   }
 
+  function assertConstellationUseAccess(
+    projectId: string,
+    constellationId: string,
+  ): boolean {
+    const membership = getActiveProjectMembership(
+      projectId,
+      projectMembershipsState,
+      prototypeUserId,
+    );
+    const record = resolveConstellationSettingsRecordForView(constellationId);
+    const connectedSourceIds = record?.connectedSources.map((source) => source.id) ?? [];
+    const result = evaluateConstellationUseAccess({
+      userId: prototypeUserId,
+      projectRole: membership?.projectRole ?? null,
+      membershipStatus: membership?.status,
+      connectedSourceIds,
+      accessLevels: accessLevelsState,
+    });
+    if (!result.available) {
+      setConstellationAccessBlock({
+        projectId,
+        constellationId,
+        reason: result.reason,
+      });
+      return false;
+    }
+    return true;
+  }
+
+  function guardConstellationConfigure(projectId: string): boolean {
+    const membership = getActiveProjectMembership(
+      projectId,
+      projectMembershipsState,
+      prototypeUserId,
+    );
+    if (canConfigureConstellation(membership?.projectRole)) return true;
+    toast.error(CONSTELLATION_CONFIGURE_DENIED_MESSAGE);
+    return false;
+  }
+
+  function guardAccessLevelMutation(): boolean {
+    if (canAdministerAccessLevels(prototypeUserId)) return true;
+    toast.error(ACCESS_LEVEL_DENIED_MESSAGE);
+    return false;
+  }
+
+  function guardConstellationArchive(projectId: string): boolean {
+    const membership = getActiveProjectMembership(
+      projectId,
+      projectMembershipsState,
+      prototypeUserId,
+    );
+    if (canArchiveConstellation(membership?.projectRole)) return true;
+    toast.error(PROJECT_ACTION_DENIED_MESSAGE);
+    return false;
+  }
+
+  function guardConstellationDelete(projectId: string): boolean {
+    const membership = getActiveProjectMembership(
+      projectId,
+      projectMembershipsState,
+      prototypeUserId,
+    );
+    if (canDeleteConstellation(membership?.projectRole)) return true;
+    toast.error(PROJECT_ACTION_DENIED_MESSAGE);
+    return false;
+  }
+
+  function guardProjectArchive(projectId: string): boolean {
+    const membership = getActiveProjectMembership(
+      projectId,
+      projectMembershipsState,
+      prototypeUserId,
+    );
+    if (canArchiveProject(membership?.projectRole)) return true;
+    toast.error(PROJECT_ACTION_DENIED_MESSAGE);
+    return false;
+  }
+
+  function guardProjectDelete(projectId: string): boolean {
+    const membership = getActiveProjectMembership(
+      projectId,
+      projectMembershipsState,
+      prototypeUserId,
+    );
+    if (canDeleteProject(membership?.projectRole)) return true;
+    toast.error(PROJECT_ACTION_DENIED_MESSAGE);
+    return false;
+  }
+
+  useEffect(() => {
+    setPrototypeCurrentUserId(prototypeUserId);
+  }, [prototypeUserId]);
+
+  const prototypeUser = useMemo(
+    () => getOrganizationUserById(prototypeUserId) ?? ORGANIZATION_USERS[0]!,
+    [prototypeUserId],
+  );
+
+  const prototypeProjectRole = useMemo(() => {
+    const projectId = activeProjectId
+      ?? chats.find((chat) => chat.id === activeChat)?.projectId
+      ?? null;
+    if (!projectId) return null;
+    return getActiveProjectMembership(
+      projectId,
+      projectMembershipsState,
+      prototypeUserId,
+    )?.projectRole ?? null;
+  }, [activeProjectId, activeChat, chats, projectMembershipsState, prototypeUserId]);
+
+  function handlePrototypeUserChange(userId: string) {
+    if (!ORGANIZATION_USERS.some((user) => user.id === userId)) return;
+    setPrototypeCurrentUserId(userId);
+    setPrototypeUserId(userId);
+    setConstellationAccessBlock(null);
+    setGalaxyAccessBlock(null);
+    setMobileNavOpen(false);
+
+    if (
+      appView === "access-level"
+      && accessLevelId === "new"
+      && !canAdministerAccessLevels(userId)
+    ) {
+      toast.error(ACCESS_LEVEL_CREATE_DENIED_MESSAGE);
+      setAppView("access-levels");
+      setAccessLevelId(null);
+      if (typeof window !== "undefined") {
+        const listPath = getAccessLevelsPath();
+        if (window.location.pathname !== listPath) {
+          window.history.replaceState({ luxiaView: "access-levels" }, "", listPath);
+        }
+      }
+      return;
+    }
+
+    const projectId =
+      appView === "home" || appView === "access-levels" || appView === "access-level"
+        || appView === "data-source-settings"
+        ? null
+        : (activeProjectId
+          ?? chats.find((chat) => chat.id === activeChat)?.projectId
+          ?? null);
+    if (!projectId) return;
+
+    const membership = getActiveProjectMembership(
+      projectId,
+      projectMembershipsState,
+      userId,
+    );
+    const onProjectSurface =
+      appView === "project"
+      || appView === "project-members"
+      || appView === "constellation-settings"
+      || appView === "constellation-create"
+      || appView === "chat";
+
+    if (!membership && onProjectSurface) {
+      handleNavigateHome();
+      return;
+    }
+
+    if (appView === "chat") {
+      const chat = chats.find((item) => item.id === activeChat)
+        ?? INITIAL_CHATS.find((item) => item.id === activeChat);
+      if (!chat || !membership) return;
+      if (chat.chatType === "galaxy" && membership.projectRole === "Guest") {
+        handleOpenProjectOverview(projectId, "overview");
+        return;
+      }
+      if (chat.chatType !== "galaxy" && chat.constellationId) {
+        const record = constellationSettingsById[chat.constellationId]
+          ?? getConstellationSettingsRecord(chat.constellationId);
+        const connectedSourceIds = record?.connectedSources.map((source) => source.id) ?? [];
+        const allowed = evaluateConstellationUseAccess({
+          userId,
+          projectRole: membership.projectRole,
+          membershipStatus: membership.status,
+          connectedSourceIds,
+          accessLevels: accessLevelsState,
+        }).available;
+        if (!allowed) {
+          handleOpenProjectOverview(projectId, "overview");
+        }
+      }
+    }
+  }
+
+  useEffect(() => {
+    setHomeProjects((prev) => prev.map((project) => ({
+      ...project,
+      memberCount: countProjectMembers(project.id, projectMembershipsState),
+    })));
+  }, [projectMembershipsState, prototypeUserId]);
+
   function syncHomeProjectDerivedCounts(
     projectId: string,
     options?: {
@@ -5268,6 +5193,7 @@ export default function App() {
   ) {
     const current = resolveConstellationSettingsRecordForView(constellationId);
     if (!current || current.connectedSources.length <= 1) return;
+    if (!guardConstellationConfigure(current.projectId)) return;
     const nextRecord: ConstellationSettingsRecord = {
       ...current,
       connectedSources: current.connectedSources.filter((source) => source.id !== sourceId),
@@ -5289,29 +5215,19 @@ export default function App() {
   function handleAddConstellationDataSource(constellationId: string) {
     const current = resolveConstellationSettingsRecordForView(constellationId);
     if (!current) return;
+    if (!guardConstellationConfigure(current.projectId)) return;
     const connectedIds = new Set(current.connectedSources.map((source) => source.id));
     const candidate = AVAILABLE_SOURCES_CATALOG.find((source) => !connectedIds.has(source.id));
     if (!candidate) return;
     const nextSource: ConnectedDataSource = { ...candidate, usageInConstellation: "Connected" };
+    const accessRow = buildSourceAccessSummaryRow(
+      nextSource,
+      accessLevelsState,
+    );
     const nextRecord: ConstellationSettingsRecord = {
       ...current,
       connectedSources: [...current.connectedSources, nextSource],
-      sourceAccessRows: [
-        ...current.sourceAccessRows,
-        {
-          sourceId: nextSource.id,
-          sourceName: nextSource.name,
-          sourceType: nextSource.type,
-          ownership: nextSource.ownership,
-          ownerUserId: nextSource.ownerUserId,
-          owner: nextSource.owner,
-          requiredPermission: "Use",
-          currentUserPermission: nextSource.ownership === "private" ? "Manage" : "Use",
-          accessLevelName: nextSource.ownership === "private" ? "—" : "Access Level name 01",
-          sourceStatus: nextSource.status,
-          conflictStatus: nextSource.ownership === "private" ? "owner-access" : "none",
-        },
-      ],
+      sourceAccessRows: [...current.sourceAccessRows, accessRow],
       updatedAt: "Just now",
     };
     setConstellationSettingsById((prev) => ({
@@ -5341,6 +5257,7 @@ export default function App() {
   function handleArchiveConstellationSettings(constellationId: string) {
     const current = resolveConstellationSettingsRecordForView(constellationId);
     if (!current) return;
+    if (!guardConstellationArchive(current.projectId)) return;
     const nextRecord: ConstellationSettingsRecord = {
       ...current,
       status: "archived",
@@ -5362,6 +5279,7 @@ export default function App() {
     projectId: string,
     constellationId: string,
   ) {
+    if (!guardConstellationDelete(projectId)) return;
     const nextSettings = { ...constellationSettingsById };
     delete nextSettings[constellationId];
     const nextRuntime = runtimeConstellations.filter((item) => item.id !== constellationId);
@@ -5416,6 +5334,9 @@ export default function App() {
     constellationId: string,
     next: ConstellationCapabilityBundle,
   ) {
+    const current = resolveConstellationSettingsRecordForView(constellationId);
+    if (!current) return;
+    if (!guardConstellationConfigure(current.projectId)) return;
     const cloned = cloneCapabilityBundle(next);
     setCapabilityBundlesById((prev) => ({
       ...prev,
@@ -5475,8 +5396,7 @@ export default function App() {
     projectId: string,
     browseMode: ProjectOverviewBrowseMode = "overview",
   ) {
-    const project = homeProjects.find((entry) => entry.id === projectId)
-      ?? PROJECTS.find((entry) => entry.id === projectId);
+    const project = homeProjects.find((entry) => entry.id === projectId);
     if (!project) {
       setActiveProjectId(projectId);
       setProjectBrowseMode(
@@ -5547,7 +5467,7 @@ export default function App() {
       return;
     }
     if (destination === "constellations") {
-      handleOpenProjectOverview(projectId, "overview");
+      handleOpenConstellationsList(projectId);
       return;
     }
     handleOpenProjectOverview(projectId, "overview");
@@ -5560,7 +5480,7 @@ export default function App() {
         const chat = chats.find((c) => c.id === item.chatId);
         const key = workItemEntityKey(item);
         const constellation = item.constellationId
-          ? CONSTELLATIONS.find((entry) => entry.id === item.constellationId)
+          ? allConstellations.find((entry) => entry.id === item.constellationId)
           : undefined;
         const projectCard = homeProjects.find((project) => project.id === item.projectId);
         const { projectName: _legacyProjectName, ...rest } = item;
@@ -5568,11 +5488,13 @@ export default function App() {
           ...rest,
           title: chat?.label ?? item.title,
           isPinned: pinnedEntityOrder.includes(key) || Boolean(chat?.pinned),
+          constellationName: constellation?.label ?? item.constellationName,
+          constellationSource: constellation?.type ?? item.constellationSource,
           constellationDescription: constellation?.description,
           projectDescription: projectCard?.description,
         };
       })
-  ), [chats, homeProjects, pinnedEntityOrder]);
+  ), [allConstellations, chats, homeProjects, pinnedEntityOrder]);
 
   useEffect(() => {
     const normalized = normalizeHomePrimaryPreference(
@@ -5614,6 +5536,7 @@ export default function App() {
   function handleArchiveProject(projectId: string) {
     const target = homeProjects.find((project) => project.id === projectId);
     if (!target || target.status === "archived") return;
+    if (!guardProjectArchive(projectId)) return;
 
     setHomeProjects((prev) => prev.map((project) => (
       project.id === projectId
@@ -5645,6 +5568,9 @@ export default function App() {
     setHomeProjects((prev) => prev.map((project) => (
       project.id === projectId ? { ...project, name: trimmed } : project
     )));
+    setConstellationSettingsById((prev) => (
+      syncProjectNameInSettingsById(prev, projectId, trimmed)
+    ));
   }
 
   function handleEditProjectDetails(
@@ -5662,6 +5588,9 @@ export default function App() {
           }
         : project
     )));
+    setConstellationSettingsById((prev) => (
+      syncProjectNameInSettingsById(prev, projectId, trimmedName)
+    ));
   }
 
   function requestEditProjectDetails(projectId: string) {
@@ -5682,6 +5611,7 @@ export default function App() {
   function handleDeleteProject(projectId: string) {
     const target = homeProjects.find((project) => project.id === projectId);
     if (!target) return;
+    if (!guardProjectDelete(projectId)) return;
 
     const viewingDeletedProject = activeProjectId === projectId
       || activeData?.projectId === projectId;
@@ -5772,8 +5702,8 @@ export default function App() {
     setChats((prev) => [...prev, template]);
     setChatMessages((prev) => ({ ...prev, [chatId]: INITIAL_MESSAGES[chatId] ?? [] }));
     if (template.chatType === "galaxy") {
-      const project = PROJECTS.find((p) => p.id === template.projectId);
-      if (!project) {
+      const projectName = getProjectNameById(template.projectId, homeProjects);
+      if (!projectName) {
         console.warn(
           `[Luxia] Project "${template.projectId}" missing for galaxy "${chatId}". Navigation aborted.`,
         );
@@ -5781,7 +5711,7 @@ export default function App() {
       }
       setGalaxySessions((prev) => ({
         ...prev,
-        [chatId]: prev[chatId] ?? createIdleGalaxySession(project.label),
+        [chatId]: prev[chatId] ?? createIdleGalaxySession(projectName),
       }));
     }
     setActiveChat(chatId);
@@ -5790,6 +5720,16 @@ export default function App() {
 
   function handleContinueWork(item: HomeRecentWorkItem) {
     if (item.projectId) setActiveProjectId(item.projectId);
+    const targetChat = findChatById(item.chatId, chatsRef.current)
+      ?? INITIAL_CHATS.find((entry) => entry.id === item.chatId);
+    if (
+      targetChat?.chatType === "constellation"
+      && targetChat.projectId
+      && targetChat.constellationId
+      && !assertConstellationUseAccess(targetChat.projectId, targetChat.constellationId)
+    ) {
+      return;
+    }
     if (!ensureChatOpen(item.chatId)) return;
     const chat = findChatById(item.chatId, chatsRef.current);
     if (chat) syncWorkspacePathForChat(chat);
@@ -5801,8 +5741,7 @@ export default function App() {
   }
 
   function handleOpenGalaxyFromHome(projectId: string) {
-    const homeProject = homeProjects.find((entry) => entry.id === projectId);
-    const project = homeProject ?? PROJECTS.find((entry) => entry.id === projectId);
+    const project = homeProjects.find((entry) => entry.id === projectId);
     if (!project) {
       console.warn(`[Luxia] Project "${projectId}" not found for Galaxy open. Navigation aborted.`);
       return;
@@ -5850,6 +5789,14 @@ export default function App() {
   function handleOpenChatFromHome(chatId: string) {
     const chat = chats.find((entry) => entry.id === chatId)
       ?? INITIAL_CHATS.find((entry) => entry.id === chatId);
+    if (
+      chat?.chatType === "constellation"
+      && chat.projectId
+      && chat.constellationId
+      && !assertConstellationUseAccess(chat.projectId, chat.constellationId)
+    ) {
+      return;
+    }
     if (chat?.projectId) setActiveProjectId(chat.projectId);
     if (!ensureChatOpen(chatId)) return;
     if (chat) syncWorkspacePathForChat(chat);
@@ -5879,6 +5826,7 @@ export default function App() {
       );
       return;
     }
+    if (!assertConstellationUseAccess(projectId, constellationId)) return;
     const existingCount = chats.filter(
       (chat) => chat.chatType === "constellation"
         && chat.projectId === projectId
@@ -5900,28 +5848,58 @@ export default function App() {
     setAppView("chat");
   }
 
+  function handleOpenConstellationCreate(projectId: string) {
+    setActiveProjectId(projectId);
+    setProjectBrowseMode("constellations");
+    setSettingsConstellationId(null);
+    setSettingsCapabilityPath(null);
+    setAppView("constellation-create");
+    if (typeof window !== "undefined") {
+      const next = getConstellationCreatePath(projectId);
+      if (window.location.pathname !== next) {
+        window.history.pushState(
+          { luxiaView: "constellation-create", projectId },
+          "",
+          next,
+        );
+      }
+    }
+  }
+
   function handleAddConstellationToProject(
     projectId: string,
     name: string,
     type: "database" | "csv" | "pdf",
   ) {
-    setActiveProjectId(projectId);
-    setShowNewConstellationModal(true);
     void name;
     void type;
+    handleOpenConstellationCreate(projectId);
   }
 
-  function handleCreateConstellationDraft(draft: NewConstellationDraft) {
-    const projectId = activeProjectId;
-    if (!projectId) return;
+  function buildConnectedSourceFromDraft(
+    draft: ConstellationCreationDraft,
+  ): ConnectedDataSource | null {
+    return buildConnectedSourceFromCreationDraft(draft);
+  }
+
+  function handleCreateConstellationDraft(draft: ConstellationCreationDraft) {
+    const projectId = draft.projectId;
+    if (!projectId || !draft.type) return;
+    if (!guardConstellationConfigure(projectId)) return;
+
+    const existingNames = allConstellations
+      .filter((item) => item.projectId === projectId)
+      .map((item) => item.label);
+    const readiness = getReviewReadiness(draft, existingNames);
+    if (!readiness.ready) return;
 
     const id = `con-runtime-${Date.now()}`;
     const createdConstellation: Constellation = {
       id,
-      label: draft.name,
+      label: draft.name.trim(),
       type: draft.type,
       projectId,
-      description: draft.description,
+      description: draft.description.trim(),
     };
     const nextRuntime = [...runtimeConstellations, createdConstellation];
     const nextAll = [...CONSTELLATIONS, ...nextRuntime];
@@ -5931,52 +5909,21 @@ export default function App() {
       id,
       projectId,
       projectName: getProjectNameById(projectId, homeProjects),
-      name: draft.name,
-      description: draft.description,
+      name: draft.name.trim(),
+      description: draft.description.trim(),
       type: draft.type,
     });
 
-    const connectedSources = draft.dataSourceIds
-      .map((sourceId) => {
-        const catalog = getDataSourceById(sourceId) ?? DATA_SOURCE_CATALOG.find((item) => item.id === sourceId);
-        if (!catalog) return null;
-        const typeLabel = catalog.type.toLowerCase();
-        const sourceType = typeLabel.includes("csv")
-          ? "csv" as const
-          : typeLabel.includes("pdf")
-            ? "pdf" as const
-            : "database" as const;
-        return {
-          id: catalog.id,
-          name: catalog.name,
-          type: sourceType,
-          ownership: catalog.ownership,
-          ownerUserId: catalog.ownerUserId,
-          owner: catalog.ownerName,
-          status: catalog.status === "inactive" ? "needs-attention" as const : "connected" as const,
-          accessSummary: catalog.ownership === "private" ? "Owner access" : "Use via Access Level name 01",
-          lastUpdated: "Just now",
-          usageInConstellation: "Primary connected source",
-        };
-      })
-      .filter((item): item is NonNullable<typeof item> => Boolean(item));
+    const connectedSource = buildConnectedSourceFromDraft(draft);
+    const connectedSources = connectedSource ? [connectedSource] : [];
 
     const seeded: ConstellationSettingsRecord = {
       ...seededBase,
+      instructions: draft.instruction.trim() || seededBase.instructions,
       connectedSources,
-      sourceAccessRows: connectedSources.map((source) => ({
-        sourceId: source.id,
-        sourceName: source.name,
-        sourceType: source.type,
-        ownership: source.ownership,
-        ownerUserId: source.ownerUserId,
-        owner: source.owner,
-        requiredPermission: "Use" as const,
-        currentUserPermission: source.ownership === "private" ? "Manage" as const : "Use" as const,
-        accessLevelName: source.ownership === "private" ? "—" : "Access Level name 01",
-        sourceStatus: source.status,
-        conflictStatus: source.ownership === "private" ? "owner-access" as const : "none" as const,
-      })),
+      sourceAccessRows: connectedSources.map((source) =>
+        buildSourceAccessSummaryRow(source, accessLevelsState),
+      ),
     };
 
     const nextSettings = {
@@ -5984,14 +5931,24 @@ export default function App() {
       [id]: seeded,
     };
     setConstellationSettingsById(nextSettings);
+
+    const instructionText = draft.instruction.trim() || seeded.instructions;
+    const bundle = buildCapabilityBundleFromCreationDraft(
+      id,
+      draft,
+      connectedSource,
+      instructionText,
+    );
+
     setCapabilityBundlesById((prev) => ({
       ...prev,
-      [id]: createSeedCapabilityBundle(id, draft.type, seeded.instructions),
+      [id]: bundle,
     }));
     syncHomeProjectDerivedCounts(projectId, {
       settingsById: nextSettings,
       constellations: nextAll,
     });
+    toast.success("Constellation created.");
     handleOpenConstellationSettings(projectId, id);
   }
 
@@ -6010,6 +5967,17 @@ export default function App() {
     if (section === "dashboard") {
       handleOpenProjectDashboard(projectId);
       return;
+    }
+    if (section === "constellations") {
+      handleOpenConstellationsList(projectId);
+      return;
+    }
+    if (section === "chats") {
+      handleOpenChatsList(projectId);
+      return;
+    }
+    if (section === "members") {
+      handleOpenProjectMembers(projectId);
     }
   }
 
@@ -6053,6 +6021,13 @@ export default function App() {
   }
 
   function handleNewChatCreate(payload: NewChatPayload) {
+    if (
+      payload.chatType === "constellation"
+      && payload.constellationId
+      && !assertConstellationUseAccess(payload.projectId, payload.constellationId)
+    ) {
+      return;
+    }
     const id = `c${Date.now()}`;
     const n = chats.length + 1;
     const galaxyCount = chats.filter((c) => c.chatType === "galaxy").length;
@@ -6079,6 +6054,7 @@ export default function App() {
       id,
       chatType: payload.chatType,
       projectId: payload.projectId,
+      constellationId: payload.constellationId,
     });
   }
 
@@ -6099,8 +6075,16 @@ export default function App() {
   }
 
   function handleSelectChat(chatId: string) {
-    setActiveChat(chatId);
     const chat = findChatById(chatId, chats);
+    if (
+      chat?.chatType === "constellation"
+      && chat.projectId
+      && chat.constellationId
+      && !assertConstellationUseAccess(chat.projectId, chat.constellationId)
+    ) {
+      return;
+    }
+    setActiveChat(chatId);
     if (chat) {
       if (chat.projectId) setActiveProjectId(chat.projectId);
       syncWorkspacePathForChat(chat);
@@ -6109,8 +6093,13 @@ export default function App() {
 
   function handleConstellationChange(conId: string) {
     const active = chats.find((c) => c.id === activeChat);
-    if (!active || active.chatType !== "constellation") return;
+    if (!active || active.chatType !== "constellation" || !active.projectId) return;
+    if (!assertConstellationUseAccess(active.projectId, conId)) return;
     setChats((p) => p.map((c) => c.id === activeChat ? { ...c, constellationId: conId } : c));
+    syncWorkspacePathForChat({
+      ...active,
+      constellationId: conId,
+    });
   }
 
   function updateGalaxySession(chatId: string, patch: Partial<GalaxySessionState>) {
@@ -6159,32 +6148,129 @@ export default function App() {
     const projectName = getProjectNameById(active?.projectId, homeProjects);
 
     if (!isGalaxy) {
+      if (
+        active?.chatType === "constellation"
+        && active.projectId
+        && active.constellationId
+        && !assertConstellationUseAccess(active.projectId, active.constellationId)
+      ) {
+        return;
+      }
+      const constellationRecord = active?.constellationId
+        ? resolveConstellationSettingsRecordForView(active.constellationId)
+        : undefined;
+      const chatSources = (constellationRecord?.connectedSources ?? []).map((source) => ({
+        id: `${aid}-${source.id}`,
+        label: source.name,
+      }));
       setChatMessages(p => ({
         ...p,
         [chatId]: [...(p[chatId] ?? []),
         { id: uid, role: "user", content, timestamp: now },
         {
           id: aid, role: "ai", timestamp: now,
-          content: "I have searched the connected constellation for your query.\n\nHere is what I found based on the available sources.",
-          sources: [{ id: `${aid}s1`, label: "Document A" }],
+          content: chatSources.length > 0
+            ? `I have searched the connected Constellation for your query.\n\nSources considered: ${chatSources.map((source) => source.label).join(", ")}.`
+            : "I have searched the connected Constellation for your query.\n\nNo connected Data Source labels are available in this prototype response.",
+          sources: chatSources,
         },
         ],
       }));
       return;
     }
 
+    const projectId = active?.projectId ?? homeProjects[0]?.id ?? "project-01";
+    const projectConstellations = getProjectConstellations(projectId, allConstellations);
+    const constellationSourceMap = projectConstellations.map((constellation) => {
+      const record = constellationSettingsById[constellation.id]
+        ?? getConstellationSettingsRecord(constellation.id);
+      return {
+        id: constellation.id,
+        dataSourceIds: record?.connectedSources.map((source) => source.id) ?? [],
+      };
+    });
+    const accessibleIds = getAccessibleConstellationIds({
+      projectId,
+      constellationSourceMap,
+      memberships: projectMembershipsState,
+      accessLevels: accessLevelsState,
+      userId: prototypeUserId,
+    });
+    const accessibleConstellations = projectConstellations.filter((item) =>
+      accessibleIds.includes(item.id),
+    );
+
+    if (accessibleConstellations.length === 0) {
+      setGalaxyAccessBlock({
+        projectId,
+        reason:
+          "You need Use access to every connected Data Source before Galaxy can use a Constellation.",
+      });
+      updateGalaxySession(chatId, {
+        status: "ready",
+        activityLabel: "No accessible Constellations",
+        candidates: [],
+        selected: null,
+        selectionSource: null,
+        sources: [],
+        routeMode: "auto",
+        pendingManualId: null,
+      });
+      return;
+    }
+
     const session = galaxySessions[chatId] ?? createIdleGalaxySession(projectName);
     const isManual = session.routeMode === "manual" && session.pendingManualId;
     const manualOption = isManual
-      ? CONSTELLATIONS.find((c) => c.id === session.pendingManualId)
+      ? accessibleConstellations.find((c) => c.id === session.pendingManualId)
       : null;
-    const matched: GalaxyMatchedConstellation = manualOption
-      ? {
-          id: manualOption.id,
-          label: manualOption.label,
-          type: getConstellationSourceLabel(manualOption.type),
-        }
-      : GALAXY_MOCK_MATCHED;
+
+    if (isManual && !manualOption) {
+      setGalaxyAccessBlock({
+        projectId,
+        reason:
+          "The selected Constellation is no longer accessible with your current Data Source permissions.",
+      });
+      updateGalaxySession(chatId, {
+        status: "ready",
+        activityLabel: "Selected Constellation unavailable",
+        selected: null,
+        selectionSource: null,
+        pendingManualId: null,
+        routeMode: "auto",
+      });
+      return;
+    }
+
+    const matchedConstellation = manualOption ?? accessibleConstellations[0]!;
+    const matchedRecord = constellationSettingsById[matchedConstellation.id]
+      ?? getConstellationSettingsRecord(matchedConstellation.id);
+    const matched: GalaxyMatchedConstellation = {
+      id: matchedConstellation.id,
+      label: matchedConstellation.label,
+      type: getConstellationSourceLabel(matchedConstellation.type),
+    };
+    const accessibleSources = (matchedRecord?.connectedSources ?? []).map((source) => ({
+      id: `src-${source.id}`,
+      label: source.name,
+      description:
+        `${source.type === "pdf" ? "PDF" : source.type === "csv" ? "CSV" : "Database"} · ${
+          source.ownership === "organizational" ? "Organizational" : "Private"
+        }`,
+    }));
+    const answerContent = accessibleSources.length > 0
+      ? `Based on accessible Constellation ${matched.label}, here is a prototype answer using only Data Sources you can Use.\n\nSources considered: ${accessibleSources.map((source) => source.label).join(", ")}.`
+      : `Based on accessible Constellation ${matched.label}, no connected Data Source labels are available in this prototype response.`;
+    const candidates = accessibleConstellations.slice(0, 3).map((item, index) => ({
+      id: item.id,
+      label: item.label,
+      type: getConstellationSourceLabel(item.type),
+      relevance: (index === 0
+        ? "High relevance"
+        : index === 1
+          ? "Medium relevance"
+          : "Low relevance") as "High relevance" | "Medium relevance" | "Low relevance",
+    }));
 
     galaxyManualCollapseRef.current = false;
     expandGalaxyIntelligencePanel({ force: true });
@@ -6194,7 +6280,7 @@ export default function App() {
       phase: "searching",
       matched,
       selectionSource: isManual ? "manual" : "auto",
-      constellationsChecked: GALAXY_MOCK_CONSTELLATIONS_CHECKED,
+      constellationsChecked: accessibleConstellations.length,
     };
 
     updateGalaxySession(chatId, {
@@ -6229,7 +6315,7 @@ export default function App() {
           selectionSource: "manual",
         });
         patchGalaxyMessage(chatId, aid, {
-          content: GALAXY_MOCK_ANSWER,
+          content: answerContent,
           galaxy: { ...baseGalaxy, phase: "answering" },
         });
       }, 700);
@@ -6239,12 +6325,12 @@ export default function App() {
           activityLabel: "Answer complete",
           selected: matched,
           selectionSource: "manual",
-          sources: GALAXY_MOCK_SOURCES,
+          sources: accessibleSources,
           focusSection: "sources",
         });
         patchGalaxyMessage(chatId, aid, {
-          content: GALAXY_MOCK_ANSWER,
-          sources: GALAXY_MOCK_SOURCES.map((s) => ({ id: `${aid}-${s.id}`, label: s.label })),
+          content: answerContent,
+          sources: accessibleSources.map((s) => ({ id: `${aid}-${s.id}`, label: s.label })),
           galaxy: { ...baseGalaxy, phase: "complete" },
         });
       }, 1800);
@@ -6264,7 +6350,7 @@ export default function App() {
           updateGalaxySession(chatId, {
             status: "matching",
             activityLabel: "Comparing relevant matches",
-            candidates: GALAXY_MOCK_CANDIDATES,
+            candidates,
           });
           patchGalaxyMessage(chatId, aid, { galaxy: { ...baseGalaxy, phase } });
           return;
@@ -6273,7 +6359,7 @@ export default function App() {
           updateGalaxySession(chatId, {
             status: "matching",
             activityLabel: "Best match found",
-            candidates: GALAXY_MOCK_CANDIDATES,
+            candidates,
             selected: matched,
             selectionSource: "auto",
             focusSection: "selected",
@@ -6287,10 +6373,10 @@ export default function App() {
             activityLabel: "Generating answer",
             selected: matched,
             selectionSource: "auto",
-            candidates: GALAXY_MOCK_CANDIDATES,
+            candidates,
           });
           patchGalaxyMessage(chatId, aid, {
-            content: GALAXY_MOCK_ANSWER,
+            content: answerContent,
             galaxy: { ...baseGalaxy, phase },
           });
           return;
@@ -6300,13 +6386,13 @@ export default function App() {
           activityLabel: "Answer complete",
           selected: matched,
           selectionSource: "auto",
-          candidates: GALAXY_MOCK_CANDIDATES,
-          sources: GALAXY_MOCK_SOURCES,
+          candidates,
+          sources: accessibleSources,
           focusSection: "sources",
         });
         patchGalaxyMessage(chatId, aid, {
-          content: GALAXY_MOCK_ANSWER,
-          sources: GALAXY_MOCK_SOURCES.map((s) => ({ id: `${aid}-${s.id}`, label: s.label })),
+          content: answerContent,
+          sources: accessibleSources.map((s) => ({ id: `${aid}-${s.id}`, label: s.label })),
           galaxy: { ...baseGalaxy, phase: "complete" },
         });
       }, delay);
@@ -6316,9 +6402,14 @@ export default function App() {
   function handleOpenGalaxyConstellation() {
     expandGalaxyIntelligencePanel({ force: true });
     const session = galaxySessions[activeChat];
-    const matchedId = session?.selected?.id ?? GALAXY_MOCK_MATCHED.id;
+    const matchedId = session?.selected?.id;
+    if (!matchedId) {
+      toast.message("Select an accessible Constellation before opening Chat.");
+      return;
+    }
     const match = allConstellations.find((c) => c.id === matchedId);
     if (!match) return;
+    if (!assertConstellationUseAccess(match.projectId, match.id)) return;
     const existing = chats.find(
       (c) => c.chatType === "constellation" && c.constellationId === match.id,
     );
@@ -6402,16 +6493,43 @@ export default function App() {
   const galaxyProjectName = getProjectNameById(activeData?.projectId, homeProjects);
 
   const galaxyRouteOptions = useMemo(() => {
-    const seeds = getProjectConstellations(
-      activeData?.projectId ?? PROJECTS[0].id,
-      runtimeConstellations,
-    ).map((c) => ({
-      id: c.id,
-      label: c.label,
-      type: getConstellationSourceLabel(c.type),
-    }));
+    const projectId = activeData?.projectId ?? homeProjects[0]?.id ?? "project-01";
+    const projectConstellations = getProjectConstellations(projectId, allConstellations);
+    const constellationSourceMap = projectConstellations.map((constellation) => {
+      const record = constellationSettingsById[constellation.id]
+        ?? getConstellationSettingsRecord(constellation.id);
+      return {
+        id: constellation.id,
+        dataSourceIds: record?.connectedSources.map((source) => source.id) ?? [],
+      };
+    });
+    const accessibleIds = new Set(
+      getAccessibleConstellationIds({
+        projectId,
+        constellationSourceMap,
+        memberships: projectMembershipsState,
+        accessLevels: accessLevelsState,
+        userId: prototypeUserId,
+      }),
+    );
+    const seeds = projectConstellations
+      .filter((constellation) => accessibleIds.has(constellation.id))
+      .map((constellation) => ({
+        id: constellation.id,
+        label: constellation.label,
+        type: getConstellationSourceLabel(constellation.type),
+      }));
     return buildGalaxyRouteCatalog(galaxyProjectName, seeds);
-  }, [activeData?.projectId, galaxyProjectName, runtimeConstellations]);
+  }, [
+    activeData?.projectId,
+    allConstellations,
+    galaxyProjectName,
+    homeProjects,
+    constellationSettingsById,
+    projectMembershipsState,
+    accessLevelsState,
+    prototypeUserId,
+  ]);
 
   const pendingManual = activeGalaxySession?.pendingManualId
     ? (() => {
@@ -6420,15 +6538,61 @@ export default function App() {
       })()
     : null;
 
+  useEffect(() => {
+    if (!activeGalaxySession || activeData?.chatType !== "galaxy") return;
+    const projectId = activeData.projectId;
+    if (!projectId) return;
+    if (galaxyRouteOptions.length === 0) {
+      if (
+        activeGalaxySession.selected
+        || activeGalaxySession.pendingManualId
+        || (activeGalaxySession.sources?.length ?? 0) > 0
+      ) {
+        updateGalaxySession(activeChat, {
+          selected: null,
+          selectionSource: null,
+          pendingManualId: null,
+          candidates: [],
+          sources: [],
+          activityLabel: "No accessible Constellations",
+          routeMode: "auto",
+        });
+        setGalaxyAccessBlock({
+          projectId,
+          reason:
+            "You need Use access to every connected Data Source before Galaxy can use a Constellation.",
+        });
+      }
+      return;
+    }
+    if (
+      activeGalaxySession.pendingManualId
+      && !galaxyRouteOptions.some((option) => option.id === activeGalaxySession.pendingManualId)
+    ) {
+      updateGalaxySession(activeChat, {
+        pendingManualId: null,
+        routeMode: "auto",
+        selected: null,
+        selectionSource: null,
+        activityLabel: "Selected Constellation unavailable",
+      });
+    }
+  }, [
+    activeChat,
+    activeData?.chatType,
+    activeData?.projectId,
+    activeGalaxySession?.pendingManualId,
+    activeGalaxySession?.selected?.id,
+    activeGalaxySession?.sources?.length,
+    galaxyRouteOptions,
+  ]);
+
   const settingsConstellation = settingsConstellationId
     ? allConstellations.find((item) => item.id === settingsConstellationId)
     : undefined;
 
   const settingsProjectExists = activeProjectId
-    ? Boolean(
-      homeProjects.find((project) => project.id === activeProjectId)
-        ?? PROJECTS.find((project) => project.id === activeProjectId),
-    )
+    ? Boolean(homeProjects.find((project) => project.id === activeProjectId))
     : false;
 
   const settingsUnavailable = !activeProjectId
@@ -6451,16 +6615,46 @@ export default function App() {
       || !isCapsuleCapabilityAllowed(settingsCapabilityId, settingsConstellation.type)
     );
 
+  useEffect(() => {
+    if (
+      appView === "access-level"
+      && accessLevelId === "new"
+      && !canAdministerAccessLevels(prototypeUserId)
+    ) {
+      toast.error(ACCESS_LEVEL_CREATE_DENIED_MESSAGE);
+      setAppView("access-levels");
+      setAccessLevelId(null);
+      if (typeof window !== "undefined") {
+        const listPath = getAccessLevelsPath();
+        if (window.location.pathname !== listPath) {
+          window.history.replaceState({ luxiaView: "access-levels" }, "", listPath);
+        }
+      }
+    }
+  }, [appView, accessLevelId, prototypeUserId]);
+
   const editingAccessLevel = useMemo(() => {
-    if (appView !== "access-level" || !accessLevelId) return null;
-    if (accessLevelId === "new") return buildEmptyAccessLevel();
+    if (appView !== "access-level" || !accessLevelId) {
+      accessLevelCreateDraftRef.current = null;
+      return null;
+    }
+    if (accessLevelId === "new") {
+      if (!canAdministerAccessLevels(prototypeUserId)) {
+        accessLevelCreateDraftRef.current = null;
+        return null;
+      }
+      if (!accessLevelCreateDraftRef.current) {
+        accessLevelCreateDraftRef.current = buildEmptyAccessLevel();
+      }
+      return accessLevelCreateDraftRef.current;
+    }
+    accessLevelCreateDraftRef.current = null;
     return accessLevelsState.find((level) => level.id === accessLevelId) ?? null;
-  }, [appView, accessLevelId, accessLevelsState]);
+  }, [appView, accessLevelId, accessLevelsState, prototypeUserId]);
 
   const projectNamesById = useMemo(() => {
     const map: Record<string, string> = {};
     for (const project of homeProjects) map[project.id] = project.name;
-    for (const project of PROJECTS) map[project.id] = project.label;
     return map;
   }, [homeProjects]);
 
@@ -6472,10 +6666,7 @@ export default function App() {
     : null;
 
   const membersProjectExists = activeProjectId
-    ? Boolean(
-      homeProjects.find((project) => project.id === activeProjectId)
-        ?? PROJECTS.find((project) => project.id === activeProjectId),
-    )
+    ? Boolean(homeProjects.find((project) => project.id === activeProjectId))
     : false;
 
   const membersForProject = activeProjectId
@@ -6488,22 +6679,152 @@ export default function App() {
       ?? null
     : null;
 
+  const contextProjectMembership = useMemo(() => {
+    if (!contextProjectId) return null;
+    return getActiveProjectMembership(
+      contextProjectId,
+      projectMembershipsState,
+      prototypeUserId,
+    ) ?? null;
+  }, [contextProjectId, projectMembershipsState, prototypeUserId]);
+
+  const showProjectContext = Boolean(contextProjectId && contextProjectMembership);
+
+  const sidebarProjectChats = useMemo(() => {
+    if (!contextProjectId || !contextProjectMembership) return [];
+    const role = contextProjectMembership.projectRole;
+    return overviewChats
+      .filter((chat) => chat.projectId === contextProjectId)
+      .filter((chat) => {
+        if (chat.chatSource === "galaxy") return role !== "Guest";
+        if (!chat.constellationId) return false;
+        const record = constellationSettingsById[chat.constellationId]
+          ?? getConstellationSettingsRecord(chat.constellationId);
+        const connectedSourceIds = record?.connectedSources.map((source) => source.id) ?? [];
+        return evaluateConstellationUseAccess({
+          userId: prototypeUserId,
+          projectRole: role,
+          membershipStatus: contextProjectMembership.status,
+          connectedSourceIds,
+          accessLevels: accessLevelsState,
+        }).available;
+      })
+      .map((chat) => ({
+        id: chat.id,
+        label: chat.label,
+        chatSource: chat.chatSource,
+        constellationId: chat.constellationId,
+        lastOpenedTimestamp: chat.lastOpenedTimestamp,
+        pinned: chats.find((item) => item.id === chat.id)?.pinned,
+      }));
+  }, [
+    contextProjectId,
+    contextProjectMembership,
+    overviewChats,
+    constellationSettingsById,
+    prototypeUserId,
+    accessLevelsState,
+    chats,
+  ]);
+
+  const sidebarProjectConstellations = useMemo(() => {
+    if (!contextProjectId || !contextProjectMembership) return [];
+    const role = contextProjectMembership.projectRole;
+    return overviewConstellations
+      .filter((item) => item.projectId === contextProjectId)
+      .filter((item) => {
+        const record = constellationSettingsById[item.id]
+          ?? getConstellationSettingsRecord(item.id);
+        const connectedSourceIds = record?.connectedSources.map((source) => source.id) ?? [];
+        return evaluateConstellationUseAccess({
+          userId: prototypeUserId,
+          projectRole: role,
+          membershipStatus: contextProjectMembership.status,
+          connectedSourceIds,
+          accessLevels: accessLevelsState,
+        }).available;
+      })
+      .map((item) => ({
+        id: item.id,
+        label: item.label,
+        type: item.type,
+        updatedAtTimestamp: item.updatedAtTimestamp,
+      }));
+  }, [
+    contextProjectId,
+    contextProjectMembership,
+    overviewConstellations,
+    constellationSettingsById,
+    prototypeUserId,
+    accessLevelsState,
+  ]);
+
   return (
     <div
       className="flex h-dvh max-h-dvh overflow-hidden"
       style={{ background: activeData?.chatType === "galaxy" ? "#FAFAFC" : "#FAFDFF" }}
     >
+      {isMobileNav && !mobileNavOpen ? (
+        <button
+          type="button"
+          className="fixed left-3 top-3 z-[45] flex h-10 w-10 items-center justify-center rounded-full"
+          style={{
+            background: "var(--luxia-surface, #fff)",
+            border: "1px solid rgba(28, 19, 54, 0.12)",
+            boxShadow: "0 4px 14px rgba(8, 5, 18, 0.16)",
+            color: "var(--luxia-brand-primary, #5B3FA6)",
+          }}
+          aria-label="Open navigation"
+          onClick={() => setMobileNavOpen(true)}
+        >
+          <LuxiaHomeIcon size={16} color="currentColor" />
+        </button>
+      ) : null}
       <LeftNav
         collapsed={leftNavCollapsed}
         onToggleCollapsed={handleLeftNavToggle}
+        isMobileDrawer={isMobileNav}
+        mobileOpen={mobileNavOpen}
+        onMobileClose={() => setMobileNavOpen(false)}
         homeActive={appView === "home"}
         usersActive={appView === "access-levels" || appView === "access-level"}
         projectId={contextProjectId}
         projectLabel={contextProjectLabel}
+        showProjectContext={showProjectContext}
+        showGalaxy={contextProjectMembership?.projectRole !== "Guest"}
         activeProjectSection={activeProjectSection}
+        activeChatId={
+          appView === "chat" && activeData?.chatType !== "galaxy" ? activeChat : null
+        }
+        activeConstellationId={
+          appView === "constellation-settings" || appView === "constellation-create"
+            ? settingsConstellationId
+            : null
+        }
+        projectChats={sidebarProjectChats}
+        projectConstellations={sidebarProjectConstellations}
+        chatTotalCount={sidebarProjectChats.length}
+        constellationTotalCount={sidebarProjectConstellations.length}
         onHomeClick={handleNavigateHome}
         onUsersClick={handleOpenAccessLevels}
         onProjectSectionClick={handleProjectNavSection}
+        onOpenChat={handleSelectChat}
+        onOpenConstellation={(projectId, constellationId) => {
+          handleOpenConstellationSettings(projectId, constellationId, "general");
+        }}
+        prototypeUser={prototypeUser}
+        prototypeProjectRole={prototypeProjectRole}
+        prototypeUsers={
+          import.meta.env.DEV
+            ? ORGANIZATION_USERS.map((user) => ({
+              id: user.id,
+              name: user.name,
+              orgRole: user.orgRole,
+              roleLabel: getDemoPersonaRoleLabel(user.id),
+            }))
+            : undefined
+        }
+        onPrototypeUserChange={import.meta.env.DEV ? handlePrototypeUserChange : undefined}
       />
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
@@ -6596,6 +6917,16 @@ export default function App() {
                   )
                 }
               />
+            ) : projectBrowseMode === "chats" && activeProjectId ? (
+              <ChatsLibrary
+                projectId={activeProjectId}
+                projectName={getProjectNameById(activeProjectId, homeProjects)}
+                chats={overviewChats.filter((chat) => chat.projectId === activeProjectId)}
+                onNavigateHome={handleNavigateHome}
+                onBack={() => handleOpenProjectOverview(activeProjectId, "overview")}
+                onOpenChat={handleOpenChatFromHome}
+                onNewChat={() => handleNewChatFromProject(activeProjectId)}
+              />
             ) : (
               <ProjectOverviewPage
                 projectId={activeProjectId}
@@ -6621,6 +6952,7 @@ export default function App() {
                 onOpenConstellation={handleOpenConstellationFromProject}
                 onOpenConstellationSettings={handleOpenConstellationSettings}
                 onViewAllConstellations={handleOpenConstellationsList}
+                onViewAllChats={handleOpenChatsList}
                 onNewChat={handleNewChatFromProject}
                 onAddConstellation={handleAddConstellationToProject}
                 onOpenDashboard={handleOpenProjectDashboard}
@@ -6630,6 +6962,22 @@ export default function App() {
                 onOpenMembers={handleOpenProjectMembers}
               />
             )}
+          </HomePageShell>
+        ) : appView === "constellation-create" && activeProjectId ? (
+          <HomePageShell scrollRequest={homeScrollRequest} framed={false}>
+            <ConstellationCreatePage
+              projectId={activeProjectId}
+              projectName={getProjectNameById(activeProjectId, homeProjects)}
+              existingConstellationNames={allConstellations
+                .filter((item) => item.projectId === activeProjectId)
+                .map((item) => item.label)}
+              unavailable={!homeProjects.some((project) => project.id === activeProjectId)}
+              navigationGuardRef={constellationCreateGuardRef}
+              onNavigateHome={handleNavigateHome}
+              onOpenProject={(projectId) => handleOpenProjectOverview(projectId, "overview")}
+              onCancel={(projectId) => handleOpenConstellationsList(projectId)}
+              onCreate={handleCreateConstellationDraft}
+            />
           </HomePageShell>
         ) : appView === "constellation-settings" ? (
           <HomePageShell scrollRequest={homeScrollRequest} framed={false}>
@@ -6651,6 +6999,10 @@ export default function App() {
                 : null;
               const settingsPageRecord: ConstellationSettingsRecord = {
                 ...fallbackRecord,
+                projectName: projectId
+                  ? getProjectNameById(projectId, homeProjects)
+                  : fallbackRecord.projectName,
+                name: settingsConstellation?.label ?? fallbackRecord.name,
                 capabilitySummaries: {
                   ...fallbackRecord.capabilitySummaries,
                   ...(liveCapabilityBundle
@@ -6779,6 +7131,15 @@ export default function App() {
                   onOpenConstellation={handleOpenConstellationFromProject}
                   onOpenMembers={handleOpenProjectMembers}
                   onOpenAccessLevels={handleOpenAccessLevels}
+                  accessLevels={accessLevelsState}
+                  currentProjectRole={
+                    projectMembershipsState.find(
+                      (membership) =>
+                        membership.projectId === projectId
+                        && membership.userId === prototypeUserId
+                        && membership.status === "active",
+                    )?.projectRole ?? null
+                  }
                 />
               );
             })()}
@@ -6792,6 +7153,7 @@ export default function App() {
                 accessLevels={accessLevelsState}
                 organizationUsers={ORGANIZATION_USERS}
                 dataSources={DATA_SOURCE_CATALOG}
+                projectRequiredSourceIds={getProjectRequiredDataSourceIds(membersProject.id)}
                 onSaveMemberships={(memberships) => {
                   setProjectMembershipsState((prev) => {
                     const others = prev.filter(
@@ -6799,13 +7161,39 @@ export default function App() {
                     );
                     return [...others, ...memberships];
                   });
+                  setHomeProjects((prev) => prev.map((project) => (
+                    project.id === membersProject.id
+                      ? {
+                        ...project,
+                        memberCount: countProjectMembers(
+                          membersProject.id,
+                          memberships,
+                        ),
+                      }
+                      : project
+                  )));
                 }}
                 onNavigateHome={handleNavigateHome}
                 onOpenProject={handleOpenProjectFromHome}
                 onOpenAccessLevels={handleOpenAccessLevels}
                 onOpenDataSourceSettings={handleOpenDataSourceSettings}
               />
-            ) : null}
+            ) : (
+              <div className="mx-auto flex min-h-[50vh] max-w-lg flex-col items-start justify-center gap-4 py-16">
+                <p className="luxia-type-overline-data" style={{ color: "var(--luxia-purple-60)" }}>
+                  Members & Roles
+                </p>
+                <h1 className="luxia-type-title-page" style={{ color: "var(--luxia-purple-70)" }}>
+                  Unavailable
+                </h1>
+                <p className="luxia-type-body-dense" style={{ color: "var(--luxia-text-secondary)" }}>
+                  This Project is not available in the current workspace.
+                </p>
+                <Button type="button" variant="outline" size="compact" onClick={handleNavigateHome}>
+                  Back to Home
+                </Button>
+              </div>
+            )}
           </HomePageShell>
         ) : appView === "access-levels" ? (
           <HomePageShell scrollRequest={homeScrollRequest} framed={false}>
@@ -6814,9 +7202,11 @@ export default function App() {
               onOpen={handleOpenAccessLevel}
               onCreate={handleCreateAccessLevel}
               onDelete={(id) => {
+                if (!guardAccessLevelMutation()) return;
                 setAccessLevelsState((prev) => prev.filter((level) => level.id !== id));
               }}
               onNavigateHome={handleNavigateHome}
+              canAdminister={canAdministerAccessLevels(prototypeUserId)}
             />
           </HomePageShell>
         ) : appView === "access-level" ? (
@@ -6825,7 +7215,10 @@ export default function App() {
               <AccessLevelEditorPage
                 record={editingAccessLevel}
                 otherLevels={accessLevelsState.filter((level) => level.id !== editingAccessLevel.id)}
+                canAdminister={canAdministerAccessLevels(prototypeUserId)}
                 onSave={(record) => {
+                  if (!guardAccessLevelMutation()) return;
+                  const wasNew = Boolean(editingAccessLevel?.isNew);
                   setAccessLevelsState((prev) => {
                     const index = prev.findIndex((level) => level.id === record.id);
                     const saved = cloneAccessLevel({ ...record, isNew: undefined });
@@ -6836,27 +7229,57 @@ export default function App() {
                     }
                     return [...prev, saved];
                   });
+                  if (wasNew) {
+                    toast.success("Access Level created");
+                  }
                   handleOpenAccessLevel(record.id);
                 }}
                 onCancel={handleOpenAccessLevels}
                 onDelete={(id) => {
+                  if (!guardAccessLevelMutation()) return;
                   setAccessLevelsState((prev) => prev.filter((level) => level.id !== id));
                   handleOpenAccessLevels();
                 }}
                 onNavigateHome={handleNavigateHome}
                 onOpenAccessLevels={handleOpenAccessLevels}
+                onOpenDataSourceSettings={handleOpenDataSourceSettings}
+                onOpenConstellationSettings={(projectId, constellationId) => {
+                  handleOpenConstellationSettings(projectId, constellationId, "access");
+                }}
+                onOpenProject={handleOpenProjectFromHome}
                 projectNames={projectNamesById}
               />
-            ) : null}
+            ) : (
+              <div className="mx-auto flex min-h-[50vh] max-w-lg flex-col items-start justify-center gap-4 py-16">
+                <p className="luxia-type-overline-data" style={{ color: "var(--luxia-purple-60)" }}>
+                  Access Levels
+                </p>
+                <h1 className="luxia-type-title-page" style={{ color: "var(--luxia-purple-70)" }}>
+                  Unavailable
+                </h1>
+                <p className="luxia-type-body-dense" style={{ color: "var(--luxia-text-secondary)" }}>
+                  This Access Level is not available in the current workspace.
+                </p>
+                <Button type="button" variant="outline" size="compact" onClick={handleOpenAccessLevels}>
+                  Back to Access Levels
+                </Button>
+              </div>
+            )}
           </HomePageShell>
         ) : appView === "data-source-settings" ? (
           <HomePageShell scrollRequest={homeScrollRequest} framed={false}>
             <DataSourceSettingsPage
               source={dataSourceForSettings}
               accessLevels={accessLevelsState}
+              projects={homeProjects}
+              constellations={allConstellations}
               onNavigateHome={handleNavigateHome}
               onOpenAccessLevels={handleOpenAccessLevels}
               onOpenAccessLevel={handleOpenAccessLevel}
+              onOpenProject={handleOpenProjectFromHome}
+              onOpenConstellationSettings={(projectId, constellationId) => {
+                handleOpenConstellationSettings(projectId, constellationId, "access");
+              }}
               onBack={() => {
                 if (typeof window !== "undefined" && window.history.length > 1) {
                   window.history.back();
@@ -6925,6 +7348,8 @@ export default function App() {
                 onClose={handleCloseChat}
                 onPin={handleChatPin}
                 onRename={(id, label) => setChats(p => p.map(c => c.id === id ? { ...c, label } : c))}
+                projects={homeProjects}
+                constellations={allConstellations}
               />
             )}
           />
@@ -7048,7 +7473,7 @@ export default function App() {
               onOpenConstellationSettings={(projectId, constellationId) =>
                 handleOpenConstellationSettings(projectId, constellationId, "general")
               }
-              projectId={activeData?.projectId ?? PROJECTS[0].id}
+              projectId={activeData?.projectId ?? homeProjects[0]?.id ?? "project-01"}
               allowConstellationChange={activeData?.chatType === "constellation"}
               isGalaxyChat={false}
             />
@@ -7067,6 +7492,7 @@ export default function App() {
           }}
           lockedProjectId={newChatLockedProjectId}
           constellations={allConstellations}
+          projects={homeProjectsAsSelectOptions(homeProjects)}
         />
       )}
       {showNewProjectModal && (
@@ -7076,18 +7502,74 @@ export default function App() {
           onCreate={handleCreateProject}
         />
       )}
-      {showNewConstellationModal && activeProjectId ? (
-        <NewConstellationModal
-          open={showNewConstellationModal}
-          projectId={activeProjectId}
-          projectName={getProjectNameById(activeProjectId, homeProjects)}
-          existingNames={allConstellations
-            .filter((item) => item.projectId === activeProjectId)
-            .map((item) => item.label)}
-          onClose={() => setShowNewConstellationModal(false)}
-          onCreate={handleCreateConstellationDraft}
-        />
-      ) : null}
+      <AlertDialog
+        open={Boolean(constellationAccessBlock)}
+        onOpenChange={(open) => !open && setConstellationAccessBlock(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Constellation unavailable</AlertDialogTitle>
+            <AlertDialogDescription>
+              {constellationAccessBlock?.reason
+                ?? "You need Use access to every connected Data Source before you can use this Constellation."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Close</AlertDialogCancel>
+            {constellationAccessBlock ? (
+              <AlertDialogAction
+                onClick={() => {
+                  const { projectId, constellationId } = constellationAccessBlock;
+                  setConstellationAccessBlock(null);
+                  handleOpenConstellationSettings(projectId, constellationId, "access");
+                }}
+              >
+                Review access
+              </AlertDialogAction>
+            ) : null}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog
+        open={Boolean(galaxyAccessBlock)}
+        onOpenChange={(open) => !open && setGalaxyAccessBlock(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              No accessible Constellations are currently available in this Project.
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {galaxyAccessBlock?.reason
+                ?? "You need Use access to every connected Data Source before Galaxy can use a Constellation."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Close</AlertDialogCancel>
+            {galaxyAccessBlock ? (
+              <AlertDialogAction
+                onClick={() => {
+                  const { projectId } = galaxyAccessBlock;
+                  setGalaxyAccessBlock(null);
+                  const projectConstellations = getProjectConstellations(
+                    projectId,
+                    allConstellations,
+                  );
+                  const first = projectConstellations[0];
+                  if (first) {
+                    handleOpenConstellationSettings(projectId, first.id, "access");
+                    return;
+                  }
+                  handleOpenProjectMembers(projectId);
+                }}
+              >
+                Review access
+              </AlertDialogAction>
+            ) : null}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <Toaster richColors closeButton position="top-right" />
       <ProjectManageDialogs
         mode={projectManageMode}
         project={

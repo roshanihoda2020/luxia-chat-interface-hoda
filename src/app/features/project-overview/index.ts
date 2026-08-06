@@ -13,11 +13,10 @@ export {
   getProjectActivity,
   getProjectDashboardOutputs,
   getProjectDashboards,
-  getProjectMembers,
   getProjectVirtualAssistants,
   getProjectWidgets,
 } from "./data";
-export { ConstellationsLibrary } from "./ProjectLibraries";
+export { ChatsLibrary, ConstellationsLibrary } from "./ProjectLibraries";
 export {
   DashboardOutputPreviewGraphic,
   outputTypeLabel,

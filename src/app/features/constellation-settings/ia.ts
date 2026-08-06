@@ -16,7 +16,7 @@ export type ConstellationSettingsSectionId =
   | "configuration"
   | "sources"
   | "access"
-  | "danger";
+  | "lifecycle";
 
 /** URL `?tab=` values for Constellation Settings. */
 export type ConstellationSettingsTabParam =
@@ -24,7 +24,7 @@ export type ConstellationSettingsTabParam =
   | "configuration"
   | "connected-data-sources"
   | "access"
-  | "danger-zone";
+  | "lifecycle";
 
 export const CONSTELLATION_SETTINGS_SECTIONS: {
   id: ConstellationSettingsSectionId;
@@ -34,7 +34,7 @@ export const CONSTELLATION_SETTINGS_SECTIONS: {
   { id: "configuration", label: "Configuration" },
   { id: "sources", label: "Connected Data Sources" },
   { id: "access", label: "Access" },
-  { id: "danger", label: "Danger Zone" },
+  { id: "lifecycle", label: "Lifecycle" },
 ];
 
 const SECTION_TO_TAB: Record<
@@ -45,7 +45,7 @@ const SECTION_TO_TAB: Record<
   configuration: "configuration",
   sources: "connected-data-sources",
   access: "access",
-  danger: "danger-zone",
+  lifecycle: "lifecycle",
 };
 
 const TAB_TO_SECTION: Record<
@@ -56,7 +56,13 @@ const TAB_TO_SECTION: Record<
   configuration: "configuration",
   "connected-data-sources": "sources",
   access: "access",
-  "danger-zone": "danger",
+  lifecycle: "lifecycle",
+};
+
+/** Legacy tab params / section ids — map to Lifecycle during prototype. */
+const LEGACY_TAB_ALIASES: Record<string, ConstellationSettingsSectionId> = {
+  "danger-zone": "lifecycle",
+  danger: "lifecycle",
 };
 
 const TAB_PARAM_SET = new Set<string>(Object.keys(TAB_TO_SECTION));
@@ -67,11 +73,13 @@ export function constellationSettingsSectionToTab(
   return SECTION_TO_TAB[section];
 }
 
-/** Missing or invalid `tab` → General. */
+/** Missing or invalid `tab` → General. Legacy `danger-zone` → Lifecycle. */
 export function parseConstellationSettingsTabParam(
   raw: string | null | undefined,
 ): ConstellationSettingsSectionId {
-  if (!raw || !TAB_PARAM_SET.has(raw)) return "general";
+  if (!raw) return "general";
+  if (raw in LEGACY_TAB_ALIASES) return LEGACY_TAB_ALIASES[raw]!;
+  if (!TAB_PARAM_SET.has(raw)) return "general";
   return TAB_TO_SECTION[raw as ConstellationSettingsTabParam];
 }
 
@@ -87,9 +95,9 @@ export const CONSTELLATION_SETTINGS_GUIDANCE = {
   sourcesDescription:
     "Associate Data Sources with this Constellation. Access Levels stay on Data Sources.",
   accessDescription:
-    "Access requires both an allowed Project role and access to the connected Data Sources.",
-  dangerDescription:
-    "Archive or permanently delete this Constellation.",
+    "A person can use this Constellation only when their Project role allows it and they can use all required Data Sources.",
+  lifecycleDescription:
+    "Manage this Constellation's lifecycle.",
 } as const;
 
 export const CONSTELLATION_SETTINGS_PAGE_VARIANT = "wide" as const;

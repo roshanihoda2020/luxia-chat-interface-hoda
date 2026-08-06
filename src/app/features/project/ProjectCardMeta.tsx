@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Clock, Users } from "lucide-react";
 import { LuxiaConstellationIcon, LuxiaDatasourceIcon } from "@/assets/icons";
+import { LuxiaPageEntityUpdatedMeta } from "@/app/components/LuxiaPageHeader";
 import type { HomeProjectCard } from "./types";
 
 function pluralize(count: number, singular: string, plural: string): string {
@@ -83,7 +84,6 @@ interface ProjectCardMetaProps {
   density?: "featured" | "supporting";
   showUpdated?: boolean;
   className?: string;
-  updatedClassName?: string;
 }
 
 export function ProjectCardMeta({
@@ -91,7 +91,6 @@ export function ProjectCardMeta({
   density = "supporting",
   showUpdated = true,
   className,
-  updatedClassName = "mt-1.5",
 }: ProjectCardMetaProps) {
   const isFeatured = density === "featured";
   const iconSize = 14;
@@ -125,15 +124,10 @@ export function ProjectCardMeta({
           singular="member"
           plural="members"
         />
+        {showUpdated ? (
+          <LuxiaPageEntityUpdatedMeta updatedAt={project.updatedAt} />
+        ) : null}
       </div>
-
-      {showUpdated ? (
-        <ProjectUpdatedMeta
-          updatedAt={project.updatedAt}
-          density={density}
-          className={updatedClassName}
-        />
-      ) : null}
     </div>
   );
 }

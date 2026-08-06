@@ -14,6 +14,7 @@ export type ProjectNavSection =
   | "chats"
   | "constellations"
   | "dashboard"
+  | "members"
   | "virtual-assistant";
 
 export type ProjectActivityType =
@@ -115,6 +116,8 @@ export interface ProjectOverviewConstellation {
   projectId: string;
   sourceCount: number;
   description?: string;
+  /** Recency for Project overview preview ordering (most recently updated first). */
+  updatedAtTimestamp: number;
 }
 
 export interface ProjectOverviewChat {

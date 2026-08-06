@@ -13,6 +13,7 @@ import {
   LuxiaPageGuide,
   LuxiaPageHeader,
   LUXIA_PAGE_HEADER_ACTION,
+  LuxiaPageEntityUpdatedMeta,
 } from "@/app/components/LuxiaPageHeader";
 import {
   AlertDialog,
@@ -38,7 +39,17 @@ import { Textarea } from "@/app/components/ui/textarea";
 import type { CapsuleCapabilityId } from "@/app/features/constellation/capsuleCapabilities";
 import { FilterField } from "@/app/features/home/browserShared";
 import { HS } from "@/app/features/home/homeSurfaces";
-import { LUXIA_DIRTY_STATE_COPY } from "@/app/features/shared/luxiaSettingsUx";
+import type { AccessLevelRecord, ProjectRole } from "@/app/features/permissions";
+import { CURRENT_USER_ID, getOrganizationUserById } from "@/app/features/permissions";
+import {
+  LUXIA_DIRTY_STATE_COPY,
+  LUXIA_SETTINGS_CONTENT_SURFACE_CLASS,
+  LUXIA_SETTINGS_LIST_SURFACE_CLASS,
+  LUXIA_SETTINGS_ROW_DIVIDER,
+  LUXIA_SETTINGS_TAB_PANEL_CLASS,
+  LUXIA_SETTINGS_TAB_TRIGGER_CLASS,
+  LUXIA_SETTINGS_TABLIST_CLASS,
+} from "@/app/features/shared/luxiaSettingsUx";
 import {
   CONSTELLATION_SETTINGS_GUIDANCE,
   CONSTELLATION_SETTINGS_PAGE_VARIANT,
@@ -46,6 +57,7 @@ import {
   configurationCapabilitiesForType,
   type ConstellationSettingsSectionId,
 } from "./ia";
+import { buildSourceAccessRows } from "./data";
 import {
   constellationTypeLabel,
   draftFromSettings,
@@ -56,30 +68,18 @@ import {
   type SourceAccessSummaryRow,
 } from "./types";
 
-const PARENT_SURFACE_STYLE = {
-  background: "var(--luxia-surface)",
-  border: "1px solid var(--luxia-border-default)",
-  borderRadius: "var(--luxia-radius-12)",
-  padding: "var(--luxia-spacing-24)",
-  boxSizing: "border-box" as const,
-} as const;
+const PARENT_SURFACE_CLASS = LUXIA_SETTINGS_CONTENT_SURFACE_CLASS;
 
 /** Tab panels inherit surface padding — no per-tab outer p-*. */
-const SETTINGS_TAB_PANEL_CLASS = "m-0 w-full p-0 outline-none";
+const SETTINGS_TAB_PANEL_CLASS = LUXIA_SETTINGS_TAB_PANEL_CLASS;
 
-const ROW_DIVIDER = {
-  borderTop: "1px solid var(--luxia-border-subtle)",
-} as const;
-
-const READONLY_VALUE_STYLE = {
-  color: "var(--luxia-text-secondary)",
-  background: "var(--luxia-surface-subtle)",
-} as const;
+const ROW_DIVIDER = LUXIA_SETTINGS_ROW_DIVIDER;
 
 const ROLE_COLUMNS: ProjectRoleAction[] = [
   "View",
   "Use",
   "Configure",
+  "Create outputs",
   "Archive",
   "Delete",
 ];
@@ -105,9 +105,6 @@ function roleHasAction(
   actions: ProjectRoleAction[],
   column: ProjectRoleAction,
 ): boolean {
-  if (column === "View") {
-    return actions.includes("View") || actions.includes("Restricted view");
-  }
   return actions.includes(column);
 }
 
@@ -164,6 +161,10 @@ export interface ConstellationSettingsPageProps {
   onOpenConstellation: (projectId: string, constellationId: string) => void;
   onOpenMembers?: (projectId: string) => void;
   onOpenAccessLevels?: () => void;
+  /** Live Access Levels for effective Constellation Access (same session). */
+  accessLevels?: AccessLevelRecord[];
+  /** Current user's Project role for this Constellation's Project. */
+  currentProjectRole?: ProjectRole | null;
 }
 
 export function ConstellationSettingsPage({
@@ -190,6 +191,8 @@ export function ConstellationSettingsPage({
   onOpenConstellation,
   onOpenMembers,
   onOpenAccessLevels,
+  accessLevels = [],
+  currentProjectRole = null,
 }: ConstellationSettingsPageProps) {
   const headingRef = useRef<HTMLDivElement>(null);
   const [generalDraft, setGeneralDraft] = useState(() =>
@@ -241,10 +244,38 @@ export function ConstellationSettingsPage({
 
   const configurationRows = configurationCapabilitiesForType(record.type);
 
-  const accessConflicts = useMemo(
-    () => record.sourceAccessRows.filter(hasAccessConflict),
-    [record.sourceAccessRows],
+  const sourceAccessRows = useMemo(
+    () =>
+      accessLevels.length > 0
+        ? buildSourceAccessRows(record.connectedSources, accessLevels, CURRENT_USER_ID)
+        : record.sourceAccessRows,
+    [accessLevels, record.connectedSources, record.sourceAccessRows],
   );
+
+  const accessConflicts = useMemo(
+    () => sourceAccessRows.filter(hasAccessConflict),
+    [sourceAccessRows],
+  );
+
+  const canConfigureConstellation =
+    currentProjectRole === "Project Owner"
+    || currentProjectRole === "Project Manager";
+  const canArchiveConstellation =
+    currentProjectRole === "Project Owner"
+    || currentProjectRole === "Project Manager";
+  const canDeleteConstellation = currentProjectRole === "Project Owner";
+  const lifecycleRoleHint = !currentProjectRole
+    ? "Your Project role is unavailable for this action."
+    : currentProjectRole === "Guest"
+      || currentProjectRole === "Member"
+      || currentProjectRole === "Analyst"
+      ? `Your Project role (${currentProjectRole}) cannot change Constellation lifecycle.`
+      : null;
+  const configureRoleHint = !canConfigureConstellation
+    ? (!currentProjectRole
+      ? "Your Project role is unavailable for configuration."
+      : `Your Project role (${currentProjectRole}) cannot configure this Constellation.`)
+    : null;
 
   const disconnectTarget = record.connectedSources.find(
     (source) => source.id === disconnectSourceId,
@@ -252,7 +283,7 @@ export function ConstellationSettingsPage({
   const isLastSource = record.connectedSources.length <= 1;
 
   function handleSaveGeneral() {
-    if (!generalDirty) return;
+    if (!generalDirty || !canConfigureConstellation) return;
     onSaveGeneral({
       name: generalDraft.name.trim(),
       description: generalDraft.description.trim(),
@@ -315,10 +346,20 @@ export function ConstellationSettingsPage({
         pageTypeLabel="Constellation Settings"
         title={generalDraft.name || record.name}
         titleStyle={{ color: HS.sectionHeading }}
-        onRename={(name) => {
-          setGeneralDraft((prev) => ({ ...prev, name }));
-          setSaveNotice(null);
-        }}
+        onRename={canConfigureConstellation ? (name) => {
+          const trimmed = name.trim();
+          if (!trimmed) return;
+          const nextDraft = {
+            name: trimmed,
+            description: generalDraft.description,
+          };
+          setGeneralDraft(nextDraft);
+          onSaveGeneral({
+            name: trimmed,
+            description: generalDraft.description.trim(),
+          });
+          setSaveNotice(LUXIA_DIRTY_STATE_COPY.saveSuccess);
+        } : undefined}
         renameLabel={`Rename ${record.name}`}
         breadcrumb={
           <LuxiaBreadcrumb
@@ -329,17 +370,23 @@ export function ConstellationSettingsPage({
         }
         context={
           <div className="space-y-1">
-            <p className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
-              {constellationTypeLabel(record.type)}
-              {" · "}
-              {record.status === "active" ? "Active" : "Archived"}
-              {" · "}
-              {record.projectName}
-            </p>
+            <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
+              <p
+                className="luxia-type-caption min-w-0"
+                style={{ color: "var(--luxia-text-secondary)" }}
+              >
+                {constellationTypeLabel(record.type)}
+                {" · "}
+                {record.status === "active" ? "Active" : "Archived"}
+                {" · "}
+                {record.projectName}
+              </p>
+              <LuxiaPageEntityUpdatedMeta updatedAt={record.updatedAt} />
+            </div>
             {activeSection === "general" && generalDirty ? (
               <p
                 className="luxia-type-caption"
-                style={{ color: "var(--luxia-purple-60)" }}
+                style={{ color: "var(--luxia-text-secondary)" }}
               >
                 {LUXIA_DIRTY_STATE_COPY.unsaved}
               </p>
@@ -460,7 +507,7 @@ export function ConstellationSettingsPage({
             >
               Create Chat
             </Button>
-          ) : activeSection === "general" && generalDirty ? (
+          ) : activeSection === "general" && generalDirty && canConfigureConstellation ? (
             <Button
               type="button"
               {...LUXIA_PAGE_HEADER_ACTION.primary}
@@ -482,7 +529,7 @@ export function ConstellationSettingsPage({
               && value !== "configuration"
               && value !== "sources"
               && value !== "access"
-              && value !== "danger"
+              && value !== "lifecycle"
             ) {
               return;
             }
@@ -493,7 +540,7 @@ export function ConstellationSettingsPage({
           <div className="mb-4 w-full min-w-0 overflow-x-auto">
             <TabsList
               aria-label="Constellation Settings sections"
-              className="luxia-settings-tablist grid h-11 w-full min-w-[44rem] grid-cols-5 gap-1 overflow-visible rounded-[var(--luxia-radius-12)] border border-[var(--luxia-border-default)] bg-[var(--luxia-surface)] p-1 text-[var(--luxia-text-secondary)] sm:min-w-0"
+              className={LUXIA_SETTINGS_TABLIST_CLASS}
               style={{
                 display: "grid",
                 gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
@@ -506,7 +553,7 @@ export function ConstellationSettingsPage({
                   key={section.id}
                   value={section.id}
                   title={section.label}
-                  className="box-border h-9 min-h-9 min-w-0 w-full shrink-0 justify-center gap-0 overflow-hidden rounded-[var(--luxia-radius-8)] border border-transparent px-2 py-1 luxia-type-body-small font-normal whitespace-nowrap shadow-none"
+                  className={LUXIA_SETTINGS_TAB_TRIGGER_CLASS}
                 >
                   <span className="block w-full truncate text-center">{section.label}</span>
                 </TabsTrigger>
@@ -514,13 +561,23 @@ export function ConstellationSettingsPage({
             </TabsList>
           </div>
 
-          <div className="w-full min-w-0" style={PARENT_SURFACE_STYLE}>
+          <div className={`w-full min-w-0 ${PARENT_SURFACE_CLASS}`}>
             <TabsContent value="general" className={SETTINGS_TAB_PANEL_CLASS}>
               <div className="space-y-4 max-w-xl">
+                {configureRoleHint ? (
+                  <p
+                    className="luxia-type-body-dense"
+                    style={{ color: "var(--luxia-text-secondary)" }}
+                    role="status"
+                  >
+                    {configureRoleHint}
+                  </p>
+                ) : null}
                 <FilterField label="Name" htmlFor="cs-name">
                   <Input
                     id="cs-name"
                     value={generalDraft.name}
+                    disabled={!canConfigureConstellation}
                     onChange={(event) => {
                       setGeneralDraft((prev) => ({
                         ...prev,
@@ -535,6 +592,7 @@ export function ConstellationSettingsPage({
                   <Textarea
                     id="cs-description"
                     value={generalDraft.description}
+                    disabled={!canConfigureConstellation}
                     onChange={(event) => {
                       setGeneralDraft((prev) => ({
                         ...prev,
@@ -549,7 +607,7 @@ export function ConstellationSettingsPage({
 
               <dl
                 className="mt-6 grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3"
-                style={{ borderTop: "1px solid var(--luxia-border-subtle)" }}
+                style={{ borderTop: "1px solid var(--luxia-settings-row-divider)" }}
               >
                 {[
                   { label: "Type", value: constellationTypeLabel(record.type) },
@@ -570,11 +628,11 @@ export function ConstellationSettingsPage({
                   <div
                     key={item.label}
                     className="flex min-w-0 flex-col gap-0.5 pt-3"
-                    style={{ borderTop: "1px solid var(--luxia-border-subtle)" }}
+                    style={{ borderTop: "1px solid var(--luxia-settings-row-divider)" }}
                   >
                     <dt
                       className="luxia-type-caption"
-                      style={{ color: "var(--luxia-text-muted)" }}
+                      style={{ color: "var(--luxia-text-secondary)" }}
                     >
                       {item.label}
                     </dt>
@@ -593,14 +651,23 @@ export function ConstellationSettingsPage({
               value="configuration"
               className={SETTINGS_TAB_PANEL_CLASS}
             >
-              <ul className="divide-y" style={{ borderColor: "var(--luxia-border-subtle)" }}>
+              {configureRoleHint ? (
+                <p
+                  className="mb-4 luxia-type-body-dense"
+                  style={{ color: "var(--luxia-text-secondary)" }}
+                  role="status"
+                >
+                  {configureRoleHint}
+                </p>
+              ) : null}
+              <ul className={`${LUXIA_SETTINGS_LIST_SURFACE_CLASS} divide-y px-4`} style={{ borderColor: "var(--luxia-settings-row-divider)" }}>
                 {configurationRows.map((capability) => {
                   const summary = record.capabilitySummaries[capability.id];
                   const CapabilityIcon = capability.icon;
                   return (
                     <li
                       key={capability.id}
-                      className="flex flex-wrap items-start justify-between gap-3 py-4 first:pt-0 last:pb-0"
+                      className="luxia-settings-row is-interactive flex flex-wrap items-start justify-between gap-3 py-4"
                     >
                       <div className="min-w-0 flex-1">
                         <div className="flex min-w-0 items-center gap-2">
@@ -624,7 +691,7 @@ export function ConstellationSettingsPage({
                         {summary ? (
                           <p
                             className="mt-2 luxia-type-caption"
-                            style={{ color: "var(--luxia-text-muted)" }}
+                            style={{ color: "var(--luxia-text-secondary)" }}
                           >
                             {summary.countLabel} · {summary.statusLabel}
                           </p>
@@ -634,6 +701,8 @@ export function ConstellationSettingsPage({
                         type="button"
                         variant="outline"
                         size="compact"
+                        disabled={!canConfigureConstellation}
+                        title={configureRoleHint ?? undefined}
                         onClick={() => onManageCapability(capability.id)}
                         aria-label={capability.manageLabel}
                       >
@@ -657,6 +726,8 @@ export function ConstellationSettingsPage({
                   type="button"
                   variant="primary"
                   size="compact"
+                  disabled={!canConfigureConstellation}
+                  title={configureRoleHint ?? undefined}
                   onClick={onAddDataSource}
                 >
                   Add Data Source
@@ -671,11 +742,11 @@ export function ConstellationSettingsPage({
                   No Data Sources connected yet.
                 </p>
               ) : (
-                <ul className="divide-y" style={{ borderColor: "var(--luxia-border-subtle)" }}>
+                <ul className={`${LUXIA_SETTINGS_LIST_SURFACE_CLASS} divide-y px-4`} style={{ borderColor: "var(--luxia-settings-row-divider)" }}>
                   {record.connectedSources.map((source) => (
                     <li
                       key={source.id}
-                      className="flex flex-wrap items-start justify-between gap-3 py-4 first:pt-0 last:pb-0"
+                      className="luxia-settings-row flex flex-wrap items-start justify-between gap-3 py-4"
                     >
                       <div className="min-w-0 flex-1">
                         <p
@@ -686,14 +757,14 @@ export function ConstellationSettingsPage({
                         </p>
                         <p
                           className="mt-1 luxia-type-caption"
-                          style={{ color: "var(--luxia-text-muted)" }}
+                          style={{ color: "var(--luxia-text-secondary)" }}
                         >
                           {formatSourceType(source.type)} ·{" "}
                           {formatOwnership(source.ownership)} · {source.owner}
                         </p>
                         <p
                           className="mt-1 luxia-type-caption"
-                          style={{ color: "var(--luxia-text-muted)" }}
+                          style={{ color: "var(--luxia-text-secondary)" }}
                         >
                           {formatSourceStatus(source.status)} · Updated{" "}
                           {source.lastUpdated}
@@ -725,7 +796,7 @@ export function ConstellationSettingsPage({
                             label: "Disconnect from Constellation",
                             destructive: true,
                             separatorBefore: true,
-                            disabled: isLastSource,
+                            disabled: isLastSource || !canConfigureConstellation,
                             onSelect: () => setDisconnectSourceId(source.id),
                           },
                         ]}
@@ -744,16 +815,40 @@ export function ConstellationSettingsPage({
                 {CONSTELLATION_SETTINGS_GUIDANCE.accessDescription}
               </LuxiaPageGuide>
 
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[640px] border-collapse text-left">
+              <div className="mb-5 luxia-settings-summary-surface">
+                <p className="luxia-type-body-dense" style={{ color: "var(--luxia-text-secondary)" }}>
+                  Current user: {getOrganizationUserById(CURRENT_USER_ID)?.name ?? CURRENT_USER_ID}
+                  {" · "}
+                  Project role: {currentProjectRole ?? "Unavailable"}
+                </p>
+                <p className="mt-1 luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
+                  {record.connectedSources.length === 0
+                    ? "This Constellation does not have connected Data Sources yet. Connect sources before evaluating Use permission."
+                    : currentProjectRole === "Guest"
+                      ? "Restricted by Project role — Guest cannot use this Constellation even with Data Source Manage."
+                      : accessConflicts.length === 0
+                        ? "Constellation available — Project role allows use and required Data Source permissions are satisfied."
+                        : `Constellation unavailable — ${accessConflicts
+                          .map((row) => `${row.sourceName} (${accessConflictLabel(row)})`)
+                          .join("; ")}.`}
+                </p>
+              </div>
+
+              <div
+                className="luxia-settings-table-surface overflow-x-auto luxia-scrollbar luxia-scrollbar-light"
+                role="region"
+                aria-label="Project role capabilities"
+                tabIndex={0}
+              >
+                <table className="w-full min-w-[720px] border-collapse text-left">
                   <thead>
                     <tr
                       className="luxia-type-caption"
-                      style={{ color: "var(--luxia-text-muted)" }}
+                      style={{ color: "var(--luxia-text-secondary)" }}
                     >
-                      <th className="pb-2 pr-4 font-medium">Role</th>
+                      <th className="px-4 py-2.5 pr-4 font-medium">Role</th>
                       {ROLE_COLUMNS.map((column) => (
-                        <th key={column} className="pb-2 px-2 text-center font-medium">
+                        <th key={column} className="px-2 py-2.5 text-center font-medium">
                           {column}
                         </th>
                       ))}
@@ -767,7 +862,7 @@ export function ConstellationSettingsPage({
                         className="luxia-type-body-dense"
                       >
                         <td
-                          className="py-2 pr-4"
+                          className="px-4 py-2.5 pr-4"
                           style={{ color: "var(--luxia-text-primary)" }}
                         >
                           {row.role}
@@ -775,10 +870,10 @@ export function ConstellationSettingsPage({
                         {ROLE_COLUMNS.map((column) => (
                           <td
                             key={column}
-                            className="py-2 px-2 text-center"
+                            className="px-2 py-2.5 text-center"
                             style={{ color: "var(--luxia-text-secondary)" }}
                           >
-                            {roleHasAction(row.actions, column) ? "✓" : "—"}
+                            {roleHasAction(row.actions, column) ? "Allowed" : "—"}
                           </td>
                         ))}
                       </tr>
@@ -807,7 +902,14 @@ export function ConstellationSettingsPage({
                 Connected Data Source access
               </h3>
 
-              {accessConflicts.length === 0 ? (
+              {record.connectedSources.length === 0 ? (
+                <p
+                  className="luxia-type-body-dense"
+                  style={{ color: "var(--luxia-text-muted)" }}
+                >
+                  This Constellation does not have connected Data Sources yet.
+                </p>
+              ) : accessConflicts.length === 0 && currentProjectRole !== "Guest" ? (
                 <p
                   className="luxia-type-body-small"
                   style={{ color: "var(--luxia-text-secondary)" }}
@@ -816,11 +918,12 @@ export function ConstellationSettingsPage({
                 </p>
               ) : null}
 
-              <ul className="mt-3 divide-y" style={{ borderColor: "var(--luxia-border-subtle)" }}>
-                {record.sourceAccessRows.map((row) => (
+              {record.connectedSources.length > 0 ? (
+              <ul className={`mt-3 ${LUXIA_SETTINGS_LIST_SURFACE_CLASS} divide-y px-4`} style={{ borderColor: "var(--luxia-settings-row-divider)" }}>
+                {sourceAccessRows.map((row) => (
                   <li
                     key={row.sourceId}
-                    className="flex flex-wrap items-start justify-between gap-3 py-4 first:pt-0 last:pb-0"
+                    className="luxia-settings-row flex flex-wrap items-start justify-between gap-3 py-4"
                   >
                     <div className="min-w-0 flex-1">
                       <p
@@ -831,21 +934,24 @@ export function ConstellationSettingsPage({
                       </p>
                       <p
                         className="mt-1 luxia-type-caption"
-                        style={{ color: "var(--luxia-text-muted)" }}
+                        style={{ color: "var(--luxia-text-secondary)" }}
                       >
                         {formatSourceType(row.sourceType as ConnectedDataSource["type"])} ·{" "}
+                        Status: {formatSourceStatus(row.sourceStatus as ConnectedDataSource["status"])} ·{" "}
                         Requires {row.requiredPermission} · You have{" "}
                         {row.currentUserPermission}
                       </p>
                       <p
                         className="mt-1 luxia-type-caption"
                         style={{
-                          color: hasAccessConflict(row)
+                          color: hasAccessConflict(row) || currentProjectRole === "Guest"
                             ? "var(--luxia-error)"
                             : "var(--luxia-text-secondary)",
                         }}
                       >
-                        {accessConflictLabel(row)}
+                        {currentProjectRole === "Guest"
+                          ? "Restricted by Project role"
+                          : accessConflictLabel(row)}
                         {row.conflictNote ? ` · ${row.conflictNote}` : ""}
                       </p>
                       {row.accessLevelName !== "—" ? (
@@ -853,7 +959,9 @@ export function ConstellationSettingsPage({
                           className="mt-1 luxia-type-caption"
                           style={{ color: "var(--luxia-text-muted)" }}
                         >
-                          Access Level: {row.accessLevelName}
+                          {row.accessLevelName === "Owner access"
+                            ? "Data Source owner access"
+                            : `Data Source permission via ${row.accessLevelName}`}
                         </p>
                       ) : null}
                     </div>
@@ -866,14 +974,16 @@ export function ConstellationSettingsPage({
                       >
                         Open Data Source settings
                       </Button>
-                      {row.accessLevelName !== "—" && onOpenAccessLevels ? (
+                      {row.accessLevelName !== "—"
+                        && row.accessLevelName !== "Owner access"
+                        && onOpenAccessLevels ? (
                         <Button
                           type="button"
                           variant="outline"
                           size="compact"
                           onClick={onOpenAccessLevels}
                         >
-                          Open Access Level
+                          Open Access Levels
                         </Button>
                       ) : null}
                       {hasAccessConflict(row) ? (
@@ -890,27 +1000,28 @@ export function ConstellationSettingsPage({
                   </li>
                 ))}
               </ul>
+              ) : null}
             </TabsContent>
 
             <TabsContent
-              value="danger"
+              value="lifecycle"
               className={SETTINGS_TAB_PANEL_CLASS}
             >
               <p
                 className="mb-4 luxia-type-body-small"
                 style={{ color: "var(--luxia-text-secondary)" }}
               >
-                {CONSTELLATION_SETTINGS_GUIDANCE.dangerDescription}
+                {CONSTELLATION_SETTINGS_GUIDANCE.lifecycleDescription}
               </p>
 
-              <div className="divide-y" style={{ borderColor: "var(--luxia-border-subtle)" }}>
-              <div className="flex flex-wrap items-center justify-between gap-3 py-4 first:pt-0">
+              <div className={`${LUXIA_SETTINGS_LIST_SURFACE_CLASS} divide-y px-4`} style={{ borderColor: "var(--luxia-settings-row-divider)" }}>
+              <div className="luxia-settings-row flex flex-wrap items-center justify-between gap-3 py-4">
                 <div>
                   <p
                     className="luxia-type-body-default-strong"
                     style={{ color: "var(--luxia-text-primary)" }}
                   >
-                    Archive Constellation
+                    Archive this Constellation
                   </p>
                   <p
                     className="mt-1 luxia-type-body-small"
@@ -919,24 +1030,39 @@ export function ConstellationSettingsPage({
                     Hide this Constellation from active use. You can restore it
                     later.
                   </p>
+                  {!canArchiveConstellation ? (
+                    <p
+                      className="mt-1 luxia-type-caption"
+                      style={{ color: "var(--luxia-text-secondary)" }}
+                    >
+                      {lifecycleRoleHint
+                        ?? "Archive requires Project Owner or Project Manager."}
+                    </p>
+                  ) : null}
                 </div>
                 <Button
                   type="button"
                   variant="secondary"
                   size="compact"
+                  disabled={!canArchiveConstellation}
+                  title={
+                    canArchiveConstellation
+                      ? undefined
+                      : (lifecycleRoleHint ?? "Archive requires Project Owner or Project Manager.")
+                  }
                   onClick={() => setArchiveOpen(true)}
                 >
                   Archive
                 </Button>
               </div>
 
-              <div className="flex flex-wrap items-center justify-between gap-3 py-4 last:pb-0">
+              <div className="luxia-settings-row flex flex-wrap items-center justify-between gap-3 py-4">
                 <div>
                   <p
                     className="luxia-type-body-default-strong"
                     style={{ color: "var(--luxia-text-primary)" }}
                   >
-                    Delete Constellation
+                    Delete this Constellation
                   </p>
                   <p
                     className="mt-1 luxia-type-body-small"
@@ -945,11 +1071,26 @@ export function ConstellationSettingsPage({
                     Permanently remove this Constellation. Connected Data Sources
                     are not deleted.
                   </p>
+                  {!canDeleteConstellation ? (
+                    <p
+                      className="mt-1 luxia-type-caption"
+                      style={{ color: "var(--luxia-text-secondary)" }}
+                    >
+                      {lifecycleRoleHint
+                        ?? "Delete requires Project Owner."}
+                    </p>
+                  ) : null}
                 </div>
                 <Button
                   type="button"
                   variant="destructive"
                   size="compact"
+                  disabled={!canDeleteConstellation}
+                  title={
+                    canDeleteConstellation
+                      ? undefined
+                      : (lifecycleRoleHint ?? "Delete requires Project Owner.")
+                  }
                   onClick={() => setDeleteOpen(true)}
                 >
                   Delete

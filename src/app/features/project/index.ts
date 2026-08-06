@@ -48,6 +48,8 @@ export {
   getGalaxyPath,
   getDashboardPath,
   getConstellationsPath,
+  getProjectChatsPath,
+  getConstellationCreatePath,
   getConstellationSettingsPath,
   getConstellationSettingsCapabilityPath,
   getProjectMembersPath,

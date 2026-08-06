@@ -38,6 +38,9 @@ import { PDFFilesManager } from "@/app/features/pdf-files/PDFFilesManager";
 import type { PDFFileRecord } from "@/app/features/pdf-files/types";
 import { RelationshipManager } from "@/app/features/relationship/RelationshipManager";
 import type { RelationshipRecord } from "@/app/features/relationship/types";
+import {
+  LUXIA_SETTINGS_CONTENT_SURFACE_CLASS,
+} from "@/app/features/shared/luxiaSettingsUx";
 import type { ConstellationCapabilityBundle } from "./capabilityState";
 import { CONSTELLATION_SETTINGS_PAGE_VARIANT } from "./ia";
 
@@ -269,17 +272,33 @@ export function ConstellationCapabilityManagePage({
         );
       case "pdfFiles":
         return (
-          <PDFFilesManager
-            open
-            presentation="page"
-            files={bundle.pdfFiles}
-            fileKind={constellation.type === "csv" ? "csv" : "pdf"}
-            closeRef={closeRef}
-            onCommit={(pdfFiles: PDFFileRecord[]) => {
-              onUpdateBundle({ ...bundle, pdfFiles });
-            }}
-            onCancel={onCancel}
-          />
+          <>
+            {constellation.type === "csv" && bundle.csvParseConfig ? (
+              <div className="mb-4 grid gap-2 sm:grid-cols-2">
+                <p className="luxia-type-body-dense text-[var(--luxia-text-primary)]">
+                  <span className="font-medium">Delimiter:</span>{" "}
+                  {bundle.csvParseConfig.delimiter || ","}
+                </p>
+                <p className="luxia-type-body-dense text-[var(--luxia-text-primary)]">
+                  <span className="font-medium">Header row:</span>{" "}
+                  {bundle.csvParseConfig.hasHeader
+                    ? "First row contains column headers"
+                    : "No header row"}
+                </p>
+              </div>
+            ) : null}
+            <PDFFilesManager
+              open
+              presentation="page"
+              files={bundle.pdfFiles}
+              fileKind={constellation.type === "csv" ? "csv" : "pdf"}
+              closeRef={closeRef}
+              onCommit={(pdfFiles: PDFFileRecord[]) => {
+                onUpdateBundle({ ...bundle, pdfFiles });
+              }}
+              onCancel={onCancel}
+            />
+          </>
         );
       case "crawler":
         return (
@@ -378,7 +397,11 @@ export function ConstellationCapabilityManagePage({
         }
       />
 
-      <LuxiaPageBody>{manager}</LuxiaPageBody>
+      <LuxiaPageBody>
+        <div className={`${LUXIA_SETTINGS_CONTENT_SURFACE_CLASS} is-padded-sm`}>
+          {manager}
+        </div>
+      </LuxiaPageBody>
     </LuxiaPageFrame>
   );
 }

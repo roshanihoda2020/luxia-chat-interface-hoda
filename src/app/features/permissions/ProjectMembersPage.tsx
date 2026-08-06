@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import {
   LuxiaBreadcrumb,
   buildProjectOverviewBreadcrumbItems,
@@ -42,14 +43,27 @@ import { Textarea } from "@/app/components/ui/textarea";
 import { FilterField } from "@/app/features/home/browserShared";
 import { HS } from "@/app/features/home/homeSurfaces";
 import {
-  buildSourceReadinessSummary,
+  buildProjectDataReadiness,
   CURRENT_USER_ID,
+  formatAccessLevelNames,
+  getActiveProjectOwners,
   getOrganizationUserById,
   INVITABLE_PROJECT_ROLES,
   PROJECT_ROLE_DEFINITIONS,
+  resolveUserDataSourceAccess,
 } from "./data";
+import {
+  LUXIA_SETTINGS_CONTENT_SURFACE_CLASS,
+  LUXIA_SETTINGS_ROW_DIVIDER,
+} from "@/app/features/shared/luxiaSettingsUx";
 import { PROJECT_MEMBERS_GUIDANCE } from "./ia";
-import { LuxiaAccessGuide } from "./LuxiaAccessGuide";
+import {
+  canChangeProjectRole,
+  canInviteProjectMembers,
+  canRemoveProjectMember,
+  canTransferProjectOwnership,
+  PROJECT_ACTION_DENIED_MESSAGE,
+} from "./accessGuards";
 import type {
   AccessLevelRecord,
   DataSourceCatalogItem,
@@ -58,23 +72,8 @@ import type {
   ProjectRole,
 } from "./types";
 
-const PARENT_SURFACE_STYLE = {
-  background: "var(--luxia-surface)",
-  border: "1px solid var(--luxia-border-default)",
-  borderRadius: "var(--luxia-radius-12)",
-} as const;
-
-const ROW_DIVIDER = {
-  borderTop: "1px solid var(--luxia-border-subtle)",
-} as const;
-
-function formatMembershipDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
+const PARENT_SURFACE_CLASS = `${LUXIA_SETTINGS_CONTENT_SURFACE_CLASS} is-flush`;
+const ROW_DIVIDER = LUXIA_SETTINGS_ROW_DIVIDER;
 
 export interface ProjectMembersPageProps {
   project: { id: string; name: string };
@@ -82,6 +81,8 @@ export interface ProjectMembersPageProps {
   accessLevels: AccessLevelRecord[];
   organizationUsers: OrganizationUser[];
   dataSources: DataSourceCatalogItem[];
+  /** Unique Data Source IDs required by this Project's Constellations. */
+  projectRequiredSourceIds: string[];
   onSaveMemberships: (memberships: ProjectMembership[]) => void;
   onNavigateHome: () => void;
   onOpenProject: (projectId: string) => void;
@@ -95,6 +96,7 @@ export function ProjectMembersPage({
   accessLevels,
   organizationUsers,
   dataSources,
+  projectRequiredSourceIds,
   onSaveMemberships,
   onNavigateHome,
   onOpenProject,
@@ -144,6 +146,32 @@ export function ProjectMembersPage({
     (m) => m.projectRole === "Project Owner" && m.status === "active",
   );
 
+  const activeOwners = useMemo(
+    () => getActiveProjectOwners(project.id, memberships),
+    [memberships, project.id],
+  );
+  const hasDuplicateOwners = activeOwners.length > 1;
+  const hasMissingOwner = activeOwners.length === 0 && memberships.some((m) => m.status === "active");
+
+  const requiredSources = useMemo(
+    () =>
+      projectRequiredSourceIds
+        .map((id) => dataSources.find((source) => source.id === id))
+        .filter((source): source is DataSourceCatalogItem => Boolean(source)),
+    [projectRequiredSourceIds, dataSources],
+  );
+
+  function readinessFor(membership: ProjectMembership) {
+    return buildProjectDataReadiness({
+      userId: membership.userId,
+      projectRole: membership.projectRole,
+      membershipStatus: membership.status,
+      requiredSourceIds: projectRequiredSourceIds,
+      accessLevels,
+      dataSources,
+    });
+  }
+
   const sortedMemberships = useMemo(() => {
     return [...memberships].sort((a, b) => {
       if (a.projectRole === "Project Owner") return -1;
@@ -186,6 +214,10 @@ export function ProjectMembersPage({
   }
 
   function handleInvite() {
+    if (!canInviteProjectMembers(currentUserMembership?.projectRole)) {
+      toast.error(PROJECT_ACTION_DENIED_MESSAGE);
+      return;
+    }
     if (!inviteUserId) return;
     const next: ProjectMembership = {
       id: `pm-${project.id}-${Date.now()}`,
@@ -204,11 +236,24 @@ export function ProjectMembersPage({
 
   function confirmRemove() {
     if (!removeMembershipId) return;
+    const target = memberships.find((m) => m.id === removeMembershipId);
+    if (
+      !target
+      || !canRemoveProjectMember(currentUserMembership?.projectRole, target)
+    ) {
+      toast.error(PROJECT_ACTION_DENIED_MESSAGE);
+      setRemoveMembershipId(null);
+      return;
+    }
     persist(memberships.filter((m) => m.id !== removeMembershipId));
     setRemoveMembershipId(null);
   }
 
   function confirmTransfer() {
+    if (!canTransferProjectOwnership(currentUserMembership?.projectRole)) {
+      toast.error(PROJECT_ACTION_DENIED_MESSAGE);
+      return;
+    }
     if (!ownerMembership || !transferTargetUserId) return;
     persist(
       memberships.map((m) => {
@@ -226,27 +271,68 @@ export function ProjectMembersPage({
     setTransferNewRole("Project Manager");
   }
 
-  function buildAccessSummary(userId: string): string {
-    const user = getOrganizationUserById(userId);
-    const readiness = buildSourceReadinessSummary(
-      userId,
-      accessLevels,
-      dataSources,
-    );
-    const levels = accessLevels.filter((level) =>
-      level.memberUserIds.includes(userId),
-    );
-    const levelNames =
-      levels.length > 0
-        ? levels.map((l) => l.name).join(", ")
-        : "None assigned";
-
-    return `${user?.name ?? userId}: ${readiness}. Access Levels: ${levelNames}.`;
+  function permissionSourceLabel(
+    resolved: ReturnType<typeof resolveUserDataSourceAccess>,
+  ): string {
+    if (resolved.viaOwner) return "Private source owner";
+    const names = formatAccessLevelNames(resolved.accessLevelNames);
+    if (resolved.permission && names) {
+      return `${resolved.permission} via ${names}`;
+    }
+    if (resolved.permission) return resolved.permission;
+    return "No Data Source permission";
   }
 
+  function buildAccessSummaryDetails(userId: string) {
+    const user = getOrganizationUserById(userId);
+    const membership = memberships.find((m) => m.userId === userId);
+    const readiness = membership
+      ? readinessFor(membership)
+      : buildProjectDataReadiness({
+          userId,
+          projectRole: "Member",
+          membershipStatus: "active",
+          requiredSourceIds: projectRequiredSourceIds,
+          accessLevels,
+          dataSources,
+        });
+
+    const sourceRows = requiredSources.map((source) => {
+      const resolved = resolveUserDataSourceAccess(
+        userId,
+        source.id,
+        accessLevels,
+        dataSources,
+      );
+      return {
+        source,
+        resolved,
+        label: permissionSourceLabel(resolved),
+      };
+    });
+
+    return {
+      user,
+      membership,
+      readiness,
+      sourceRows,
+    };
+  }
+
+  const invitePreview = inviteUserId
+    ? buildProjectDataReadiness({
+        userId: inviteUserId,
+        projectRole: inviteRole,
+        membershipStatus: "active",
+        requiredSourceIds: projectRequiredSourceIds,
+        accessLevels,
+        dataSources,
+      })
+    : null;
+
   const inviteReadinessNote = inviteUserId
-    ? buildSourceReadinessSummary(inviteUserId, accessLevels, dataSources)
-    : "Select a user to preview Data Source readiness.";
+    ? `After accept: ${invitePreview?.label ?? "—"}. Invitation stays pending until accepted.`
+    : "Select a user to preview Data Source readiness for this Project.";
 
   const roleChangeMembership = roleChangeMembershipId
     ? memberships.find((m) => m.id === roleChangeMembershipId)
@@ -269,7 +355,17 @@ export function ProjectMembersPage({
   }
 
   function confirmRoleChange() {
-    if (!roleChangeMembershipId) return;
+    if (!roleChangeMembershipId || !roleChangeMembership) return;
+    if (
+      !canChangeProjectRole(
+        currentUserMembership?.projectRole,
+        roleChangeValue,
+      )
+    ) {
+      toast.error(PROJECT_ACTION_DENIED_MESSAGE);
+      setRoleChangeMembershipId(null);
+      return;
+    }
     updateMembership(roleChangeMembershipId, { projectRole: roleChangeValue });
     setRoleChangeMembershipId(null);
   }
@@ -302,39 +398,20 @@ export function ProjectMembersPage({
             handlers={breadcrumbHandlers}
           />
         }
-        guide={
-          <div className="space-y-1">
-            <p>{PROJECT_MEMBERS_GUIDANCE.pageDescription}</p>
-            <p className="luxia-type-caption" style={{ color: "var(--luxia-blue-60)" }}>
-              {PROJECT_MEMBERS_GUIDANCE.pageRule}
-            </p>
-          </div>
+        guide={PROJECT_MEMBERS_GUIDANCE.pageDescription}
+        context={
+          <p className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
+            {PROJECT_MEMBERS_GUIDANCE.pageRule}
+          </p>
         }
         secondaryAction={
-          <>
-            <LuxiaAccessGuide
-              content={{
-                title: "Project access guide",
-                sections: [
-                  {
-                    heading: "Members & Roles",
-                    body: PROJECT_MEMBERS_GUIDANCE.pageDescription,
-                  },
-                  {
-                    heading: "Scope",
-                    body: PROJECT_MEMBERS_GUIDANCE.pageRule,
-                  },
-                ],
-              }}
-            />
-            <Button
-              type="button"
-              {...LUXIA_PAGE_HEADER_ACTION.secondary}
-              onClick={() => setRolesOpen(true)}
-            >
-              Compare roles
-            </Button>
-          </>
+          <Button
+            type="button"
+            {...LUXIA_PAGE_HEADER_ACTION.secondary}
+            onClick={() => setRolesOpen(true)}
+          >
+            Compare Project roles
+          </Button>
         }
         primaryAction={
           <Button
@@ -342,6 +419,11 @@ export function ProjectMembersPage({
             {...LUXIA_PAGE_HEADER_ACTION.primary}
             onClick={() => setInviteOpen(true)}
             disabled={!canInvite}
+            title={
+              canInvite
+                ? undefined
+                : "Invite Member requires Project Owner or Project Manager."
+            }
           >
             Invite Member
           </Button>
@@ -349,17 +431,46 @@ export function ProjectMembersPage({
       />
 
       <LuxiaPageBody>
-        <div style={PARENT_SURFACE_STYLE}>
+        {hasDuplicateOwners ? (
+          <div
+            className="mb-4 luxia-settings-summary-surface"
+            role="alert"
+          >
+            <p className="luxia-type-body-dense-strong" style={{ color: "var(--luxia-error)" }}>
+              Invalid membership seed
+            </p>
+            <p className="mt-1 luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
+              This Project has {activeOwners.length} active Project Owners. Exactly one is required.
+              Transfer ownership or fix the seed before continuing.
+            </p>
+          </div>
+        ) : null}
+        {hasMissingOwner ? (
+          <div
+            className="mb-4 luxia-settings-summary-surface"
+            role="alert"
+          >
+            <p className="luxia-type-body-dense-strong" style={{ color: "var(--luxia-error)" }}>
+              Missing Project Owner
+            </p>
+            <p className="mt-1 luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
+              This Project has active members but no Project Owner.
+            </p>
+          </div>
+        ) : null}
+
+        <div className={PARENT_SURFACE_CLASS}>
+          {sortedMemberships.length === 0 ? (
+            <p className="px-4 py-6 luxia-type-body-dense" style={{ color: "var(--luxia-text-secondary)" }}>
+              This Project has no members yet.
+            </p>
+          ) : (
           <ul>
             {sortedMemberships.map((membership, index) => {
               const user = getOrganizationUserById(membership.userId);
               const isOwner = membership.projectRole === "Project Owner";
               const isPending = membership.status === "pending";
-              const readiness = buildSourceReadinessSummary(
-                membership.userId,
-                accessLevels,
-                dataSources,
-              );
+              const readiness = readinessFor(membership);
 
               return (
                 <li
@@ -375,28 +486,33 @@ export function ProjectMembersPage({
                       >
                         {user?.name ?? membership.userId}
                       </p>
-                      <div
-                        className="mt-1 flex flex-wrap gap-x-3 gap-y-1 luxia-type-body-dense"
-                        style={{ color: "var(--luxia-text-secondary)" }}
+                      <p
+                        className="mt-1 luxia-type-body-dense"
+                        style={{ color: "var(--luxia-text-primary)" }}
                       >
-                        <span>{membership.projectRole}</span>
-                        <span style={{ textTransform: "capitalize" }}>
-                          {membership.status}
+                        {membership.projectRole}
+                        <span
+                          className="ms-2 luxia-type-caption"
+                          style={{ color: "var(--luxia-text-muted)" }}
+                        >
+                          {membership.status === "pending"
+                            ? "Pending invitation"
+                            : "Active"}
                         </span>
-                      </div>
+                      </p>
                       <p
                         className="mt-2 luxia-type-caption"
                         style={{ color: "var(--luxia-text-muted)" }}
                       >
-                        {user?.orgRole ?? "—"} org role ·{" "}
-                        {isPending ? "Invited" : "Joined"}{" "}
-                        {formatMembershipDate(membership.joinedOrInvitedAt)}
+                        {user?.email ?? "—"}
+                        {" · "}
+                        Organization role: {user?.orgRole ?? "—"}
                       </p>
                       <p
                         className="mt-1 luxia-type-caption"
-                        style={{ color: "var(--luxia-text-muted)" }}
+                        style={{ color: "var(--luxia-text-secondary)" }}
                       >
-                        {readiness}
+                        Project data readiness: {readiness.label}
                       </p>
                     </div>
 
@@ -410,9 +526,9 @@ export function ProjectMembersPage({
                             setAccessSummaryUserId(membership.userId)
                           }
                         >
-                          View access summary
+                          Review Data Source access
                         </Button>
-                        {isCurrentUserOwner ? (
+                        {isCurrentUserOwner && !hasDuplicateOwners ? (
                           <Button
                             type="button"
                             variant="outline"
@@ -439,6 +555,7 @@ export function ProjectMembersPage({
                             id: "change-role",
                             label: "Change intended role",
                             onSelect: () => openRoleChange(membership),
+                            disabled: !canInvite,
                           },
                           {
                             id: "cancel",
@@ -447,6 +564,7 @@ export function ProjectMembersPage({
                             separatorBefore: true,
                             onSelect: () =>
                               setRemoveMembershipId(membership.id),
+                            disabled: !canInvite,
                           },
                         ]}
                       />
@@ -457,25 +575,24 @@ export function ProjectMembersPage({
                         items={[
                           {
                             id: "change-role",
-                            label: "Change role",
+                            label: "Change Project role",
                             onSelect: () => openRoleChange(membership),
-                            disabled: !isCurrentUserOwner
-                              && currentUserMembership?.projectRole !== "Project Manager",
+                            disabled: !canInvite,
                           },
                           {
                             id: "access-summary",
-                            label: "View access summary",
+                            label: "Review Data Source access",
                             onSelect: () =>
                               setAccessSummaryUserId(membership.userId),
                           },
                           {
                             id: "remove",
-                            label: "Remove",
+                            label: "Remove from Project",
                             destructive: true,
                             separatorBefore: true,
                             onSelect: () =>
                               setRemoveMembershipId(membership.id),
-                            disabled: !isCurrentUserOwner,
+                            disabled: !canInvite,
                           },
                         ]}
                       />
@@ -485,6 +602,7 @@ export function ProjectMembersPage({
               );
             })}
           </ul>
+          )}
         </div>
       </LuxiaPageBody>
 
@@ -538,16 +656,22 @@ export function ProjectMembersPage({
                   <SelectValue placeholder="Select user" />
                 </SelectTrigger>
                 <SelectContent>
-                  {inviteCandidates.map((user) => (
-                    <SelectItem key={user.id} value={user.id}>
-                      {user.name} ({user.email})
+                  {inviteCandidates.length === 0 ? (
+                    <SelectItem value="__none" disabled>
+                      All organization users are already in this Project
                     </SelectItem>
-                  ))}
+                  ) : (
+                    inviteCandidates.map((user) => (
+                      <SelectItem key={user.id} value={user.id}>
+                        {user.name} ({user.email})
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             </FilterField>
 
-            <FilterField label="Role" htmlFor="invite-role">
+            <FilterField label="Project role" htmlFor="invite-role">
               <Select
                 value={inviteRole}
                 onValueChange={(value) =>
@@ -581,7 +705,8 @@ export function ProjectMembersPage({
               className="luxia-type-caption rounded-[8px] px-3 py-2"
               style={{
                 color: "var(--luxia-text-secondary)",
-                background: "var(--luxia-surface-subtle)",
+                background: "var(--luxia-settings-section-bg)",
+                border: "1px solid var(--luxia-settings-section-border)",
               }}
             >
               Data Source readiness: {inviteReadinessNote}
@@ -616,48 +741,103 @@ export function ProjectMembersPage({
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle style={{ color: "var(--luxia-purple-70)" }}>
-              Access summary
+              Data Source access
             </DialogTitle>
             <DialogDescription>
-              Effective Data Source access from Access Levels (prototype).
+              Project-required Data Sources for {project.name} (prototype preview).
             </DialogDescription>
           </DialogHeader>
-          {accessSummaryUserId ? (
-            <div className="space-y-3">
-              <p
-                className="luxia-type-body-dense"
-                style={{ color: "var(--luxia-text-secondary)" }}
-              >
-                {buildAccessSummary(accessSummaryUserId)}
-              </p>
-              {onOpenAccessLevels ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="compact"
-                  onClick={onOpenAccessLevels}
-                >
-                  Open Access Levels
-                </Button>
-              ) : null}
-              {onOpenDataSourceSettings && dataSources.length > 0 ? (
-                <ul className="space-y-2">
-                  {dataSources.slice(0, 4).map((source) => (
-                    <li key={source.id}>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="compact"
-                        onClick={() => onOpenDataSourceSettings(source.id)}
+          {accessSummaryUserId ? (() => {
+            const details = buildAccessSummaryDetails(accessSummaryUserId);
+            return (
+              <div className="space-y-3">
+                <dl className="space-y-2 luxia-type-body-dense" style={{ color: "var(--luxia-text-secondary)" }}>
+                  <div>
+                    <dt className="luxia-type-metadata" style={{ color: "var(--luxia-text-muted)" }}>User</dt>
+                    <dd>{details.user?.name ?? accessSummaryUserId}</dd>
+                  </div>
+                  <div>
+                    <dt className="luxia-type-metadata" style={{ color: "var(--luxia-text-muted)" }}>Organization role</dt>
+                    <dd>{details.user?.orgRole ?? "—"}</dd>
+                  </div>
+                  <div>
+                    <dt className="luxia-type-metadata" style={{ color: "var(--luxia-text-muted)" }}>Project role</dt>
+                    <dd>{details.membership?.projectRole ?? "—"}</dd>
+                  </div>
+                  <div>
+                    <dt className="luxia-type-metadata" style={{ color: "var(--luxia-text-muted)" }}>Membership</dt>
+                    <dd>
+                      {details.membership?.status === "pending"
+                        ? "Pending invitation"
+                        : "Active"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="luxia-type-metadata" style={{ color: "var(--luxia-text-muted)" }}>Project readiness</dt>
+                    <dd>{details.readiness.label}</dd>
+                  </div>
+                </dl>
+
+                {details.sourceRows.length === 0 ? (
+                  <p className="luxia-type-caption" style={{ color: "var(--luxia-text-muted)" }}>
+                    No connected Data Sources for this Project.
+                  </p>
+                ) : (
+                  <ul className="space-y-2">
+                    {details.sourceRows.map(({ source, label }) => (
+                      <li
+                        key={source.id}
+                        className="flex flex-wrap items-center justify-between gap-2 rounded-[8px] px-3 py-2"
+                        style={{
+                          background: "var(--luxia-settings-section-bg)",
+                          border: "1px solid var(--luxia-settings-section-border)",
+                        }}
                       >
-                        Open {source.name}
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-            </div>
-          ) : null}
+                        <div className="min-w-0">
+                          <p className="luxia-type-body-dense-strong" style={{ color: "var(--luxia-text-primary)" }}>
+                            {source.name}
+                          </p>
+                          <p className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
+                            {source.type} · {source.status} · {label}
+                          </p>
+                        </div>
+                        {onOpenDataSourceSettings ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="compact"
+                            onClick={() => onOpenDataSourceSettings(source.id)}
+                          >
+                            Open
+                          </Button>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                {details.readiness.missingSourceIds.length > 0 ? (
+                  <p className="luxia-type-caption" style={{ color: "var(--luxia-text-muted)" }}>
+                    Missing or insufficient:{" "}
+                    {details.readiness.missingSourceIds
+                      .map((id) => dataSources.find((s) => s.id === id)?.name ?? id)
+                      .join(", ")}
+                  </p>
+                ) : null}
+
+                {onOpenAccessLevels ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="compact"
+                    onClick={onOpenAccessLevels}
+                  >
+                    Open Access Levels
+                  </Button>
+                ) : null}
+              </div>
+            );
+          })() : null}
         </DialogContent>
       </Dialog>
 
@@ -751,7 +931,7 @@ export function ProjectMembersPage({
               Project roles cannot include Owner via this action.
             </DialogDescription>
           </DialogHeader>
-          <FilterField label="Role" htmlFor="change-role">
+          <FilterField label="Project role" htmlFor="change-role">
             <Select
               value={roleChangeValue}
               onValueChange={(value) =>
@@ -799,10 +979,22 @@ export function ProjectMembersPage({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove member?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {memberships.find((m) => m.id === removeMembershipId)?.status === "pending"
+                ? "Cancel invitation?"
+                : "Remove from Project?"}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              This removes the user from the Project. Data Source access via
-              Access Levels is unchanged.
+              {(() => {
+                const membership = memberships.find((m) => m.id === removeMembershipId);
+                const user = membership
+                  ? getOrganizationUserById(membership.userId)
+                  : undefined;
+                if (membership?.status === "pending") {
+                  return `Cancel the invitation for ${user?.name ?? "this user"}. Organization account, Access Levels, and Data Sources are unchanged.`;
+                }
+                return `Remove ${user?.name ?? "this user"} from this Project only. Organization account, Access Level membership, and private Data Source ownership are unchanged.`;
+              })()}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
