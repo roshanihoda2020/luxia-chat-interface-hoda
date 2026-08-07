@@ -396,21 +396,8 @@ function LuxiaLogo() {
 }
 
 function CollapsedStarLogo() {
-  const reduceMotion =
-    typeof window !== "undefined"
-    && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   return (
-    <div
-      aria-label="Luxia"
-      role="img"
-      style={
-        reduceMotion
-          ? undefined
-          : {
-            animation: "luxia-sidebar-star-spin 24s linear infinite",
-          }
-      }
-    >
+    <div aria-label="Luxia" role="img">
       <LuxiaStarLogo size={26} />
     </div>
   );
@@ -1047,13 +1034,6 @@ export function LeftNav({
           : null),
       }}
     >
-      <style>{`
-        @keyframes luxia-sidebar-star-spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
-
       <div
         className="relative flex h-full min-h-0 flex-col overflow-hidden"
         style={{ background: LX.gradient.nav, width: "100%" }}

@@ -235,6 +235,36 @@ export function buildGalaxyBreadcrumbItems(input: {
   ];
 }
 
+/** Project / Galaxy / Settings — Galaxy Settings page breadcrumb. */
+export function buildGalaxySettingsBreadcrumbItems(input: {
+  projectId: string;
+  projectName: string;
+  galaxyId: string;
+  galaxyName: string;
+}): LuxiaBreadcrumbItem[] {
+  return [
+    {
+      id: `project-${input.projectId}`,
+      label: input.projectName,
+      destination: { kind: "project", projectId: input.projectId },
+    },
+    {
+      id: `galaxy-${input.galaxyId}`,
+      label: "Galaxy",
+      destination: {
+        kind: "galaxy",
+        projectId: input.projectId,
+        galaxyId: input.galaxyId,
+      },
+    },
+    {
+      id: "settings",
+      label: "Settings",
+      destination: { kind: "current" },
+    },
+  ];
+}
+
 export function buildProjectOverviewBreadcrumbItems(input: {
   projectId: string;
   projectName: string;

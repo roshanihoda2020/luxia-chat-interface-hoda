@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import {
   LuxiaBreadcrumb,
   buildConstellationSettingsBreadcrumbItems,
@@ -41,6 +42,7 @@ import { FilterField } from "@/app/features/home/browserShared";
 import { HS } from "@/app/features/home/homeSurfaces";
 import type { AccessLevelRecord, ProjectRole } from "@/app/features/permissions";
 import { CURRENT_USER_ID, getOrganizationUserById } from "@/app/features/permissions";
+import { LuxiaSettingsFormActions } from "@/app/features/shared/LuxiaSettingsFormActions";
 import {
   LUXIA_DIRTY_STATE_COPY,
   LUXIA_SETTINGS_CONTENT_SURFACE_CLASS,
@@ -198,7 +200,6 @@ export function ConstellationSettingsPage({
   const [generalDraft, setGeneralDraft] = useState(() =>
     draftFromSettings(record),
   );
-  const [saveNotice, setSaveNotice] = useState<string | null>(null);
   const [disconnectSourceId, setDisconnectSourceId] = useState<string | null>(
     null,
   );
@@ -207,7 +208,6 @@ export function ConstellationSettingsPage({
 
   useEffect(() => {
     setGeneralDraft(draftFromSettings(record));
-    setSaveNotice(null);
   }, [record]);
 
   useEffect(() => {
@@ -287,12 +287,11 @@ export function ConstellationSettingsPage({
       name: generalDraft.name.trim(),
       description: generalDraft.description.trim(),
     });
-    setSaveNotice(LUXIA_DIRTY_STATE_COPY.saveSuccess);
+    toast.success(LUXIA_DIRTY_STATE_COPY.saveSuccess);
   }
 
   function handleCancelGeneral() {
     setGeneralDraft(draftFromSettings(record));
-    setSaveNotice(null);
   }
 
   function confirmDisconnect() {
@@ -357,7 +356,7 @@ export function ConstellationSettingsPage({
             name: trimmed,
             description: generalDraft.description.trim(),
           });
-          setSaveNotice(LUXIA_DIRTY_STATE_COPY.saveSuccess);
+          toast.success(LUXIA_DIRTY_STATE_COPY.saveSuccess);
         } : undefined}
         renameLabel={`Rename ${record.name}`}
         breadcrumb={
@@ -368,43 +367,25 @@ export function ConstellationSettingsPage({
           />
         }
         context={
-          <div className="space-y-1">
-            <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
-              <p
-                className="luxia-type-caption min-w-0"
-                style={{ color: "var(--luxia-text-secondary)" }}
-              >
-                {constellationTypeLabel(record.type)}
-                {" · "}
-                {record.status === "active" ? "Active" : "Archived"}
-                {" · "}
-                {record.projectName}
-              </p>
-              <LuxiaPageEntityUpdatedMeta updatedAt={record.updatedAt} />
-            </div>
-            {activeSection === "general" && generalDirty ? (
-              <p
-                className="luxia-type-caption"
-                style={{ color: "var(--luxia-text-secondary)" }}
-              >
-                {LUXIA_DIRTY_STATE_COPY.unsaved}
-              </p>
-            ) : saveNotice ? (
-              <p
-                className="luxia-type-caption"
-                style={{ color: "var(--luxia-text-muted)" }}
-              >
-                {saveNotice}
-              </p>
-            ) : null}
+          <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
+            <p
+              className="luxia-type-caption min-w-0"
+              style={{ color: "var(--luxia-text-secondary)" }}
+            >
+              {constellationTypeLabel(record.type)}
+              {" · "}
+              {record.status === "active" ? "Active" : "Archived"}
+              {" · "}
+              {record.projectName}
+            </p>
+            <LuxiaPageEntityUpdatedMeta updatedAt={record.updatedAt} />
           </div>
         }
         secondaryAction={
           relatedChats.length === 1 && onOpenChat
             || relatedChats.length > 1
-            || (activeSection === "general" && generalDirty)
             ? (
-          <div className="flex flex-wrap items-center justify-end gap-2">
+          <div className="flex flex-nowrap items-center justify-end gap-2">
             {relatedChats.length === 1 && onOpenChat ? (
               <Button
                 type="button"
@@ -442,15 +423,6 @@ export function ConstellationSettingsPage({
                   ) : null}
                 </DropdownMenuContent>
               </DropdownMenu>
-            ) : null}
-            {activeSection === "general" && generalDirty ? (
-              <Button
-                type="button"
-                {...LUXIA_PAGE_HEADER_ACTION.secondary}
-                onClick={handleCancelGeneral}
-              >
-                {LUXIA_DIRTY_STATE_COPY.cancel}
-              </Button>
             ) : null}
           </div>
             ) : null
@@ -498,21 +470,13 @@ export function ConstellationSettingsPage({
           })()
         }
         primaryAction={
-          relatedChats.length === 0 && onCreateChat && !(activeSection === "general" && generalDirty) ? (
+          relatedChats.length === 0 && onCreateChat ? (
             <Button
               type="button"
               {...LUXIA_PAGE_HEADER_ACTION.primary}
               onClick={() => onCreateChat(record.projectId, record.id)}
             >
               Create Chat
-            </Button>
-          ) : activeSection === "general" && generalDirty && canConfigureConstellation ? (
-            <Button
-              type="button"
-              {...LUXIA_PAGE_HEADER_ACTION.primary}
-              onClick={handleSaveGeneral}
-            >
-              {LUXIA_DIRTY_STATE_COPY.save}
             </Button>
           ) : null
         }
@@ -582,7 +546,6 @@ export function ConstellationSettingsPage({
                         ...prev,
                         name: event.target.value,
                       }));
-                      setSaveNotice(null);
                     }}
                   />
                 </FilterField>
@@ -597,12 +560,18 @@ export function ConstellationSettingsPage({
                         ...prev,
                         description: event.target.value,
                       }));
-                      setSaveNotice(null);
                     }}
                     rows={4}
                   />
                 </FilterField>
               </div>
+
+              <LuxiaSettingsFormActions
+                dirty={generalDirty}
+                canSave={canConfigureConstellation && activeSection === "general"}
+                onSave={handleSaveGeneral}
+                onCancel={handleCancelGeneral}
+              />
 
               <dl
                 className="mt-6 grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3"

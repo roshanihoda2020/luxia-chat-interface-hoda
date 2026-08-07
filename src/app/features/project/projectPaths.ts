@@ -6,6 +6,29 @@ export function getGalaxyPath(projectId: string): string {
   return `/projects/${encodeURIComponent(projectId)}/galaxy`;
 }
 
+export type GalaxySettingsTabQuery =
+  | "general"
+  | "instruction-response"
+  | "constellation-routing"
+  | "helios-tools"
+  | "tools-helios"
+  | "access-availability";
+
+export function getGalaxySettingsPath(
+  projectId: string,
+  options?: {
+    tab?: GalaxySettingsTabQuery | null;
+    /** When true, include `?tab=general`. External opens omit the query (General default). */
+    includeTabQuery?: boolean;
+  },
+): string {
+  const base = `/projects/${encodeURIComponent(projectId)}/galaxy/settings`;
+  const tab = options?.tab ?? null;
+  if (!tab) return base;
+  if (tab === "general" && !options?.includeTabQuery) return base;
+  return `${base}?tab=${encodeURIComponent(tab)}`;
+}
+
 export function getDashboardPath(projectId: string): string {
   return `/projects/${encodeURIComponent(projectId)}/dashboard`;
 }
@@ -102,6 +125,12 @@ export function parseProjectIdFromPath(pathname: string): string | null {
 
 export function parseGalaxyProjectIdFromPath(pathname: string): string | null {
   const match = pathname.match(/^\/projects\/([^/]+)\/galaxy\/?$/);
+  if (!match?.[1]) return null;
+  return decodePathSegment(match[1]);
+}
+
+export function parseGalaxySettingsProjectIdFromPath(pathname: string): string | null {
+  const match = pathname.match(/^\/projects\/([^/]+)\/galaxy\/settings\/?$/);
   if (!match?.[1]) return null;
   return decodePathSegment(match[1]);
 }
@@ -218,6 +247,7 @@ export type LuxiaResolvedPath =
   | { kind: "home"; normalizeToRoot: boolean }
   | { kind: "project"; projectId: string }
   | { kind: "galaxy"; projectId: string }
+  | { kind: "galaxy-settings"; projectId: string }
   | { kind: "dashboard"; projectId: string }
   | { kind: "constellations"; projectId: string }
   | { kind: "project-chats"; projectId: string }
@@ -260,6 +290,11 @@ export function resolveLuxiaPathname(pathname: string): LuxiaResolvedPath {
   const dataSourceId = parseDataSourceSettingsFromPath(pathname);
   if (dataSourceId) {
     return { kind: "data-source-settings", dataSourceId };
+  }
+
+  const galaxySettingsProjectId = parseGalaxySettingsProjectIdFromPath(pathname);
+  if (galaxySettingsProjectId) {
+    return { kind: "galaxy-settings", projectId: galaxySettingsProjectId };
   }
 
   const galaxyProjectId = parseGalaxyProjectIdFromPath(pathname);

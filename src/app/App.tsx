@@ -23,6 +23,7 @@ import {
   GalaxyProvenanceRow,
   GalaxyRouteSelector,
   GALAXY_COLLAPSED_WIDTH,
+  GALAXY_DEFAULT_INSTRUCTION,
   GALAXY_PANEL_OUTER_GAP,
   buildGalaxyRouteCatalog,
   createIdleGalaxySession,
@@ -42,6 +43,7 @@ import {
   getGalaxyEntityKey,
   getProjectPath,
   getGalaxyPath,
+  getGalaxySettingsPath,
   getDashboardPath,
   getChatPath,
   getConstellationChatPath,
@@ -99,6 +101,18 @@ import {
   constellationSettingsSectionToTab,
   parseConstellationSettingsTabFromSearch,
 } from "@/app/features/constellation-settings";
+import {
+  GalaxySettingsPage,
+  GALAXY_CONFIGURE_DENIED_MESSAGE,
+  GALAXY_MANUAL_ROUTE_REQUIRED_MESSAGE,
+  buildGalaxySettingsRecord,
+  cloneGalaxySettingsRecord,
+  galaxySettingsSectionToTab,
+  parseGalaxySettingsTabFromSearch,
+  type GalaxySettingsDraft,
+  type GalaxySettingsRecord,
+  type GalaxySettingsSectionId,
+} from "@/app/features/galaxy-settings";
 import { Toaster, toast } from "sonner";
 import {
   CAPSULE_CAPABILITY_ICON,
@@ -701,6 +715,7 @@ type LuxiaAppView =
   | "project"
   | "constellation-create"
   | "constellation-settings"
+  | "galaxy-settings"
   | "project-members"
   | "access-levels"
   | "access-level"
@@ -4042,6 +4057,11 @@ export default function App() {
   const [settingsSection, setSettingsSection] = useState<ConstellationSettingsSectionId>(
     INITIAL_SHELL.settingsSection,
   );
+  const [galaxySettingsSection, setGalaxySettingsSection] = useState<GalaxySettingsSectionId>("general");
+  const [galaxySettingsFocusHeadingToken, setGalaxySettingsFocusHeadingToken] = useState(0);
+  const [galaxySettingsById, setGalaxySettingsById] = useState<
+    Record<string, GalaxySettingsRecord>
+  >({});
   const [settingsFocusHeadingToken, setSettingsFocusHeadingToken] = useState(0);
   const [accessLevelId, setAccessLevelId] = useState<string | null>(
     INITIAL_SHELL.accessLevelId,
@@ -4170,6 +4190,7 @@ export default function App() {
       setSettingsConstellationId(null);
       setSettingsCapabilityPath(null);
       setSettingsSection("general");
+      setGalaxySettingsSection("general");
       setAccessLevelId(null);
       setDataSourceSettingsId(null);
     }
@@ -4256,9 +4277,21 @@ export default function App() {
             ? "configuration"
             : parseConstellationSettingsTabFromSearch(search),
         );
+        setGalaxySettingsSection("general");
         setAccessLevelId(null);
         setDataSourceSettingsId(null);
         setAppView("constellation-settings");
+        return;
+      }
+
+      if (resolved.kind === "galaxy-settings") {
+        setActiveProjectId(resolved.projectId);
+        setSettingsConstellationId(null);
+        setSettingsCapabilityPath(null);
+        setGalaxySettingsSection(parseGalaxySettingsTabFromSearch(search));
+        setAccessLevelId(null);
+        setDataSourceSettingsId(null);
+        setAppView("galaxy-settings");
         return;
       }
 
@@ -4449,7 +4482,7 @@ export default function App() {
 
   const contextProjectId = appView === "home" || appView === "access-levels" || appView === "access-level" || appView === "data-source-settings"
     ? null
-    : appView === "project" || appView === "constellation-create" || appView === "constellation-settings" || appView === "project-members"
+    : appView === "project" || appView === "constellation-create" || appView === "constellation-settings" || appView === "galaxy-settings" || appView === "project-members"
       ? activeProjectId
       : (activeData?.projectId ?? activeProjectId);
 
@@ -4467,6 +4500,7 @@ export default function App() {
       return "overview";
     }
     if (appView === "constellation-settings") return "constellations";
+    if (appView === "galaxy-settings") return "galaxy";
     if (appView === "constellation-create") return "constellations";
     if (appView === "project-members") return "members";
     if (appView === "chat") {
@@ -4486,6 +4520,15 @@ export default function App() {
     }
     return map;
   }, [chats]);
+
+  const galaxyInstructionById = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const chat of [...INITIAL_CHATS, ...chats]) {
+      if (chat.chatType !== "galaxy") continue;
+      map[chat.id] = galaxySettingsById[chat.id]?.instruction ?? GALAXY_DEFAULT_INSTRUCTION;
+    }
+    return map;
+  }, [chats, galaxySettingsById]);
 
   const overviewChats: ProjectOverviewChat[] = useMemo(() => {
     const source = [...INITIAL_CHATS, ...chats.filter((c) => !INITIAL_CHATS.some((i) => i.id === c.id))];
@@ -5131,6 +5174,7 @@ export default function App() {
       appView === "project"
       || appView === "project-members"
       || appView === "constellation-settings"
+      || appView === "galaxy-settings"
       || appView === "constellation-create"
       || appView === "chat";
 
@@ -5647,6 +5691,14 @@ export default function App() {
         ? { ...chat, label: trimmed }
         : chat
     )));
+    setGalaxySettingsById((prev) => {
+      const existing = prev[galaxyId];
+      if (!existing) return prev;
+      return {
+        ...prev,
+        [galaxyId]: { ...existing, name: trimmed, updatedAt: "Just now" },
+      };
+    });
   }
 
   function handleSetPrimaryHero(entityKey: string) {
@@ -5767,7 +5819,11 @@ export default function App() {
     setAppView("chat");
   }
 
-  function handleOpenGalaxySettingsFromOverview(projectId: string) {
+  function handleOpenGalaxySettingsFromOverview(
+    projectId: string,
+    section: GalaxySettingsSectionId = "general",
+    options?: { explicitTab?: boolean; focusHeading?: boolean },
+  ) {
     const galaxyChat = findGalaxyChatForProject(projectId, chats, homeProjects);
 
     if (!galaxyChat || galaxyChat.projectId !== projectId) {
@@ -5778,17 +5834,144 @@ export default function App() {
     }
 
     setActiveProjectId(projectId);
-    if (!ensureChatOpen(galaxyChat.id)) return;
-
-    const session = galaxySessions[galaxyChat.id]
-      ?? createIdleGalaxySession(getProjectNameById(projectId, homeProjects));
-    updateGalaxySession(galaxyChat.id, {
-      expandSignal: (session.expandSignal ?? 0) + 1,
-      focusSection: "instruction",
+    setGalaxySettingsSection(section);
+    setAppView("galaxy-settings");
+    syncGalaxySettingsPath(projectId, {
+      section,
+      explicitTab: options?.explicitTab ?? section !== "general",
     });
-    expandGalaxyIntelligencePanel({ force: true });
-    syncWorkspacePathForChat(galaxyChat);
-    setAppView("chat");
+    if (options?.focusHeading) {
+      setGalaxySettingsFocusHeadingToken((value) => value + 1);
+    }
+  }
+
+  function syncGalaxySettingsPath(
+    projectId: string,
+    options?: {
+      section?: GalaxySettingsSectionId;
+      explicitTab?: boolean;
+      replace?: boolean;
+    },
+  ) {
+    if (typeof window === "undefined") return;
+    const next = getGalaxySettingsPath(projectId, {
+      tab: galaxySettingsSectionToTab(options?.section ?? "general"),
+      includeTabQuery: Boolean(options?.explicitTab),
+    });
+    const current = `${window.location.pathname}${window.location.search}`;
+    if (current === next) return;
+    const state = {
+      luxiaView: "galaxy-settings" as const,
+      projectId,
+      section: options?.section ?? "general",
+    };
+    if (options?.replace) {
+      window.history.replaceState(state, "", next);
+    } else {
+      window.history.pushState(state, "", next);
+    }
+  }
+
+  function handleGalaxySettingsSectionChange(
+    projectId: string,
+    section: GalaxySettingsSectionId,
+  ) {
+    if (section === galaxySettingsSection) return;
+    setGalaxySettingsSection(section);
+    syncGalaxySettingsPath(projectId, {
+      section,
+      explicitTab: true,
+    });
+  }
+
+  function resolveGalaxySettingsRecord(projectId: string): GalaxySettingsRecord | null {
+    const galaxyChat = findGalaxyChatForProject(projectId, chats, homeProjects);
+    if (!galaxyChat || galaxyChat.projectId !== projectId) return null;
+    const existing = galaxySettingsById[galaxyChat.id];
+    const session = galaxySessions[galaxyChat.id];
+    if (existing) {
+      return {
+        ...cloneGalaxySettingsRecord(existing),
+        name: galaxyChat.label,
+        projectName: getProjectNameById(projectId, homeProjects),
+        routeMode: session?.routeMode ?? existing.routeMode,
+        instruction: existing.instruction,
+      };
+    }
+    return buildGalaxySettingsRecord({
+      id: galaxyChat.id,
+      projectId,
+      projectName: getProjectNameById(projectId, homeProjects),
+      name: galaxyChat.label,
+      routeMode: session?.routeMode ?? "auto",
+    });
+  }
+
+  function handleSaveGalaxySettings(projectId: string, draft: GalaxySettingsDraft) {
+    if (!guardGalaxyConfigure(projectId)) return;
+    const galaxyChat = findGalaxyChatForProject(projectId, chats, homeProjects);
+    if (!galaxyChat || galaxyChat.projectId !== projectId) return;
+    const trimmedName = draft.name.trim() || galaxyChat.label;
+    setChats((prev) => prev.map((chat) => (
+      chat.id === galaxyChat.id && chat.chatType === "galaxy"
+        ? { ...chat, label: trimmedName }
+        : chat
+    )));
+    setGalaxySessions((prev) => {
+      const current = prev[galaxyChat.id]
+        ?? createIdleGalaxySession(getProjectNameById(projectId, homeProjects));
+      return {
+        ...prev,
+        [galaxyChat.id]: {
+          ...current,
+          routeMode: draft.routeMode,
+        },
+      };
+    });
+    setGalaxySettingsById((prev) => ({
+      ...prev,
+      [galaxyChat.id]: buildGalaxySettingsRecord({
+        id: galaxyChat.id,
+        projectId,
+        projectName: getProjectNameById(projectId, homeProjects),
+        name: trimmedName,
+        instruction: draft.instruction,
+        routeMode: draft.routeMode,
+        updatedAt: "Just now",
+      }),
+    }));
+  }
+
+  function handleSaveGalaxyInstruction(projectId: string, instruction: string) {
+    if (!guardGalaxyConfigure(projectId)) return;
+    const galaxyChat = findGalaxyChatForProject(projectId, chats, homeProjects);
+    if (!galaxyChat || galaxyChat.projectId !== projectId) return;
+    const existing = resolveGalaxySettingsRecord(projectId);
+    setGalaxySettingsById((prev) => ({
+      ...prev,
+      [galaxyChat.id]: buildGalaxySettingsRecord({
+        id: galaxyChat.id,
+        projectId,
+        projectName: getProjectNameById(projectId, homeProjects),
+        name: existing?.name ?? galaxyChat.label,
+        instruction,
+        routeMode: existing?.routeMode
+          ?? galaxySessions[galaxyChat.id]?.routeMode
+          ?? "auto",
+        updatedAt: "Just now",
+      }),
+    }));
+  }
+
+  function guardGalaxyConfigure(projectId: string): boolean {
+    const membership = getActiveProjectMembership(
+      projectId,
+      projectMembershipsState,
+      prototypeUserId,
+    );
+    if (canConfigureConstellation(membership?.projectRole)) return true;
+    toast.error(GALAXY_CONFIGURE_DENIED_MESSAGE);
+    return false;
   }
 
   function handleOpenChatFromHome(chatId: string) {
@@ -6218,14 +6401,27 @@ export default function App() {
         selected: null,
         selectionSource: null,
         sources: [],
-        routeMode: "auto",
         pendingManualId: null,
       });
       return;
     }
 
     const session = galaxySessions[chatId] ?? createIdleGalaxySession(projectName);
-    const isManual = session.routeMode === "manual" && session.pendingManualId;
+    const routeMode = session.routeMode === "manual" ? "manual" : "auto";
+
+    if (routeMode === "manual" && !session.pendingManualId) {
+      toast.error(GALAXY_MANUAL_ROUTE_REQUIRED_MESSAGE);
+      expandGalaxyIntelligencePanel({ force: true });
+      updateGalaxySession(chatId, {
+        routeMode: "manual",
+        status: "ready",
+        activityLabel: "Select a Constellation",
+        focusSection: "activity",
+      });
+      return;
+    }
+
+    const isManual = routeMode === "manual" && Boolean(session.pendingManualId);
     const manualOption = isManual
       ? accessibleConstellations.find((c) => c.id === session.pendingManualId)
       : null;
@@ -6242,8 +6438,11 @@ export default function App() {
         selected: null,
         selectionSource: null,
         pendingManualId: null,
-        routeMode: "auto",
+        routeMode: "manual",
+        focusSection: "activity",
       });
+      expandGalaxyIntelligencePanel({ force: true });
+      toast.error(GALAXY_MANUAL_ROUTE_REQUIRED_MESSAGE);
       return;
     }
 
@@ -6298,8 +6497,8 @@ export default function App() {
       selectionSource: isManual ? "manual" : null,
       sources: [],
       focusSection: "activity",
-      routeMode: "auto",
-      pendingManualId: null,
+      routeMode,
+      pendingManualId: isManual ? session.pendingManualId : null,
     });
 
     setChatMessages((p) => ({
@@ -6560,7 +6759,7 @@ export default function App() {
           candidates: [],
           sources: [],
           activityLabel: "No accessible Constellations",
-          routeMode: "auto",
+          routeMode: activeGalaxySession.routeMode === "manual" ? "manual" : "auto",
         });
         setGalaxyAccessBlock({
           projectId,
@@ -6576,7 +6775,7 @@ export default function App() {
     ) {
       updateGalaxySession(activeChat, {
         pendingManualId: null,
-        routeMode: "auto",
+        routeMode: activeGalaxySession.routeMode === "manual" ? "manual" : "auto",
         selected: null,
         selectionSource: null,
         activityLabel: "Selected Constellation unavailable",
@@ -6936,6 +7135,7 @@ export default function App() {
                 projectId={activeProjectId}
                 projects={homeProjects}
                 galaxyNameById={galaxyNameById}
+                galaxyInstructionById={galaxyInstructionById}
                 chats={overviewChats}
                 constellations={overviewConstellations}
                 initialBrowseMode="overview"
@@ -6962,6 +7162,7 @@ export default function App() {
                 onOpenDashboard={handleOpenProjectDashboard}
                 onRenameProject={handleRenameProject}
                 onRenameGalaxy={handleRenameGalaxy}
+                onSaveGalaxyInstruction={handleSaveGalaxyInstruction}
                 onArchiveProject={handleArchiveProject}
                 onOpenMembers={handleOpenProjectMembers}
               />
@@ -6982,6 +7183,73 @@ export default function App() {
               onCancel={(projectId) => handleOpenConstellationsList(projectId)}
               onCreate={handleCreateConstellationDraft}
             />
+          </HomePageShell>
+        ) : appView === "galaxy-settings" ? (
+          <HomePageShell scrollRequest={homeScrollRequest} framed={false}>
+            {(() => {
+              const projectId = activeProjectId ?? "";
+              const settingsRecord = projectId
+                ? resolveGalaxySettingsRecord(projectId)
+                : null;
+              const membership = projectId
+                ? getActiveProjectMembership(
+                  projectId,
+                  projectMembershipsState,
+                  prototypeUserId,
+                )
+                : null;
+              const availableConstellations = projectId && membership
+                ? allConstellations
+                  .filter((item) => item.projectId === projectId)
+                  .filter((item) => {
+                    const record = constellationSettingsById[item.id]
+                      ?? getConstellationSettingsRecord(item.id);
+                    const connectedSourceIds = record?.connectedSources.map(
+                      (source) => source.id,
+                    ) ?? [];
+                    return evaluateConstellationUseAccess({
+                      userId: prototypeUserId,
+                      projectRole: membership.projectRole,
+                      membershipStatus: membership.status,
+                      connectedSourceIds,
+                      accessLevels: accessLevelsState,
+                    }).available;
+                  })
+                  .map((item) => ({ id: item.id, name: item.label }))
+                : [];
+              const fallbackRecord = settingsRecord ?? buildGalaxySettingsRecord({
+                id: "galaxy-unavailable",
+                projectId: projectId || "unavailable",
+                projectName: projectId
+                  ? getProjectNameById(projectId, homeProjects)
+                  : "Project unavailable",
+                name: "Galaxy unavailable",
+              });
+
+              return (
+                <GalaxySettingsPage
+                  record={fallbackRecord}
+                  unavailable={!settingsRecord}
+                  unavailableReason="This Galaxy settings view is unavailable."
+                  availableConstellations={availableConstellations}
+                  activeSection={galaxySettingsSection}
+                  onSectionChange={(section) => {
+                    if (!projectId) return;
+                    handleGalaxySettingsSectionChange(projectId, section);
+                  }}
+                  focusHeadingToken={galaxySettingsFocusHeadingToken}
+                  onSave={(draft) => {
+                    if (!projectId) return;
+                    handleSaveGalaxySettings(projectId, draft);
+                  }}
+                  onOpenGalaxy={handleOpenGalaxyFromHome}
+                  onNavigateHome={handleNavigateHome}
+                  onOpenProject={(pid) => handleOpenProjectOverview(pid, "overview")}
+                  onOpenMembers={handleOpenProjectMembers}
+                  currentProjectRole={membership?.projectRole ?? null}
+                />
+              );
+            })()}
           </HomePageShell>
         ) : appView === "constellation-settings" ? (
           <HomePageShell scrollRequest={homeScrollRequest} framed={false}>
@@ -7323,16 +7591,8 @@ export default function App() {
             onRenameChat={(name) => setChats((p) => p.map((c) => c.id === activeChat ? { ...c, label: name } : c))}
             onDeleteChat={handleCloseChat.bind(null, activeChat)}
             onOpenGalaxySettings={
-              activeData?.chatType === "galaxy"
-                ? () => {
-                    const session = galaxySessions[activeChat]
-                      ?? createIdleGalaxySession(getProjectNameById(activeData.projectId, homeProjects));
-                    updateGalaxySession(activeChat, {
-                      expandSignal: (session.expandSignal ?? 0) + 1,
-                      focusSection: "instruction",
-                    });
-                    expandGalaxyIntelligencePanel({ force: true });
-                  }
+              activeData?.chatType === "galaxy" && activeData.projectId
+                ? () => handleOpenGalaxySettingsFromOverview(activeData.projectId)
                 : undefined
             }
             onOpenConstellationSettings={
@@ -7405,16 +7665,46 @@ export default function App() {
                 routeMode: activeGalaxySession.routeMode,
                 pendingManual,
                 options: galaxyRouteOptions,
-                onSelectAuto: () => updateGalaxySession(activeChat, {
-                  routeMode: "auto",
-                  pendingManualId: null,
-                }),
-                onSelectManual: (option) => updateGalaxySession(activeChat, {
-                  routeMode: "manual",
-                  pendingManualId: option.id,
-                }),
+                onSelectAuto: () => {
+                  updateGalaxySession(activeChat, {
+                    routeMode: "auto",
+                    pendingManualId: null,
+                  });
+                  if (activeData?.projectId) {
+                    const current = resolveGalaxySettingsRecord(activeData.projectId);
+                    if (current) {
+                      setGalaxySettingsById((prev) => ({
+                        ...prev,
+                        [activeChat]: {
+                          ...current,
+                          routeMode: "auto",
+                          updatedAt: "Just now",
+                        },
+                      }));
+                    }
+                  }
+                },
+                onSelectManual: (option) => {
+                  updateGalaxySession(activeChat, {
+                    routeMode: "manual",
+                    pendingManualId: option.id,
+                  });
+                  if (activeData?.projectId) {
+                    const current = resolveGalaxySettingsRecord(activeData.projectId);
+                    if (current) {
+                      setGalaxySettingsById((prev) => ({
+                        ...prev,
+                        [activeChat]: {
+                          ...current,
+                          routeMode: "manual",
+                          updatedAt: "Just now",
+                        },
+                      }));
+                    }
+                  }
+                },
                 onClearManual: () => updateGalaxySession(activeChat, {
-                  routeMode: "auto",
+                  routeMode: "manual",
                   pendingManualId: null,
                 }),
               } : undefined}
@@ -7442,21 +7732,57 @@ export default function App() {
                   width={clampedGalaxyWidth}
                   routeOptions={galaxyRouteOptions}
                   pendingManual={pendingManual}
+                  instructionValue={galaxyInstructionById[activeChat]}
+                  onSaveInstruction={(instruction) => {
+                    if (activeData.projectId) {
+                      handleSaveGalaxyInstruction(activeData.projectId, instruction);
+                    }
+                  }}
                   onResizeStart={handleGalaxyResizeStart}
                   onOpenConstellation={handleOpenGalaxyConstellation}
                   onCollapse={collapseGalaxyIntelligencePanel}
                   contentOpacity={galaxyPanelContentOpaque ? 1 : 0}
-                  onSelectAuto={() => updateGalaxySession(activeChat, {
-                    routeMode: "auto",
-                    pendingManualId: null,
-                  })}
+                  onSelectAuto={() => {
+                    updateGalaxySession(activeChat, {
+                      routeMode: "auto",
+                      pendingManualId: null,
+                    });
+                    if (activeData.projectId) {
+                      const current = resolveGalaxySettingsRecord(activeData.projectId);
+                      if (current) {
+                        setGalaxySettingsById((prev) => ({
+                          ...prev,
+                          [activeChat]: {
+                            ...current,
+                            routeMode: "auto",
+                            updatedAt: "Just now",
+                          },
+                        }));
+                      }
+                    }
+                  }}
                   onEnterSpecific={() => updateGalaxySession(activeChat, {
                     routeMode: "manual",
                   })}
-                  onSelectManual={(option) => updateGalaxySession(activeChat, {
-                    routeMode: "manual",
-                    pendingManualId: option.id,
-                  })}
+                  onSelectManual={(option) => {
+                    updateGalaxySession(activeChat, {
+                      routeMode: "manual",
+                      pendingManualId: option.id,
+                    });
+                    if (activeData.projectId) {
+                      const current = resolveGalaxySettingsRecord(activeData.projectId);
+                      if (current) {
+                        setGalaxySettingsById((prev) => ({
+                          ...prev,
+                          [activeChat]: {
+                            ...current,
+                            routeMode: "manual",
+                            updatedAt: "Just now",
+                          },
+                        }));
+                      }
+                    }
+                  }}
                   onClearManual={() => updateGalaxySession(activeChat, {
                     routeMode: "manual",
                     pendingManualId: null,

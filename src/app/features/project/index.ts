@@ -46,6 +46,7 @@ export {
 export {
   getProjectPath,
   getGalaxyPath,
+  getGalaxySettingsPath,
   getDashboardPath,
   getConstellationsPath,
   getProjectChatsPath,
@@ -61,6 +62,7 @@ export {
   getConstellationChatPath,
   parseProjectIdFromPath,
   parseGalaxyProjectIdFromPath,
+  parseGalaxySettingsProjectIdFromPath,
   parseDashboardProjectIdFromPath,
   parseChatIdFromPath,
   parseConstellationChatFromPath,

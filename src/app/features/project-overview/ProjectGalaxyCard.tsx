@@ -33,9 +33,11 @@ const DEFAULT_GALAXY_INSTRUCTION =
 interface ProjectGalaxyCardProps {
   project: HomeProjectCard;
   galaxyName: string;
+  galaxyInstruction?: string;
   onOpenGalaxy: () => void;
   onOpenGalaxySettings: () => void;
   onRenameGalaxy?: (name: string) => void;
+  onSaveGalaxyInstruction?: (instruction: string) => void;
 }
 
 function HeliosChip({ children }: { children: string }) {
@@ -569,16 +571,23 @@ function GalaxyHeliosInfo() {
 export function ProjectGalaxyCard({
   project,
   galaxyName,
+  galaxyInstruction,
   onOpenGalaxy,
   onOpenGalaxySettings,
   onRenameGalaxy,
+  onSaveGalaxyInstruction,
 }: ProjectGalaxyCardProps) {
   const constellationCount = project.constellationCount;
-  const [instruction, setInstruction] = useState(DEFAULT_GALAXY_INSTRUCTION);
+  const resolvedInstruction = galaxyInstruction ?? DEFAULT_GALAXY_INSTRUCTION;
+  const [instruction, setInstruction] = useState(resolvedInstruction);
   const openGalaxyDescId = useId();
   const createWidgetDescId = useId();
   const createWidgetHelperId = useId();
   const galaxySettingsDescId = useId();
+
+  useEffect(() => {
+    setInstruction(resolvedInstruction);
+  }, [resolvedInstruction]);
 
   return (
     <section
@@ -633,7 +642,10 @@ export function ProjectGalaxyCard({
             </p>
             <InlineTextEdit
               value={instruction}
-              onSave={setInstruction}
+              onSave={(next) => {
+                setInstruction(next);
+                onSaveGalaxyInstruction?.(next);
+              }}
               editLabel="Edit Galaxy instruction"
               multiline
               className="luxia-type-body-dense"

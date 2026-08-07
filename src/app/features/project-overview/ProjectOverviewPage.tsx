@@ -25,6 +25,7 @@ export interface ProjectOverviewPageProps {
   projectId: string | null;
   projects: HomeProjectCard[];
   galaxyNameById: Record<string, string>;
+  galaxyInstructionById?: Record<string, string>;
   chats: ProjectOverviewChat[];
   constellations: ProjectOverviewConstellation[];
   initialBrowseMode?: ProjectOverviewBrowseMode;
@@ -45,6 +46,7 @@ export interface ProjectOverviewPageProps {
   onBrowseModeChange?: (mode: ProjectOverviewBrowseMode) => void;
   onRenameProject?: (projectId: string, name: string) => void;
   onRenameGalaxy?: (projectId: string, name: string) => void;
+  onSaveGalaxyInstruction?: (projectId: string, instruction: string) => void;
   onArchiveProject?: (projectId: string) => void;
   onOpenMembers?: (projectId: string) => void;
 }
@@ -66,6 +68,7 @@ export function ProjectOverviewPage({
   projectId,
   projects,
   galaxyNameById,
+  galaxyInstructionById,
   chats,
   constellations,
   initialBrowseMode = "overview",
@@ -81,6 +84,7 @@ export function ProjectOverviewPage({
   onBrowseModeChange,
   onRenameProject,
   onRenameGalaxy,
+  onSaveGalaxyInstruction,
   onArchiveProject,
   onOpenMembers,
   onOpenConstellationSettings,
@@ -174,11 +178,21 @@ export function ProjectOverviewPage({
           <ProjectGalaxyCard
             project={resolvedProject}
             galaxyName={galaxyName}
+            galaxyInstruction={
+              resolvedProject.galaxyId
+                ? galaxyInstructionById?.[resolvedProject.galaxyId]
+                : undefined
+            }
             onOpenGalaxy={() => onOpenGalaxy(resolvedProject.id)}
             onOpenGalaxySettings={() => onOpenGalaxySettings(resolvedProject.id)}
             onRenameGalaxy={
               onRenameGalaxy
                 ? (name) => onRenameGalaxy(resolvedProject.id, name)
+                : undefined
+            }
+            onSaveGalaxyInstruction={
+              onSaveGalaxyInstruction
+                ? (instruction) => onSaveGalaxyInstruction(resolvedProject.id, instruction)
                 : undefined
             }
           />

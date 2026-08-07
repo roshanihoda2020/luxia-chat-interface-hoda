@@ -54,6 +54,7 @@ import {
 } from "@/assets/icons";
 import {
   LUXIA_CREATE_VS_EDIT,
+  LUXIA_DIRTY_INLINE_STATUS_CLASS,
   LUXIA_DIRTY_STATE_COPY,
   LUXIA_SETTINGS_CONTENT_SURFACE_CLASS,
   LUXIA_SETTINGS_LIST_SURFACE_CLASS,
@@ -61,6 +62,7 @@ import {
   LUXIA_SETTINGS_TAB_TRIGGER_CLASS,
   LUXIA_SETTINGS_TABLIST_CLASS,
 } from "@/app/features/shared/luxiaSettingsUx";
+import { toast } from "sonner";
 import {
   BrowserFilterSelect,
   FilterField,
@@ -419,7 +421,7 @@ export function AccessLevelEditorPage({
     onSave(saved);
     initialRef.current = saved;
     setDraft(structuredClone(saved));
-    setSaveNotice(LUXIA_DIRTY_STATE_COPY.saveSuccess);
+    toast.success(LUXIA_DIRTY_STATE_COPY.saveSuccess);
   }
 
   function requestCancel() {
@@ -591,14 +593,27 @@ export function AccessLevelEditorPage({
           ) : null
         }
         secondaryAction={
-          showCancel ? (
-            <Button
-              type="button"
-              {...LUXIA_PAGE_HEADER_ACTION.secondary}
-              onClick={requestCancel}
-            >
-              {LUXIA_DIRTY_STATE_COPY.cancel}
-            </Button>
+          showCancel || (isDirty && !isNew) ? (
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {isDirty && !isNew ? (
+                <span
+                  className={LUXIA_DIRTY_INLINE_STATUS_CLASS}
+                  style={{ color: "var(--luxia-text-secondary)" }}
+                  role="status"
+                >
+                  {LUXIA_DIRTY_STATE_COPY.unsaved}
+                </span>
+              ) : null}
+              {showCancel ? (
+                <Button
+                  type="button"
+                  {...LUXIA_PAGE_HEADER_ACTION.secondary}
+                  onClick={requestCancel}
+                >
+                  {LUXIA_DIRTY_STATE_COPY.cancel}
+                </Button>
+              ) : null}
+            </div>
           ) : null
         }
         actions={<LuxiaAccessGuide />}
@@ -610,21 +625,6 @@ export function AccessLevelEditorPage({
                   updatedAt={formatAccessLevelUpdatedAt(draft.updatedAt)}
                 />
               </div>
-            ) : null}
-            {isDirty && !isNew ? (
-              <p
-                className="luxia-type-caption"
-                style={{ color: "var(--luxia-text-secondary)" }}
-              >
-                {LUXIA_DIRTY_STATE_COPY.unsaved}
-              </p>
-            ) : saveNotice ? (
-              <p
-                className="luxia-type-caption"
-                style={{ color: "var(--luxia-text-muted)" }}
-              >
-                {saveNotice}
-              </p>
             ) : null}
             {readOnly ? (
               <div

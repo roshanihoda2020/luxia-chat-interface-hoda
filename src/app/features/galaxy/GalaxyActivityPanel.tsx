@@ -353,6 +353,8 @@ export function GalaxyActivityPanel({
   routeOptions,
   routeOptionsLoading = false,
   pendingManual,
+  instructionValue,
+  onSaveInstruction,
   onResizeStart,
   onOpenConstellation,
   onSelectAuto,
@@ -367,6 +369,9 @@ export function GalaxyActivityPanel({
   routeOptions: GalaxyControlRouteOption[];
   routeOptionsLoading?: boolean;
   pendingManual: GalaxyMatchedConstellation | null;
+  /** Canonical Galaxy instruction from shared Settings store. */
+  instructionValue?: string;
+  onSaveInstruction?: (instruction: string) => void;
   onResizeStart: (e: React.MouseEvent) => void;
   onOpenConstellation?: () => void;
   onSelectAuto: () => void;
@@ -376,8 +381,9 @@ export function GalaxyActivityPanel({
   onCollapse?: () => void;
   contentOpacity?: number;
 }) {
-  const [instruction, setInstruction] = useState(GALAXY_DEFAULT_INSTRUCTION);
-  const [savedInstruction, setSavedInstruction] = useState(GALAXY_DEFAULT_INSTRUCTION);
+  const resolvedInstruction = instructionValue ?? GALAXY_DEFAULT_INSTRUCTION;
+  const [instruction, setInstruction] = useState(resolvedInstruction);
+  const [savedInstruction, setSavedInstruction] = useState(resolvedInstruction);
   const [instructionManagerOpen, setInstructionManagerOpen] = useState(false);
   const [savedDescription, setSavedDescription] = useState(GALAXY_DEFAULT_DESCRIPTION);
   const [draftDescription, setDraftDescription] = useState(GALAXY_DEFAULT_DESCRIPTION);
@@ -397,6 +403,11 @@ export function GalaxyActivityPanel({
   const instructionRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const selectorTriggerRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    setInstruction(resolvedInstruction);
+    setSavedInstruction(resolvedInstruction);
+  }, [resolvedInstruction]);
   const selectorPanelRef = useRef<HTMLDivElement>(null);
   const descriptionEditRef = useRef<HTMLButtonElement>(null);
   const descriptionTextareaRef = useRef<HTMLTextAreaElement>(null);
@@ -598,6 +609,7 @@ export function GalaxyActivityPanel({
     setSaving(true);
     window.setTimeout(() => {
       setSavedInstruction(instruction);
+      onSaveInstruction?.(instruction);
       setSaving(false);
     }, 400);
   }

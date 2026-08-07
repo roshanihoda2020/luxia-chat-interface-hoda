@@ -1,6 +1,30 @@
 /**
  * Shared action placement + dirty-state conventions.
  * Pages should follow this model; do not invent per-page action layouts.
+ *
+ * ## Luxia Button & Action Placement Standard (validated)
+ *
+ * PAGE HEADER — identity, breadcrumb, metadata, page/entity/NAVIGATION actions only.
+ *   Do not put section FORM Save/Cancel in the page header when the Settings surface
+ *   uses per-tab FORM drafts (Galaxy, Constellation General).
+ *
+ * SETTINGS FORM (FORM_DRAFT) — Cancel | Save changes inside the Settings content frame
+ *   (bottom-right of the current form section). Save primary, rightmost.
+ *
+ * SETTINGS MANAGER (IMMEDIATE) — row/section item actions; no redundant global Save.
+ *
+ * READ_ONLY — no Save/Cancel.
+ *
+ * DANGER / LIFECYCLE — destructive beside item + confirm dialog.
+ *
+ * CREATION FLOW — Exit / Previous / Next / Create in flow footer (not Settings Save).
+ *
+ * DIALOG — Cancel | Confirm (confirm/destructive rightmost).
+ *
+ * SIDEBAR — navigation/disclosure only.
+ *
+ * EXCEPTION — Access Level editor keeps header Save/Cancel because it is one multi-tab
+ *   page draft spanning General → Lifecycle. Nested capability managers keep content Save.
  */
 
 export const LUXIA_ACTION_PLACEMENT = {
@@ -8,15 +32,23 @@ export const LUXIA_ACTION_PLACEMENT = {
     /**
      * LTR cluster (right-aligned): Primary → Secondary → Tertiary/misc → options.
      * Keyboard and DOM order must match this visual sequence.
+     * Header primary is for page-scoped create/invite/nav — not Settings section Save
+     * when local form actions are used.
      */
     order: ["primary", "secondary", "actions", "options"] as const,
     help: "tertiary",
     navigation: "secondary",
     creation: "primary",
+    /** Prefer local Settings form footer; header only for page-scoped drafts (Access Level). */
     saveWhenDirty: "primary",
     cancelWhenDirty: "secondary",
     settings: "secondary",
     menu: "options",
+  },
+  settingsForm: {
+    /** Inside Settings content frame: Cancel (when dirty) then Save (primary, rightmost). */
+    order: ["cancel", "save"] as const,
+    location: "contentFooter" as const,
   },
   sectionHeader: {
     oneSectionAction: true,
@@ -28,6 +60,10 @@ export const LUXIA_ACTION_PLACEMENT = {
   lifecycleSection: {
     destructiveBesideItem: true,
   },
+  dialog: {
+    order: ["cancel", "confirm"] as const,
+    destructiveRightmost: true,
+  },
 } as const;
 
 export const LUXIA_DIRTY_STATE_COPY = {
@@ -38,6 +74,17 @@ export const LUXIA_DIRTY_STATE_COPY = {
   leaveDescription: "You have unsaved changes. Leaving discards this draft for the current session.",
   saveSuccess: "Changes saved for this session (prototype).",
 } as const;
+
+/**
+ * Do not render “Unsaved changes” as a header row — it shifts tabs/content.
+ * Prefer Cancel + enabled Save to communicate dirty state for FORM drafts.
+ */
+export const LUXIA_DIRTY_INLINE_STATUS_CLASS =
+  "luxia-type-caption whitespace-nowrap shrink-0";
+
+/** Local FORM Save/Cancel footer inside a Settings content surface. */
+export const LUXIA_SETTINGS_FORM_ACTIONS_CLASS =
+  "mt-6 flex min-h-10 flex-nowrap items-center justify-end gap-2 pt-4";
 
 export const LUXIA_CREATE_VS_EDIT = {
   accessLevel: {
