@@ -1,16 +1,22 @@
 /**
- * Luxia left sidebar — context-aware navigation.
+ * Luxia left sidebar — context-aware navigation with search flyouts.
  *
- * Global collapse (expanded rail vs icon rail) is separate from Project
- * Chats/Constellations disclosure previews.
+ * Global collapse (expanded rail vs icon rail) is separate from Constellations/Chats
+ * secondary flyout panels anchored to each disclosure trigger.
  */
 
 import {
+  useCallback,
   useEffect,
+  useId,
+  useLayoutEffect,
   useMemo,
+  useRef,
   useState,
   type MouseEvent as ReactMouseEvent,
   type ReactElement,
+  type ReactNode,
+  type Ref,
 } from "react";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import luxiaWordmarkUrl from "@/assets/brand/Luxia-Star.svg";
@@ -62,8 +68,8 @@ import {
 export const SIDEBAR_WIDTH_EXPANDED = 280;
 export const SIDEBAR_WIDTH_COLLAPSED = 76;
 export const LEFT_NAV_COLLAPSED_STORAGE_KEY = "luxia-left-nav-collapsed";
-/** Below this width the sidebar becomes an overlay drawer (not a permanent icon rail). */
 export const LEFT_NAV_MOBILE_BREAKPOINT = 768;
+
 const SIDEBAR_TOGGLE_SIZE = 42;
 const SIDEBAR_TOGGLE_INSET = SIDEBAR_TOGGLE_SIZE / 2;
 const SIDEBAR_LOGO_WIDTH = 119.66;
@@ -74,12 +80,17 @@ const SIDEBAR_BRAND_BOTTOM = 12;
 const SIDEBAR_STAR_WIDTH = 538.11;
 const SIDEBAR_STAR_HEIGHT = 674.69;
 const SIDEBAR_STAR_INTERSECTION_X = 174;
-const PREVIEW_LIMIT = 3;
+const FLYOUT_WIDTH = 268;
+const FLYOUT_QUICK_LIMIT = 8;
+const FLYOUT_SEARCH_RESULT_LIMIT = 12;
+const FLYOUT_MAX_HEIGHT_PX = 420;
+const FLYOUT_VIEWPORT_PADDING = 12;
 
 const SIDEBAR_PROFILE_NAME = "User name";
 const SIDEBAR_PROFILE_INITIALS = "UN";
 
 type NavIconComponent = (props: LuxiaIconProps) => ReactElement;
+type FlyoutKind = "constellations" | "chats";
 
 export type LeftNavChatPreview = {
   id: string;
@@ -135,7 +146,7 @@ export type LeftNavProps = {
 
 const NAV_TOP_ITEMS: {
   id: string;
-  icon: typeof LuxiaHomeIcon;
+  icon: NavIconComponent;
   label: string;
   available: boolean;
   unavailableHint?: string;
@@ -153,7 +164,7 @@ const NAV_TOP_ITEMS: {
 
 const NAV_BOTTOM_ITEMS: {
   id: string;
-  icon: typeof LuxiaNotificationsIcon;
+  icon: NavIconComponent;
   label: string;
   available: boolean;
   unavailableHint?: string;
@@ -195,48 +206,54 @@ function prototypeUserInitials(name: string): string {
   return `${parts[0]?.[0] ?? ""}${parts[1]?.[0] ?? ""}`.toUpperCase();
 }
 
-function disclosureStorageKey(projectId: string): string {
-  return `luxia-project-nav-disclosure:${projectId}`;
-}
-
-function readDisclosure(projectId: string): { chats: boolean; constellations: boolean } {
-  try {
-    const raw = sessionStorage.getItem(disclosureStorageKey(projectId));
-    if (!raw) return { chats: false, constellations: false };
-    const parsed = JSON.parse(raw) as { chats?: boolean; constellations?: boolean };
-    return {
-      chats: Boolean(parsed.chats),
-      constellations: Boolean(parsed.constellations),
-    };
-  } catch {
-    return { chats: false, constellations: false };
-  }
-}
-
-function writeDisclosure(
-  projectId: string,
-  next: { chats: boolean; constellations: boolean },
-): void {
-  try {
-    sessionStorage.setItem(disclosureStorageKey(projectId), JSON.stringify(next));
-  } catch {
-    /* ignore */
-  }
-}
-
-function pickPreviewItems<T extends { id: string }>(
+function pickQuickFlyoutItems<T extends { id: string; pinned?: boolean }>(
   items: T[],
   activeId: string | null | undefined,
   limit: number,
   rank: (item: T) => number,
 ): T[] {
-  if (items.length <= limit) return [...items].sort((a, b) => rank(b) - rank(a));
+  if (items.length <= limit) {
+    return [...items].sort((a, b) => {
+      const pinA = a.pinned ? 1 : 0;
+      const pinB = b.pinned ? 1 : 0;
+      if (pinA !== pinB) return pinB - pinA;
+      return rank(b) - rank(a);
+    });
+  }
   const active = activeId ? items.find((item) => item.id === activeId) : undefined;
   const rest = items
     .filter((item) => item.id !== active?.id)
-    .sort((a, b) => rank(b) - rank(a));
+    .sort((a, b) => {
+      const pinA = a.pinned ? 1 : 0;
+      const pinB = b.pinned ? 1 : 0;
+      if (pinA !== pinB) return pinB - pinA;
+      return rank(b) - rank(a);
+    });
   if (active) return [active, ...rest.slice(0, limit - 1)];
   return rest.slice(0, limit);
+}
+
+function filterFlyoutSearch<T extends { label: string }>(
+  items: T[],
+  query: string,
+  limit: number,
+): T[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+  return items.filter((item) => item.label.toLowerCase().includes(q)).slice(0, limit);
+}
+
+function computeFlyoutTop(
+  asideEl: HTMLElement,
+  triggerEl: HTMLElement,
+  maxPanelHeight: number,
+): number {
+  const asideRect = asideEl.getBoundingClientRect();
+  const triggerRect = triggerEl.getBoundingClientRect();
+  let top = triggerRect.top - asideRect.top;
+  const maxTop = asideRect.height - maxPanelHeight - FLYOUT_VIEWPORT_PADDING;
+  if (top > maxTop) top = Math.max(FLYOUT_VIEWPORT_PADDING, maxTop);
+  return top;
 }
 
 function NavItem({
@@ -250,6 +267,9 @@ function NavItem({
   onClick,
   tooltip,
   indent,
+  ariaExpanded,
+  ariaControls,
+  buttonRef,
 }: {
   icon: NavIconComponent;
   label: string;
@@ -261,6 +281,9 @@ function NavItem({
   onClick?: () => void;
   tooltip?: string;
   indent?: boolean;
+  ariaExpanded?: boolean;
+  ariaControls?: string;
+  buttonRef?: Ref<HTMLButtonElement>;
 }) {
   const isDisabled = Boolean(disabled);
   const tip = tooltip ?? label;
@@ -307,15 +330,7 @@ function NavItem({
   );
 
   const item = isDisabled ? (
-    <button
-      type="button"
-      disabled
-      aria-label={tip}
-      aria-current={active ? "page" : undefined}
-      aria-disabled
-      className={className}
-      style={style}
-    >
+    <button type="button" disabled aria-label={tip} aria-disabled className={className} style={style}>
       {content}
     </button>
   ) : href ? (
@@ -323,6 +338,8 @@ function NavItem({
       href={href}
       aria-label={tip}
       aria-current={active ? "page" : undefined}
+      aria-expanded={ariaExpanded}
+      aria-controls={ariaControls}
       className={className}
       style={style}
       onClick={(e) => {
@@ -336,10 +353,13 @@ function NavItem({
     </a>
   ) : (
     <button
+      ref={buttonRef}
       type="button"
       onClick={onClick}
       aria-label={tip}
       aria-current={active ? "page" : undefined}
+      aria-expanded={ariaExpanded}
+      aria-controls={ariaControls}
       className={className}
       style={style}
       onMouseEnter={onMouseEnter}
@@ -375,14 +395,31 @@ function LuxiaLogo() {
   );
 }
 
+function CollapsedStarLogo() {
+  const reduceMotion =
+    typeof window !== "undefined"
+    && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  return (
+    <div
+      aria-label="Luxia"
+      role="img"
+      style={
+        reduceMotion
+          ? undefined
+          : {
+            animation: "luxia-sidebar-star-spin 24s linear infinite",
+          }
+      }
+    >
+      <LuxiaStarLogo size={26} />
+    </div>
+  );
+}
+
 function SidebarStarDecoration() {
   const left = -(SIDEBAR_STAR_INTERSECTION_X - SIDEBAR_BRAND_LEFT);
   return (
-    <div
-      aria-hidden
-      className="pointer-events-none absolute inset-0 overflow-hidden"
-      style={{ zIndex: 0 }}
-    >
+    <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden" style={{ zIndex: 0 }}>
       <img
         src={sidebarStarLogoUrl}
         alt=""
@@ -408,8 +445,7 @@ function SidebarCollapseToggle({
   collapsed: boolean;
   onToggle: () => void;
 }) {
-  const logoCenterY =
-    SIDEBAR_BRAND_TOP + SIDEBAR_LOGO_HEIGHT / 2 - SIDEBAR_TOGGLE_SIZE / 2;
+  const logoCenterY = SIDEBAR_BRAND_TOP + SIDEBAR_LOGO_HEIGHT / 2 - SIDEBAR_TOGGLE_SIZE / 2;
   return (
     <button
       type="button"
@@ -434,7 +470,6 @@ function SidebarCollapseToggle({
 }
 
 function ProjectDisclosureSection({
-  section,
   label,
   icon: Icon,
   count,
@@ -444,9 +479,10 @@ function ProjectDisclosureSection({
   expanded,
   onToggleExpand,
   onNavigate,
-  children,
+  panelId,
+  anchorRef,
+  disclosureRef,
 }: {
-  section: "chats" | "constellations";
   label: string;
   icon: NavIconComponent;
   count: number;
@@ -456,20 +492,19 @@ function ProjectDisclosureSection({
   expanded: boolean;
   onToggleExpand: () => void;
   onNavigate: () => void;
-  children: React.ReactNode;
+  panelId: string;
+  anchorRef?: Ref<HTMLDivElement>;
+  disclosureRef?: Ref<HTMLButtonElement>;
 }) {
-  const panelId = `luxia-sidebar-${section}-preview`;
   return (
-    <div className="space-y-px">
+    <div ref={anchorRef} className="space-y-px">
       <div className="flex items-stretch gap-0.5">
         <a
           href={href}
           aria-current={active && !childActive ? "page" : undefined}
           aria-label={label}
           className="min-w-0 flex-1 flex items-center gap-3 rounded-[10px] px-3.5 h-[40px] no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(150,219,251,0.45)]"
-          style={{
-            background: active ? "rgba(255,255,255,0.12)" : "transparent",
-          }}
+          style={{ background: active ? "rgba(255,255,255,0.12)" : "transparent" }}
           onClick={(e) => {
             e.preventDefault();
             onNavigate();
@@ -489,21 +524,19 @@ function ProjectDisclosureSection({
             {label}
           </span>
           {count > 0 ? (
-            <span
-              className="luxia-type-caption tabular-nums"
-              style={{ color: "rgba(255,255,255,0.4)" }}
-            >
+            <span className="luxia-type-caption tabular-nums" style={{ color: "rgba(255,255,255,0.4)" }}>
               {count}
             </span>
           ) : null}
         </a>
         <button
+          ref={disclosureRef}
           type="button"
           className="flex h-[40px] w-9 flex-shrink-0 items-center justify-center rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(150,219,251,0.45)]"
           style={{ color: "rgba(255,255,255,0.55)" }}
           aria-expanded={expanded}
           aria-controls={panelId}
-          aria-label={expanded ? `Collapse ${label} preview` : `Expand ${label} preview`}
+          aria-label={expanded ? `Close ${label} panel` : `Open ${label} panel`}
           onClick={onToggleExpand}
         >
           <ChevronDown
@@ -516,11 +549,181 @@ function ProjectDisclosureSection({
           />
         </button>
       </div>
-      {expanded ? (
-        <div id={panelId} role="group" aria-label={`${label} preview`}>
-          {children}
-        </div>
-      ) : null}
+    </div>
+  );
+}
+
+function FlyoutNavRow({
+  icon: Icon,
+  label,
+  active,
+  href,
+  onClick,
+}: {
+  icon: NavIconComponent;
+  label: string;
+  active?: boolean;
+  href?: string;
+  onClick?: () => void;
+}) {
+  const activeBg = "rgba(255,255,255,0.07)";
+  const idleHoverBg = "rgba(255,255,255,0.05)";
+  const className =
+    "w-full flex items-center gap-3 rounded-[10px] px-3.5 h-[40px] text-left no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(150,219,251,0.45)]";
+  const style = { background: active ? activeBg : "transparent" } as const;
+
+  const content = (
+    <>
+      <span className="relative flex-shrink-0" aria-hidden>
+        <Icon size={16} color={active ? "rgba(255,255,255,0.92)" : "rgba(255,255,255,0.55)"} />
+      </span>
+      <span
+        className="min-w-0 flex-1 truncate luxia-type-nav-sidebar"
+        style={{ color: active ? "rgba(255,255,255,0.92)" : "rgba(255,255,255,0.7)" }}
+      >
+        {label}
+      </span>
+    </>
+  );
+
+  const handlers = {
+    onMouseEnter: (e: ReactMouseEvent<HTMLElement>) => {
+      if (!active) e.currentTarget.style.background = idleHoverBg;
+    },
+    onMouseLeave: (e: ReactMouseEvent<HTMLElement>) => {
+      e.currentTarget.style.background = active ? activeBg : "transparent";
+    },
+  };
+
+  if (href) {
+    return (
+      <a
+        href={href}
+        aria-label={label}
+        aria-current={active ? "page" : undefined}
+        className={className}
+        style={style}
+        onClick={(e) => {
+          e.preventDefault();
+          onClick?.();
+        }}
+        {...handlers}
+      >
+        {content}
+      </a>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      aria-current={active ? "page" : undefined}
+      className={className}
+      style={style}
+      onClick={onClick}
+      {...handlers}
+    >
+      {content}
+    </button>
+  );
+}
+
+function SidebarFlyoutPanel({
+  id,
+  title,
+  mode,
+  top,
+  searchPlaceholder,
+  noMatchLabel,
+  query,
+  onQueryChange,
+  rows,
+  isEmptyList,
+  onBack,
+}: {
+  id: string;
+  title: string;
+  mode: "desktop" | "mobile";
+  top?: number;
+  searchPlaceholder: string;
+  noMatchLabel: string;
+  query: string;
+  onQueryChange: (value: string) => void;
+  rows: ReactNode;
+  isEmptyList: boolean;
+  onBack?: () => void;
+}) {
+  const searching = query.trim().length > 0;
+
+  return (
+    <div
+      id={id}
+      role="navigation"
+      aria-label={title}
+      className={
+        mode === "desktop"
+          ? "absolute z-[4] flex flex-col overflow-hidden"
+          : "relative z-[2] flex h-full min-h-0 flex-1 flex-col overflow-hidden"
+      }
+      style={
+        mode === "desktop"
+          ? {
+            left: "100%",
+            top: top ?? FLYOUT_VIEWPORT_PADDING,
+            width: FLYOUT_WIDTH,
+            maxHeight: FLYOUT_MAX_HEIGHT_PX,
+            background: LX.gradient.nav,
+            borderLeft: "1px solid rgba(255,255,255,0.06)",
+            borderRadius: "0 10px 10px 0",
+            boxShadow: "6px 0 18px rgba(8, 5, 18, 0.16)",
+          }
+          : { background: LX.gradient.nav }
+      }
+    >
+      <div
+        className="flex-shrink-0 px-3.5 pb-2.5 pt-3"
+        style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}
+      >
+        {mode === "mobile" && onBack ? (
+          <button
+            type="button"
+            className="mb-2 flex items-center gap-1.5 rounded-[8px] luxia-type-caption focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(150,219,251,0.45)]"
+            style={{ color: "rgba(150,219,251,0.8)" }}
+            onClick={onBack}
+          >
+            <ChevronLeft size={14} strokeWidth={2} aria-hidden />
+            Back
+          </button>
+        ) : null}
+        <p className="luxia-type-nav-sidebar" style={{ color: "rgba(255,255,255,0.92)" }}>
+          {title}
+        </p>
+        <label className="mt-2.5 block">
+          <span className="sr-only">{searchPlaceholder}</span>
+          <input
+            type="search"
+            value={query}
+            placeholder={searchPlaceholder}
+            onChange={(e) => onQueryChange(e.target.value)}
+            className="h-9 w-full rounded-[8px] border px-3 luxia-type-caption focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(150,219,251,0.45)]"
+            style={{
+              borderColor: "rgba(255,255,255,0.14)",
+              background: "rgba(255,255,255,0.08)",
+              color: "rgba(255,255,255,0.92)",
+            }}
+          />
+        </label>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2 luxia-scrollbar luxia-scrollbar-dark luxia-scrollbar-vertical">
+        {isEmptyList ? (
+          <p className="px-3.5 py-2 luxia-type-caption" style={{ color: "rgba(255,255,255,0.4)" }}>
+            {searching ? noMatchLabel : `No ${title} available`}
+          </p>
+        ) : (
+          <div className="space-y-px">{rows}</div>
+        )}
+      </div>
     </div>
   );
 }
@@ -553,6 +756,25 @@ export function LeftNav({
   onPrototypeUserChange,
   prototypeUsers,
 }: LeftNavProps) {
+  const reactId = useId();
+  const constellationsPanelId = `${reactId}-constellations-flyout`;
+  const chatsPanelId = `${reactId}-chats-flyout`;
+
+  const asideRef = useRef<HTMLElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const constellationsAnchorRef = useRef<HTMLDivElement>(null);
+  const chatsAnchorRef = useRef<HTMLDivElement>(null);
+  const constellationsDisclosureRef = useRef<HTMLButtonElement>(null);
+  const chatsDisclosureRef = useRef<HTMLButtonElement>(null);
+  const collapsedConstellationsRef = useRef<HTMLButtonElement>(null);
+  const collapsedChatsRef = useRef<HTMLButtonElement>(null);
+  const restoreFocusKindRef = useRef<FlyoutKind | null>(null);
+
+  const [flyout, setFlyout] = useState<FlyoutKind | null>(null);
+  const [flyoutTop, setFlyoutTop] = useState(FLYOUT_VIEWPORT_PADDING);
+  const [constellationQuery, setConstellationQuery] = useState("");
+  const [chatQuery, setChatQuery] = useState("");
+
   const showDemoIdentity = import.meta.env.DEV && Boolean(prototypeUsers && onPrototypeUserChange);
   const navPadding = collapsed ? "px-2" : "px-3";
   const showProjectNav = Boolean(projectId && projectLabel && showProjectContext);
@@ -574,93 +796,245 @@ export function LeftNav({
   const profileAria = `Prototype identity: ${profileName}. ${profileRoleLabel}. Prototype preview only.`;
   const selectedOptionLabel = `${profileName} — ${profileRoleLabel}`;
 
-  const [chatsExpanded, setChatsExpanded] = useState(false);
-  const [constellationsExpanded, setConstellationsExpanded] = useState(false);
-  const [manualChatsCollapse, setManualChatsCollapse] = useState(false);
-  const [manualConstellationsCollapse, setManualConstellationsCollapse] = useState(false);
+  const chatsCount = chatTotalCount ?? projectChats.length;
+  const constellationsCount = constellationTotalCount ?? projectConstellations.length;
+  const railCollapsed = isMobileDrawer ? false : collapsed;
+  const widthStyle = isMobileDrawer
+    ? SIDEBAR_WIDTH_EXPANDED
+    : (collapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_EXPANDED);
 
-  useEffect(() => {
-    if (!projectId) return;
-    const saved = readDisclosure(projectId);
-    setChatsExpanded(saved.chats);
-    setConstellationsExpanded(saved.constellations);
-    setManualChatsCollapse(false);
-    setManualConstellationsCollapse(false);
-  }, [projectId]);
-
-  useEffect(() => {
-    if (!projectId) return;
-    writeDisclosure(projectId, {
-      chats: chatsExpanded,
-      constellations: constellationsExpanded,
-    });
-  }, [projectId, chatsExpanded, constellationsExpanded]);
-
-  useEffect(() => {
-    if (!projectId || collapsed) return;
-    if (activeProjectSection === "chats" && activeChatId && !manualChatsCollapse) {
-      setChatsExpanded(true);
-    }
-    if (
-      activeProjectSection === "constellations"
-      && activeConstellationId
-      && !manualConstellationsCollapse
-    ) {
-      setConstellationsExpanded(true);
-    }
-  }, [
-    projectId,
-    collapsed,
-    activeProjectSection,
-    activeChatId,
-    activeConstellationId,
-    manualChatsCollapse,
-    manualConstellationsCollapse,
-  ]);
-
-  useEffect(() => {
-    if (!isMobileDrawer || !mobileOpen) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onMobileClose?.();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [isMobileDrawer, mobileOpen, onMobileClose]);
-
-  const chatPreviews = useMemo(
+  const quickChats = useMemo(
     () =>
-      pickPreviewItems(
+      pickQuickFlyoutItems(
         projectChats,
         activeChatId,
-        PREVIEW_LIMIT,
+        FLYOUT_QUICK_LIMIT,
         (item) => (item.pinned ? 1_000_000_000_000 : 0) + item.lastOpenedTimestamp,
       ),
     [projectChats, activeChatId],
   );
 
-  const constellationPreviews = useMemo(
+  const quickConstellations = useMemo(
     () =>
-      pickPreviewItems(
+      pickQuickFlyoutItems(
         projectConstellations,
         activeConstellationId,
-        PREVIEW_LIMIT,
+        FLYOUT_QUICK_LIMIT,
         (item) => (item.pinned ? 1_000_000_000_000 : 0) + item.updatedAtTimestamp,
       ),
     [projectConstellations, activeConstellationId],
   );
 
-  const chatsCount = chatTotalCount ?? projectChats.length;
-  const constellationsCount = constellationTotalCount ?? projectConstellations.length;
+  const constellationSearchRows = useMemo(
+    () => filterFlyoutSearch(projectConstellations, constellationQuery, FLYOUT_SEARCH_RESULT_LIMIT),
+    [projectConstellations, constellationQuery],
+  );
 
-  const railCollapsed = isMobileDrawer ? false : collapsed;
-  const drawerHidden = isMobileDrawer && !mobileOpen;
+  const chatSearchRows = useMemo(
+    () => filterFlyoutSearch(projectChats, chatQuery, FLYOUT_SEARCH_RESULT_LIMIT),
+    [projectChats, chatQuery],
+  );
 
-  const widthStyle = isMobileDrawer
-    ? SIDEBAR_WIDTH_EXPANDED
-    : (collapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_EXPANDED);
+  const getFlyoutTrigger = useCallback(
+    (kind: FlyoutKind): HTMLElement | null => {
+      if (railCollapsed) {
+        return kind === "constellations"
+          ? collapsedConstellationsRef.current
+          : collapsedChatsRef.current;
+      }
+      return kind === "constellations"
+        ? (constellationsDisclosureRef.current ?? constellationsAnchorRef.current)
+        : (chatsDisclosureRef.current ?? chatsAnchorRef.current);
+    },
+    [railCollapsed],
+  );
+
+  const repositionFlyout = useCallback(() => {
+    if (!flyout || isMobileDrawer) return;
+    const aside = asideRef.current;
+    const trigger = getFlyoutTrigger(flyout);
+    if (!aside || !trigger) return;
+    setFlyoutTop(computeFlyoutTop(aside, trigger, FLYOUT_MAX_HEIGHT_PX));
+  }, [flyout, getFlyoutTrigger, isMobileDrawer]);
+
+  const closeFlyout = useCallback(
+    (options?: { restoreFocus?: boolean }) => {
+      if (options?.restoreFocus && flyout) {
+        restoreFocusKindRef.current = flyout;
+      } else {
+        restoreFocusKindRef.current = null;
+      }
+      setFlyout(null);
+      setConstellationQuery("");
+      setChatQuery("");
+    },
+    [flyout],
+  );
+
+  const toggleFlyout = useCallback((kind: FlyoutKind) => {
+    setFlyout((prev) => {
+      if (prev === kind) {
+        restoreFocusKindRef.current = kind;
+        setConstellationQuery("");
+        setChatQuery("");
+        return null;
+      }
+      restoreFocusKindRef.current = null;
+      setConstellationQuery("");
+      setChatQuery("");
+      return kind;
+    });
+  }, []);
+
+  const navigateAndCloseFlyout = useCallback((action: () => void) => {
+    restoreFocusKindRef.current = null;
+    setFlyout(null);
+    setConstellationQuery("");
+    setChatQuery("");
+    action();
+  }, []);
+
+  useEffect(() => {
+    restoreFocusKindRef.current = null;
+    setFlyout(null);
+    setConstellationQuery("");
+    setChatQuery("");
+  }, [projectId, prototypeUser?.id, showProjectContext]);
+
+  useEffect(() => {
+    if (isMobileDrawer && !mobileOpen) {
+      restoreFocusKindRef.current = null;
+      setFlyout(null);
+    }
+  }, [isMobileDrawer, mobileOpen]);
+
+  useEffect(() => {
+    if (flyout !== null) return;
+    const kind = restoreFocusKindRef.current;
+    if (!kind) return;
+    restoreFocusKindRef.current = null;
+    getFlyoutTrigger(kind)?.focus();
+  }, [flyout, getFlyoutTrigger]);
+
+  useLayoutEffect(() => {
+    repositionFlyout();
+  }, [flyout, repositionFlyout, railCollapsed, collapsed]);
+
+  useEffect(() => {
+    if (!flyout || isMobileDrawer) return;
+    const scrollEl = scrollRef.current;
+    const onScroll = () => repositionFlyout();
+    const onResize = () => repositionFlyout();
+    scrollEl?.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onResize);
+    return () => {
+      scrollEl?.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onResize);
+    };
+  }, [flyout, isMobileDrawer, repositionFlyout]);
+
+  useEffect(() => {
+    if (!flyout) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeFlyout({ restoreFocus: true });
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [flyout, closeFlyout]);
+
+  useEffect(() => {
+    if (!flyout || isMobileDrawer) return;
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Node | null;
+      if (!target || asideRef.current?.contains(target)) return;
+      closeFlyout({ restoreFocus: true });
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [flyout, isMobileDrawer, closeFlyout]);
+
+  useEffect(() => {
+    if (!isMobileDrawer || !mobileOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        if (flyout) {
+          closeFlyout({ restoreFocus: true });
+          return;
+        }
+        onMobileClose?.();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isMobileDrawer, mobileOpen, onMobileClose, flyout, closeFlyout]);
+
+  function renderConstellationRow(item: LeftNavConstellationPreview) {
+    return (
+      <FlyoutNavRow
+        key={item.id}
+        icon={LuxiaConstellationIcon}
+        label={item.label}
+        active={activeConstellationId === item.id}
+        href={projectId ? getConstellationSettingsPath(projectId, item.id) : undefined}
+        onClick={() => {
+          if (!projectId) return;
+          navigateAndCloseFlyout(() => {
+            onOpenConstellation?.(projectId, item.id);
+            onMobileClose?.();
+          });
+        }}
+      />
+    );
+  }
+
+  function renderChatRow(item: LeftNavChatPreview) {
+    return (
+      <FlyoutNavRow
+        key={item.id}
+        icon={item.chatSource === "galaxy" ? LuxiaGalaxyIcon : LuxiaChatIcon}
+        label={item.label}
+        active={activeChatId === item.id}
+        href={
+          item.chatSource === "constellation"
+            && projectId
+            && item.constellationId
+            ? getConstellationChatPath(projectId, item.constellationId, item.id)
+            : getChatPath(item.id)
+        }
+        onClick={() => {
+          navigateAndCloseFlyout(() => {
+            onOpenChat?.(item.id);
+            onMobileClose?.();
+          });
+        }}
+      />
+    );
+  }
+
+  const constellationRows = constellationQuery.trim()
+    ? constellationSearchRows.map(renderConstellationRow)
+    : quickConstellations.map(renderConstellationRow);
+
+  const chatRows = chatQuery.trim()
+    ? chatSearchRows.map(renderChatRow)
+    : quickChats.map(renderChatRow);
+
+  const constellationListEmpty = constellationQuery.trim()
+    ? constellationSearchRows.length === 0
+    : quickConstellations.length === 0;
+
+  const chatListEmpty = chatQuery.trim()
+    ? chatSearchRows.length === 0
+    : quickChats.length === 0;
+
+  const mobileFlyoutActive = isMobileDrawer && Boolean(flyout);
 
   const aside = (
     <aside
+      ref={asideRef}
       className="relative h-full min-h-0 flex-shrink-0"
       aria-label="Luxia sidebar"
       style={{
@@ -673,461 +1047,434 @@ export function LeftNav({
           : null),
       }}
     >
+      <style>{`
+        @keyframes luxia-sidebar-star-spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
+
       <div
         className="relative flex h-full min-h-0 flex-col overflow-hidden"
         style={{ background: LX.gradient.nav, width: "100%" }}
       >
         {!railCollapsed ? <SidebarStarDecoration /> : null}
 
-        <div
-          className={`relative z-[2] flex-shrink-0 ${railCollapsed ? "flex justify-center" : ""}`}
-          style={{
-            paddingTop: SIDEBAR_BRAND_TOP,
-            paddingLeft: railCollapsed ? 0 : SIDEBAR_BRAND_LEFT,
-            paddingRight: railCollapsed ? 0 : SIDEBAR_BRAND_LEFT,
-            paddingBottom: SIDEBAR_BRAND_BOTTOM,
-          }}
-        >
-          {railCollapsed ? (
-            <div aria-label="Luxia" role="img">
-              <LuxiaStarLogo size={26} />
+        {mobileFlyoutActive && flyout === "constellations" ? (
+          <SidebarFlyoutPanel
+            id={constellationsPanelId}
+            mode="mobile"
+            title="Constellations"
+            searchPlaceholder="Search Constellations"
+            noMatchLabel="No matching Constellations"
+            query={constellationQuery}
+            onQueryChange={setConstellationQuery}
+            rows={constellationRows}
+            isEmptyList={constellationListEmpty}
+            onBack={() => closeFlyout({ restoreFocus: true })}
+          />
+        ) : mobileFlyoutActive && flyout === "chats" ? (
+          <SidebarFlyoutPanel
+            id={chatsPanelId}
+            mode="mobile"
+            title="Chats"
+            searchPlaceholder="Search Chats"
+            noMatchLabel="No matching Chats"
+            query={chatQuery}
+            onQueryChange={setChatQuery}
+            rows={chatRows}
+            isEmptyList={chatListEmpty}
+            onBack={() => closeFlyout({ restoreFocus: true })}
+          />
+        ) : (
+          <>
+            <div
+              className={`relative z-[2] flex-shrink-0 ${railCollapsed ? "flex justify-center" : ""}`}
+              style={{
+                paddingTop: SIDEBAR_BRAND_TOP,
+                paddingLeft: railCollapsed ? 0 : SIDEBAR_BRAND_LEFT,
+                paddingRight: railCollapsed ? 0 : SIDEBAR_BRAND_LEFT,
+                paddingBottom: SIDEBAR_BRAND_BOTTOM,
+              }}
+            >
+              {railCollapsed ? <CollapsedStarLogo /> : <LuxiaLogo />}
             </div>
-          ) : (
-            <LuxiaLogo />
-          )}
-        </div>
 
-        <div className="relative z-[2] min-h-0 flex-1 overflow-x-hidden overflow-y-auto luxia-scrollbar luxia-scrollbar-dark luxia-scrollbar-vertical luxia-scrollbar-sidebar">
-          <nav className={`${navPadding} space-y-px`} aria-label="Global workspace">
-            {NAV_TOP_ITEMS.map(({ id, icon, label, available, unavailableHint }) => (
-              <NavItem
-                key={id}
-                icon={icon}
-                label={label}
-                collapsed={railCollapsed}
-                active={id === "home" ? homeActive : id === "users" ? usersActive : false}
-                disabled={!available}
-                tooltip={!available ? unavailableHint ?? label : label}
-                href={
-                  id === "home" && available
-                    ? "/"
-                    : id === "users" && available
-                      ? getAccessLevelsPath()
-                      : undefined
-                }
-                onClick={
-                  id === "home"
-                    ? () => {
-                      onHomeClick?.();
-                      onMobileClose?.();
+            <div
+              ref={scrollRef}
+              className="relative z-[2] min-h-0 flex-1 overflow-x-hidden overflow-y-auto luxia-scrollbar luxia-scrollbar-dark luxia-scrollbar-vertical luxia-scrollbar-sidebar"
+            >
+              <nav className={`${navPadding} space-y-px`} aria-label="Global workspace">
+                {NAV_TOP_ITEMS.map(({ id, icon, label, available, unavailableHint }) => (
+                  <NavItem
+                    key={id}
+                    icon={icon}
+                    label={label}
+                    collapsed={railCollapsed}
+                    active={id === "home" ? homeActive : id === "users" ? usersActive : false}
+                    disabled={!available}
+                    tooltip={!available ? unavailableHint ?? label : label}
+                    href={
+                      id === "home" && available
+                        ? "/"
+                        : id === "users" && available
+                          ? getAccessLevelsPath()
+                          : undefined
                     }
-                    : id === "users"
-                      ? () => {
-                        onUsersClick?.();
-                        onMobileClose?.();
-                      }
-                      : undefined
-                }
-              />
-            ))}
-          </nav>
+                    onClick={
+                      id === "home"
+                        ? () => {
+                          closeFlyout();
+                          onHomeClick?.();
+                          onMobileClose?.();
+                        }
+                        : id === "users"
+                          ? () => {
+                            closeFlyout();
+                            onUsersClick?.();
+                            onMobileClose?.();
+                          }
+                          : undefined
+                    }
+                  />
+                ))}
+              </nav>
 
-          {showProjectNav ? (
-            <>
+              {showProjectNav ? (
+                <>
+                  <div
+                    className={`my-2.5 ${railCollapsed ? "mx-2" : "mx-4"}`}
+                    style={{ height: 1, background: "rgba(255,255,255,0.07)" }}
+                    role="separator"
+                  />
+                  <div className={navPadding}>
+                    {!railCollapsed ? (
+                      <div className="mb-1.5 px-3.5">
+                        <p
+                          className="luxia-type-overline-data"
+                          style={{ color: "rgba(150,219,251,0.55)" }}
+                        >
+                          PROJECT
+                        </p>
+                        <button
+                          type="button"
+                          className="mt-1 block w-full truncate text-left luxia-type-nav-sidebar focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(150,219,251,0.45)] rounded"
+                          style={{ color: "rgba(255,255,255,0.88)" }}
+                          title={projectLabel ?? undefined}
+                          onClick={() => {
+                            closeFlyout();
+                            onProjectSectionClick?.("overview");
+                            onMobileClose?.();
+                          }}
+                        >
+                          {projectLabel}
+                        </button>
+                      </div>
+                    ) : null}
+
+                    <nav className="space-y-px" aria-label="Current project">
+                      <NavItem
+                        icon={LuxiaProjectsIcon}
+                        label="Overview"
+                        tooltip="Project overview"
+                        active={activeProjectSection === "overview"}
+                        collapsed={railCollapsed}
+                        href={overviewHref}
+                        onClick={() => {
+                          closeFlyout();
+                          onProjectSectionClick?.("overview");
+                          onMobileClose?.();
+                        }}
+                      />
+                      {showGalaxy ? (
+                        <NavItem
+                          icon={LuxiaGalaxyIcon}
+                          label="Galaxy"
+                          tooltip="Galaxy"
+                          active={activeProjectSection === "galaxy"}
+                          collapsed={railCollapsed}
+                          href={galaxyHref}
+                          onClick={() => {
+                            closeFlyout();
+                            onProjectSectionClick?.("galaxy");
+                            onMobileClose?.();
+                          }}
+                        />
+                      ) : null}
+
+                      {railCollapsed ? (
+                        <>
+                          <NavItem
+                            icon={LuxiaConstellationIcon}
+                            label="Constellations"
+                            tooltip="Constellations"
+                            active={activeProjectSection === "constellations"}
+                            collapsed
+                            count={constellationsCount}
+                            ariaExpanded={flyout === "constellations"}
+                            ariaControls={constellationsPanelId}
+                            buttonRef={collapsedConstellationsRef}
+                            onClick={() => toggleFlyout("constellations")}
+                          />
+                          <NavItem
+                            icon={LuxiaChatIcon}
+                            label="Chats"
+                            tooltip="Chats"
+                            active={activeProjectSection === "chats"}
+                            collapsed
+                            count={chatsCount}
+                            ariaExpanded={flyout === "chats"}
+                            ariaControls={chatsPanelId}
+                            buttonRef={collapsedChatsRef}
+                            onClick={() => toggleFlyout("chats")}
+                          />
+                        </>
+                      ) : (
+                        <>
+                          <ProjectDisclosureSection
+                            label="Constellations"
+                            icon={LuxiaConstellationIcon}
+                            count={constellationsCount}
+                            href={constellationsHref}
+                            active={activeProjectSection === "constellations"}
+                            childActive={Boolean(activeConstellationId)}
+                            expanded={flyout === "constellations"}
+                            panelId={constellationsPanelId}
+                            anchorRef={constellationsAnchorRef}
+                            disclosureRef={constellationsDisclosureRef}
+                            onToggleExpand={() => toggleFlyout("constellations")}
+                            onNavigate={() => {
+                              navigateAndCloseFlyout(() => {
+                                onProjectSectionClick?.("constellations");
+                                onMobileClose?.();
+                              });
+                            }}
+                          />
+                          <ProjectDisclosureSection
+                            label="Chats"
+                            icon={LuxiaChatIcon}
+                            count={chatsCount}
+                            href={chatsHref}
+                            active={activeProjectSection === "chats"}
+                            childActive={Boolean(activeChatId) && activeProjectSection === "chats"}
+                            expanded={flyout === "chats"}
+                            panelId={chatsPanelId}
+                            anchorRef={chatsAnchorRef}
+                            disclosureRef={chatsDisclosureRef}
+                            onToggleExpand={() => toggleFlyout("chats")}
+                            onNavigate={() => {
+                              navigateAndCloseFlyout(() => {
+                                onProjectSectionClick?.("chats");
+                                onMobileClose?.();
+                              });
+                            }}
+                          />
+                        </>
+                      )}
+
+                      <NavItem
+                        icon={LuxiaDashboardIcon}
+                        label="Dashboard"
+                        tooltip="Dashboard"
+                        active={activeProjectSection === "dashboard"}
+                        collapsed={railCollapsed}
+                        href={dashboardHref}
+                        onClick={() => {
+                          closeFlyout();
+                          onProjectSectionClick?.("dashboard");
+                          onMobileClose?.();
+                        }}
+                      />
+                      <NavItem
+                        icon={LuxiaUserPermissionsIcon}
+                        label="Members & Roles"
+                        tooltip="Members & Roles"
+                        active={activeProjectSection === "members"}
+                        collapsed={railCollapsed}
+                        href={membersHref}
+                        onClick={() => {
+                          closeFlyout();
+                          onProjectSectionClick?.("members");
+                          onMobileClose?.();
+                        }}
+                      />
+                      <NavItem
+                        icon={LuxiaSettingsIcon}
+                        label="Project Settings"
+                        collapsed={railCollapsed}
+                        disabled
+                        tooltip="Project Settings are not available in this prototype."
+                      />
+                    </nav>
+                  </div>
+                </>
+              ) : null}
+            </div>
+
+            <div
+              className={`relative z-[2] flex-shrink-0 ${navPadding} space-y-px pb-1 pt-2`}
+              style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
+            >
+              <nav className="space-y-px" aria-label="Utilities">
+                {NAV_BOTTOM_ITEMS.map(({ id, icon, label, available, unavailableHint }) => (
+                  <NavItem
+                    key={id}
+                    icon={icon}
+                    label={label}
+                    collapsed={railCollapsed}
+                    disabled={!available}
+                    tooltip={!available ? unavailableHint ?? label : label}
+                  />
+                ))}
+              </nav>
+            </div>
+
+            {railCollapsed ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div
+                    className="relative z-[2] flex flex-shrink-0 items-center justify-center px-2 py-2.5"
+                    style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
+                    aria-label={profileAria}
+                  >
+                    <div
+                      className="w-8 h-8 rounded-[8px] flex items-center justify-center text-white luxia-type-caption flex-shrink-0"
+                      style={{ background: "linear-gradient(135deg, #5BC8F5 0%, #2C7A9E 100%)" }}
+                      aria-hidden
+                    >
+                      {profileInitials}
+                    </div>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="right" sideOffset={8} className="max-w-[220px]">
+                  <div className="flex flex-col gap-0.5">
+                    <span>{profileName}</span>
+                    <span>{profileRoleLabel}</span>
+                    <span style={{ opacity: 0.75 }}>Prototype preview only</span>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            ) : (
               <div
-                className={`my-2.5 ${railCollapsed ? "mx-2" : "mx-4"}`}
-                style={{ height: 1, background: "rgba(255,255,255,0.07)" }}
-                role="separator"
-              />
-
-              <div className={navPadding}>
-                {!railCollapsed ? (
-                  <div className="mb-1.5 px-3.5">
-                    <p
-                      className="luxia-type-overline-data"
-                      style={{ color: "rgba(150,219,251,0.55)" }}
-                    >
-                      PROJECT
+                className="relative z-[2] flex flex-shrink-0 flex-col gap-2 px-4 py-2.5"
+                style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div
+                    className="w-8 h-8 rounded-[8px] flex items-center justify-center text-white luxia-type-caption flex-shrink-0"
+                    style={{ background: "linear-gradient(135deg, #5BC8F5 0%, #2C7A9E 100%)" }}
+                    aria-hidden
+                  >
+                    {profileInitials}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white luxia-type-profile-secondary truncate leading-tight">
+                      {profileName}
                     </p>
-                    <button
-                      type="button"
-                      className="mt-1 block w-full truncate text-left luxia-type-nav-sidebar focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(150,219,251,0.45)] rounded"
-                      style={{ color: "rgba(255,255,255,0.88)" }}
-                      title={projectLabel ?? undefined}
-                      onClick={() => {
-                        onProjectSectionClick?.("overview");
-                        onMobileClose?.();
-                      }}
+                    <p
+                      className="luxia-type-profile-secondary truncate leading-tight"
+                      style={{ color: "rgba(255,255,255,0.4)" }}
                     >
-                      {projectLabel}
-                    </button>
+                      {profileRoleLabel}
+                    </p>
+                  </div>
+                </div>
+                {showDemoIdentity ? (
+                  <div className="block min-w-0">
+                    <p
+                      className="mb-1 luxia-type-caption"
+                      style={{ color: "rgba(255,255,255,0.45)" }}
+                      id="luxia-demo-identity-label"
+                    >
+                      Demo identity
+                    </p>
+                    <Select
+                      value={prototypeUser?.id ?? ""}
+                      onValueChange={(value) => onPrototypeUserChange?.(value)}
+                    >
+                      <SelectTrigger
+                        size="sm"
+                        aria-labelledby="luxia-demo-identity-label"
+                        aria-label="Demo identity"
+                        className="h-9 min-h-9 w-full min-w-0 border-[rgba(255,255,255,0.14)] bg-[rgba(255,255,255,0.08)] px-2.5 text-left text-[rgba(255,255,255,0.92)] hover:border-[rgba(255,255,255,0.28)] focus-visible:border-[rgba(150,219,251,0.55)] focus-visible:shadow-[0_0_0_3px_rgba(150,219,251,0.22)] [&_svg]:text-[rgba(255,255,255,0.55)]"
+                      >
+                        <SelectValue placeholder="Select identity">
+                          <span className="truncate luxia-type-caption">{selectedOptionLabel}</span>
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent
+                        position="popper"
+                        side="top"
+                        sideOffset={6}
+                        className="z-[60] min-w-[var(--radix-select-trigger-width)]"
+                      >
+                        {prototypeUsers?.map((user) => {
+                          const accessibleName = `${user.name}, ${user.roleLabel}`;
+                          return (
+                            <SelectItem
+                              key={user.id}
+                              value={user.id}
+                              textValue={accessibleName}
+                              className="data-[state=checked]:bg-[var(--luxia-opacity-brand-secondary-08)]"
+                            >
+                              <span className="flex w-full min-w-0 items-center justify-between gap-3 pr-1">
+                                <span className="truncate">{user.name}</span>
+                                <span
+                                  className="flex-shrink-0 luxia-type-caption"
+                                  style={{ color: "var(--luxia-text-muted)" }}
+                                >
+                                  {user.roleLabel}
+                                </span>
+                              </span>
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                    <span
+                      className="mt-1 block luxia-type-caption"
+                      style={{ color: "rgba(255,255,255,0.35)" }}
+                    >
+                      Prototype preview only
+                    </span>
                   </div>
                 ) : null}
-
-                <nav className="space-y-px" aria-label="Current project">
-                  <NavItem
-                    icon={LuxiaProjectsIcon}
-                    label="Overview"
-                    tooltip="Project overview"
-                    active={activeProjectSection === "overview"}
-                    collapsed={railCollapsed}
-                    href={overviewHref}
-                    onClick={() => {
-                      onProjectSectionClick?.("overview");
-                      onMobileClose?.();
-                    }}
-                  />
-                  {showGalaxy ? (
-                    <NavItem
-                      icon={LuxiaGalaxyIcon}
-                      label="Galaxy"
-                      tooltip="Galaxy"
-                      active={activeProjectSection === "galaxy"}
-                      collapsed={railCollapsed}
-                      href={galaxyHref}
-                      onClick={() => {
-                        onProjectSectionClick?.("galaxy");
-                        onMobileClose?.();
-                      }}
-                    />
-                  ) : null}
-
-                  {railCollapsed ? (
-                    <>
-                      <NavItem
-                        icon={LuxiaConstellationIcon}
-                        label="Constellations"
-                        tooltip="Constellations"
-                        active={activeProjectSection === "constellations"}
-                        collapsed
-                        count={constellationsCount}
-                        href={constellationsHref}
-                        onClick={() => {
-                          onProjectSectionClick?.("constellations");
-                          onMobileClose?.();
-                        }}
-                      />
-                      <NavItem
-                        icon={LuxiaChatIcon}
-                        label="Chats"
-                        tooltip="Chats"
-                        active={activeProjectSection === "chats"}
-                        collapsed
-                        count={chatsCount}
-                        href={chatsHref}
-                        onClick={() => {
-                          onProjectSectionClick?.("chats");
-                          onMobileClose?.();
-                        }}
-                      />
-                    </>
-                  ) : (
-                    <>
-                      <ProjectDisclosureSection
-                        section="constellations"
-                        label="Constellations"
-                        icon={LuxiaConstellationIcon}
-                        count={constellationsCount}
-                        href={constellationsHref}
-                        active={activeProjectSection === "constellations"}
-                        childActive={Boolean(activeConstellationId)}
-                        expanded={constellationsExpanded}
-                        onToggleExpand={() => {
-                          setConstellationsExpanded((prev) => {
-                            const next = !prev;
-                            if (!next) setManualConstellationsCollapse(true);
-                            else setManualConstellationsCollapse(false);
-                            return next;
-                          });
-                        }}
-                        onNavigate={() => {
-                          onProjectSectionClick?.("constellations");
-                          onMobileClose?.();
-                        }}
-                      >
-                        {constellationPreviews.length === 0 ? (
-                          <p
-                            className="px-3.5 py-2 luxia-type-caption"
-                            style={{ color: "rgba(255,255,255,0.4)" }}
-                          >
-                            No Constellations yet
-                          </p>
-                        ) : (
-                          constellationPreviews.map((item) => (
-                            <NavItem
-                              key={item.id}
-                              icon={LuxiaConstellationIcon}
-                              label={item.label}
-                              indent
-                              active={activeConstellationId === item.id}
-                              href={
-                                projectId
-                                  ? getConstellationSettingsPath(projectId, item.id)
-                                  : undefined
-                              }
-                              onClick={() => {
-                                if (!projectId) return;
-                                onOpenConstellation?.(projectId, item.id);
-                                onMobileClose?.();
-                              }}
-                            />
-                          ))
-                        )}
-                        {constellationsCount > PREVIEW_LIMIT ? (
-                          <button
-                            type="button"
-                            className="w-full rounded-[10px] px-3.5 py-2 text-left luxia-type-caption focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(150,219,251,0.45)]"
-                            style={{ color: "rgba(150,219,251,0.75)" }}
-                            onClick={() => {
-                              onProjectSectionClick?.("constellations");
-                              onMobileClose?.();
-                            }}
-                          >
-                            View all {constellationsCount} Constellations
-                          </button>
-                        ) : null}
-                      </ProjectDisclosureSection>
-
-                      <ProjectDisclosureSection
-                        section="chats"
-                        label="Chats"
-                        icon={LuxiaChatIcon}
-                        count={chatsCount}
-                        href={chatsHref}
-                        active={activeProjectSection === "chats"}
-                        childActive={Boolean(activeChatId)}
-                        expanded={chatsExpanded}
-                        onToggleExpand={() => {
-                          setChatsExpanded((prev) => {
-                            const next = !prev;
-                            if (!next) setManualChatsCollapse(true);
-                            else setManualChatsCollapse(false);
-                            return next;
-                          });
-                        }}
-                        onNavigate={() => {
-                          onProjectSectionClick?.("chats");
-                          onMobileClose?.();
-                        }}
-                      >
-                        {chatPreviews.length === 0 ? (
-                          <p
-                            className="px-3.5 py-2 luxia-type-caption"
-                            style={{ color: "rgba(255,255,255,0.4)" }}
-                          >
-                            No Chats yet
-                          </p>
-                        ) : (
-                          chatPreviews.map((item) => (
-                            <NavItem
-                              key={item.id}
-                              icon={item.chatSource === "galaxy" ? LuxiaGalaxyIcon : LuxiaChatIcon}
-                              label={item.label}
-                              indent
-                              active={activeChatId === item.id}
-                              href={
-                                item.chatSource === "constellation"
-                                  && projectId
-                                  && item.constellationId
-                                  ? getConstellationChatPath(
-                                    projectId,
-                                    item.constellationId,
-                                    item.id,
-                                  )
-                                  : getChatPath(item.id)
-                              }
-                              onClick={() => {
-                                onOpenChat?.(item.id);
-                                onMobileClose?.();
-                              }}
-                            />
-                          ))
-                        )}
-                        {chatsCount > PREVIEW_LIMIT ? (
-                          <button
-                            type="button"
-                            className="w-full rounded-[10px] px-3.5 py-2 text-left luxia-type-caption focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(150,219,251,0.45)]"
-                            style={{ color: "rgba(150,219,251,0.75)" }}
-                            onClick={() => {
-                              onProjectSectionClick?.("chats");
-                              onMobileClose?.();
-                            }}
-                          >
-                            View all {chatsCount} Chats
-                          </button>
-                        ) : null}
-                      </ProjectDisclosureSection>
-                    </>
-                  )}
-
-                  <NavItem
-                    icon={LuxiaDashboardIcon}
-                    label="Dashboard"
-                    tooltip="Dashboard"
-                    active={activeProjectSection === "dashboard"}
-                    collapsed={railCollapsed}
-                    href={dashboardHref}
-                    onClick={() => {
-                      onProjectSectionClick?.("dashboard");
-                      onMobileClose?.();
-                    }}
-                  />
-                  <NavItem
-                    icon={LuxiaUserPermissionsIcon}
-                    label="Members & Roles"
-                    tooltip="Members & Roles"
-                    active={activeProjectSection === "members"}
-                    collapsed={railCollapsed}
-                    href={membersHref}
-                    onClick={() => {
-                      onProjectSectionClick?.("members");
-                      onMobileClose?.();
-                    }}
-                  />
-                  <NavItem
-                    icon={LuxiaSettingsIcon}
-                    label="Project Settings"
-                    collapsed={railCollapsed}
-                    disabled
-                    tooltip="Project Settings are not available in this prototype."
-                  />
-                </nav>
               </div>
-            </>
-          ) : null}
-        </div>
-
-        <div
-          className={`relative z-[2] flex-shrink-0 ${navPadding} space-y-px pb-1 pt-2`}
-          style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
-        >
-          <nav className="space-y-px" aria-label="Utilities">
-            {NAV_BOTTOM_ITEMS.map(({ id, icon, label, available, unavailableHint }) => (
-              <NavItem
-                key={id}
-                icon={icon}
-                label={label}
-                collapsed={railCollapsed}
-                disabled={!available}
-                tooltip={!available ? unavailableHint ?? label : label}
-              />
-            ))}
-          </nav>
-        </div>
-
-        {railCollapsed ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div
-                className="relative z-[2] flex flex-shrink-0 items-center justify-center px-2 py-2.5"
-                style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
-                aria-label={profileAria}
-              >
-                <div
-                  className="w-8 h-8 rounded-[8px] flex items-center justify-center text-white luxia-type-caption flex-shrink-0"
-                  style={{ background: "linear-gradient(135deg, #5BC8F5 0%, #2C7A9E 100%)" }}
-                  aria-hidden
-                >
-                  {profileInitials}
-                </div>
-              </div>
-            </TooltipTrigger>
-            <TooltipContent side="right" sideOffset={8} className="max-w-[220px]">
-              <div className="flex flex-col gap-0.5">
-                <span>{profileName}</span>
-                <span>{profileRoleLabel}</span>
-                <span style={{ opacity: 0.75 }}>Prototype preview only</span>
-              </div>
-            </TooltipContent>
-          </Tooltip>
-        ) : (
-          <div
-            className="relative z-[2] flex flex-shrink-0 flex-col gap-2 px-4 py-2.5"
-            style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
-          >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div
-                className="w-8 h-8 rounded-[8px] flex items-center justify-center text-white luxia-type-caption flex-shrink-0"
-                style={{ background: "linear-gradient(135deg, #5BC8F5 0%, #2C7A9E 100%)" }}
-                aria-hidden
-              >
-                {profileInitials}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-white luxia-type-profile-secondary truncate leading-tight">
-                  {profileName}
-                </p>
-                <p
-                  className="luxia-type-profile-secondary truncate leading-tight"
-                  style={{ color: "rgba(255,255,255,0.4)" }}
-                >
-                  {profileRoleLabel}
-                </p>
-              </div>
-            </div>
-            {showDemoIdentity ? (
-              <div className="block min-w-0">
-                <p
-                  className="mb-1 luxia-type-caption"
-                  style={{ color: "rgba(255,255,255,0.45)" }}
-                  id="luxia-demo-identity-label"
-                >
-                  Demo identity
-                </p>
-                <Select
-                  value={prototypeUser?.id ?? ""}
-                  onValueChange={(value) => onPrototypeUserChange?.(value)}
-                >
-                  <SelectTrigger
-                    size="sm"
-                    aria-labelledby="luxia-demo-identity-label"
-                    aria-label="Demo identity"
-                    className="h-9 min-h-9 w-full min-w-0 border-[rgba(255,255,255,0.14)] bg-[rgba(255,255,255,0.08)] px-2.5 text-left text-[rgba(255,255,255,0.92)] hover:border-[rgba(255,255,255,0.28)] focus-visible:border-[rgba(150,219,251,0.55)] focus-visible:shadow-[0_0_0_3px_rgba(150,219,251,0.22)] [&_svg]:text-[rgba(255,255,255,0.55)]"
-                  >
-                    <SelectValue placeholder="Select identity">
-                      <span className="truncate luxia-type-caption">{selectedOptionLabel}</span>
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent
-                    position="popper"
-                    side="top"
-                    sideOffset={6}
-                    className="z-[60] min-w-[var(--radix-select-trigger-width)]"
-                  >
-                    {prototypeUsers?.map((user) => {
-                      const accessibleName = `${user.name}, ${user.roleLabel}`;
-                      return (
-                        <SelectItem
-                          key={user.id}
-                          value={user.id}
-                          textValue={accessibleName}
-                          className="data-[state=checked]:bg-[var(--luxia-opacity-brand-secondary-08)]"
-                        >
-                          <span className="flex w-full min-w-0 items-center justify-between gap-3 pr-1">
-                            <span className="truncate">{user.name}</span>
-                            <span
-                              className="flex-shrink-0 luxia-type-caption"
-                              style={{ color: "var(--luxia-text-muted)" }}
-                            >
-                              {user.roleLabel}
-                            </span>
-                          </span>
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
-                <span
-                  className="mt-1 block luxia-type-caption"
-                  style={{ color: "rgba(255,255,255,0.35)" }}
-                >
-                  Prototype preview only
-                </span>
-              </div>
-            ) : null}
-          </div>
+            )}
+          </>
         )}
       </div>
+
+      {!isMobileDrawer && flyout === "constellations" ? (
+        <SidebarFlyoutPanel
+          id={constellationsPanelId}
+          mode="desktop"
+          top={flyoutTop}
+          title="Constellations"
+          searchPlaceholder="Search Constellations"
+          noMatchLabel="No matching Constellations"
+          query={constellationQuery}
+          onQueryChange={setConstellationQuery}
+          rows={constellationRows}
+          isEmptyList={constellationListEmpty}
+        />
+      ) : null}
+
+      {!isMobileDrawer && flyout === "chats" ? (
+        <SidebarFlyoutPanel
+          id={chatsPanelId}
+          mode="desktop"
+          top={flyoutTop}
+          title="Chats"
+          searchPlaceholder="Search Chats"
+          noMatchLabel="No matching Chats"
+          query={chatQuery}
+          onQueryChange={setChatQuery}
+          rows={chatRows}
+          isEmptyList={chatListEmpty}
+        />
+      ) : null}
+
       {!isMobileDrawer ? (
         <SidebarCollapseToggle collapsed={collapsed} onToggle={onToggleCollapsed} />
       ) : null}
@@ -1149,9 +1496,9 @@ export function LeftNav({
         <div
           className="fixed inset-y-0 left-0 z-[50] h-dvh"
           style={{
-            transform: drawerHidden ? "translateX(-105%)" : "translateX(0)",
+            transform: mobileOpen ? "translateX(0)" : "translateX(-105%)",
             transition: "transform 200ms ease",
-            visibility: drawerHidden ? "hidden" : "visible",
+            visibility: mobileOpen ? "visible" : "hidden",
           }}
         >
           {aside}

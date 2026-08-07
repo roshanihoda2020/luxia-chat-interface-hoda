@@ -17,10 +17,10 @@ export { CURRENT_USER_ID, setPrototypeCurrentUserId, getDemoPersonaRoleLabel, DE
  * Demo identity personas for UX / access preview (not auth).
  * Canonical prototype-identity rules: ./currentUser.ts
  *
- * user-01 Admin + Project Owner (project-01); owns Private ds-csv-01
- * user-02 Member + Project Manager (project-01)
+ * user-01 Admin + Project Owner (project-01…06); owns Private ds-csv-01
+ * user-02 Member + Project Manager (project-01); Member (project-02)
  * user-03 Member + Analyst (project-01); owns Private ds-db-02
- * user-04 Member + Member (project-01); no membership on project-03+
+ * user-04 Member + Member (project-01); no membership on project-02+
  */
 export const ORGANIZATION_USERS: OrganizationUser[] = [
   {
@@ -189,6 +189,38 @@ export const PROJECT_MEMBERSHIPS: ProjectMembership[] = [
     projectRole: "Member",
     status: "active",
     joinedOrInvitedAt: "2026-04-20T13:15:00.000Z",
+  },
+  {
+    id: "pm-03-01",
+    projectId: "project-03",
+    userId: "user-01",
+    projectRole: "Project Owner",
+    status: "active",
+    joinedOrInvitedAt: "2026-02-01T09:00:00.000Z",
+  },
+  {
+    id: "pm-04-01",
+    projectId: "project-04",
+    userId: "user-01",
+    projectRole: "Project Owner",
+    status: "active",
+    joinedOrInvitedAt: "2026-02-08T09:00:00.000Z",
+  },
+  {
+    id: "pm-05-01",
+    projectId: "project-05",
+    userId: "user-01",
+    projectRole: "Project Owner",
+    status: "active",
+    joinedOrInvitedAt: "2026-02-12T09:00:00.000Z",
+  },
+  {
+    id: "pm-06-01",
+    projectId: "project-06",
+    userId: "user-01",
+    projectRole: "Project Owner",
+    status: "active",
+    joinedOrInvitedAt: "2026-02-18T09:00:00.000Z",
   },
 ];
 

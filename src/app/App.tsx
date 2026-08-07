@@ -633,6 +633,15 @@ const INITIAL_CHATS: Chat[] = [
   { id: "chat-12", label: "Chat name 12", chatType: "constellation", projectId: "project-04", constellationId: "con14" },
   { id: "chat-13", label: "Chat name 13", chatType: "constellation", projectId: "project-05", constellationId: "con15" },
   { id: "chat-14", label: "Chat name 14", chatType: "constellation", projectId: "project-06", constellationId: "con17" },
+  { id: "chat-15", label: "Chat name 15", chatType: "constellation", projectId: "project-06", constellationId: "con18" },
+  { id: "chat-16", label: "Chat name 16", chatType: "constellation", projectId: "project-06", constellationId: "con19" },
+  { id: "chat-17", label: "Chat name 17", chatType: "constellation", projectId: "project-06", constellationId: "con20" },
+  { id: "chat-18", label: "Chat name 18", chatType: "constellation", projectId: "project-06", constellationId: "con21" },
+  { id: "chat-19", label: "Chat name 19", chatType: "constellation", projectId: "project-06", constellationId: "con22" },
+  { id: "chat-20", label: "Chat name 20", chatType: "constellation", projectId: "project-06", constellationId: "con23" },
+  { id: "chat-21", label: "Chat name 21", chatType: "constellation", projectId: "project-06", constellationId: "con24" },
+  { id: "chat-22", label: "Chat name 22", chatType: "constellation", projectId: "project-06", constellationId: "con25" },
+  { id: "chat-23", label: "Chat name 23", chatType: "constellation", projectId: "project-06", constellationId: "con26" },
   { id: "galaxy-01", label: "Galaxy name 01", chatType: "galaxy", projectId: "project-01" },
   { id: "galaxy-02", label: "Galaxy name 02", chatType: "galaxy", projectId: "project-02", pinned: true },
   { id: "galaxy-03", label: "Galaxy name 03", chatType: "galaxy", projectId: "project-03" },
@@ -6789,9 +6798,7 @@ export default function App() {
         showProjectContext={showProjectContext}
         showGalaxy={Boolean(contextProjectMembership)}
         activeProjectSection={activeProjectSection}
-        activeChatId={
-          appView === "chat" && activeData?.chatType !== "galaxy" ? activeChat : null
-        }
+        activeChatId={appView === "chat" ? activeChat : null}
         activeConstellationId={
           appView === "constellation-settings" || appView === "constellation-create"
             ? settingsConstellationId

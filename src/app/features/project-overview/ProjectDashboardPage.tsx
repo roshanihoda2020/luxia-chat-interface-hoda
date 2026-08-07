@@ -17,6 +17,14 @@ import {
   AlertDialogTitle,
 } from "@/app/components/ui/alert-dialog";
 import { Button } from "@/app/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/app/components/ui/dialog";
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
 import {
@@ -47,6 +55,16 @@ type ConversationSourceFilter = "all" | ProjectDashboardConversationSource;
 
 const PROJECT_NAME_FALLBACK = "Project name 01";
 
+/**
+ * Output types with a real editable prototype flow.
+ * Current Dashboard outputs are snapshot previews only — no editor exists yet.
+ */
+const EDITABLE_DASHBOARD_OUTPUT_TYPES = new Set<ProjectDashboardOutputType>();
+
+function canEditDashboardOutput(type: ProjectDashboardOutputType): boolean {
+  return EDITABLE_DASHBOARD_OUTPUT_TYPES.has(type);
+}
+
 function matchesSearch(item: ProjectDashboardOutput, query: string): boolean {
   const q = query.trim().toLowerCase();
   if (!q) return true;
@@ -57,12 +75,16 @@ function matchesSearch(item: ProjectDashboardOutput, query: string): boolean {
   );
 }
 
-function outputCountLabel(count: number): string {
-  return `${count} ${count === 1 ? "output" : "outputs"}`;
+function filteredResultsLabel(count: number): string {
+  return `${count} ${count === 1 ? "result" : "results"}`;
 }
 
 function canMutateDashboardOutputs(role: ProjectRole | null | undefined): boolean {
   return role === "Project Owner" || role === "Project Manager" || role === "Analyst";
+}
+
+function stopCardActivation(event: { stopPropagation: () => void }) {
+  event.stopPropagation();
 }
 
 export interface ProjectDashboardPageProps {
@@ -145,7 +167,7 @@ export function ProjectDashboardPage({
   }
 
   function openRename(outputId: string) {
-    if (!canMutate) return;
+    if (!canMutateDashboardOutputs(projectRole)) return;
     const target = outputs.find((item) => item.id === outputId);
     if (!target) return;
     setRenameOutputId(outputId);
@@ -153,9 +175,16 @@ export function ProjectDashboardPage({
     setRenameError(null);
   }
 
+  function openEdit(outputId: string) {
+    if (!canMutateDashboardOutputs(projectRole)) return;
+    const target = outputs.find((item) => item.id === outputId);
+    if (!target || !canEditDashboardOutput(target.outputType)) return;
+    // No editable prototype flow exists yet for any output type.
+  }
+
   function submitRename(event?: FormEvent) {
     event?.preventDefault();
-    if (!canMutate || !renameOutputId) return;
+    if (!canMutateDashboardOutputs(projectRole) || !renameOutputId) return;
     const trimmed = renameValue.trim();
     if (!trimmed) {
       setRenameError("Enter an output name.");
@@ -180,11 +209,17 @@ export function ProjectDashboardPage({
   }
 
   function confirmDelete() {
-    if (!canMutate || !deleteOutputId) return;
+    if (!canMutateDashboardOutputs(projectRole) || !deleteOutputId) return;
     setOutputs((prev) => prev.filter((item) => item.id !== deleteOutputId));
     if (viewOutputId === deleteOutputId) setViewOutputId(null);
     if (renameOutputId === deleteOutputId) setRenameOutputId(null);
     setDeleteOutputId(null);
+  }
+
+  function openDelete(outputId: string) {
+    if (!canMutateDashboardOutputs(projectRole)) return;
+    if (!outputs.some((item) => item.id === outputId)) return;
+    setDeleteOutputId(outputId);
   }
 
   useEffect(() => {
@@ -308,7 +343,9 @@ export function ProjectDashboardPage({
                 <option value="constellation-chat">Constellation Chats</option>
               </BrowserFilterSelect>
             </CollectionFilterBar>
-            <ResultsCount>{outputCountLabel(filteredOutputs.length)}</ResultsCount>
+            {filtersActive ? (
+              <ResultsCount>{filteredResultsLabel(filteredOutputs.length)}</ResultsCount>
+            ) : null}
           </div>
         </div>
       ) : null}
@@ -349,7 +386,42 @@ export function ProjectDashboardPage({
           className="grid min-w-0 grid-cols-1 items-stretch gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
           style={{ gap: 16 }}
         >
-          {filteredOutputs.map((item) => (
+          {filteredOutputs.map((item) => {
+            const showEdit = canMutate && canEditDashboardOutput(item.outputType);
+            const menuItems = [
+              {
+                id: "view",
+                label: "View",
+                onSelect: () => openView(item.id),
+              },
+              ...(canMutate
+                ? [
+                    {
+                      id: "rename",
+                      label: "Rename",
+                      onSelect: () => openRename(item.id),
+                    },
+                    ...(showEdit
+                      ? [
+                          {
+                            id: "edit",
+                            label: "Edit",
+                            onSelect: () => openEdit(item.id),
+                          },
+                        ]
+                      : []),
+                    {
+                      id: "delete",
+                      label: "Delete",
+                      destructive: true as const,
+                      separatorBefore: true,
+                      onSelect: () => openDelete(item.id),
+                    },
+                  ]
+                : []),
+            ];
+
+            return (
             <article
               key={item.id}
               className="relative flex min-w-0 flex-col rounded-[12px] p-3"
@@ -360,35 +432,17 @@ export function ProjectDashboardPage({
               }}
               aria-label={`${item.name}, ${outputTypeLabel(item.outputType)}, from ${item.sourceContext}, updated ${item.updatedAt}`}
             >
-              <div className="absolute right-2 top-2 z-[1]">
+              <div
+                className="absolute right-2 top-2 z-[1]"
+                onClick={stopCardActivation}
+                onPointerDown={stopCardActivation}
+              >
                 <LuxiaEntityOptionsMenu
                   entityLabel={item.name}
                   entityType="Output"
-                  ariaLabel="Output options"
+                  ariaLabel={`Output options for ${item.name}`}
                   align="end"
-                  items={[
-                    {
-                      id: "view",
-                      label: "View",
-                      onSelect: () => openView(item.id),
-                    },
-                    ...(canMutate
-                      ? [
-                          {
-                            id: "rename",
-                            label: "Rename",
-                            onSelect: () => openRename(item.id),
-                          },
-                          {
-                            id: "delete",
-                            label: "Delete",
-                            destructive: true as const,
-                            separatorBefore: true,
-                            onSelect: () => setDeleteOutputId(item.id),
-                          },
-                        ]
-                      : []),
-                  ]}
+                  items={menuItems}
                 />
               </div>
 
@@ -396,7 +450,7 @@ export function ProjectDashboardPage({
                 type="button"
                 className="min-w-0 flex-1 rounded-[10px] text-left outline-none focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]"
                 onClick={() => openView(item.id)}
-                aria-label={`View ${item.name}`}
+                aria-label={`View output ${item.name}`}
               >
                 <DashboardOutputPreviewGraphic variant={item.outputType} size="full" />
                 <div className="mt-3 flex min-w-0 flex-1 flex-col gap-1 px-0.5 pr-8">
@@ -421,7 +475,8 @@ export function ProjectDashboardPage({
                 </div>
               </button>
             </article>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -445,22 +500,11 @@ export function ProjectDashboardPage({
           ) : null}
           <AlertDialogFooter>
             <AlertDialogCancel>Close</AlertDialogCancel>
-            {canMutate && viewOutput ? (
-              <AlertDialogAction
-                onClick={() => {
-                  const id = viewOutput.id;
-                  setViewOutputId(null);
-                  openRename(id);
-                }}
-              >
-                Rename
-              </AlertDialogAction>
-            ) : null}
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog
+      <Dialog
         open={Boolean(renameOutput)}
         onOpenChange={(open) => {
           if (!open) {
@@ -470,14 +514,14 @@ export function ProjectDashboardPage({
           }
         }}
       >
-        <AlertDialogContent>
+        <DialogContent className="sm:max-w-md">
           <form onSubmit={submitRename}>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Rename output</AlertDialogTitle>
-              <AlertDialogDescription>
-                Change only this output name. Source conversations stay unchanged.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
+            <DialogHeader>
+              <DialogTitle>Rename output</DialogTitle>
+              <DialogDescription>
+                Update the name for this Dashboard output only.
+              </DialogDescription>
+            </DialogHeader>
             <div className="mt-4 space-y-2">
               <Label htmlFor="dashboard-output-rename">Output name</Label>
               <Input
@@ -490,6 +534,7 @@ export function ProjectDashboardPage({
                 }}
                 aria-invalid={Boolean(renameError)}
                 aria-describedby={renameError ? "dashboard-output-rename-error" : undefined}
+                autoComplete="off"
               />
               {renameError ? (
                 <p
@@ -502,15 +547,26 @@ export function ProjectDashboardPage({
                 </p>
               ) : null}
             </div>
-            <AlertDialogFooter className="mt-6">
-              <AlertDialogCancel type="button">Cancel</AlertDialogCancel>
+            <DialogFooter className="mt-6">
+              <Button
+                type="button"
+                variant="secondary"
+                size="compact"
+                onClick={() => {
+                  setRenameOutputId(null);
+                  setRenameValue("");
+                  setRenameError(null);
+                }}
+              >
+                Cancel
+              </Button>
               <Button type="submit" variant="primary" size="compact">
                 Save name
               </Button>
-            </AlertDialogFooter>
+            </DialogFooter>
           </form>
-        </AlertDialogContent>
-      </AlertDialog>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog
         open={Boolean(deleteOutput)}
