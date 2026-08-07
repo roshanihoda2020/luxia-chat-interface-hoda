@@ -5134,10 +5134,6 @@ export default function App() {
       const chat = chats.find((item) => item.id === activeChat)
         ?? INITIAL_CHATS.find((item) => item.id === activeChat);
       if (!chat || !membership) return;
-      if (chat.chatType === "galaxy" && membership.projectRole === "Guest") {
-        handleOpenProjectOverview(projectId, "overview");
-        return;
-      }
       if (chat.chatType !== "galaxy" && chat.constellationId) {
         const record = constellationSettingsById[chat.constellationId]
           ?? getConstellationSettingsRecord(chat.constellationId);
@@ -6696,7 +6692,7 @@ export default function App() {
     return overviewChats
       .filter((chat) => chat.projectId === contextProjectId)
       .filter((chat) => {
-        if (chat.chatSource === "galaxy") return role !== "Guest";
+        if (chat.chatSource === "galaxy") return true;
         if (!chat.constellationId) return false;
         const record = constellationSettingsById[chat.constellationId]
           ?? getConstellationSettingsRecord(chat.constellationId);
@@ -6791,7 +6787,7 @@ export default function App() {
         projectId={contextProjectId}
         projectLabel={contextProjectLabel}
         showProjectContext={showProjectContext}
-        showGalaxy={contextProjectMembership?.projectRole !== "Guest"}
+        showGalaxy={Boolean(contextProjectMembership)}
         activeProjectSection={activeProjectSection}
         activeChatId={
           appView === "chat" && activeData?.chatType !== "galaxy" ? activeChat : null

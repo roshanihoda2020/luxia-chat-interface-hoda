@@ -21,7 +21,6 @@ export { CURRENT_USER_ID, setPrototypeCurrentUserId, getDemoPersonaRoleLabel, DE
  * user-02 Member + Project Manager (project-01)
  * user-03 Member + Analyst (project-01); owns Private ds-db-02
  * user-04 Member + Member (project-01); no membership on project-03+
- * user-05 Member + Guest (project-01)
  */
 export const ORGANIZATION_USERS: OrganizationUser[] = [
   {
@@ -46,12 +45,6 @@ export const ORGANIZATION_USERS: OrganizationUser[] = [
     id: "user-04",
     name: "User name 04",
     email: "user04@luxia.example",
-    orgRole: "Member",
-  },
-  {
-    id: "user-05",
-    name: "User name 05",
-    email: "user05@luxia.example",
     orgRole: "Member",
   },
 ];
@@ -127,11 +120,11 @@ export const ACCESS_LEVELS: AccessLevelRecord[] = [
     updatedAt: "2026-08-01T09:10:00.000Z",
   },
   {
-    id: "al-guest-read",
+    id: "al-limited-view",
     name: "Access level name 03",
     description: "View-only access for limited collaborators.",
     status: "inactive",
-    memberUserIds: ["user-05"],
+    memberUserIds: ["user-04"],
     sourceGrants: [{ dataSourceId: "ds-pdf-01", permission: "View" }],
     updatedAt: "2026-06-15T11:00:00.000Z",
   },
@@ -180,14 +173,6 @@ export const PROJECT_MEMBERSHIPS: ProjectMembership[] = [
     projectRole: "Member",
     status: "active",
     joinedOrInvitedAt: "2026-04-20T13:15:00.000Z",
-  },
-  {
-    id: "pm-01-05",
-    projectId: "project-01",
-    userId: "user-05",
-    projectRole: "Guest",
-    status: "active",
-    joinedOrInvitedAt: "2026-08-02T12:00:00.000Z",
   },
   {
     id: "pm-02-01",
@@ -425,15 +410,6 @@ export function buildProjectDataReadiness(input: {
     };
   }
 
-  if (projectRole === "Guest") {
-    return {
-      label: "Restricted by Project role",
-      detail: "Guest access is limited to explicitly shared content.",
-      missingSourceIds: [],
-      requiredSourceIds,
-    };
-  }
-
   if (requiredSourceIds.length === 0) {
     return {
       label: "No connected Data Sources",
@@ -588,15 +564,10 @@ export const PROJECT_ROLE_DEFINITIONS: {
     role: "Member",
     summary: "Use the Project and approved Chats/Constellations. Cannot manage configuration or access.",
   },
-  {
-    role: "Guest",
-    summary: "Sees only explicitly shared content or outputs. No Chat, configuration, or access management by default.",
-  },
 ];
 
 export const INVITABLE_PROJECT_ROLES = [
   "Project Manager",
   "Analyst",
   "Member",
-  "Guest",
 ] as const satisfies readonly ProjectMembership["projectRole"][];

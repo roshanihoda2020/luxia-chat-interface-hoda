@@ -115,6 +115,12 @@ export type ConstellationUseAccessResult = {
   missingSourceIds: string[];
 };
 
+/*
+ * Current prototype keeps Data Source Use gating for Constellation availability
+ * per latest review. Final backend/product alignment should be reconfirmed because
+ * the RBAC design document also contains legacy wording where Project membership
+ * alone permits Chat use.
+ */
 export function evaluateConstellationUseAccess(input: {
   userId?: string;
   projectRole: ProjectRole | null | undefined;
@@ -139,14 +145,6 @@ export function evaluateConstellationUseAccess(input: {
     return {
       available: false,
       reason: "You are not an active member of this Project.",
-      missingSourceIds: [],
-    };
-  }
-
-  if (input.projectRole === "Guest") {
-    return {
-      available: false,
-      reason: "Guest access is limited to explicitly shared content.",
       missingSourceIds: [],
     };
   }

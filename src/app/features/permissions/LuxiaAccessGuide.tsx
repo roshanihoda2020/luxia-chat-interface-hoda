@@ -194,6 +194,13 @@ export function LuxiaAccessGuide({
                   description="Manage the Data Source and its access. Includes Use and View."
                 />
               </div>
+              <p
+                className="luxia-type-caption"
+                style={{ color: "var(--luxia-text-muted)" }}
+              >
+                Prototype note: Use is modeled separately in this prototype while backend
+                enforcement is being aligned.
+              </p>
             </GuideSection>
 
             <GuideDivider />
@@ -230,10 +237,6 @@ export function LuxiaAccessGuide({
                 <GuideRow
                   label="Member"
                   description="Uses permitted Project resources without management access."
-                />
-                <GuideRow
-                  label="Guest"
-                  description="Restricted or read-only Project visibility."
                 />
               </div>
             </GuideSection>

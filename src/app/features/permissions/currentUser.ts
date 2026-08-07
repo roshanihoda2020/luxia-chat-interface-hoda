@@ -30,7 +30,6 @@ export const DEMO_PERSONA_ROLE_LABELS: Record<string, string> = {
   "user-02": "Project Manager",
   "user-03": "Analyst",
   "user-04": "Member",
-  "user-05": "Guest",
 };
 
 export function getDemoPersonaRoleLabel(userId: string): string {

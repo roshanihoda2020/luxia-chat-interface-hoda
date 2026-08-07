@@ -42,7 +42,6 @@ export interface SourceAccessSummaryRow {
 
 export type ProjectRoleAction =
   | "View"
-  | "Restricted view"
   | "Use"
   | "Configure"
   | "Archive"

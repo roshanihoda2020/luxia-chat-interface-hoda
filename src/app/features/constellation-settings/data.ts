@@ -32,7 +32,6 @@ const ROLE_MATRIX: ProjectRoleCapability[] = [
   { role: "Project Manager", actions: ["View", "Use", "Configure", "Archive"] },
   { role: "Analyst", actions: ["View", "Use", "Create outputs"] },
   { role: "Member", actions: ["View", "Use"] },
-  { role: "Guest", actions: ["Restricted view"] },
 ];
 
 function mapCatalogType(

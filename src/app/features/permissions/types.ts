@@ -33,8 +33,7 @@ export type ProjectRole =
   | "Project Owner"
   | "Project Manager"
   | "Analyst"
-  | "Member"
-  | "Guest";
+  | "Member";
 
 export interface ProjectMembership {
   id: string;

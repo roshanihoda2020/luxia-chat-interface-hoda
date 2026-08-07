@@ -266,8 +266,7 @@ export function ConstellationSettingsPage({
   const canDeleteConstellation = currentProjectRole === "Project Owner";
   const lifecycleRoleHint = !currentProjectRole
     ? "Your Project role is unavailable for this action."
-    : currentProjectRole === "Guest"
-      || currentProjectRole === "Member"
+    : currentProjectRole === "Member"
       || currentProjectRole === "Analyst"
       ? `Your Project role (${currentProjectRole}) cannot change Constellation lifecycle.`
       : null;
@@ -824,13 +823,11 @@ export function ConstellationSettingsPage({
                 <p className="mt-1 luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
                   {record.connectedSources.length === 0
                     ? "This Constellation does not have connected Data Sources yet. Connect sources before evaluating Use permission."
-                    : currentProjectRole === "Guest"
-                      ? "Restricted by Project role — Guest cannot use this Constellation even with Data Source Manage."
-                      : accessConflicts.length === 0
-                        ? "Constellation available — Project role allows use and required Data Source permissions are satisfied."
-                        : `Constellation unavailable — ${accessConflicts
-                          .map((row) => `${row.sourceName} (${accessConflictLabel(row)})`)
-                          .join("; ")}.`}
+                    : accessConflicts.length === 0
+                      ? "Constellation available — Project role allows use and required Data Source permissions are satisfied."
+                      : `Constellation unavailable — ${accessConflicts
+                        .map((row) => `${row.sourceName} (${accessConflictLabel(row)})`)
+                        .join("; ")}.`}
                 </p>
               </div>
 
@@ -909,7 +906,7 @@ export function ConstellationSettingsPage({
                 >
                   This Constellation does not have connected Data Sources yet.
                 </p>
-              ) : accessConflicts.length === 0 && currentProjectRole !== "Guest" ? (
+              ) : accessConflicts.length === 0 ? (
                 <p
                   className="luxia-type-body-small"
                   style={{ color: "var(--luxia-text-secondary)" }}
@@ -944,14 +941,12 @@ export function ConstellationSettingsPage({
                       <p
                         className="mt-1 luxia-type-caption"
                         style={{
-                          color: hasAccessConflict(row) || currentProjectRole === "Guest"
+                          color: hasAccessConflict(row)
                             ? "var(--luxia-error)"
                             : "var(--luxia-text-secondary)",
                         }}
                       >
-                        {currentProjectRole === "Guest"
-                          ? "Restricted by Project role"
-                          : accessConflictLabel(row)}
+                        {accessConflictLabel(row)}
                         {row.conflictNote ? ` · ${row.conflictNote}` : ""}
                       </p>
                       {row.accessLevelName !== "—" ? (
@@ -993,7 +988,7 @@ export function ConstellationSettingsPage({
                           size="compact"
                           onClick={() => onManageSourceAccess(row.sourceId)}
                         >
-                          Request access
+                          Review access
                         </Button>
                       ) : null}
                     </div>
