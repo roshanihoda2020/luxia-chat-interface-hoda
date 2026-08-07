@@ -38,6 +38,7 @@ export function buildDataSourceAccessSummary(
   source: Pick<DataSourceCatalogItem, "id" | "ownership" | "ownerUserId">,
   accessLevels: AccessLevelRecord[],
   userId: string = CURRENT_USER_ID,
+  dataSources?: DataSourceCatalogItem[],
 ): string {
   if (source.ownership === "private" && source.ownerUserId === userId) {
     return "Owner access";
@@ -47,6 +48,7 @@ export function buildDataSourceAccessSummary(
     userId,
     source.id,
     accessLevels,
+    dataSources,
   );
 
   if (resolved.viaOwner) {
@@ -73,6 +75,7 @@ export function buildAccessLevelNameForSource(
   source: Pick<DataSourceCatalogItem, "id" | "ownership" | "ownerUserId">,
   accessLevels: AccessLevelRecord[],
   userId: string = CURRENT_USER_ID,
+  dataSources?: DataSourceCatalogItem[],
 ): string {
   if (source.ownership === "private" && source.ownerUserId === userId) {
     return "Owner access";
@@ -82,6 +85,7 @@ export function buildAccessLevelNameForSource(
     userId,
     source.id,
     accessLevels,
+    dataSources,
   );
 
   if (resolved.viaOwner) {

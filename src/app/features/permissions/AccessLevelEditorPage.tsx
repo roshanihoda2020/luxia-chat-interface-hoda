@@ -7,7 +7,7 @@ import {
   type FormEvent,
   type ReactNode,
 } from "react";
-import { CircleHelp, Search } from "lucide-react";
+import { CircleAlert, Search } from "lucide-react";
 import {
   LuxiaBreadcrumb,
   type LuxiaBreadcrumbHandlers,
@@ -20,7 +20,6 @@ import {
 import {
   LuxiaPageGuide,
   LuxiaPageHeader,
-  LUXIA_PAGE_HEADER_ACTION,
   LuxiaPageEntityUpdatedMeta,
 } from "@/app/components/LuxiaPageHeader";
 import {
@@ -54,7 +53,6 @@ import {
 } from "@/assets/icons";
 import {
   LUXIA_CREATE_VS_EDIT,
-  LUXIA_DIRTY_INLINE_STATUS_CLASS,
   LUXIA_DIRTY_STATE_COPY,
   LUXIA_SETTINGS_CONTENT_SURFACE_CLASS,
   LUXIA_SETTINGS_LIST_SURFACE_CLASS,
@@ -62,6 +60,7 @@ import {
   LUXIA_SETTINGS_TAB_TRIGGER_CLASS,
   LUXIA_SETTINGS_TABLIST_CLASS,
 } from "@/app/features/shared/luxiaSettingsUx";
+import { LuxiaSettingsFormActions } from "@/app/features/shared/LuxiaSettingsFormActions";
 import { toast } from "sonner";
 import {
   BrowserFilterSelect,
@@ -73,7 +72,6 @@ import {
   ORGANIZATION_USERS,
   buildAccessLevelImpactPreview,
   formatDataSourceType,
-  getDataSourceById,
   getOrganizationUserById,
   isDataSourceUsable,
 } from "./data";
@@ -91,6 +89,7 @@ import type {
   AccessLevelPermission,
   AccessLevelRecord,
   AccessLevelSourceGrant,
+  DataSourceCatalogItem,
 } from "./types";
 
 const PARENT_SURFACE_CLASS = LUXIA_SETTINGS_CONTENT_SURFACE_CLASS;
@@ -232,7 +231,7 @@ function ImpactInfoCallout({ children }: { children: ReactNode }) {
       }}
       role="note"
     >
-      <CircleHelp
+      <CircleAlert
         size={15}
         strokeWidth={1.75}
         aria-hidden
@@ -249,6 +248,7 @@ function ImpactInfoCallout({ children }: { children: ReactNode }) {
 export interface AccessLevelEditorPageProps {
   record: AccessLevelRecord;
   otherLevels: AccessLevelRecord[];
+  dataSources?: DataSourceCatalogItem[];
   onSave: (record: AccessLevelRecord) => void;
   onCancel: () => void;
   onDelete: (id: string) => void;
@@ -268,6 +268,7 @@ export interface AccessLevelEditorPageProps {
 export function AccessLevelEditorPage({
   record,
   otherLevels,
+  dataSources = DATA_SOURCE_CATALOG,
   onSave,
   onCancel,
   onDelete,
@@ -369,7 +370,7 @@ export function AccessLevelEditorPage({
 
   const filteredSources = useMemo(() => {
     const q = sourceQuery.trim().toLowerCase();
-    return DATA_SOURCE_CATALOG.filter((source) => {
+    return dataSources.filter((source) => {
       if (!q) return true;
       return (
         source.name.toLowerCase().includes(q)
@@ -377,7 +378,7 @@ export function AccessLevelEditorPage({
         || getDataSourceOwnerDisplay(source).toLowerCase().includes(q)
       );
     });
-  }, [sourceQuery]);
+  }, [sourceQuery, dataSources]);
 
   const impactPreview = useMemo(
     () => buildAccessLevelImpactPreview(draft),
@@ -488,7 +489,7 @@ export function AccessLevelEditorPage({
   }
 
   function toggleSource(dataSourceId: string, checked: boolean) {
-    const source = DATA_SOURCE_CATALOG.find((item) => item.id === dataSourceId);
+    const source = dataSources.find((item) => item.id === dataSourceId);
     if (checked) {
       if (source && !isDataSourceUsable(source.status)) {
         return;
@@ -551,11 +552,11 @@ export function AccessLevelEditorPage({
     ? LUXIA_CREATE_VS_EDIT.accessLevel.createTitle
     : draft.name || "Access Level";
 
-  const primaryLabel = isNew
+  const formSaveLabel = isNew
     ? LUXIA_CREATE_VS_EDIT.accessLevel.createPrimary
     : LUXIA_DIRTY_STATE_COPY.save;
 
-  const showCancel = canAdminister && (isDirty || isNew);
+  const formDirty = isDirty || isNew;
   const archivePending =
     isDirty
     && draft.status === "inactive"
@@ -580,42 +581,8 @@ export function AccessLevelEditorPage({
           />
         }
         guide={ACCESS_LEVELS_GUIDANCE.editorPageDescription}
-        primaryAction={
-          canAdminister ? (
-            <Button
-              type="button"
-              {...LUXIA_PAGE_HEADER_ACTION.primary}
-              disabled={!isNew && !isDirty}
-              onClick={() => handleSave()}
-            >
-              {primaryLabel}
-            </Button>
-          ) : null
-        }
-        secondaryAction={
-          showCancel || (isDirty && !isNew) ? (
-            <div className="flex flex-wrap items-center justify-end gap-2">
-              {isDirty && !isNew ? (
-                <span
-                  className={LUXIA_DIRTY_INLINE_STATUS_CLASS}
-                  style={{ color: "var(--luxia-text-secondary)" }}
-                  role="status"
-                >
-                  {LUXIA_DIRTY_STATE_COPY.unsaved}
-                </span>
-              ) : null}
-              {showCancel ? (
-                <Button
-                  type="button"
-                  {...LUXIA_PAGE_HEADER_ACTION.secondary}
-                  onClick={requestCancel}
-                >
-                  {LUXIA_DIRTY_STATE_COPY.cancel}
-                </Button>
-              ) : null}
-            </div>
-          ) : null
-        }
+        primaryAction={null}
+        secondaryAction={null}
         actions={<LuxiaAccessGuide />}
         context={
           <div className="space-y-1">
@@ -814,6 +781,14 @@ export function AccessLevelEditorPage({
                     </p>
                   </div>
                 )}
+
+                <LuxiaSettingsFormActions
+                  dirty={formDirty}
+                  canSave={canAdminister}
+                  saveLabel={formSaveLabel}
+                  onSave={() => handleSave()}
+                  onCancel={requestCancel}
+                />
               </TabsContent>
 
               <TabsContent value="members" className={SETTINGS_TAB_PANEL_CLASS}>
@@ -969,6 +944,14 @@ export function AccessLevelEditorPage({
                     )}
                   </div>
                 )}
+
+                <LuxiaSettingsFormActions
+                  dirty={formDirty}
+                  canSave={canAdminister}
+                  saveLabel={formSaveLabel}
+                  onSave={() => handleSave()}
+                  onCancel={requestCancel}
+                />
               </TabsContent>
 
               <TabsContent
@@ -998,7 +981,7 @@ export function AccessLevelEditorPage({
                     ) : (
                       <ul className={`${LUXIA_SETTINGS_LIST_SURFACE_CLASS} px-4`}>
                         {draft.sourceGrants.map((grant) => {
-                          const source = getDataSourceById(grant.dataSourceId);
+                          const source = dataSources.find((item) => item.id === grant.dataSourceId);
                           if (!source) return null;
                           return (
                             <li
@@ -1062,7 +1045,7 @@ export function AccessLevelEditorPage({
                         className="luxia-type-caption"
                         style={{ color: "var(--luxia-text-muted)" }}
                       >
-                        {draft.sourceGrants.length} of {DATA_SOURCE_CATALOG.length}{" "}
+                        {draft.sourceGrants.length} of {dataSources.length}{" "}
                         selected
                       </p>
                     </div>
@@ -1192,6 +1175,14 @@ export function AccessLevelEditorPage({
                     )}
                   </div>
                 )}
+
+                <LuxiaSettingsFormActions
+                  dirty={formDirty}
+                  canSave={canAdminister}
+                  saveLabel={formSaveLabel}
+                  onSave={() => handleSave()}
+                  onCancel={requestCancel}
+                />
               </TabsContent>
 
               <TabsContent value="impact" className={SETTINGS_TAB_PANEL_CLASS}>
@@ -1283,7 +1274,7 @@ export function AccessLevelEditorPage({
                       ) : (
                         <ul>
                           {impactPreview.dataSources.map((item) => {
-                            const source = getDataSourceById(item.id);
+                            const source = dataSources.find((entry) => entry.id === item.id);
                             const ownershipLabel = source
                               ? source.ownership === "organizational"
                                 ? "Organizational"
@@ -1526,6 +1517,14 @@ export function AccessLevelEditorPage({
                       </div>
                     </div>
                   )}
+
+                  <LuxiaSettingsFormActions
+                    dirty={formDirty}
+                    canSave={canAdminister}
+                    saveLabel={formSaveLabel}
+                    onSave={() => handleSave()}
+                    onCancel={requestCancel}
+                  />
                 </TabsContent>
               ) : null}
             </div>
@@ -1587,7 +1586,7 @@ export function AccessLevelEditorPage({
             <AlertDialogTitle>Remove Data Source?</AlertDialogTitle>
             <AlertDialogDescription>
               {pendingSourceRemove
-                ? `Remove ${DATA_SOURCE_CATALOG.find((source) => source.id === pendingSourceRemove)?.name ?? "this Data Source"} from this Access Level only? The Data Source itself and Constellation connections stay intact. Other grants on this level are preserved. Save is still required.`
+                ? `Remove ${dataSources.find((source) => source.id === pendingSourceRemove)?.name ?? "this Data Source"} from this Access Level only? The Data Source itself and Constellation connections stay intact. Other grants on this level are preserved. Save is still required.`
                 : "Members of this Access Level will lose permission to the removed source."}
             </AlertDialogDescription>
           </AlertDialogHeader>

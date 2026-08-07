@@ -54,41 +54,160 @@ export const DATA_SOURCE_CATALOG: DataSourceCatalogItem[] = [
     id: "ds-db-01",
     name: "Data source name 01",
     type: "Database",
+    connector: "postgres",
     ownership: "organizational",
     ownerUserId: "",
     status: "active",
+    contentSummary: {
+      kind: "database",
+      host: "db.example.internal",
+      port: "5432",
+      database: "analytics",
+      username: "luxia_reader",
+      ssl: true,
+    },
   },
   {
     id: "ds-pdf-01",
     name: "Data source name 02",
     type: "PDF",
+    connector: "file",
     ownership: "organizational",
     ownerUserId: "",
     status: "active",
+    contentSummary: {
+      kind: "file",
+      fileNames: ["handbook.pdf", "policy.docx"],
+    },
   },
   {
     id: "ds-csv-01",
     name: "Data source name 03",
     type: "CSV",
+    connector: "csv",
     ownership: "private",
     ownerUserId: "user-01",
     status: "active",
+    contentSummary: {
+      kind: "csv",
+      fileName: "sample_data.csv",
+      tableName: "Table name 01",
+      tableDescription: "Order-level extract used for revenue and fulfillment analysis.",
+      delimiter: "comma",
+      importedRows: 1200,
+      skippedRows: 0,
+    },
   },
   {
     id: "ds-db-02",
     name: "Data source name 04",
     type: "Database",
+    connector: "snowflake",
     ownership: "private",
     ownerUserId: "user-03",
     status: "active",
+    contentSummary: {
+      kind: "database",
+      account: "org-account",
+      username: "analyst_03",
+      warehouse: "COMPUTE_WH",
+      database: "ANALYTICS",
+    },
   },
   {
     id: "ds-pdf-02",
     name: "Data source name 05",
     type: "PDF",
+    connector: "file",
     ownership: "organizational",
     ownerUserId: "",
     status: "inactive",
+    contentSummary: {
+      kind: "file",
+      fileNames: ["archive-notes.txt"],
+    },
+  },
+  {
+    id: "ds-csv-02",
+    name: "Data source name 06",
+    type: "CSV",
+    connector: "csv",
+    ownership: "private",
+    ownerUserId: "user-02",
+    status: "active",
+    contentSummary: {
+      kind: "csv",
+      fileName: "sample_data.csv",
+      tableName: "Table name 02",
+      importedRows: 840,
+      skippedRows: 12,
+    },
+  },
+  {
+    id: "ds-db-03",
+    name: "Data source name 07",
+    type: "Database",
+    connector: "mysql",
+    ownership: "organizational",
+    ownerUserId: "",
+    status: "active",
+    contentSummary: {
+      kind: "database",
+      host: "mysql.example.internal",
+      port: "3306",
+      database: "operations",
+      username: "luxia_ro",
+      ssl: true,
+    },
+  },
+  {
+    id: "ds-db-04",
+    name: "Data source name 08",
+    type: "Database",
+    connector: "mssql",
+    ownership: "organizational",
+    ownerUserId: "",
+    status: "active",
+    contentSummary: {
+      kind: "database",
+      host: "sql.example.internal",
+      port: "1433",
+      database: "crm",
+      username: "luxia_reader",
+      ssl: true,
+    },
+  },
+  {
+    id: "ds-db-05",
+    name: "Data source name 09",
+    type: "Database",
+    connector: "redshift",
+    ownership: "organizational",
+    ownerUserId: "",
+    status: "active",
+    contentSummary: {
+      kind: "database",
+      host: "redshift.example.internal",
+      port: "5439",
+      database: "warehouse",
+      username: "analytics_user",
+      ssl: true,
+    },
+  },
+  {
+    id: "ds-db-06",
+    name: "Data source name 10",
+    type: "Database",
+    connector: "bigquery",
+    ownership: "organizational",
+    ownerUserId: "",
+    status: "active",
+    contentSummary: {
+      kind: "database",
+      projectId: "luxia-analytics",
+      dataset: "core",
+      username: "sa-reader@luxia-analytics.iam.gserviceaccount.com",
+    },
   },
 ];
 
@@ -101,6 +220,10 @@ export const ACCESS_LEVELS: AccessLevelRecord[] = [
     memberUserIds: ["user-02", "user-03", "user-04"],
     sourceGrants: [
       { dataSourceId: "ds-db-01", permission: "Use" },
+      { dataSourceId: "ds-db-03", permission: "Use" },
+      { dataSourceId: "ds-db-04", permission: "View" },
+      { dataSourceId: "ds-db-05", permission: "Use" },
+      { dataSourceId: "ds-db-06", permission: "View" },
       { dataSourceId: "ds-pdf-01", permission: "View" },
       { dataSourceId: "ds-csv-01", permission: "Use" },
     ],
@@ -114,6 +237,10 @@ export const ACCESS_LEVELS: AccessLevelRecord[] = [
     memberUserIds: ["user-01"],
     sourceGrants: [
       { dataSourceId: "ds-db-01", permission: "Manage" },
+      { dataSourceId: "ds-db-03", permission: "Manage" },
+      { dataSourceId: "ds-db-04", permission: "Manage" },
+      { dataSourceId: "ds-db-05", permission: "Manage" },
+      { dataSourceId: "ds-db-06", permission: "Manage" },
       { dataSourceId: "ds-pdf-01", permission: "Manage" },
       { dataSourceId: "ds-pdf-02", permission: "View" },
     ],
@@ -279,16 +406,35 @@ export function getOrganizationUserById(
 
 export function getDataSourceById(
   dataSourceId: string,
+  dataSources: DataSourceCatalogItem[] = DATA_SOURCE_CATALOG,
 ): DataSourceCatalogItem | undefined {
-  return DATA_SOURCE_CATALOG.find((source) => source.id === dataSourceId);
+  return dataSources.find((source) => source.id === dataSourceId);
 }
 
 export function formatDataSourceType(type: string): string {
   const normalized = type.trim().toLowerCase();
   if (normalized.includes("csv")) return "CSV";
-  if (normalized.includes("pdf")) return "PDF";
+  if (normalized.includes("pdf") || normalized === "file") return "File";
   if (normalized.includes("database") || normalized === "db") return "Database";
   return type;
+}
+
+export const DATA_SOURCE_CONNECTOR_LABELS: Record<string, string> = {
+  postgres: "PostgreSQL",
+  mysql: "MySQL",
+  mssql: "Microsoft SQL Server",
+  snowflake: "Snowflake",
+  redshift: "Redshift",
+  bigquery: "BigQuery",
+  csv: "CSV",
+  file: "File",
+};
+
+export function formatDataSourceConnectorLabel(
+  connector: string | undefined,
+): string | null {
+  if (!connector) return null;
+  return DATA_SOURCE_CONNECTOR_LABELS[connector] ?? connector;
 }
 
 export function isDataSourceUsable(status: DataSourceStatus | string): boolean {

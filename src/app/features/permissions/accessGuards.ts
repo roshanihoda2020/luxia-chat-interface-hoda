@@ -26,6 +26,13 @@ export function canAdministerAccessLevels(userId: string = CURRENT_USER_ID): boo
   return isOrganizationAdmin(userId);
 }
 
+/** Prototype rule: Organizational Data Sources may be created by Org Admins only. */
+export function canCreateOrganizationalDataSource(
+  userId: string = CURRENT_USER_ID,
+): boolean {
+  return isOrganizationAdmin(userId);
+}
+
 export function getActiveProjectMembership(
   projectId: string,
   memberships: ProjectMembership[],

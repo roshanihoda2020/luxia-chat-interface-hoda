@@ -15,6 +15,8 @@ export type {
   AccessLevelSourceGrant,
   AccessLevelStatus,
   DataSourceCatalogItem,
+  DataSourceConnector,
+  DataSourceContentSummary,
   DataSourceStatus,
   DataSourceTypeLabel,
   OrganizationUser,
@@ -68,6 +70,7 @@ export {
   canArchiveProject,
   canChangeProjectRole,
   canConfigureConstellation,
+  canCreateOrganizationalDataSource,
   canDeleteConstellation,
   canDeleteProject,
   canInviteProjectMembers,
@@ -92,6 +95,21 @@ export {
 } from "./ownershipDisplay";
 
 export { buildSourceAccessSummaryRow } from "./sourceAccessRows";
+
+export {
+  canUserAccessDataSource,
+  listAccessibleDataSources,
+  getLibraryMyAccessLabel,
+  getLibraryTypeCategory,
+  getLibraryTypeLabel,
+  getLibraryStatusLabel,
+  countConnectedConstellations,
+  formatConnectedConstellationCount,
+} from "./dataSourceVisibility";
+export type {
+  LibraryMyAccessLabel,
+  LibraryTypeCategory,
+} from "./dataSourceVisibility";
 
 export { LuxiaAccessGuide } from "./LuxiaAccessGuide";
 export type { LuxiaAccessGuideContent, LuxiaAccessGuideProps } from "./LuxiaAccessGuide";

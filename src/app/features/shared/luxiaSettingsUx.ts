@@ -23,8 +23,10 @@
  *
  * SIDEBAR — navigation/disclosure only.
  *
- * EXCEPTION — Access Level editor keeps header Save/Cancel because it is one multi-tab
- *   page draft spanning General → Lifecycle. Nested capability managers keep content Save.
+ * EXCEPTION — Access Level editor historically used header Save/Cancel for a
+ *   multi-tab page draft. That exception is retired: use local LuxiaSettingsFormActions
+ *   inside the Settings content frame like Galaxy / Constellation / Data Source.
+ *   Nested capability managers keep content Save.
  */
 
 export const LUXIA_ACTION_PLACEMENT = {
@@ -39,9 +41,12 @@ export const LUXIA_ACTION_PLACEMENT = {
     help: "tertiary",
     navigation: "secondary",
     creation: "primary",
-    /** Prefer local Settings form footer; header only for page-scoped drafts (Access Level). */
-    saveWhenDirty: "primary",
-    cancelWhenDirty: "secondary",
+    /**
+     * Settings FORM drafts must use LuxiaSettingsFormActions in the content frame.
+     * Do not place Save/Cancel in the page header for Settings pages.
+     */
+    saveWhenDirty: "never" as const,
+    cancelWhenDirty: "never" as const,
     settings: "secondary",
     menu: "options",
   },

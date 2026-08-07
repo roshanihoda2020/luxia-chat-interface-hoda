@@ -42,6 +42,7 @@ import {
   getConstellationSettingsPath,
   getConstellationsPath,
   getDashboardPath,
+  getDataSourcesPath,
   getGalaxyPath,
   getProjectChatsPath,
   getProjectMembersPath,
@@ -117,6 +118,7 @@ export type LeftNavProps = {
   onMobileClose?: () => void;
   homeActive?: boolean;
   usersActive?: boolean;
+  dataSourcesActive?: boolean;
   projectId?: string | null;
   projectLabel?: string | null;
   showProjectContext?: boolean;
@@ -130,6 +132,7 @@ export type LeftNavProps = {
   constellationTotalCount?: number;
   onHomeClick?: () => void;
   onUsersClick?: () => void;
+  onDataSourcesClick?: () => void;
   onProjectSectionClick?: (section: ProjectNavSection) => void;
   onOpenChat?: (chatId: string) => void;
   onOpenConstellation?: (projectId: string, constellationId: string) => void;
@@ -157,8 +160,7 @@ const NAV_TOP_ITEMS: {
     id: "datasources",
     icon: LuxiaDatasourceIcon,
     label: "Data Sources",
-    available: false,
-    unavailableHint: "Data Sources browser is not available in this prototype.",
+    available: true,
   },
 ];
 
@@ -723,6 +725,7 @@ export function LeftNav({
   onMobileClose,
   homeActive,
   usersActive,
+  dataSourcesActive,
   projectId,
   projectLabel,
   showProjectContext = true,
@@ -736,6 +739,7 @@ export function LeftNav({
   constellationTotalCount,
   onHomeClick,
   onUsersClick,
+  onDataSourcesClick,
   onProjectSectionClick,
   onOpenChat,
   onOpenConstellation,
@@ -1091,7 +1095,15 @@ export function LeftNav({
                     icon={icon}
                     label={label}
                     collapsed={railCollapsed}
-                    active={id === "home" ? homeActive : id === "users" ? usersActive : false}
+                    active={
+                      id === "home"
+                        ? homeActive
+                        : id === "users"
+                          ? usersActive
+                          : id === "datasources"
+                            ? dataSourcesActive
+                            : false
+                    }
                     disabled={!available}
                     tooltip={!available ? unavailableHint ?? label : label}
                     href={
@@ -1099,7 +1111,9 @@ export function LeftNav({
                         ? "/"
                         : id === "users" && available
                           ? getAccessLevelsPath()
-                          : undefined
+                          : id === "datasources" && available
+                            ? getDataSourcesPath()
+                            : undefined
                     }
                     onClick={
                       id === "home"
@@ -1114,7 +1128,13 @@ export function LeftNav({
                             onUsersClick?.();
                             onMobileClose?.();
                           }
-                          : undefined
+                          : id === "datasources"
+                            ? () => {
+                              closeFlyout();
+                              onDataSourcesClick?.();
+                              onMobileClose?.();
+                            }
+                            : undefined
                     }
                   />
                 ))}

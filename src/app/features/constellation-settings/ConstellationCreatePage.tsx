@@ -47,13 +47,17 @@ import { RadioGroup, RadioGroupItem } from "@/app/components/ui/radio-group";
 import { Textarea } from "@/app/components/ui/textarea";
 import type { CapsuleConstellationType } from "@/app/features/constellation/capsuleCapabilities";
 import {
+  ACCESS_LEVELS,
   DATA_SOURCE_CATALOG,
   formatDataSourceType,
   getDataSourceOwnerDisplay,
+  listAccessibleDataSources,
   ORGANIZATIONAL_MANAGED_LABEL,
   isDataSourceUsable,
+  type AccessLevelRecord,
   type DataSourceCatalogItem,
 } from "@/app/features/permissions";
+import { CURRENT_USER_ID } from "@/app/features/permissions/currentUser";
 import { formatFileSize } from "@/app/features/pdf-files/utils";
 import { LUXIA_SETTINGS_CONTENT_SURFACE_CLASS } from "@/app/features/shared/luxiaSettingsUx";
 import { constellationTypeLabel } from "./types";
@@ -120,12 +124,22 @@ const TYPE_OPTIONS: {
   },
 ];
 
-function sourcesForType(type: CapsuleConstellationType): DataSourceCatalogItem[] {
-  return DATA_SOURCE_CATALOG.filter((source) => {
+function sourcesForType(
+  type: CapsuleConstellationType,
+  accessLevels: AccessLevelRecord[],
+  userId: string,
+  dataSources: DataSourceCatalogItem[],
+): DataSourceCatalogItem[] {
+  const accessible = listAccessibleDataSources(
+    accessLevels,
+    dataSources,
+    userId,
+  );
+  return accessible.filter((source) => {
     const normalized = source.type.toLowerCase();
     if (type === "database") return normalized.includes("database");
     if (type === "csv") return normalized.includes("csv");
-    return normalized.includes("pdf");
+    return normalized.includes("pdf") || normalized.includes("file");
   });
 }
 
@@ -599,6 +613,9 @@ export interface ConstellationCreatePageProps {
   projectName: string;
   existingConstellationNames: string[];
   unavailable?: boolean;
+  accessLevels?: AccessLevelRecord[];
+  dataSources?: DataSourceCatalogItem[];
+  currentUserId?: string;
   navigationGuardRef?: MutableRefObject<ConstellationCreateNavigationGuard | null>;
   onNavigateHome: () => void;
   onOpenProject: (projectId: string) => void;
@@ -611,6 +628,9 @@ export function ConstellationCreatePage({
   projectName,
   existingConstellationNames,
   unavailable = false,
+  accessLevels = ACCESS_LEVELS,
+  dataSources = DATA_SOURCE_CATALOG,
+  currentUserId = CURRENT_USER_ID,
   navigationGuardRef,
   onNavigateHome,
   onOpenProject,
@@ -917,7 +937,9 @@ export function ConstellationCreatePage({
     onCancel(projectId);
   }
 
-  const availableSources = draft.type ? sourcesForType(draft.type) : [];
+  const availableSources = draft.type
+    ? sourcesForType(draft.type, accessLevels, currentUserId, dataSources)
+    : [];
   const schemaOptions = getCreationDatabaseSchemas();
   const tables = filteredTables(draft.databaseSchema, tableSearch);
   const views = filteredViews(draft.databaseSchema);

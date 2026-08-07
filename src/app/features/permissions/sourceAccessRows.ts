@@ -1,9 +1,10 @@
 import type { AccessLevelRecord } from "./types";
 import type { SourceAccessSummaryRow } from "@/app/features/constellation-settings/types";
 import type { ConnectedDataSource } from "@/app/features/constellation-settings/types";
+import type { DataSourceCatalogItem } from "./types";
 import {
   CURRENT_USER_ID,
-  getDataSourceById,
+  DATA_SOURCE_CATALOG,
   isDataSourceUsable,
   permissionRank,
   resolveUserDataSourceAccess,
@@ -20,15 +21,17 @@ export function buildSourceAccessSummaryRow(
   >,
   accessLevels: AccessLevelRecord[],
   userId: string = CURRENT_USER_ID,
+  dataSources: DataSourceCatalogItem[] = DATA_SOURCE_CATALOG,
 ): SourceAccessSummaryRow {
   const requiredPermission = "Use" as const;
   const resolved = resolveUserDataSourceAccess(
     userId,
     source.id,
     accessLevels,
+    dataSources,
   );
 
-  const catalog = getDataSourceById(source.id);
+  const catalog = dataSources.find((item) => item.id === source.id);
   const sourceUsable = catalog
     ? isDataSourceUsable(catalog.status)
     : source.status !== "archived"
@@ -61,7 +64,12 @@ export function buildSourceAccessSummaryRow(
     owner: source.owner || getDataSourceOwnerDisplay(ownerFields),
     requiredPermission,
     currentUserPermission: resolved.permission ?? "None",
-    accessLevelName: buildAccessLevelNameForSource(ownerFields, accessLevels, userId),
+    accessLevelName: buildAccessLevelNameForSource(
+      ownerFields,
+      accessLevels,
+      userId,
+      dataSources,
+    ),
     sourceStatus: source.status,
     conflictStatus,
   };

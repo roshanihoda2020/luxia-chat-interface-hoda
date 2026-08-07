@@ -40,7 +40,11 @@ import { Textarea } from "@/app/components/ui/textarea";
 import type { CapsuleCapabilityId } from "@/app/features/constellation/capsuleCapabilities";
 import { FilterField } from "@/app/features/home/browserShared";
 import { HS } from "@/app/features/home/homeSurfaces";
-import type { AccessLevelRecord, ProjectRole } from "@/app/features/permissions";
+import type {
+  AccessLevelRecord,
+  DataSourceCatalogItem,
+  ProjectRole,
+} from "@/app/features/permissions";
 import { CURRENT_USER_ID, getOrganizationUserById } from "@/app/features/permissions";
 import { LuxiaSettingsFormActions } from "@/app/features/shared/LuxiaSettingsFormActions";
 import {
@@ -52,6 +56,7 @@ import {
   LUXIA_SETTINGS_TAB_TRIGGER_CLASS,
   LUXIA_SETTINGS_TABLIST_CLASS,
 } from "@/app/features/shared/luxiaSettingsUx";
+import { AddConstellationDataSourceDialog } from "./AddConstellationDataSourceDialog";
 import {
   CONSTELLATION_SETTINGS_GUIDANCE,
   CONSTELLATION_SETTINGS_PAGE_VARIANT,
@@ -151,7 +156,7 @@ export interface ConstellationSettingsPageProps {
   onOpenChat?: (chatId: string) => void;
   onSaveGeneral: (draft: ConstellationSettingsDraft) => void;
   onManageCapability: (capabilityId: CapsuleCapabilityId) => void;
-  onAddDataSource: () => void;
+  onAddDataSource: (sourceId: string) => void;
   onOpenDataSourceSettings: (sourceId: string) => void;
   onManageSourceAccess: (sourceId: string) => void;
   onDisconnectSource: (sourceId: string) => void;
@@ -165,6 +170,9 @@ export interface ConstellationSettingsPageProps {
   onOpenAccessLevels?: () => void;
   /** Live Access Levels for effective Constellation Access (same session). */
   accessLevels?: AccessLevelRecord[];
+  /** Catalog used for access-aware Add Data Source selection. */
+  dataSources?: DataSourceCatalogItem[];
+  currentUserId?: string;
   /** Current user's Project role for this Constellation's Project. */
   currentProjectRole?: ProjectRole | null;
 }
@@ -194,6 +202,8 @@ export function ConstellationSettingsPage({
   onOpenMembers,
   onOpenAccessLevels,
   accessLevels = [],
+  dataSources = [],
+  currentUserId = CURRENT_USER_ID,
   currentProjectRole = null,
 }: ConstellationSettingsPageProps) {
   const headingRef = useRef<HTMLDivElement>(null);
@@ -203,6 +213,7 @@ export function ConstellationSettingsPage({
   const [disconnectSourceId, setDisconnectSourceId] = useState<string | null>(
     null,
   );
+  const [addSourceOpen, setAddSourceOpen] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
@@ -247,9 +258,20 @@ export function ConstellationSettingsPage({
   const sourceAccessRows = useMemo(
     () =>
       accessLevels.length > 0
-        ? buildSourceAccessRows(record.connectedSources, accessLevels, CURRENT_USER_ID)
+        ? buildSourceAccessRows(
+            record.connectedSources,
+            accessLevels,
+            currentUserId,
+            dataSources,
+          )
         : record.sourceAccessRows,
-    [accessLevels, record.connectedSources, record.sourceAccessRows],
+    [
+      accessLevels,
+      record.connectedSources,
+      record.sourceAccessRows,
+      currentUserId,
+      dataSources,
+    ],
   );
 
   const accessConflicts = useMemo(
@@ -696,7 +718,7 @@ export function ConstellationSettingsPage({
                   size="compact"
                   disabled={!canConfigureConstellation}
                   title={configureRoleHint ?? undefined}
-                  onClick={onAddDataSource}
+                  onClick={() => setAddSourceOpen(true)}
                 >
                   Add Data Source
                 </Button>
@@ -739,9 +761,12 @@ export function ConstellationSettingsPage({
                         </p>
                         <p
                           className="mt-1 luxia-type-caption"
-                          style={{ color: "var(--luxia-text-secondary)" }}
+                          style={{ color: "var(--luxia-text-muted)" }}
                         >
-                          {source.usageInConstellation} · {source.accessSummary}
+                          {source.usageInConstellation}
+                          {source.accessSummary
+                            ? ` · ${source.accessSummary}`
+                            : ""}
                         </p>
                       </div>
                       <LuxiaEntityOptionsMenu
@@ -761,7 +786,7 @@ export function ConstellationSettingsPage({
                           },
                           {
                             id: "disconnect",
-                            label: "Disconnect from Constellation",
+                            label: "Remove from Constellation",
                             destructive: true,
                             separatorBefore: true,
                             disabled: isLastSource || !canConfigureConstellation,
@@ -785,7 +810,7 @@ export function ConstellationSettingsPage({
 
               <div className="mb-5 luxia-settings-summary-surface">
                 <p className="luxia-type-body-dense" style={{ color: "var(--luxia-text-secondary)" }}>
-                  Current user: {getOrganizationUserById(CURRENT_USER_ID)?.name ?? CURRENT_USER_ID}
+                  Current user: {getOrganizationUserById(currentUserId)?.name ?? currentUserId}
                   {" · "}
                   Project role: {currentProjectRole ?? "Unavailable"}
                 </p>
@@ -812,9 +837,9 @@ export function ConstellationSettingsPage({
                       className="luxia-type-caption"
                       style={{ color: "var(--luxia-text-secondary)" }}
                     >
-                      <th className="px-4 py-2.5 pr-4 font-medium">Role</th>
+                      <th className="px-4 py-2.5 pr-4 luxia-type-caption">Role</th>
                       {ROLE_COLUMNS.map((column) => (
-                        <th key={column} className="px-2 py-2.5 text-center font-medium">
+                        <th key={column} className="px-2 py-2.5 text-center luxia-type-caption">
                           {column}
                         </th>
                       ))}
@@ -1066,6 +1091,18 @@ export function ConstellationSettingsPage({
         </Tabs>
       </LuxiaPageBody>
 
+      <AddConstellationDataSourceDialog
+        open={addSourceOpen}
+        connectedSourceIds={record.connectedSources.map((source) => source.id)}
+        dataSources={dataSources}
+        accessLevels={accessLevels}
+        currentUserId={currentUserId}
+        onOpenChange={setAddSourceOpen}
+        onConfirm={(sourceId) => {
+          onAddDataSource(sourceId);
+        }}
+      />
+
       <AlertDialog
         open={Boolean(disconnectSourceId)}
         onOpenChange={(open) => {
@@ -1075,13 +1112,13 @@ export function ConstellationSettingsPage({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Disconnect {disconnectTarget?.name ?? "Data Source"}?
+              Remove {disconnectTarget?.name ?? "Data Source"} from this Constellation?
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-2">
                 <p>
-                  This Constellation will lose access to this Data Source.
-                  Existing configuration may become unavailable.
+                  This removes the association from this Constellation only. The Data
+                  Source itself is not deleted.
                 </p>
                 {disconnectTarget ? (
                   <ul className="list-disc pl-5 space-y-1">
@@ -1106,7 +1143,7 @@ export function ConstellationSettingsPage({
               className="text-white hover:opacity-90"
               onClick={confirmDisconnect}
             >
-              Disconnect
+              Remove from Constellation
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

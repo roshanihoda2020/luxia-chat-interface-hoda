@@ -6,6 +6,9 @@ import {
   getDataSourceById,
   getDataSourceOwnerDisplay,
   buildDataSourceAccessSummary,
+  type AccessLevelRecord,
+  type DataSourceCatalogItem,
+  type DataSourceConnector,
 } from "@/app/features/permissions";
 import type { ConnectedDataSource } from "./types";
 import type { ConstellationCreationDraft } from "./constellationCreateDraft";
@@ -28,61 +31,139 @@ import {
   type CsvParseConfig,
 } from "./capabilityState";
 
+function catalogTypeForConstellation(
+  type: CapsuleConstellationType,
+): DataSourceCatalogItem["type"] {
+  if (type === "csv") return "CSV";
+  if (type === "pdf") return "File";
+  return "Database";
+}
+
+function connectorForConstellation(
+  type: CapsuleConstellationType,
+): DataSourceConnector {
+  if (type === "csv") return "csv";
+  if (type === "pdf") return "file";
+  return "postgres";
+}
+
+function connectedTypeForCatalog(
+  typeLabel: string,
+): ConnectedDataSource["type"] {
+  const normalized = typeLabel.toLowerCase();
+  if (normalized.includes("csv")) return "csv";
+  if (normalized.includes("pdf") || normalized.includes("file")) return "pdf";
+  return "database";
+}
+
+export type CreationConnectedSourceResult = {
+  connected: ConnectedDataSource;
+  /** When creating a new source, also register this catalog row in live state. */
+  catalogItem?: DataSourceCatalogItem;
+};
+
 export function buildConnectedSourceFromCreationDraft(
   draft: ConstellationCreationDraft,
-): ConnectedDataSource | null {
+  options?: {
+    dataSources?: DataSourceCatalogItem[];
+    accessLevels?: AccessLevelRecord[];
+    currentUserId?: string;
+  },
+): CreationConnectedSourceResult | null {
   if (!draft.type) return null;
 
+  const dataSources = options?.dataSources ?? DATA_SOURCE_CATALOG;
+  const accessLevels = options?.accessLevels ?? ACCESS_LEVELS;
+  const currentUserId = options?.currentUserId ?? CURRENT_USER_ID;
+
   if (draft.dataSourceMode === "existing" && draft.existingDataSourceId) {
-    const catalog = getDataSourceById(draft.existingDataSourceId)
-      ?? DATA_SOURCE_CATALOG.find((item) => item.id === draft.existingDataSourceId);
+    const catalog = getDataSourceById(draft.existingDataSourceId, dataSources);
     if (!catalog) return null;
-    const typeLabel = catalog.type.toLowerCase();
-    const sourceType = typeLabel.includes("csv")
-      ? "csv" as const
-      : typeLabel.includes("pdf")
-        ? "pdf" as const
-        : "database" as const;
+    const sourceType = connectedTypeForCatalog(catalog.type);
     return {
-      id: catalog.id,
-      name: catalog.name,
-      type: sourceType,
-      ownership: catalog.ownership,
-      ownerUserId: catalog.ownerUserId,
-      owner: getDataSourceOwnerDisplay(catalog),
-      status: catalog.status === "inactive" || catalog.status === "archived"
-        ? "needs-attention" as const
-        : "connected" as const,
-      accessSummary: buildDataSourceAccessSummary(catalog, ACCESS_LEVELS, CURRENT_USER_ID),
-      lastUpdated: "Just now",
-      usageInConstellation: "Primary connected source",
+      connected: {
+        id: catalog.id,
+        name: catalog.name,
+        type: sourceType,
+        ownership: catalog.ownership,
+        ownerUserId: catalog.ownerUserId,
+        owner: getDataSourceOwnerDisplay(catalog),
+        status: catalog.status === "inactive" || catalog.status === "archived"
+          ? "needs-attention" as const
+          : "connected" as const,
+        accessSummary: buildDataSourceAccessSummary(
+          catalog,
+          accessLevels,
+          currentUserId,
+          dataSources,
+        ),
+        lastUpdated: "Just now",
+        usageInConstellation:
+          sourceType === "database"
+            ? "Active tables and metrics"
+            : sourceType === "csv"
+              ? "Tabular file context"
+              : "Primary knowledge files",
+      },
     };
   }
 
   const isPrivate = draft.ownership === "private";
-  const ownerUserId = isPrivate ? CURRENT_USER_ID : "";
-  const runtimeSource = {
-    id: `ds-runtime-${Date.now()}`,
+  const ownerUserId = isPrivate ? currentUserId : "";
+  const id = `ds-runtime-${Date.now()}`;
+  const name = draft.dataSourceName.trim();
+  const catalogItem: DataSourceCatalogItem = {
+    id,
+    name,
+    type: catalogTypeForConstellation(draft.type),
+    connector: connectorForConstellation(draft.type),
     ownership: draft.ownership,
     ownerUserId,
+    status: "active",
+    contentSummary:
+      draft.type === "csv"
+        ? {
+            kind: "csv",
+            fileName: draft.uploadedFiles[0]?.name,
+            tableName: name,
+            importedRows: undefined,
+            skippedRows: 0,
+          }
+        : draft.type === "pdf"
+          ? {
+              kind: "file",
+              fileNames: draft.uploadedFiles.map((file) => file.name),
+            }
+          : {
+              kind: "database",
+              database: name,
+            },
   };
+
   return {
-    id: runtimeSource.id,
-    name: draft.dataSourceName.trim(),
-    type: draft.type,
-    ownership: draft.ownership,
-    ownerUserId,
-    owner: getDataSourceOwnerDisplay(runtimeSource),
-    status: "connected",
-    accessSummary: isPrivate
-      ? "Owner access"
-      : buildDataSourceAccessSummary(
-          { id: runtimeSource.id, ownership: "organizational", ownerUserId: "" },
-          ACCESS_LEVELS,
-          CURRENT_USER_ID,
-        ),
-    lastUpdated: "Just now",
-    usageInConstellation: "Primary connected source",
+    connected: {
+      id,
+      name,
+      type: draft.type,
+      ownership: draft.ownership,
+      ownerUserId,
+      owner: getDataSourceOwnerDisplay(catalogItem),
+      status: "connected",
+      accessSummary: isPrivate
+        ? "Owner access"
+        : buildDataSourceAccessSummary(catalogItem, accessLevels, currentUserId, [
+            ...dataSources,
+            catalogItem,
+          ]),
+      lastUpdated: "Just now",
+      usageInConstellation:
+        draft.type === "database"
+          ? "Active tables and metrics"
+          : draft.type === "csv"
+            ? "Tabular file context"
+            : "Primary knowledge files",
+    },
+    catalogItem,
   };
 }
 

@@ -9,6 +9,7 @@ export type LuxiaBreadcrumbDestination =
   | { kind: "dashboard"; projectId: string; dashboardId?: string }
   | { kind: "virtual-assistant"; projectId: string; virtualAssistantId?: string }
   | { kind: "access-levels" }
+  | { kind: "data-sources" }
   | { kind: "members"; projectId: string }
   | { kind: "data-source-settings"; dataSourceId: string }
   | { kind: "current" };
@@ -30,6 +31,7 @@ export interface LuxiaBreadcrumbHandlers {
   onDashboard?: (projectId: string, dashboardId?: string) => void;
   onVirtualAssistant?: (projectId: string, virtualAssistantId?: string) => void;
   onAccessLevels?: () => void;
+  onDataSources?: () => void;
   onMembers?: (projectId: string) => void;
   onDataSourceSettings?: (dataSourceId: string) => void;
 }
@@ -63,6 +65,8 @@ function resolveNavigate(
         : undefined;
     case "access-levels":
       return handlers.onAccessLevels;
+    case "data-sources":
+      return handlers.onDataSources;
     case "members":
       return handlers.onMembers
         ? () => handlers.onMembers!(destination.projectId)
@@ -332,6 +336,36 @@ export function buildProjectLibraryBreadcrumbItems(input: {
     {
       id: `library-${input.libraryId}`,
       label: input.libraryLabel,
+      destination: { kind: "current" },
+    },
+  ];
+}
+
+export function buildDataSourcesBreadcrumbItems(): LuxiaBreadcrumbItem[] {
+  return [
+    { id: "home", label: "Home", destination: { kind: "home" } },
+    {
+      id: "data-sources",
+      label: "Data Sources",
+      destination: { kind: "current" },
+    },
+  ];
+}
+
+export function buildDataSourceSettingsBreadcrumbItems(input: {
+  dataSourceId: string;
+  dataSourceName: string;
+}): LuxiaBreadcrumbItem[] {
+  return [
+    { id: "home", label: "Home", destination: { kind: "home" } },
+    {
+      id: "data-sources",
+      label: "Data Sources",
+      destination: { kind: "data-sources" },
+    },
+    {
+      id: `data-source-${input.dataSourceId}`,
+      label: input.dataSourceName,
       destination: { kind: "current" },
     },
   ];

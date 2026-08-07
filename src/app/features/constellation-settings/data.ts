@@ -15,6 +15,7 @@ import {
   isDataSourceUsable,
   buildSourceAccessSummaryRow,
   type AccessLevelRecord,
+  type DataSourceCatalogItem,
 } from "@/app/features/permissions";
 import type {
   ConstellationSettingsRecord,
@@ -71,8 +72,9 @@ function accessRowFromSource(
   source: ConnectedDataSource,
   accessLevels: AccessLevelRecord[],
   userId: string = CURRENT_USER_ID,
+  dataSources: DataSourceCatalogItem[] = DATA_SOURCE_CATALOG,
 ): SourceAccessSummaryRow {
-  return buildSourceAccessSummaryRow(source, accessLevels, userId);
+  return buildSourceAccessSummaryRow(source, accessLevels, userId, dataSources);
 }
 
 /** Derive Access rows from live Access Level state (same session). */
@@ -80,8 +82,11 @@ export function buildSourceAccessRows(
   sources: ConnectedDataSource[],
   accessLevels: AccessLevelRecord[],
   userId: string = CURRENT_USER_ID,
+  dataSources: DataSourceCatalogItem[] = DATA_SOURCE_CATALOG,
 ): SourceAccessSummaryRow[] {
-  return sources.map((source) => accessRowFromSource(source, accessLevels, userId));
+  return sources.map((source) =>
+    accessRowFromSource(source, accessLevels, userId, dataSources),
+  );
 }
 
 function createdByLabel(userId: string): string {

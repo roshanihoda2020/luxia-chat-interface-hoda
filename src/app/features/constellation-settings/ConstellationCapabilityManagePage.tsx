@@ -276,11 +276,11 @@ export function ConstellationCapabilityManagePage({
             {constellation.type === "csv" && bundle.csvParseConfig ? (
               <div className="mb-4 grid gap-2 sm:grid-cols-2">
                 <p className="luxia-type-body-dense text-[var(--luxia-text-primary)]">
-                  <span className="font-medium">Delimiter:</span>{" "}
+                  <span className="luxia-type-caption">Delimiter:</span>{" "}
                   {bundle.csvParseConfig.delimiter || ","}
                 </p>
                 <p className="luxia-type-body-dense text-[var(--luxia-text-primary)]">
-                  <span className="font-medium">Header row:</span>{" "}
+                  <span className="luxia-type-caption">Header row:</span>{" "}
                   {bundle.csvParseConfig.hasHeader
                     ? "First row contains column headers"
                     : "No header row"}

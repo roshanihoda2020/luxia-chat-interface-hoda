@@ -55,6 +55,7 @@ import {
   getProjectMembersPath,
   getAccessLevelsPath,
   getAccessLevelPath,
+  getDataSourcesPath,
   getDataSourceSettingsPath,
   isHomePath,
   resolveLuxiaPathname,
@@ -80,7 +81,6 @@ import {
   ConstellationSettingsPage,
   ConstellationCapabilityManagePage,
   ConstellationCreatePage,
-  AVAILABLE_SOURCES_CATALOG,
   CONSTELLATION_SETTINGS_RECORDS,
   buildSettingsForConstellation,
   buildConnectedSourceFromCreationDraft,
@@ -113,6 +113,10 @@ import {
   type GalaxySettingsRecord,
   type GalaxySettingsSectionId,
 } from "@/app/features/galaxy-settings";
+import {
+  DataSourcesPage,
+  NewDataSourceFlow,
+} from "@/app/features/data-sources";
 import { Toaster, toast } from "sonner";
 import {
   CAPSULE_CAPABILITY_ICON,
@@ -129,6 +133,7 @@ import {
   AccessLevelEditorPage,
   ProjectMembersPage,
   DataSourceSettingsPage,
+  canUserAccessDataSource,
   ACCESS_LEVELS,
   PROJECT_MEMBERSHIPS,
   ORGANIZATION_USERS,
@@ -138,8 +143,12 @@ import {
   buildEmptyAccessLevel,
   cloneAccessLevel,
   getDataSourceById,
+  getDataSourceOwnerDisplay,
   getProjectRequiredDataSourceIds,
   buildSourceAccessSummaryRow,
+  buildDataSourceAccessSummary,
+  resolveUserDataSourceAccess,
+  permissionRank,
   ACCESS_LEVEL_DENIED_MESSAGE,
   ACCESS_LEVEL_CREATE_DENIED_MESSAGE,
   CONSTELLATION_CONFIGURE_DENIED_MESSAGE,
@@ -148,6 +157,7 @@ import {
   canArchiveConstellation,
   canArchiveProject,
   canConfigureConstellation,
+  canCreateOrganizationalDataSource,
   canDeleteConstellation,
   canDeleteProject,
   countProjectMembers,
@@ -719,6 +729,7 @@ type LuxiaAppView =
   | "project-members"
   | "access-levels"
   | "access-level"
+  | "data-sources"
   | "data-source-settings";
 
 function readInitialShellFromLocation(): {
@@ -4069,6 +4080,9 @@ export default function App() {
   const [dataSourceSettingsId, setDataSourceSettingsId] = useState<string | null>(
     INITIAL_SHELL.dataSourceSettingsId,
   );
+  const [dataSourceSettingsFocus, setDataSourceSettingsFocus] = useState<
+    "usage" | null
+  >(null);
   const [constellationSettingsById, setConstellationSettingsById] = useState<
     Record<string, ConstellationSettingsRecord>
   >(() => {
@@ -4081,6 +4095,10 @@ export default function App() {
   const [accessLevelsState, setAccessLevelsState] = useState(() =>
     ACCESS_LEVELS.map((level) => cloneAccessLevel(level)),
   );
+  const [dataSourcesState, setDataSourcesState] = useState(() =>
+    DATA_SOURCE_CATALOG.map((source) => ({ ...source })),
+  );
+  const [dataSourceCreationOpen, setDataSourceCreationOpen] = useState(false);
   const [projectMembershipsState, setProjectMembershipsState] = useState(() =>
     PROJECT_MEMBERSHIPS.map((membership) => ({ ...membership })),
   );
@@ -4193,6 +4211,7 @@ export default function App() {
       setGalaxySettingsSection("general");
       setAccessLevelId(null);
       setDataSourceSettingsId(null);
+      setDataSourceSettingsFocus(null);
     }
 
     function goHome(replace: boolean) {
@@ -4312,6 +4331,16 @@ export default function App() {
         setAccessLevelId(null);
         setDataSourceSettingsId(null);
         setAppView("access-levels");
+        return;
+      }
+
+      if (resolved.kind === "data-sources") {
+        setActiveProjectId(null);
+        setSettingsConstellationId(null);
+        setSettingsCapabilityPath(null);
+        setAccessLevelId(null);
+        setDataSourceSettingsId(null);
+        setAppView("data-sources");
         return;
       }
 
@@ -4480,7 +4509,7 @@ export default function App() {
   };
   const messages = chatMessages[activeChat] ?? [];
 
-  const contextProjectId = appView === "home" || appView === "access-levels" || appView === "access-level" || appView === "data-source-settings"
+  const contextProjectId = appView === "home" || appView === "access-levels" || appView === "access-level" || appView === "data-sources" || appView === "data-source-settings"
     ? null
     : appView === "project" || appView === "constellation-create" || appView === "constellation-settings" || appView === "galaxy-settings" || appView === "project-members"
       ? activeProjectId
@@ -4864,6 +4893,22 @@ export default function App() {
     }
   }
 
+  function handleOpenDataSources() {
+    setActiveProjectId(null);
+    setSettingsConstellationId(null);
+    setSettingsCapabilityPath(null);
+    setAccessLevelId(null);
+    setDataSourceSettingsId(null);
+    setDataSourceSettingsFocus(null);
+    setAppView("data-sources");
+    if (typeof window !== "undefined") {
+      const next = getDataSourcesPath();
+      if (window.location.pathname !== next) {
+        window.history.pushState({ luxiaView: "data-sources" }, "", next);
+      }
+    }
+  }
+
   function handleOpenAccessLevel(id: string) {
     if (id === "new" && !canAdministerAccessLevels(prototypeUserId)) {
       toast.error(ACCESS_LEVEL_CREATE_DENIED_MESSAGE);
@@ -4892,12 +4937,27 @@ export default function App() {
     handleOpenAccessLevel("new");
   }
 
-  function handleOpenDataSourceSettings(dataSourceId: string) {
+  function handleOpenDataSourceSettings(
+    dataSourceId: string,
+    options?: { focus?: "usage" },
+  ) {
+    const allowed = canUserAccessDataSource(
+      dataSourceId,
+      accessLevelsState,
+      dataSourcesState,
+      prototypeUserId,
+    );
+    if (!allowed) {
+      toast.error("You do not have access to this Data Source.");
+      handleOpenDataSources();
+      return;
+    }
     setActiveProjectId(null);
     setSettingsConstellationId(null);
     setSettingsCapabilityPath(null);
     setAccessLevelId(null);
     setDataSourceSettingsId(dataSourceId);
+    setDataSourceSettingsFocus(options?.focus ?? null);
     setAppView("data-source-settings");
     if (typeof window !== "undefined") {
       const next = getDataSourceSettingsPath(dataSourceId);
@@ -5140,6 +5200,20 @@ export default function App() {
     setMobileNavOpen(false);
 
     if (
+      appView === "data-source-settings"
+      && dataSourceSettingsId
+      && !canUserAccessDataSource(
+        dataSourceSettingsId,
+        accessLevelsState,
+        dataSourcesState,
+        userId,
+      )
+    ) {
+      handleOpenDataSources();
+      return;
+    }
+
+    if (
       appView === "access-level"
       && accessLevelId === "new"
       && !canAdministerAccessLevels(userId)
@@ -5158,6 +5232,7 @@ export default function App() {
 
     const projectId =
       appView === "home" || appView === "access-levels" || appView === "access-level"
+        || appView === "data-sources"
         || appView === "data-source-settings"
         ? null
         : (activeProjectId
@@ -5261,17 +5336,74 @@ export default function App() {
     });
   }
 
-  function handleAddConstellationDataSource(constellationId: string) {
+  function handleAddConstellationDataSource(
+    constellationId: string,
+    sourceId: string,
+  ) {
     const current = resolveConstellationSettingsRecordForView(constellationId);
     if (!current) return;
     if (!guardConstellationConfigure(current.projectId)) return;
-    const connectedIds = new Set(current.connectedSources.map((source) => source.id));
-    const candidate = AVAILABLE_SOURCES_CATALOG.find((source) => !connectedIds.has(source.id));
-    if (!candidate) return;
-    const nextSource: ConnectedDataSource = { ...candidate, usageInConstellation: "Connected" };
+    if (current.connectedSources.some((source) => source.id === sourceId)) {
+      toast.error("That Data Source is already connected to this Constellation.");
+      return;
+    }
+    const item = dataSourcesState.find((source) => source.id === sourceId);
+    if (!item) {
+      toast.error("Data Source not found.");
+      return;
+    }
+    const resolved = resolveUserDataSourceAccess(
+      prototypeUserId,
+      sourceId,
+      accessLevelsState,
+      dataSourcesState,
+    );
+    if (
+      !resolved.permission
+      || permissionRank(resolved.permission) < permissionRank("Use")
+    ) {
+      toast.error("You need Use or Manage access to connect this Data Source.");
+      return;
+    }
+    if (item.status !== "active") {
+      toast.error("Only active Data Sources can be connected.");
+      return;
+    }
+
+    const type = (item.type.toLowerCase().includes("csv")
+      ? "csv"
+      : item.type.toLowerCase().includes("pdf") || item.type.toLowerCase().includes("file")
+        ? "pdf"
+        : "database") as ConnectedDataSource["type"];
+    const nextSource: ConnectedDataSource = {
+      id: item.id,
+      name: item.name,
+      type,
+      ownership: item.ownership,
+      ownerUserId: item.ownerUserId,
+      owner: getDataSourceOwnerDisplay(item),
+      status: item.status === "active" ? "connected" : "needs-attention",
+      accessSummary: buildDataSourceAccessSummary(
+        item,
+        accessLevelsState,
+        prototypeUserId,
+        dataSourcesState,
+      ),
+      lastUpdated: "Just now",
+      usageInConstellation:
+        type === "database"
+          ? "Active tables and metrics"
+          : type === "csv"
+            ? "Tabular file context"
+            : "Primary knowledge files",
+      selectable: true,
+    };
+
     const accessRow = buildSourceAccessSummaryRow(
       nextSource,
       accessLevelsState,
+      prototypeUserId,
+      dataSourcesState,
     );
     const nextRecord: ConstellationSettingsRecord = {
       ...current,
@@ -5289,6 +5421,7 @@ export default function App() {
         [constellationId]: nextRecord,
       },
     });
+    toast.success(`Connected ${nextSource.name}`);
   }
 
   function handleManageSourceAccess(sourceId: string) {
@@ -6066,8 +6199,12 @@ export default function App() {
 
   function buildConnectedSourceFromDraft(
     draft: ConstellationCreationDraft,
-  ): ConnectedDataSource | null {
-    return buildConnectedSourceFromCreationDraft(draft);
+  ): ReturnType<typeof buildConnectedSourceFromCreationDraft> {
+    return buildConnectedSourceFromCreationDraft(draft, {
+      dataSources: dataSourcesState,
+      accessLevels: accessLevelsState,
+      currentUserId: prototypeUserId,
+    });
   }
 
   function handleCreateConstellationDraft(draft: ConstellationCreationDraft) {
@@ -6102,15 +6239,30 @@ export default function App() {
       type: draft.type,
     });
 
-    const connectedSource = buildConnectedSourceFromDraft(draft);
+    const creationSource = buildConnectedSourceFromDraft(draft);
+    const connectedSource = creationSource?.connected ?? null;
     const connectedSources = connectedSource ? [connectedSource] : [];
+
+    const nextDataSources = creationSource?.catalogItem
+      && !dataSourcesState.some((item) => item.id === creationSource.catalogItem!.id)
+      ? [...dataSourcesState, creationSource.catalogItem]
+      : dataSourcesState;
+
+    if (nextDataSources !== dataSourcesState) {
+      setDataSourcesState(nextDataSources);
+    }
 
     const seeded: ConstellationSettingsRecord = {
       ...seededBase,
       instructions: draft.instruction.trim() || seededBase.instructions,
       connectedSources,
       sourceAccessRows: connectedSources.map((source) =>
-        buildSourceAccessSummaryRow(source, accessLevelsState),
+        buildSourceAccessSummaryRow(
+          source,
+          accessLevelsState,
+          prototypeUserId,
+          nextDataSources,
+        ),
       ),
     };
 
@@ -6878,10 +7030,20 @@ export default function App() {
     : [];
 
   const dataSourceForSettings = dataSourceSettingsId
-    ? getDataSourceById(dataSourceSettingsId)
-      ?? DATA_SOURCE_CATALOG.find((source) => source.id === dataSourceSettingsId)
+    ? dataSourcesState.find((source) => source.id === dataSourceSettingsId)
+      ?? getDataSourceById(dataSourceSettingsId)
       ?? null
     : null;
+
+  const canAccessDataSourceSettings = Boolean(
+    dataSourceForSettings
+    && canUserAccessDataSource(
+      dataSourceForSettings.id,
+      accessLevelsState,
+      dataSourcesState,
+      prototypeUserId,
+    ),
+  );
 
   const contextProjectMembership = useMemo(() => {
     if (!contextProjectId) return null;
@@ -6992,6 +7154,7 @@ export default function App() {
         onMobileClose={() => setMobileNavOpen(false)}
         homeActive={appView === "home"}
         usersActive={appView === "access-levels" || appView === "access-level"}
+        dataSourcesActive={appView === "data-sources" || appView === "data-source-settings"}
         projectId={contextProjectId}
         projectLabel={contextProjectLabel}
         showProjectContext={showProjectContext}
@@ -7009,6 +7172,7 @@ export default function App() {
         constellationTotalCount={sidebarProjectConstellations.length}
         onHomeClick={handleNavigateHome}
         onUsersClick={handleOpenAccessLevels}
+        onDataSourcesClick={handleOpenDataSources}
         onProjectSectionClick={handleProjectNavSection}
         onOpenChat={handleSelectChat}
         onOpenConstellation={(projectId, constellationId) => {
@@ -7177,6 +7341,9 @@ export default function App() {
                 .filter((item) => item.projectId === activeProjectId)
                 .map((item) => item.label)}
               unavailable={!homeProjects.some((project) => project.id === activeProjectId)}
+              accessLevels={accessLevelsState}
+              dataSources={dataSourcesState}
+              currentUserId={prototypeUserId}
               navigationGuardRef={constellationCreateGuardRef}
               onNavigateHome={handleNavigateHome}
               onOpenProject={(projectId) => handleOpenProjectOverview(projectId, "overview")}
@@ -7379,9 +7546,9 @@ export default function App() {
                       capabilityId,
                     );
                   }}
-                  onAddDataSource={() => {
+                  onAddDataSource={(sourceId) => {
                     if (!constellationId || settingsUnavailable) return;
-                    handleAddConstellationDataSource(constellationId);
+                    handleAddConstellationDataSource(constellationId, sourceId);
                   }}
                   onOpenDataSourceSettings={handleOpenDataSourceSettings}
                   onManageSourceAccess={handleManageSourceAccess}
@@ -7404,6 +7571,8 @@ export default function App() {
                   onOpenMembers={handleOpenProjectMembers}
                   onOpenAccessLevels={handleOpenAccessLevels}
                   accessLevels={accessLevelsState}
+                  dataSources={dataSourcesState}
+                  currentUserId={prototypeUserId}
                   currentProjectRole={
                     projectMembershipsState.find(
                       (membership) =>
@@ -7424,7 +7593,7 @@ export default function App() {
                 memberships={membersForProject}
                 accessLevels={accessLevelsState}
                 organizationUsers={ORGANIZATION_USERS}
-                dataSources={DATA_SOURCE_CATALOG}
+                dataSources={dataSourcesState}
                 projectRequiredSourceIds={getProjectRequiredDataSourceIds(membersProject.id)}
                 onSaveMemberships={(memberships) => {
                   setProjectMembershipsState((prev) => {
@@ -7481,12 +7650,34 @@ export default function App() {
               canAdminister={canAdministerAccessLevels(prototypeUserId)}
             />
           </HomePageShell>
+        ) : appView === "data-sources" ? (
+          <HomePageShell scrollRequest={homeScrollRequest} framed={false}>
+            <DataSourcesPage
+              dataSources={dataSourcesState}
+              accessLevels={accessLevelsState}
+              currentUserId={prototypeUserId}
+              constellationConnections={allConstellations.map((item) => {
+                const record = constellationSettingsById[item.id]
+                  ?? getConstellationSettingsRecord(item.id);
+                return {
+                  id: item.id,
+                  dataSourceIds: record?.connectedSources.map((source) => source.id)
+                    ?? getCanonicalConstellationById(item.id)?.dataSourceIds
+                    ?? [],
+                };
+              })}
+              onOpenSource={handleOpenDataSourceSettings}
+              onNavigateHome={handleNavigateHome}
+              onNewDataSource={() => setDataSourceCreationOpen(true)}
+            />
+          </HomePageShell>
         ) : appView === "access-level" ? (
           <HomePageShell scrollRequest={homeScrollRequest} framed={false}>
             {editingAccessLevel ? (
               <AccessLevelEditorPage
                 record={editingAccessLevel}
                 otherLevels={accessLevelsState.filter((level) => level.id !== editingAccessLevel.id)}
+                dataSources={dataSourcesState}
                 canAdminister={canAdministerAccessLevels(prototypeUserId)}
                 onSave={(record) => {
                   if (!guardAccessLevelMutation()) return;
@@ -7543,22 +7734,39 @@ export default function App() {
             <DataSourceSettingsPage
               source={dataSourceForSettings}
               accessLevels={accessLevelsState}
+              dataSources={dataSourcesState}
               projects={homeProjects}
               constellations={allConstellations}
+              constellationConnections={allConstellations.map((item) => {
+                const record = constellationSettingsById[item.id]
+                  ?? getConstellationSettingsRecord(item.id);
+                return {
+                  id: item.id,
+                  label: item.label,
+                  projectId: item.projectId,
+                  dataSourceIds: record?.connectedSources.map((source) => source.id)
+                    ?? getCanonicalConstellationById(item.id)?.dataSourceIds
+                    ?? [],
+                };
+              })}
+              memberships={projectMembershipsState}
+              currentUserId={prototypeUserId}
+              focusSection={dataSourceSettingsFocus}
+              canAccess={canAccessDataSourceSettings}
               onNavigateHome={handleNavigateHome}
+              onOpenDataSources={handleOpenDataSources}
               onOpenAccessLevels={handleOpenAccessLevels}
               onOpenAccessLevel={handleOpenAccessLevel}
               onOpenProject={handleOpenProjectFromHome}
               onOpenConstellationSettings={(projectId, constellationId) => {
                 handleOpenConstellationSettings(projectId, constellationId, "access");
               }}
-              onBack={() => {
-                if (typeof window !== "undefined" && window.history.length > 1) {
-                  window.history.back();
-                  return;
-                }
-                handleOpenAccessLevels();
+              onSaveSource={(nextSource) => {
+                setDataSourcesState((prev) =>
+                  prev.map((item) => (item.id === nextSource.id ? nextSource : item)),
+                );
               }}
+              onBack={handleOpenDataSources}
             />
           </HomePageShell>
         ) : (
@@ -7899,6 +8107,25 @@ export default function App() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <NewDataSourceFlow
+        open={dataSourceCreationOpen}
+        currentUserId={prototypeUserId}
+        allowOrganizational={canCreateOrganizationalDataSource(prototypeUserId)}
+        existingSources={dataSourcesState}
+        returnContext={{ kind: "library" }}
+        onOpenChange={setDataSourceCreationOpen}
+        onCreated={(source, _returnContext, options) => {
+          setDataSourcesState((prev) => [...prev, source]);
+          toast.success(`Created ${source.name}`);
+          if (options?.openSettings) {
+            handleOpenDataSourceSettings(source.id);
+            return;
+          }
+          if (appView !== "data-sources") {
+            handleOpenDataSources();
+          }
+        }}
+      />
       <Toaster richColors closeButton position="top-right" />
       <ProjectManageDialogs
         mode={projectManageMode}
