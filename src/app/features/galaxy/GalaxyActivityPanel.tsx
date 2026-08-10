@@ -385,6 +385,7 @@ export function GalaxyActivityPanel({
   const [instruction, setInstruction] = useState(resolvedInstruction);
   const [savedInstruction, setSavedInstruction] = useState(resolvedInstruction);
   const [instructionManagerOpen, setInstructionManagerOpen] = useState(false);
+  const canEditInstruction = Boolean(onSaveInstruction);
   const [savedDescription, setSavedDescription] = useState(GALAXY_DEFAULT_DESCRIPTION);
   const [draftDescription, setDraftDescription] = useState(GALAXY_DEFAULT_DESCRIPTION);
   const [editingDescription, setEditingDescription] = useState(false);
@@ -1705,6 +1706,7 @@ export function GalaxyActivityPanel({
                   >
                     Instruction
                   </h3>
+                  {canEditInstruction ? (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
@@ -1726,6 +1728,7 @@ export function GalaxyActivityPanel({
                     </TooltipTrigger>
                     <TooltipContent sideOffset={6}>Open full editor</TooltipContent>
                   </Tooltip>
+                  ) : null}
                 </div>
                 <p
                   className="luxia-type-caption"
@@ -1737,10 +1740,15 @@ export function GalaxyActivityPanel({
 
               <textarea
                 value={instruction}
-                onChange={(e) => handleInstructionChange(e.target.value)}
+                readOnly={!canEditInstruction}
+                onChange={(e) => {
+                  if (!canEditInstruction) return;
+                  handleInstructionChange(e.target.value);
+                }}
                 onFocus={() => setFocused(true)}
                 onBlur={() => setFocused(false)}
                 onKeyDown={(e) => {
+                  if (!canEditInstruction) return;
                   if (e.key === "Escape" && dirty) {
                     e.preventDefault();
                     cancelInstructionEdit();
@@ -1752,6 +1760,7 @@ export function GalaxyActivityPanel({
                 }}
                 rows={4}
                 aria-label="Galaxy instruction"
+                aria-readonly={!canEditInstruction}
                 className="w-full resize-none overflow-y-auto luxia-scrollbar luxia-scrollbar-dark luxia-scrollbar-vertical galaxy-panel-scroll p-3.5 outline-none luxia-type-metadata focus:outline-none focus-visible:outline-none placeholder:text-[rgba(255,255,255,0.40)]"
                 style={{
                   minHeight: 104,
@@ -1766,6 +1775,7 @@ export function GalaxyActivityPanel({
                 onMouseLeave={(e) => icInputBorderHoverOff(e, focused)}
               />
 
+              {canEditInstruction ? (
               <div className="flex items-center justify-end gap-2 pt-0.5">
                 {dirty ? (
                   <button
@@ -1799,11 +1809,17 @@ export function GalaxyActivityPanel({
                   {saving ? "Saving…" : "Save instruction"}
                 </button>
               </div>
+              ) : (
+                <p className="luxia-type-caption pt-0.5" style={{ color: GC.instructionHelper }}>
+                  Instruction is read-only for your Project role.
+                </p>
+              )}
             </div>
           </section>
         </div>
       </aside>
 
+      {canEditInstruction ? (
       <InstructionManager
         open={instructionManagerOpen}
         data={instructionEditorData}
@@ -1811,6 +1827,7 @@ export function GalaxyActivityPanel({
         onCommit={(next) => handleInstructionChange(next.text)}
         onCancel={() => setInstructionManagerOpen(false)}
       />
+      ) : null}
     </div>
   );
 }

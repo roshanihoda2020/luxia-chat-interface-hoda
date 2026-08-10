@@ -52,6 +52,10 @@ interface ProjectsBrowserProps {
   onRestoreProject?: (projectId: string) => void;
   onEditProject?: (projectId: string) => void;
   onDeleteProject?: (projectId: string) => void;
+  canEditProject?: (projectId: string) => boolean;
+  canArchiveProject?: (projectId: string) => boolean;
+  canDeleteProject?: (projectId: string) => boolean;
+  canRestoreProject?: (projectId: string) => boolean;
   onOpenProject: (projectId: string) => void;
   onNavigateProjectDestination?: (
     destination: ProjectDestination,
@@ -104,6 +108,10 @@ export function ProjectsBrowser({
   onRestoreProject,
   onEditProject,
   onDeleteProject,
+  canEditProject,
+  canArchiveProject,
+  canDeleteProject,
+  canRestoreProject,
   onOpenProject,
   onNavigateProjectDestination,
   onNewProject,
@@ -358,6 +366,10 @@ export function ProjectsBrowser({
                 onArchiveProject,
                 onRestoreProject,
                 onDeleteProject,
+                canEditProject,
+                canArchiveProject,
+                canDeleteProject,
+                canRestoreProject,
               });
 
             return (

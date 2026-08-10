@@ -92,6 +92,10 @@ export interface HomePageProps {
   onRestoreProject?: (projectId: string) => void;
   onEditProject?: (projectId: string) => void;
   onDeleteProject?: (projectId: string) => void;
+  canEditProject?: (projectId: string) => boolean;
+  canArchiveProject?: (projectId: string) => boolean;
+  canDeleteProject?: (projectId: string) => boolean;
+  canRestoreProject?: (projectId: string) => boolean;
   onToggleWorkPin: (itemId: string) => void;
   onContinueWork: (item: HomeRecentWorkItem) => void;
   onOpenShortcut?: (shortcut: HomeShortcutRef) => void;

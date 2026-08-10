@@ -687,17 +687,24 @@ export function ConstellationSettingsPage({
                           </p>
                         ) : null}
                       </div>
+                      {canConfigureConstellation ? (
                       <Button
                         type="button"
                         variant="outline"
                         size="compact"
-                        disabled={!canConfigureConstellation}
-                        title={configureRoleHint ?? undefined}
                         onClick={() => onManageCapability(capability.id)}
                         aria-label={capability.manageLabel}
                       >
                         {capability.manageLabel}
                       </Button>
+                      ) : (
+                        <span
+                          className="luxia-type-caption shrink-0"
+                          style={{ color: "var(--luxia-text-muted)" }}
+                        >
+                          View only
+                        </span>
+                      )}
                     </li>
                   );
                 })}
@@ -712,16 +719,16 @@ export function ConstellationSettingsPage({
                 <LuxiaPageGuide className="min-w-0 flex-1">
                   {CONSTELLATION_SETTINGS_GUIDANCE.sourcesDescription}
                 </LuxiaPageGuide>
+                {canConfigureConstellation ? (
                 <Button
                   type="button"
                   variant="primary"
                   size="compact"
-                  disabled={!canConfigureConstellation}
-                  title={configureRoleHint ?? undefined}
                   onClick={() => setAddSourceOpen(true)}
                 >
                   Add Data Source
                 </Button>
+                ) : null}
               </div>
 
               {record.connectedSources.length === 0 ? (
@@ -779,19 +786,23 @@ export function ConstellationSettingsPage({
                             onSelect: () =>
                               onOpenDataSourceSettings(source.id),
                           },
-                          {
-                            id: "manage-access",
-                            label: "Manage source access",
-                            onSelect: () => onManageSourceAccess(source.id),
-                          },
-                          {
-                            id: "disconnect",
-                            label: "Remove from Constellation",
-                            destructive: true,
-                            separatorBefore: true,
-                            disabled: isLastSource || !canConfigureConstellation,
-                            onSelect: () => setDisconnectSourceId(source.id),
-                          },
+                          ...(canConfigureConstellation
+                            ? [
+                                {
+                                  id: "manage-access",
+                                  label: "Manage source access",
+                                  onSelect: () => onManageSourceAccess(source.id),
+                                },
+                                {
+                                  id: "disconnect",
+                                  label: "Remove from Constellation",
+                                  destructive: true as const,
+                                  separatorBefore: true,
+                                  disabled: isLastSource,
+                                  onSelect: () => setDisconnectSourceId(source.id),
+                                },
+                              ]
+                            : []),
                         ]}
                       />
                     </li>
@@ -975,7 +986,7 @@ export function ConstellationSettingsPage({
                           Open Access Levels
                         </Button>
                       ) : null}
-                      {hasAccessConflict(row) ? (
+                      {hasAccessConflict(row) && canConfigureConstellation ? (
                         <Button
                           type="button"
                           variant="secondary"
@@ -1004,6 +1015,7 @@ export function ConstellationSettingsPage({
               </p>
 
               <div className={`${LUXIA_SETTINGS_LIST_SURFACE_CLASS} divide-y px-4`} style={{ borderColor: "var(--luxia-settings-row-divider)" }}>
+              {canArchiveConstellation ? (
               <div className="luxia-settings-row flex flex-wrap items-center justify-between gap-3 py-4">
                 <div>
                   <p
@@ -1019,32 +1031,19 @@ export function ConstellationSettingsPage({
                     Hide this Constellation from active use. You can restore it
                     later.
                   </p>
-                  {!canArchiveConstellation ? (
-                    <p
-                      className="mt-1 luxia-type-caption"
-                      style={{ color: "var(--luxia-text-secondary)" }}
-                    >
-                      {lifecycleRoleHint
-                        ?? "Archive requires Project Owner or Project Manager."}
-                    </p>
-                  ) : null}
                 </div>
                 <Button
                   type="button"
                   variant="secondary"
                   size="compact"
-                  disabled={!canArchiveConstellation}
-                  title={
-                    canArchiveConstellation
-                      ? undefined
-                      : (lifecycleRoleHint ?? "Archive requires Project Owner or Project Manager.")
-                  }
                   onClick={() => setArchiveOpen(true)}
                 >
                   Archive
                 </Button>
               </div>
+              ) : null}
 
+              {canDeleteConstellation ? (
               <div className="luxia-settings-row flex flex-wrap items-center justify-between gap-3 py-4">
                 <div>
                   <p
@@ -1060,31 +1059,29 @@ export function ConstellationSettingsPage({
                     Permanently remove this Constellation. Connected Data Sources
                     are not deleted.
                   </p>
-                  {!canDeleteConstellation ? (
-                    <p
-                      className="mt-1 luxia-type-caption"
-                      style={{ color: "var(--luxia-text-secondary)" }}
-                    >
-                      {lifecycleRoleHint
-                        ?? "Delete requires Project Owner."}
-                    </p>
-                  ) : null}
                 </div>
                 <Button
                   type="button"
                   variant="destructive"
                   size="compact"
-                  disabled={!canDeleteConstellation}
-                  title={
-                    canDeleteConstellation
-                      ? undefined
-                      : (lifecycleRoleHint ?? "Delete requires Project Owner.")
-                  }
                   onClick={() => setDeleteOpen(true)}
                 >
                   Delete
                 </Button>
               </div>
+              ) : null}
+
+              {!canArchiveConstellation && !canDeleteConstellation ? (
+                <div className="py-4">
+                  <p
+                    className="luxia-type-body-small"
+                    style={{ color: "var(--luxia-text-secondary)" }}
+                  >
+                    {lifecycleRoleHint
+                      ?? "Your Project role cannot change Constellation lifecycle."}
+                  </p>
+                </div>
+              ) : null}
               </div>
             </TabsContent>
           </div>

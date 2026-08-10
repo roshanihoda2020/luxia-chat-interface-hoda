@@ -39,7 +39,7 @@ export interface ProjectOverviewPageProps {
   onViewAllConstellations?: (projectId: string) => void;
   onViewAllChats?: (projectId: string) => void;
   onNewChat: (projectId: string) => void;
-  onAddConstellation: (projectId: string, name: string, type: "database" | "csv" | "pdf") => void;
+  onAddConstellation?: (projectId: string, name: string, type: "database" | "csv" | "pdf") => void;
   onOpenDashboard?: (projectId: string) => void;
   onNewDashboard?: (projectId: string) => void;
   onOpenVirtualAssistant?: (projectId: string, assistantId: string) => void;
@@ -48,6 +48,7 @@ export interface ProjectOverviewPageProps {
   onRenameGalaxy?: (projectId: string, name: string) => void;
   onSaveGalaxyInstruction?: (projectId: string, instruction: string) => void;
   onArchiveProject?: (projectId: string) => void;
+  onDeleteProject?: (projectId: string) => void;
   onOpenMembers?: (projectId: string) => void;
 }
 
@@ -86,6 +87,7 @@ export function ProjectOverviewPage({
   onRenameGalaxy,
   onSaveGalaxyInstruction,
   onArchiveProject,
+  onDeleteProject,
   onOpenMembers,
   onOpenConstellationSettings,
   onViewAllConstellations,
@@ -169,6 +171,7 @@ export function ProjectOverviewPage({
         onNavigateHome={onNavigateHome}
         onRenameProject={(name) => onRenameProject?.(resolvedProject.id, name)}
         onArchiveProject={onArchiveProject}
+        onDeleteProject={onDeleteProject}
         onOpenMembers={onOpenMembers}
       />
 
@@ -219,8 +222,11 @@ export function ProjectOverviewPage({
               onOpenConstellation={onOpenConstellation}
               onOpenConstellationSettings={onOpenConstellationSettings}
               onViewAll={() => onViewAllConstellations?.(resolvedProject.id)}
-              onAddConstellation={() =>
-                onAddConstellation(resolvedProject.id, "Constellation name", "database")
+              onAddConstellation={
+                onAddConstellation
+                  ? () =>
+                      onAddConstellation(resolvedProject.id, "Constellation name", "database")
+                  : undefined
               }
             />
             <ChatsModule

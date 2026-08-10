@@ -73,6 +73,7 @@ export {
   canCreateOrganizationalDataSource,
   canDeleteConstellation,
   canDeleteProject,
+  canAccessProjectSettings,
   canInviteProjectMembers,
   canRemoveProjectMember,
   canTransferProjectOwnership,
@@ -81,6 +82,7 @@ export {
   getAccessibleConstellationIds,
   getActiveProjectMembership,
   isOrganizationAdmin,
+  isWorkingChatAccessible,
 } from "./accessGuards";
 export type { ConstellationUseAccessResult } from "./accessGuards";
 

@@ -106,6 +106,13 @@ export function canDeleteProject(
   return role === "Project Owner";
 }
 
+/** Project Settings destination — Owner/Manager when that surface exists. */
+export function canAccessProjectSettings(
+  role: ProjectRole | null | undefined,
+): boolean {
+  return role === "Project Owner" || role === "Project Manager";
+}
+
 export const CONSTELLATION_CONFIGURE_DENIED_MESSAGE =
   "You do not have permission to configure this Constellation.";
 
@@ -228,6 +235,39 @@ export function getAccessibleConstellationIds(input: {
       return result.available;
     })
     .map((item) => item.id);
+}
+
+/**
+ * Working-surface Chat visibility: active Project membership required;
+ * Galaxy chats need membership only; constellation chats also need Use on every connected source.
+ */
+export function isWorkingChatAccessible(input: {
+  chatType: string;
+  projectId: string;
+  constellationId?: string | null;
+  userId?: string;
+  memberships: ProjectMembership[];
+  accessLevels: AccessLevelRecord[];
+  dataSources?: DataSourceCatalogItem[];
+  connectedSourceIds?: string[];
+}): boolean {
+  const userId = input.userId ?? CURRENT_USER_ID;
+  const membership = getActiveProjectMembership(
+    input.projectId,
+    input.memberships,
+    userId,
+  );
+  if (!membership) return false;
+  if (input.chatType === "galaxy") return true;
+  if (!input.constellationId) return false;
+  return evaluateConstellationUseAccess({
+    userId,
+    projectRole: membership.projectRole,
+    membershipStatus: membership.status,
+    connectedSourceIds: input.connectedSourceIds ?? [],
+    accessLevels: input.accessLevels,
+    dataSources: input.dataSources,
+  }).available;
 }
 
 export function isDataSourceActiveInCatalog(

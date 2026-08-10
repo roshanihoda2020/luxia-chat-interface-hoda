@@ -94,8 +94,8 @@ export function ChatsModule({
     >
       {preview.length === 0 ? (
         <ProjectModuleEmptyState
-          title="No Chats yet"
-          description="Start a conversation with Galaxy or a Constellation."
+          title="No Chats available for your current access"
+          description="Chats appear here when their Constellation is usable with your Data Source permissions."
           action={<ProjectOutlineButton label="New Chat" onClick={onNewChat} />}
         />
       ) : (
@@ -179,15 +179,21 @@ export function ConstellationsModule({
       footer={
         <>
           <ProjectViewAllLink label={viewAllLabel} onClick={onViewAll} />
-          <ProjectOutlineButton label="Add Constellation" onClick={onAddConstellation} />
+          {onAddConstellation ? (
+            <ProjectOutlineButton label="Add Constellation" onClick={onAddConstellation} />
+          ) : null}
         </>
       }
     >
       {preview.length === 0 ? (
         <ProjectModuleEmptyState
-          title="No Constellations yet"
-          description="No Constellations have been added to this Project yet."
-          action={<ProjectOutlineButton label="Add Constellation" onClick={onAddConstellation} />}
+          title="No available Constellations"
+          description="No Constellations are currently usable with your Data Source permissions."
+          action={
+            onAddConstellation ? (
+              <ProjectOutlineButton label="Add Constellation" onClick={onAddConstellation} />
+            ) : undefined
+          }
         />
       ) : (
         <div className="flex flex-col">

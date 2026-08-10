@@ -15,6 +15,7 @@ interface ProjectHeaderProps {
   onNavigateHome: () => void;
   onRenameProject?: (name: string) => void;
   onArchiveProject?: (projectId: string) => void;
+  onDeleteProject?: (projectId: string) => void;
   onOpenMembers?: (projectId: string) => void;
 }
 
@@ -23,6 +24,7 @@ export function ProjectHeader({
   onNavigateHome,
   onRenameProject,
   onArchiveProject,
+  onDeleteProject,
   onOpenMembers,
 }: ProjectHeaderProps) {
   const description = project.description?.trim();
@@ -32,6 +34,31 @@ export function ProjectHeader({
   });
   const canRename = Boolean(onRenameProject);
   const canArchive = Boolean(onArchiveProject) && project.status !== "archived";
+  const canDelete = Boolean(onDeleteProject);
+
+  const optionItems = [
+    ...(canRename
+      ? [{ id: "edit-details", label: "Edit Project details", disabled: true as const }]
+      : []),
+    ...(canArchive
+      ? [{
+        id: "archive",
+        label: "Archive Project",
+        ariaLabel: `Archive ${project.name}`,
+        onSelect: () => onArchiveProject!(project.id),
+      }]
+      : []),
+    ...(canDelete
+      ? [{
+        id: "delete",
+        label: "Delete Project",
+        ariaLabel: `Delete ${project.name}`,
+        onSelect: () => onDeleteProject!(project.id),
+        destructive: true as const,
+        separatorBefore: true,
+      }]
+      : []),
+  ];
 
   return (
     <LuxiaPageHeader
@@ -90,32 +117,15 @@ export function ProjectHeader({
         )
       }
       options={
-        <LuxiaEntityOptionsMenu
-          entityType="Project"
-          entityLabel={project.name}
-          ariaLabel="Project options"
-          triggerVariant="icon"
-          items={[
-            { id: "edit-details", label: "Edit Project details", disabled: true },
-            {
-              id: "archive",
-              label: "Archive Project",
-              ariaLabel: `Archive ${project.name}`,
-              onSelect: canArchive
-                ? () => onArchiveProject!(project.id)
-                : undefined,
-              disabled: !canArchive,
-            },
-            {
-              id: "delete",
-              label: "Delete Project",
-              ariaLabel: `Delete ${project.name}`,
-              disabled: true,
-              destructive: true,
-              separatorBefore: true,
-            },
-          ]}
-        />
+        optionItems.length > 0 ? (
+          <LuxiaEntityOptionsMenu
+            entityType="Project"
+            entityLabel={project.name}
+            ariaLabel="Project options"
+            triggerVariant="icon"
+            items={optionItems}
+          />
+        ) : undefined
       }
     />
   );

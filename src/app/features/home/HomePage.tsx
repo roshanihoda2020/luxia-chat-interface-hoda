@@ -42,6 +42,10 @@ export function HomePage({
   onRestoreProject,
   onEditProject,
   onDeleteProject,
+  canEditProject,
+  canArchiveProject,
+  canDeleteProject,
+  canRestoreProject,
   onToggleWorkPin,
   onContinueWork,
   onOpenProject,
@@ -206,6 +210,10 @@ export function HomePage({
         onRestoreProject={onRestoreProject}
         onEditProject={onEditProject}
         onDeleteProject={onDeleteProject}
+        canEditProject={canEditProject}
+        canArchiveProject={canArchiveProject}
+        canDeleteProject={canDeleteProject}
+        canRestoreProject={canRestoreProject}
         onOpenProject={onOpenProject}
         onNavigateProjectDestination={handleNavigate}
         onNewProject={onNewProject}
@@ -253,6 +261,10 @@ export function HomePage({
         onRestoreProject={onRestoreProject}
         onEditProject={onEditProject}
         onDeleteProject={onDeleteProject}
+        canEditProject={canEditProject}
+        canArchiveProject={canArchiveProject}
+        canDeleteProject={canDeleteProject}
+        canRestoreProject={canRestoreProject}
         onOpenProject={onOpenProject}
         onNavigateProjectDestination={handleNavigate}
       />

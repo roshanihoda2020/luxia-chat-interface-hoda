@@ -62,7 +62,8 @@ export const CANONICAL_CONSTELLATIONS: CanonicalConstellationRecord[] = [
     id: "con1",
     projectId: "project-01",
     name: "Constellation name 01",
-    description: "Primary database Constellation for Project name 01.",
+    description:
+      "Primary database Constellation for Project name 01. Intentionally connects Private ds-db-02 so Use-on-all-sources gating can be demonstrated without Org Admin bypass.",
     type: "database",
     status: "active",
     dataSourceIds: [SAMPLE_DATA_SOURCE_IDS.ds01, SAMPLE_DATA_SOURCE_IDS.ds02],
@@ -113,7 +114,8 @@ export const CANONICAL_CONSTELLATIONS: CanonicalConstellationRecord[] = [
     description: "Secondary PDF Constellation for Project name 01.",
     type: "pdf",
     status: "active",
-    dataSourceIds: [SAMPLE_DATA_SOURCE_IDS.ds06],
+    // Active organizational PDF — inactive ds-pdf-02 must not block Owner demos.
+    dataSourceIds: [SAMPLE_DATA_SOURCE_IDS.ds03],
     createdByUserId: "user-02",
     createdAt: "20 Jan 2026",
     updatedAt: "4d ago",

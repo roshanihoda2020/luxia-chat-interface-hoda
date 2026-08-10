@@ -338,7 +338,7 @@ export function ChatsLibrary({
       )}
     >
       {filtered.length === 0 ? (
-        <EmptyLibrary title="No Chats found" description="Try a different search or create a New Chat." />
+        <EmptyLibrary title="No Chats available for your current access" description="Try another search, or open a Chat whose Constellation you can use." />
       ) : (
         <div
           className="overflow-hidden rounded-[var(--luxia-radius-16)] border bg-white"
@@ -390,7 +390,7 @@ export function ConstellationsLibrary({
   onBack: () => void;
   onOpen: (id: string) => void;
   onOpenSettings?: (id: string) => void;
-  onAdd: () => void;
+  onAdd?: () => void;
 }) {
   const [query, setQuery] = useState("");
   const [sourceFilter, setSourceFilter] = useState<"all" | "database" | "pdf" | "csv">("all");
@@ -415,9 +415,11 @@ export function ConstellationsLibrary({
       onNavigateHome={onNavigateHome}
       onBackToProject={onBack}
       actions={
-        <Button type="button" {...LUXIA_PAGE_HEADER_ACTION.primary} onClick={onAdd}>
-          Add Constellation
-        </Button>
+        onAdd ? (
+          <Button type="button" {...LUXIA_PAGE_HEADER_ACTION.primary} onClick={onAdd}>
+            Add Constellation
+          </Button>
+        ) : undefined
       }
       searchLabel="Search Constellations"
       searchValue={query}

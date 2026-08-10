@@ -414,19 +414,15 @@ export function ProjectMembersPage({
           </Button>
         }
         primaryAction={
+          canInvite ? (
           <Button
             type="button"
             {...LUXIA_PAGE_HEADER_ACTION.primary}
             onClick={() => setInviteOpen(true)}
-            disabled={!canInvite}
-            title={
-              canInvite
-                ? undefined
-                : "Invite Member requires Project Owner or Project Manager."
-            }
           >
             Invite Member
           </Button>
+          ) : null
         }
       />
 
@@ -540,6 +536,7 @@ export function ProjectMembersPage({
                         ) : null}
                       </div>
                     ) : isPending ? (
+                      canInvite ? (
                       <LuxiaEntityOptionsMenu
                         entityLabel={user?.name ?? membership.userId}
                         entityType="Member"
@@ -555,7 +552,6 @@ export function ProjectMembersPage({
                             id: "change-role",
                             label: "Change intended role",
                             onSelect: () => openRoleChange(membership),
-                            disabled: !canInvite,
                           },
                           {
                             id: "cancel",
@@ -564,36 +560,53 @@ export function ProjectMembersPage({
                             separatorBefore: true,
                             onSelect: () =>
                               setRemoveMembershipId(membership.id),
-                            disabled: !canInvite,
                           },
                         ]}
                       />
+                      ) : (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="compact"
+                          onClick={() =>
+                            setAccessSummaryUserId(membership.userId)
+                          }
+                        >
+                          Review Data Source access
+                        </Button>
+                      )
                     ) : (
                       <LuxiaEntityOptionsMenu
                         entityLabel={user?.name ?? membership.userId}
                         entityType="Member"
                         items={[
-                          {
-                            id: "change-role",
-                            label: "Change Project role",
-                            onSelect: () => openRoleChange(membership),
-                            disabled: !canInvite,
-                          },
+                          ...(canInvite
+                            ? [
+                                {
+                                  id: "change-role",
+                                  label: "Change Project role",
+                                  onSelect: () => openRoleChange(membership),
+                                },
+                              ]
+                            : []),
                           {
                             id: "access-summary",
                             label: "Review Data Source access",
                             onSelect: () =>
                               setAccessSummaryUserId(membership.userId),
                           },
-                          {
-                            id: "remove",
-                            label: "Remove from Project",
-                            destructive: true,
-                            separatorBefore: true,
-                            onSelect: () =>
-                              setRemoveMembershipId(membership.id),
-                            disabled: !canInvite,
-                          },
+                          ...(canInvite
+                            ? [
+                                {
+                                  id: "remove",
+                                  label: "Remove from Project",
+                                  destructive: true as const,
+                                  separatorBefore: true,
+                                  onSelect: () =>
+                                    setRemoveMembershipId(membership.id),
+                                },
+                              ]
+                            : []),
                         ]}
                       />
                     )}
