@@ -1,4 +1,12 @@
 export {
+  DEMO_USER_AVATAR_BY_ID,
+  DemoUserAvatar,
+  DemoUserIdentityRow,
+  getDemoUserAvatarSpec,
+} from "./demoUserAvatar";
+export type { DemoUserAvatarSpec } from "./demoUserAvatar";
+
+export {
   ACCESS_LEVEL_EDITOR_SECTIONS,
   ACCESS_LEVELS_GUIDANCE,
   PERMISSION_HIERARCHY_COPY,
@@ -47,17 +55,18 @@ export {
   getAccessLevelById,
   getActiveProjectOwners,
   getDataSourceById,
-  getDemoPersonaRoleLabel,
+  formatDemoIdentityContextLabel,
+  formatOrganizationRoleLabel,
   getOrganizationUserById,
   getProjectConstellationsForAccess,
   getProjectMemberships,
   getProjectRequiredDataSourceIds,
   highestPermission,
   isDataSourceUsable,
+  NO_PROJECT_ROLE_LABEL,
   permissionRank,
   resolveUserDataSourceAccess,
   setPrototypeCurrentUserId,
-  DEMO_PERSONA_ROLE_LABELS,
 } from "./data";
 
 export {

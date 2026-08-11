@@ -39,7 +39,8 @@ import {
 } from "@/app/components/ui/select";
 import { LX } from "@/app/features/active-data-tables/luxiaTokens";
 import type { ProjectNavSection } from "@/app/features/project-overview/types";
-import { getDemoPersonaRoleLabel } from "@/app/features/permissions/currentUser";
+import { DemoUserAvatar } from "@/app/features/permissions/demoUserAvatar";
+import { formatOrganizationRoleLabel, NO_PROJECT_ROLE_LABEL } from "@/app/features/permissions/currentUser";
 import {
   getAccessLevelsPath,
   getConstellationSettingsPath,
@@ -118,8 +119,14 @@ export type LeftNavProjectPreview = {
   id: string;
   label: string;
   projectRole?: ProjectRole;
-  /** When Admin enters without explicit Project membership. */
-  projectRoleLabel?: string;
+};
+
+type DemoPrototypeUser = {
+  id: string;
+  name: string;
+  orgRole: string;
+  projectRole: ProjectRole | null;
+  contextLabel: string;
 };
 
 export type LeftNavProps = {
@@ -154,13 +161,10 @@ export type LeftNavProps = {
   onOpenConstellation?: (projectId: string, constellationId: string) => void;
   prototypeUser?: { id: string; name: string; orgRole: string };
   prototypeProjectRole?: ProjectRole | null;
+  /** Active Project name for demo identity context line. */
+  activeProjectLabel?: string | null;
   onPrototypeUserChange?: (userId: string) => void;
-  prototypeUsers?: Array<{
-    id: string;
-    name: string;
-    orgRole: string;
-    roleLabel: string;
-  }>;
+  prototypeUsers?: DemoPrototypeUser[];
   /** Notifies shell when desktop secondary rail open state changes (for content width). */
   onSecondaryRailOpenChange?: (open: boolean) => void;
 };
@@ -200,13 +204,6 @@ const NAV_BOTTOM_ITEMS: {
 
 /** Flip when a real Project Settings route/page exists in the prototype. */
 const PROJECT_SETTINGS_DESTINATION_AVAILABLE = false;
-
-function prototypeUserInitials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return (parts[0]?.slice(0, 2) ?? "?").toUpperCase();
-  return `${parts[0]?.[0] ?? ""}${parts[1]?.[0] ?? ""}`.toUpperCase();
-}
 
 function pickQuickFlyoutItems<T extends { id: string; pinned?: boolean }>(
   items: T[],
@@ -831,23 +828,21 @@ function SidebarSecondaryRail({
 
 function DemoIdentityControl({
   compact,
-  profileInitials,
   profileName,
-  profileRoleLabel,
+  orgRoleLabel,
+  projectContextLine,
   profileAria,
-  selectedOptionLabel,
   prototypeUserId,
   prototypeUsers,
   onPrototypeUserChange,
 }: {
   compact?: boolean;
-  profileInitials: string;
   profileName: string;
-  profileRoleLabel: string;
+  orgRoleLabel: string;
+  projectContextLine?: string | null;
   profileAria: string;
-  selectedOptionLabel: string;
   prototypeUserId?: string;
-  prototypeUsers: Array<{ id: string; name: string; roleLabel: string }>;
+  prototypeUsers: DemoPrototypeUser[];
   onPrototypeUserChange: (userId: string) => void;
 }) {
   return (
@@ -872,22 +867,31 @@ function DemoIdentityControl({
           className={
             compact
               ? "h-10 min-h-10 w-full border-0 bg-transparent p-0 shadow-none hover:bg-transparent focus-visible:border-[rgba(150,219,251,0.55)] focus-visible:shadow-[0_0_0_3px_rgba(150,219,251,0.22)] [&_svg]:hidden"
-              : "h-9 min-h-9 w-full min-w-0 border-[rgba(255,255,255,0.14)] bg-[rgba(255,255,255,0.08)] px-2.5 text-left text-[rgba(255,255,255,0.92)] hover:border-[rgba(255,255,255,0.28)] focus-visible:border-[rgba(150,219,251,0.55)] focus-visible:shadow-[0_0_0_3px_rgba(150,219,251,0.22)] [&_svg]:text-[rgba(255,255,255,0.55)]"
+              : "h-9 min-h-9 w-full min-w-0 border-[rgba(255,255,255,0.14)] bg-[rgba(255,255,255,0.08)] px-2.5 py-0 text-left text-[rgba(255,255,255,0.92)] hover:border-[rgba(255,255,255,0.28)] focus-visible:border-[rgba(150,219,251,0.55)] focus-visible:shadow-[0_0_0_3px_rgba(150,219,251,0.22)] [&_svg]:text-[rgba(255,255,255,0.55)]"
           }
         >
           {compact ? (
             <span className="flex w-full items-center justify-center" aria-label={profileAria}>
-              <span
-                className="w-8 h-8 rounded-[8px] flex items-center justify-center text-white luxia-type-caption flex-shrink-0"
-                style={{ background: "linear-gradient(135deg, #5BC8F5 0%, #2C7A9E 100%)" }}
-                aria-hidden
-              >
-                {profileInitials}
-              </span>
+              {prototypeUserId ? (
+                <DemoUserAvatar userId={prototypeUserId} aria-hidden={false} />
+              ) : null}
             </span>
           ) : (
             <SelectValue placeholder="Select identity">
-              <span className="truncate luxia-type-caption">{selectedOptionLabel}</span>
+              <span className="flex min-w-0 items-center gap-2 text-left leading-tight">
+                {prototypeUserId ? (
+                  <DemoUserAvatar userId={prototypeUserId} />
+                ) : null}
+                <span className="min-w-0 flex flex-1 flex-col gap-0.5">
+                  <span className="truncate luxia-type-caption">{profileName}</span>
+                  <span
+                    className="truncate luxia-type-caption"
+                    style={{ color: "rgba(255,255,255,0.55)" }}
+                  >
+                    {orgRoleLabel}
+                  </span>
+                </span>
+              </span>
             </SelectValue>
           )}
         </SelectTrigger>
@@ -898,7 +902,7 @@ function DemoIdentityControl({
           className="z-[60] min-w-[var(--radix-select-trigger-width)]"
         >
           {prototypeUsers.map((user) => {
-            const accessibleName = `${user.name}, ${user.roleLabel}`;
+            const accessibleName = `${user.name}, ${user.contextLabel}`;
             return (
               <SelectItem
                 key={user.id}
@@ -906,13 +910,16 @@ function DemoIdentityControl({
                 textValue={accessibleName}
                 className="data-[state=checked]:bg-[var(--luxia-opacity-brand-secondary-08)]"
               >
-                <span className="flex w-full min-w-0 items-center justify-between gap-3 pr-1">
-                  <span className="truncate">{user.name}</span>
-                  <span
-                    className="flex-shrink-0 luxia-type-caption"
-                    style={{ color: "var(--luxia-text-muted)" }}
-                  >
-                    {user.roleLabel}
+                <span className="flex w-full min-w-0 items-center gap-2 py-0.5 pr-1">
+                  <DemoUserAvatar userId={user.id} />
+                  <span className="min-w-0 flex flex-1 flex-col gap-0.5">
+                    <span className="truncate">{user.name}</span>
+                    <span
+                      className="truncate luxia-type-caption"
+                      style={{ color: "var(--luxia-text-muted)" }}
+                    >
+                      {user.contextLabel}
+                    </span>
                   </span>
                 </span>
               </SelectItem>
@@ -920,9 +927,18 @@ function DemoIdentityControl({
           })}
         </SelectContent>
       </Select>
+      {!compact && projectContextLine ? (
+        <p
+          className="mt-1 min-w-0 truncate luxia-type-caption leading-tight"
+          style={{ color: "rgba(255,255,255,0.38)" }}
+          title={projectContextLine}
+        >
+          {projectContextLine}
+        </p>
+      ) : null}
       {!compact ? (
         <span
-          className="mt-1 block luxia-type-caption"
+          className="mt-1 block luxia-type-caption leading-tight"
           style={{ color: "rgba(255,255,255,0.35)" }}
         >
           Prototype preview only
@@ -962,6 +978,7 @@ export function LeftNav({
   onOpenConstellation,
   prototypeUser,
   prototypeProjectRole,
+  activeProjectLabel,
   onPrototypeUserChange,
   prototypeUsers,
   onSecondaryRailOpenChange,
@@ -1000,15 +1017,14 @@ export function LeftNav({
   const membersHref = projectId ? getProjectMembersPath(projectId) : undefined;
 
   const profileName = prototypeUser?.name ?? SIDEBAR_PROFILE_NAME;
-  const selectedDemoUser = prototypeUsers?.find((user) => user.id === prototypeUser?.id);
-  const profileRoleLabel =
-    selectedDemoUser?.roleLabel
-    ?? (prototypeUser ? getDemoPersonaRoleLabel(prototypeUser.id) : "Member");
-  const profileInitials = prototypeUser
-    ? prototypeUserInitials(prototypeUser.name)
-    : SIDEBAR_PROFILE_INITIALS;
-  const profileAria = `Prototype identity: ${profileName}. ${profileRoleLabel}. Prototype preview only.`;
-  const selectedOptionLabel = `${profileName} — ${profileRoleLabel}`;
+  const profileOrgRoleLabel = formatOrganizationRoleLabel(prototypeUser?.orgRole);
+  const demoProjectContextLine = activeProjectLabel
+    ? `${activeProjectLabel} · ${prototypeProjectRole ?? NO_PROJECT_ROLE_LABEL}`
+    : null;
+  const profileAria = `User profile: ${profileName}. ${profileOrgRoleLabel}.`;
+  const demoAria = demoProjectContextLine
+    ? `Demo identity: ${profileName}. ${profileOrgRoleLabel}. ${demoProjectContextLine}. Prototype preview only.`
+    : `Demo identity: ${profileName}. ${profileOrgRoleLabel}. Prototype preview only.`;
 
   const chatsCount = chatTotalCount ?? projectChats.length;
   const constellationsCount = constellationTotalCount ?? projectConstellations.length;
@@ -1274,11 +1290,12 @@ export function LeftNav({
     : quickChats.length === 0;
 
   function renderProjectRow(item: LeftNavProjectPreview) {
+    const roleLabel = item.projectRole ?? NO_PROJECT_ROLE_LABEL;
     return (
       <ProjectSwitcherRow
         key={item.id}
         label={item.label}
-        roleLabel={item.projectRoleLabel ?? item.projectRole ?? "Member"}
+        roleLabel={roleLabel}
         active={projectId === item.id}
         href={getProjectPath(item.id)}
         onClick={() => selectProjectAndClose(item.id)}
@@ -1763,11 +1780,10 @@ export function LeftNav({
                 {showDemoIdentity && prototypeUsers && onPrototypeUserChange ? (
                   <DemoIdentityControl
                     compact
-                    profileInitials={profileInitials}
                     profileName={profileName}
-                    profileRoleLabel={profileRoleLabel}
-                    profileAria={profileAria}
-                    selectedOptionLabel={selectedOptionLabel}
+                    orgRoleLabel={profileOrgRoleLabel}
+                    projectContextLine={demoProjectContextLine}
+                    profileAria={demoAria}
                     prototypeUserId={prototypeUser?.id}
                     prototypeUsers={prototypeUsers}
                     onPrototypeUserChange={onPrototypeUserChange}
@@ -1779,20 +1795,23 @@ export function LeftNav({
                         className="flex items-center justify-center"
                         aria-label={profileAria}
                       >
-                        <div
-                          className="w-8 h-8 rounded-[8px] flex items-center justify-center text-white luxia-type-caption flex-shrink-0"
-                          style={{ background: "linear-gradient(135deg, #5BC8F5 0%, #2C7A9E 100%)" }}
-                          aria-hidden
-                        >
-                          {profileInitials}
-                        </div>
+                        {prototypeUser?.id ? (
+                          <DemoUserAvatar userId={prototypeUser.id} aria-hidden={false} />
+                        ) : (
+                          <div
+                            className="w-8 h-8 rounded-[8px] flex items-center justify-center text-white luxia-type-caption flex-shrink-0"
+                            style={{ background: "var(--luxia-neutral-600)" }}
+                            aria-hidden
+                          >
+                            {SIDEBAR_PROFILE_INITIALS}
+                          </div>
+                        )}
                       </div>
                     </TooltipTrigger>
                     <TooltipContent side="right" sideOffset={8} className="max-w-[220px]">
                       <div className="flex flex-col gap-0.5">
                         <span>{profileName}</span>
-                        <span>{profileRoleLabel}</span>
-                        <span style={{ opacity: 0.75 }}>Prototype preview only</span>
+                        <span>{profileOrgRoleLabel}</span>
                       </div>
                     </TooltipContent>
                   </Tooltip>
@@ -1804,13 +1823,17 @@ export function LeftNav({
                 style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
               >
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div
-                    className="w-8 h-8 rounded-[8px] flex items-center justify-center text-white luxia-type-caption flex-shrink-0"
-                    style={{ background: "linear-gradient(135deg, #5BC8F5 0%, #2C7A9E 100%)" }}
-                    aria-hidden
-                  >
-                    {profileInitials}
-                  </div>
+                  {prototypeUser?.id ? (
+                    <DemoUserAvatar userId={prototypeUser.id} aria-hidden={false} />
+                  ) : (
+                    <div
+                      className="w-8 h-8 rounded-[8px] flex items-center justify-center text-white luxia-type-caption flex-shrink-0"
+                      style={{ background: "var(--luxia-neutral-600)" }}
+                      aria-hidden
+                    >
+                      {SIDEBAR_PROFILE_INITIALS}
+                    </div>
+                  )}
                   <div className="flex-1 min-w-0">
                     <p className="text-white luxia-type-profile-secondary truncate leading-tight">
                       {profileName}
@@ -1819,17 +1842,16 @@ export function LeftNav({
                       className="luxia-type-profile-secondary truncate leading-tight"
                       style={{ color: "rgba(255,255,255,0.4)" }}
                     >
-                      {profileRoleLabel}
+                      {profileOrgRoleLabel}
                     </p>
                   </div>
                 </div>
                 {showDemoIdentity && prototypeUsers && onPrototypeUserChange ? (
                   <DemoIdentityControl
-                    profileInitials={profileInitials}
                     profileName={profileName}
-                    profileRoleLabel={profileRoleLabel}
-                    profileAria={profileAria}
-                    selectedOptionLabel={selectedOptionLabel}
+                    orgRoleLabel={profileOrgRoleLabel}
+                    projectContextLine={demoProjectContextLine}
+                    profileAria={demoAria}
                     prototypeUserId={prototypeUser?.id}
                     prototypeUsers={prototypeUsers}
                     onPrototypeUserChange={onPrototypeUserChange}

@@ -11,23 +11,30 @@ import type {
 } from "./types";
 import { CURRENT_USER_ID } from "./currentUser";
 
-export { CURRENT_USER_ID, setPrototypeCurrentUserId, getDemoPersonaRoleLabel, DEMO_PERSONA_ROLE_LABELS } from "./currentUser";
+export {
+  CURRENT_USER_ID,
+  setPrototypeCurrentUserId,
+  formatOrganizationRoleLabel,
+  formatDemoIdentityContextLabel,
+  NO_PROJECT_ROLE_LABEL,
+} from "./currentUser";
 
 /**
  * Demo identity personas for UX / access preview (not auth).
  * Canonical prototype-identity rules: ./currentUser.ts
  *
- * user-01 Admin + Project Owner (project-01…06); owns Private ds-csv-01
- * user-02 Member + Project Manager (project-01); Member (project-02)
- * user-03 Member + Analyst (project-01); owns Private ds-db-02
- * user-04 Member + Member (project-01); no membership on project-02+
+ * user-01 Org Member + Project Owner (project-01…06); owns Private ds-csv-01
+ * user-02 Org Member + Project Manager (project-01); Member (project-02)
+ * user-03 Org Member + Analyst (project-01); owns Private ds-db-02
+ * user-04 Org Member + Member (project-01); no membership on project-02+
+ * user-05 Org Admin — Project role from membership only (no fake Owner row)
  */
 export const ORGANIZATION_USERS: OrganizationUser[] = [
   {
     id: "user-01",
     name: "User name 01",
     email: "user01@luxia.example",
-    orgRole: "Admin",
+    orgRole: "Member",
   },
   {
     id: "user-02",
@@ -46,6 +53,12 @@ export const ORGANIZATION_USERS: OrganizationUser[] = [
     name: "User name 04",
     email: "user04@luxia.example",
     orgRole: "Member",
+  },
+  {
+    id: "user-05",
+    name: "User name 05",
+    email: "user05@luxia.example",
+    orgRole: "Admin",
   },
 ];
 

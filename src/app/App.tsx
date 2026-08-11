@@ -173,7 +173,7 @@ import {
   isOrganizationAdmin,
   isWorkingChatAccessible,
   setPrototypeCurrentUserId,
-  getDemoPersonaRoleLabel,
+  formatDemoIdentityContextLabel,
 } from "@/app/features/permissions";
 import type { AccessLevelRecord } from "@/app/features/permissions";
 import {
@@ -7481,12 +7481,34 @@ export default function App() {
         id: project.id,
         label: project.name,
         projectRole: membership?.projectRole,
-        projectRoleLabel: membership?.projectRole
-          ?? (isOrganizationAdmin(prototypeUserId) ? "Admin" : undefined),
       };
     }),
     [accessibleHomeProjects, projectMembershipsState, prototypeUserId],
   );
+
+  const prototypeUsersForDemo = useMemo(() => {
+    const inProjectContext = Boolean(activeProjectId);
+    return ORGANIZATION_USERS.map((user) => {
+      const projectRole = activeProjectId
+        ? getActiveProjectMembership(
+          activeProjectId,
+          projectMembershipsState,
+          user.id,
+        )?.projectRole ?? null
+        : null;
+      return {
+        id: user.id,
+        name: user.name,
+        orgRole: user.orgRole,
+        projectRole,
+        contextLabel: formatDemoIdentityContextLabel({
+          orgRole: user.orgRole,
+          projectRole,
+          includeProjectRole: inProjectContext,
+        }),
+      };
+    });
+  }, [activeProjectId, projectMembershipsState]);
 
   const workingAccessibleOverviewConstellations = useMemo(() => {
     return overviewConstellations.filter((item) => {
@@ -7606,12 +7628,12 @@ export default function App() {
         }}
         prototypeUser={prototypeUser}
         prototypeProjectRole={prototypeProjectRole}
-        prototypeUsers={ORGANIZATION_USERS.map((user) => ({
-          id: user.id,
-          name: user.name,
-          orgRole: user.orgRole,
-          roleLabel: getDemoPersonaRoleLabel(user.id),
-        }))}
+        activeProjectLabel={
+          activeProjectId
+            ? getProjectNameById(activeProjectId, homeProjects)
+            : null
+        }
+        prototypeUsers={prototypeUsersForDemo}
         onPrototypeUserChange={handlePrototypeUserChange}
         onSecondaryRailOpenChange={setLeftNavSecondaryOpen}
       />

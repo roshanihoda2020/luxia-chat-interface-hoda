@@ -64,6 +64,7 @@ import {
   canTransferProjectOwnership,
   PROJECT_ACTION_DENIED_MESSAGE,
 } from "./accessGuards";
+import { DemoUserAvatar, DemoUserIdentityRow } from "./demoUserAvatar";
 import type {
   AccessLevelRecord,
   DataSourceCatalogItem,
@@ -219,15 +220,34 @@ export function ProjectMembersPage({
       return;
     }
     if (!inviteUserId) return;
-    const next: ProjectMembership = {
-      id: `pm-${project.id}-${Date.now()}`,
-      projectId: project.id,
-      userId: inviteUserId,
-      projectRole: inviteRole,
-      status: "pending",
-      joinedOrInvitedAt: new Date().toISOString(),
-    };
-    persist([...memberships, next]);
+    const existing = memberships.find(
+      (membership) =>
+        membership.projectId === project.id && membership.userId === inviteUserId,
+    );
+    if (existing) {
+      persist(
+        memberships.map((membership) =>
+          membership.id === existing.id
+            ? {
+              ...membership,
+              projectRole: inviteRole,
+              status: "active",
+              joinedOrInvitedAt: new Date().toISOString(),
+            }
+            : membership,
+        ),
+      );
+    } else {
+      const next: ProjectMembership = {
+        id: `pm-${project.id}-${Date.now()}`,
+        projectId: project.id,
+        userId: inviteUserId,
+        projectRole: inviteRole,
+        status: "active",
+        joinedOrInvitedAt: new Date().toISOString(),
+      };
+      persist([...memberships, next]);
+    }
     setInviteOpen(false);
     setInviteUserId("");
     setInviteRole("Member");
@@ -331,7 +351,7 @@ export function ProjectMembersPage({
     : null;
 
   const inviteReadinessNote = inviteUserId
-    ? `After accept: ${invitePreview?.label ?? "—"}. Invitation stays pending until accepted.`
+    ? `After add: ${invitePreview?.label ?? "—"}. Member is active in this Project immediately.`
     : "Select a user to preview Data Source readiness for this Project.";
 
   const roleChangeMembership = roleChangeMembershipId
@@ -475,6 +495,7 @@ export function ProjectMembersPage({
                   style={index > 0 ? ROW_DIVIDER : undefined}
                 >
                   <div className="flex flex-wrap items-start gap-3">
+                    <DemoUserAvatar userId={membership.userId} aria-hidden={false} />
                     <div className="min-w-0 flex-1">
                       <p
                         className="luxia-type-body-dense-strong"
@@ -675,8 +696,12 @@ export function ProjectMembersPage({
                     </SelectItem>
                   ) : (
                     inviteCandidates.map((user) => (
-                      <SelectItem key={user.id} value={user.id}>
-                        {user.name} ({user.email})
+                      <SelectItem key={user.id} value={user.id} textValue={user.name}>
+                        <DemoUserIdentityRow
+                          userId={user.id}
+                          name={user.name}
+                          secondary={user.email}
+                        />
                       </SelectItem>
                     ))
                   )}
@@ -764,11 +789,16 @@ export function ProjectMembersPage({
             const details = buildAccessSummaryDetails(accessSummaryUserId);
             return (
               <div className="space-y-3">
+                <div className="flex items-center gap-2.5">
+                  <DemoUserAvatar userId={accessSummaryUserId} aria-hidden={false} />
+                  <p
+                    className="luxia-type-body-dense-strong"
+                    style={{ color: "var(--luxia-text-primary)" }}
+                  >
+                    {details.user?.name ?? accessSummaryUserId}
+                  </p>
+                </div>
                 <dl className="space-y-2 luxia-type-body-dense" style={{ color: "var(--luxia-text-secondary)" }}>
-                  <div>
-                    <dt className="luxia-type-metadata" style={{ color: "var(--luxia-text-muted)" }}>User</dt>
-                    <dd>{details.user?.name ?? accessSummaryUserId}</dd>
-                  </div>
                   <div>
                     <dt className="luxia-type-metadata" style={{ color: "var(--luxia-text-muted)" }}>Organization role</dt>
                     <dd>{details.user?.orgRole ?? "—"}</dd>
@@ -877,9 +907,14 @@ export function ProjectMembersPage({
                 <SelectContent>
                   {transferCandidates.map((membership) => {
                     const user = getOrganizationUserById(membership.userId);
+                    const label = user?.name ?? membership.userId;
                     return (
-                      <SelectItem key={membership.id} value={membership.userId}>
-                        {user?.name ?? membership.userId}
+                      <SelectItem
+                        key={membership.id}
+                        value={membership.userId}
+                        textValue={label}
+                      >
+                        <DemoUserIdentityRow userId={membership.userId} name={label} />
                       </SelectItem>
                     );
                   })}

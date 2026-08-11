@@ -278,7 +278,9 @@ export function buildProjectOverviewBreadcrumbItems(input: {
     {
       id: `project-${input.projectId}`,
       label: input.projectName,
-      destination: { kind: "current" },
+      destination: input.projectId
+        ? { kind: "project", projectId: input.projectId }
+        : { kind: "current" },
     },
   ];
 }
