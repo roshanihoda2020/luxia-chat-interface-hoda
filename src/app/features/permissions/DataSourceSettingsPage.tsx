@@ -520,7 +520,6 @@ export function DataSourceSettingsPage({
       <LuxiaPageBody>
         {source && canAccess ? (
           <section className={`w-full min-w-0 space-y-8 ${PARENT_SURFACE_CLASS}`}>
-            {/* General */}
             <div>
               <SectionHeading
                 title="General"
@@ -582,7 +581,6 @@ export function DataSourceSettingsPage({
               />
             </div>
 
-            {/* Connection / Content */}
             {showContent && source.contentSummary ? (
               <div
                 ref={contentSectionRef}
@@ -635,7 +633,6 @@ export function DataSourceSettingsPage({
               </div>
             ) : null}
 
-            {/* Access */}
             <div
               ref={accessSectionRef}
               id="ds-settings-access"
@@ -746,7 +743,6 @@ export function DataSourceSettingsPage({
               </div>
             </div>
 
-            {/* Usage */}
             <div
               ref={usageSectionRef}
               id="ds-settings-usage"

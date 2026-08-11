@@ -20,14 +20,9 @@ export {
 } from "./currentUser";
 
 /**
- * Demo identity personas for UX / access preview (not auth).
- * Canonical prototype-identity rules: ./currentUser.ts
- *
- * user-01 Org Member + Project Owner (project-01…06); owns Private ds-csv-01
- * user-02 Org Member + Project Manager (project-01); Member (project-02)
- * user-03 Org Member + Analyst (project-01); owns Private ds-db-02
- * user-04 Org Member + Member (project-01); no membership on project-02+
- * user-05 Org Admin — Project role from membership only (no fake Owner row)
+ * Demo personas (not auth). Seed roster for UX preview — see ./currentUser.ts.
+ * Org roles are user-level; Project roles vary per membership (see PROJECT_MEMBERSHIPS).
+ * user-01…04 Org Member; user-05 Org Admin.
  */
 export const ORGANIZATION_USERS: OrganizationUser[] = [
   {
@@ -282,6 +277,7 @@ export const ACCESS_LEVELS: AccessLevelRecord[] = [
 ];
 
 export const PROJECT_MEMBERSHIPS: ProjectMembership[] = [
+  // project-01 — Owner: user-01
   {
     id: "pm-01-01",
     projectId: "project-01",
@@ -315,12 +311,29 @@ export const PROJECT_MEMBERSHIPS: ProjectMembership[] = [
     joinedOrInvitedAt: "2026-04-20T13:15:00.000Z",
   },
   {
-    id: "pm-02-01",
+    id: "pm-01-05",
+    projectId: "project-01",
+    userId: "user-05",
+    projectRole: "Analyst",
+    status: "active",
+    joinedOrInvitedAt: "2026-05-01T10:00:00.000Z",
+  },
+  // project-02 — Owner: user-03
+  {
+    id: "pm-02-03",
     projectId: "project-02",
-    userId: "user-01",
+    userId: "user-03",
     projectRole: "Project Owner",
     status: "active",
     joinedOrInvitedAt: "2026-01-05T09:00:00.000Z",
+  },
+  {
+    id: "pm-02-01",
+    projectId: "project-02",
+    userId: "user-01",
+    projectRole: "Analyst",
+    status: "active",
+    joinedOrInvitedAt: "2026-02-10T09:00:00.000Z",
   },
   {
     id: "pm-02-02",
@@ -331,36 +344,120 @@ export const PROJECT_MEMBERSHIPS: ProjectMembership[] = [
     joinedOrInvitedAt: "2026-04-20T13:15:00.000Z",
   },
   {
-    id: "pm-03-01",
+    id: "pm-02-05",
+    projectId: "project-02",
+    userId: "user-05",
+    projectRole: "Member",
+    status: "active",
+    joinedOrInvitedAt: "2026-05-02T10:00:00.000Z",
+  },
+  // project-03 — Owner: user-02
+  {
+    id: "pm-03-02",
     projectId: "project-03",
-    userId: "user-01",
+    userId: "user-02",
     projectRole: "Project Owner",
     status: "active",
     joinedOrInvitedAt: "2026-02-01T09:00:00.000Z",
   },
   {
-    id: "pm-04-01",
-    projectId: "project-04",
+    id: "pm-03-01",
+    projectId: "project-03",
     userId: "user-01",
+    projectRole: "Member",
+    status: "active",
+    joinedOrInvitedAt: "2026-02-15T09:00:00.000Z",
+  },
+  {
+    id: "pm-03-04",
+    projectId: "project-03",
+    userId: "user-04",
+    projectRole: "Project Manager",
+    status: "active",
+    joinedOrInvitedAt: "2026-03-10T09:00:00.000Z",
+  },
+  {
+    id: "pm-03-05",
+    projectId: "project-03",
+    userId: "user-05",
+    projectRole: "Project Manager",
+    status: "active",
+    joinedOrInvitedAt: "2026-05-03T10:00:00.000Z",
+  },
+  // project-04 — Owner: user-04
+  {
+    id: "pm-04-04",
+    projectId: "project-04",
+    userId: "user-04",
     projectRole: "Project Owner",
     status: "active",
     joinedOrInvitedAt: "2026-02-08T09:00:00.000Z",
   },
   {
-    id: "pm-05-01",
+    id: "pm-04-02",
+    projectId: "project-04",
+    userId: "user-02",
+    projectRole: "Analyst",
+    status: "active",
+    joinedOrInvitedAt: "2026-03-01T09:00:00.000Z",
+  },
+  {
+    id: "pm-04-03",
+    projectId: "project-04",
+    userId: "user-03",
+    projectRole: "Project Manager",
+    status: "active",
+    joinedOrInvitedAt: "2026-03-12T09:00:00.000Z",
+  },
+  // project-05 — Owner: user-05
+  {
+    id: "pm-05-05",
     projectId: "project-05",
-    userId: "user-01",
+    userId: "user-05",
     projectRole: "Project Owner",
     status: "active",
     joinedOrInvitedAt: "2026-02-12T09:00:00.000Z",
   },
   {
-    id: "pm-06-01",
-    projectId: "project-06",
+    id: "pm-05-01",
+    projectId: "project-05",
     userId: "user-01",
+    projectRole: "Project Manager",
+    status: "active",
+    joinedOrInvitedAt: "2026-02-12T10:00:00.000Z",
+  },
+  {
+    id: "pm-05-04",
+    projectId: "project-05",
+    userId: "user-04",
+    projectRole: "Analyst",
+    status: "active",
+    joinedOrInvitedAt: "2026-03-18T09:00:00.000Z",
+  },
+  // project-06 — Owner: user-04
+  {
+    id: "pm-06-04",
+    projectId: "project-06",
+    userId: "user-04",
     projectRole: "Project Owner",
     status: "active",
     joinedOrInvitedAt: "2026-02-18T09:00:00.000Z",
+  },
+  {
+    id: "pm-06-03",
+    projectId: "project-06",
+    userId: "user-03",
+    projectRole: "Member",
+    status: "active",
+    joinedOrInvitedAt: "2026-05-04T10:00:00.000Z",
+  },
+  {
+    id: "pm-06-05",
+    projectId: "project-06",
+    userId: "user-05",
+    projectRole: "Member",
+    status: "active",
+    joinedOrInvitedAt: "2026-05-05T10:00:00.000Z",
   },
 ];
 

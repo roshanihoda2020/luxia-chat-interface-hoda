@@ -79,10 +79,7 @@ function GuideDivider() {
   );
 }
 
-/**
- * Shared educational Access guide for Access Levels surfaces.
- * Read-only. Does not mutate access data.
- */
+/** Shared educational Access guide for Access Levels surfaces. */
 export function LuxiaAccessGuide({
   triggerLabel = "Access guide",
   className,

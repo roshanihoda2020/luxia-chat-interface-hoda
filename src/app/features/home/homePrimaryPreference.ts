@@ -121,6 +121,13 @@ export function rankContinueWorkingPool(
     .sort((a, b) => rankWorkItem(b, pinnedOrder) - rankWorkItem(a, pinnedOrder));
 }
 
+export function filterWorkItemsToAssignedProjects(
+  items: readonly HomeRecentWorkItem[],
+  allowedProjectIds: ReadonlySet<string>,
+): HomeRecentWorkItem[] {
+  return items.filter((item) => allowedProjectIds.has(item.projectId));
+}
+
 export function resolveHomeHero(options: {
   recentWork: HomeRecentWorkItem[];
   primaryPreference: HomePrimaryPreference;
@@ -128,15 +135,37 @@ export function resolveHomeHero(options: {
   pinnedOrder: HomeEntityKey[];
   dismissed: HomeEntityKey[];
   projects?: readonly HomeProjectCard[];
+  /** Hard gate: only these Project IDs may supply focus content. */
+  allowedProjectIds?: ReadonlySet<string>;
 }): { hero: HomeHeroContent; heroEntityKey: HomeEntityKey | null; eligiblePrimaryItems: HomeRecentWorkItem[] } {
+  const scopedRecentWork = options.allowedProjectIds
+    ? filterWorkItemsToAssignedProjects(options.recentWork, options.allowedProjectIds)
+    : options.recentWork;
+
+  if (options.allowedProjectIds && options.allowedProjectIds.size === 0) {
+    return {
+      hero: {
+        kind: "empty",
+        title: "No Chats or Galaxies yet",
+        context: "Start a Chat or open a Project Galaxy to see your work here.",
+        primaryLabel: "New Chat",
+        secondaryLabel: "New Project",
+        secondaryAction: "newProject",
+        emptyReason: "none",
+      },
+      heroEntityKey: null,
+      eligiblePrimaryItems: [],
+    };
+  }
+
   const preference = normalizeHomePrimaryPreference(
     options.primaryPreference,
-    options.recentWork,
+    scopedRecentWork,
     options.dismissed,
   );
 
   const pool = rankContinueWorkingPool(
-    options.recentWork,
+    scopedRecentWork,
     options.pinnedOrder,
     options.dismissed,
   );
@@ -144,7 +173,7 @@ export function resolveHomeHero(options: {
     (item) => item.kind === "chat" || item.kind === "galaxySession",
   );
 
-  const allPrimaryItems = options.recentWork
+  const allPrimaryItems = scopedRecentWork
     .filter((item) => item.kind === "chat" || item.kind === "galaxySession")
     .slice()
     .sort(

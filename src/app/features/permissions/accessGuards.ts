@@ -151,7 +151,7 @@ export function canDeleteProject(
   return role === "Project Owner";
 }
 
-/** Project Settings destination — Owner/Manager when that surface exists. */
+/** Project Settings — Owner/Manager. */
 export function canAccessProjectSettings(
   role: ProjectRole | null | undefined,
 ): boolean {

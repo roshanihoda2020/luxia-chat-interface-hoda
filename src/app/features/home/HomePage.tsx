@@ -98,6 +98,11 @@ export function HomePage({
     }
   }, [effectivePrimaryPreference, onPrimaryPreferenceChange, primaryPreference]);
 
+  const allowedFocusProjectIds = useMemo(
+    () => new Set(projects.map((project) => project.id)),
+    [projects],
+  );
+
   const heroResolution = useMemo(
     () => resolveHomeHero({
       recentWork: workWithPin,
@@ -106,8 +111,17 @@ export function HomePage({
       pinnedOrder: pinnedEntityOrder,
       dismissed: dismissedContinueKeys,
       projects,
+      allowedProjectIds: allowedFocusProjectIds,
     }),
-    [dismissedContinueKeys, effectivePrimaryPreference, pinnedEntityOrder, pinnedWorkIds, projects, workWithPin],
+    [
+      allowedFocusProjectIds,
+      dismissedContinueKeys,
+      effectivePrimaryPreference,
+      pinnedEntityOrder,
+      pinnedWorkIds,
+      projects,
+      workWithPin,
+    ],
   );
 
   const constellations = useMemo(() => {

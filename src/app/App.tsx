@@ -5755,13 +5755,19 @@ export default function App() {
 
   const recentWork = useMemo<HomeRecentWorkItem[]>(() => (
     HOME_RECENT_WORK
-      .filter((item) => homeProjects.some((project) => project.id === item.projectId))
+      .filter((item) =>
+        Boolean(
+          getActiveProjectMembership(
+            item.projectId,
+            projectMembershipsState,
+            prototypeUserId,
+          ),
+        ),
+      )
       .filter((item) => {
         const chat = chats.find((c) => c.id === item.chatId)
           ?? INITIAL_CHATS.find((c) => c.id === item.chatId);
-        if (!chat) {
-          return canAccessProject(item.projectId, projectMembershipsState, prototypeUserId);
-        }
+        if (!chat) return true;
         return isChatWorkingAccessible(chat);
       })
       .map((item) => {
@@ -7417,27 +7423,40 @@ export default function App() {
 
   const accessibleHomeProjects = useMemo(
     () => {
+      // Personal Project collection: active membership required (Org Admin included).
       const visible = homeProjects.filter((project) =>
-        canAccessProject(project.id, projectMembershipsState, prototypeUserId),
+        Boolean(
+          getActiveProjectMembership(
+            project.id,
+            projectMembershipsState,
+            prototypeUserId,
+          ),
+        ),
       );
-      if (isOrganizationAdmin(prototypeUserId)) {
-        return visible;
-      }
       return visible.map((project) => {
+        const membership = getActiveProjectMembership(
+          project.id,
+          projectMembershipsState,
+          prototypeUserId,
+        )!;
+        const viewerProjectRole = membership.projectRole;
+
+        if (isOrganizationAdmin(prototypeUserId)) {
+          return {
+            ...project,
+            viewerProjectRole,
+          };
+        }
+
         const accessibleConstellations = overviewConstellations.filter((item) => {
           if (item.projectId !== project.id) return false;
           const record = constellationSettingsById[item.id]
             ?? getConstellationSettingsRecord(item.id);
           const connectedSourceIds = record?.connectedSources.map((source) => source.id) ?? [];
-          const membership = getActiveProjectMembership(
-            project.id,
-            projectMembershipsState,
-            prototypeUserId,
-          );
           return evaluateConstellationUseAccess({
             userId: prototypeUserId,
-            projectRole: membership?.projectRole ?? null,
-            membershipStatus: membership?.status,
+            projectRole: membership.projectRole,
+            membershipStatus: membership.status,
             connectedSourceIds,
             accessLevels: accessLevelsState,
             dataSources: dataSourcesState,
@@ -7456,6 +7475,7 @@ export default function App() {
           constellationCount: accessibleConstellations.length,
           sourceCount: sourceIds.size,
           isEmpty: accessibleConstellations.length === 0,
+          viewerProjectRole,
         };
       });
     },
@@ -7471,19 +7491,12 @@ export default function App() {
   );
 
   const sidebarSwitchableProjects = useMemo(
-    () => accessibleHomeProjects.map((project) => {
-      const membership = getActiveProjectMembership(
-        project.id,
-        projectMembershipsState,
-        prototypeUserId,
-      );
-      return {
-        id: project.id,
-        label: project.name,
-        projectRole: membership?.projectRole,
-      };
-    }),
-    [accessibleHomeProjects, projectMembershipsState, prototypeUserId],
+    () => accessibleHomeProjects.map((project) => ({
+      id: project.id,
+      label: project.name,
+      projectRole: project.viewerProjectRole ?? null,
+    })),
+    [accessibleHomeProjects],
   );
 
   const prototypeUsersForDemo = useMemo(() => {

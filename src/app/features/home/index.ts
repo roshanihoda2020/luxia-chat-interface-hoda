@@ -6,6 +6,7 @@ export {
   readDismissedContinueKeys,
   readHomePrimaryPreference,
   resolveHomeHero,
+  filterWorkItemsToAssignedProjects,
   writeDismissedContinueKeys,
   writeHomePrimaryPreference,
   normalizeHomePrimaryPreference,

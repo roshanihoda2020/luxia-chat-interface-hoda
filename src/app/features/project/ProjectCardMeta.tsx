@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Clock, Users } from "lucide-react";
 import { LuxiaConstellationIcon, LuxiaDatasourceIcon } from "@/assets/icons";
 import { LuxiaPageEntityUpdatedMeta } from "@/app/components/LuxiaPageHeader";
+import { NO_PROJECT_ROLE_LABEL } from "@/app/features/permissions/currentUser";
 import type { HomeProjectCard } from "./types";
 
 function pluralize(count: number, singular: string, plural: string): string {
@@ -94,6 +95,8 @@ export function ProjectCardMeta({
 }: ProjectCardMetaProps) {
   const isFeatured = density === "featured";
   const iconSize = 14;
+  const showViewerRole = project.viewerProjectRole !== undefined;
+  const viewerRoleLabel = project.viewerProjectRole ?? NO_PROJECT_ROLE_LABEL;
 
   return (
     <div
@@ -128,6 +131,15 @@ export function ProjectCardMeta({
           <LuxiaPageEntityUpdatedMeta updatedAt={project.updatedAt} />
         ) : null}
       </div>
+      {showViewerRole ? (
+        <p
+          className={`min-w-0 truncate ${isFeatured ? "mt-2 luxia-type-body-dense" : "mt-1.5 luxia-type-caption"}`}
+          style={{ color: "var(--luxia-text-muted)" }}
+          title={`Your role: ${viewerRoleLabel}`}
+        >
+          Your role · {viewerRoleLabel}
+        </p>
+      ) : null}
     </div>
   );
 }

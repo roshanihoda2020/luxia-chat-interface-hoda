@@ -1,22 +1,9 @@
 /**
- * Prototype-only current user identity.
- *
- * The Demo identity selector is a development-only role simulation tool used to
- * preview UX for different mock identities. It does not provide authentication
- * or production authorization.
- *
- * In production:
- * - the current user comes from the authenticated backend session;
- * - permissions come from backend-provided roles, memberships, ownership, and grants;
- * - the frontend uses them for presentation;
- * - the backend must independently authorize routes and mutations.
- *
- * Organization role is user-level.
- * Project role is resolved from current Project membership.
- * Demo labels must never be used for authorization.
- *
- * Live binding so access helpers re-read the active demo user on each call.
- * App must also hold React state keyed to this ID so the UI re-renders.
+ * Prototype-only demo identity.
+ * Organization role is user-level; Project role comes from the active
+ * Project membership. Demo labels are presentation-only and must never
+ * be used for authorization. Production authorization must be enforced
+ * by the backend.
  */
 
 import type { ProjectRole } from "./types";

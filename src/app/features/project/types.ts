@@ -1,3 +1,5 @@
+import type { ProjectRole } from "@/app/features/permissions/types";
+
 export type ProjectLifecycleStatus = "active" | "archived";
 
 export interface HomeProjectCard {
@@ -15,6 +17,11 @@ export interface HomeProjectCard {
   status: ProjectLifecycleStatus;
   recentPreview?: string;
   description?: string;
+  /**
+   * Presentation-only viewer role for this projectId.
+   * undefined = omit; null = no explicit membership.
+   */
+  viewerProjectRole?: ProjectRole | null;
 }
 
 export type ProjectDestination = "galaxy" | "constellations" | "openProject";

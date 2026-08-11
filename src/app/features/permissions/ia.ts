@@ -1,7 +1,4 @@
-/**
- * Access Levels + Members & Roles information architecture.
- * Progressive disclosure: one page description + one compact rule + optional Help drawer.
- */
+/** Access Levels + Members & Roles IA: page description, compact rule, optional Help. */
 
 export type AccessLevelEditorSectionId =
   | "general"

@@ -82,7 +82,6 @@ export interface ProjectMembersPageProps {
   accessLevels: AccessLevelRecord[];
   organizationUsers: OrganizationUser[];
   dataSources: DataSourceCatalogItem[];
-  /** Unique Data Source IDs required by this Project's Constellations. */
   projectRequiredSourceIds: string[];
   onSaveMemberships: (memberships: ProjectMembership[]) => void;
   onNavigateHome: () => void;

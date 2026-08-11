@@ -94,10 +94,8 @@ import type {
 
 const PARENT_SURFACE_CLASS = LUXIA_SETTINGS_CONTENT_SURFACE_CLASS;
 
-/** Shared settings-form column — readable, not full-bleed. */
 const SETTINGS_FORM_COLUMN_CLASS = "w-full max-w-[45rem]";
 
-/** Tab panels inherit surface padding — no per-tab outer p-*. */
 const SETTINGS_TAB_PANEL_CLASS = LUXIA_SETTINGS_TAB_PANEL_CLASS;
 
 function formatAccessLevelUpdatedAt(iso: string): string {

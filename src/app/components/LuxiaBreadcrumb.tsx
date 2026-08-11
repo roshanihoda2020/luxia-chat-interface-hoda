@@ -239,7 +239,6 @@ export function buildGalaxyBreadcrumbItems(input: {
   ];
 }
 
-/** Project / Galaxy / Settings — Galaxy Settings page breadcrumb. */
 export function buildGalaxySettingsBreadcrumbItems(input: {
   projectId: string;
   projectName: string;

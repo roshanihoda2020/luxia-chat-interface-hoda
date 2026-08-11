@@ -8,7 +8,6 @@ export type DemoUserAvatarSpec = {
   background: string;
 };
 
-/** Stable per-user avatar colors (Luxia tokens). Not role-based. */
 export const DEMO_USER_AVATAR_BY_ID: Record<string, DemoUserAvatarSpec> = {
   "user-01": { initials: "U1", background: "var(--luxia-purple-60)" },
   "user-02": { initials: "U2", background: "var(--luxia-blue-70)" },
@@ -54,7 +53,6 @@ export function DemoUserAvatar({
   );
 }
 
-/** Avatar + name (+ optional secondary line) for lists and pickers. */
 export function DemoUserIdentityRow({
   userId,
   name,

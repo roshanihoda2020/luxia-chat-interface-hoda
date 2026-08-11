@@ -67,7 +67,7 @@ export function getLibraryTypeCategory(
   return "database";
 }
 
-/** Display type for scanning — prefers connector subtype when present. */
+/** Prefers connector subtype when present. */
 export function getLibraryTypeLabel(
   source: Pick<DataSourceCatalogItem, "type" | "connector">,
 ): string {

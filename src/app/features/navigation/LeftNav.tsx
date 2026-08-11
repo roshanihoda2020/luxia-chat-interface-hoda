@@ -1,12 +1,7 @@
 /**
- * Luxia left sidebar — context-aware navigation with selective secondary rails.
- *
- * Expandable hierarchy is intentional and limited:
- * - Current Project header → Project switcher rail (closes after selection)
- * - Constellations / Chats → full-height secondary rails (search + direct child nav)
- * - All other destinations stay direct (no chevron inflation)
- *
- * Global collapse (expanded rail vs icon rail) is separate from those disclosures.
+ * Luxia left sidebar with selective secondary rails.
+ * Project switcher / Constellations / Chats open secondary rails;
+ * other destinations stay direct. Primary collapse is independent of those rails.
  */
 
 import {
@@ -114,11 +109,10 @@ export type LeftNavConstellationPreview = {
   pinned?: boolean;
 };
 
-/** Membership-filtered Projects for the sidebar Project switcher. */
 export type LeftNavProjectPreview = {
   id: string;
   label: string;
-  projectRole?: ProjectRole;
+  projectRole?: ProjectRole | null;
 };
 
 type DemoPrototypeUser = {
@@ -147,7 +141,6 @@ export type LeftNavProps = {
   activeConstellationId?: string | null;
   projectChats?: LeftNavChatPreview[];
   projectConstellations?: LeftNavConstellationPreview[];
-  /** Accessible Projects for the current identity (already membership-filtered). */
   switchableProjects?: LeftNavProjectPreview[];
   chatTotalCount?: number;
   constellationTotalCount?: number;
@@ -155,13 +148,11 @@ export type LeftNavProps = {
   onUsersClick?: () => void;
   onDataSourcesClick?: () => void;
   onProjectSectionClick?: (section: ProjectNavSection) => void;
-  /** Switch Project context and land on a safe Project-level destination. */
   onSwitchProject?: (projectId: string) => void;
   onOpenChat?: (chatId: string) => void;
   onOpenConstellation?: (projectId: string, constellationId: string) => void;
   prototypeUser?: { id: string; name: string; orgRole: string };
   prototypeProjectRole?: ProjectRole | null;
-  /** Active Project name for demo identity context line. */
   activeProjectLabel?: string | null;
   onPrototypeUserChange?: (userId: string) => void;
   prototypeUsers?: DemoPrototypeUser[];
@@ -652,6 +643,7 @@ function ProjectSwitcherRow({
       <span
         className="flex-shrink-0 luxia-type-caption truncate"
         style={{ color: "rgba(255,255,255,0.4)", maxWidth: "42%" }}
+        title={roleLabel}
         aria-hidden
       >
         {roleLabel}
@@ -1123,7 +1115,6 @@ export function LeftNav({
     setProjectQuery("");
   }, []);
 
-  /** Primary collapse/expand only controls primary width — secondary rail stays independent. */
   const handlePrimaryCollapseToggle = useCallback(() => {
     onToggleCollapsed();
   }, [onToggleCollapsed]);
