@@ -31,6 +31,7 @@ import { Textarea } from "@/app/components/ui/textarea";
 import { FilterField } from "@/app/features/home/browserShared";
 import { HS } from "@/app/features/home/homeSurfaces";
 import type { ProjectRole } from "@/app/features/permissions";
+import { canEditGalaxySettings } from "@/app/features/permissions";
 import { LuxiaSettingsFormActions } from "@/app/features/shared/LuxiaSettingsFormActions";
 import {
   LUXIA_DIRTY_STATE_COPY,
@@ -354,9 +355,7 @@ export function GalaxySettingsPage({
   const instructionDirty = instructionDraftDirty(draft, baseline);
   const routingDirty = routingDraftDirty(draft, baseline);
 
-  const canConfigure =
-    currentProjectRole === "Project Owner"
-    || currentProjectRole === "Project Manager";
+  const canConfigure = canEditGalaxySettings(currentProjectRole);
   const readOnly = !canConfigure;
 
   const availableItems = useMemo(

@@ -95,7 +95,7 @@ export const CONSTELLATION_SETTINGS_GUIDANCE = {
   sourcesDescription:
     "Associate Data Sources with this Constellation. Access Levels stay on Data Sources.",
   accessDescription:
-    "A person can use this Constellation only when their Project role allows it and they can use all required Data Sources.",
+    "Active Project members can see and chat with existing Constellations in this Project. Data Source permissions govern the underlying Data Source, not basic Chat.",
   lifecycleDescription:
     "Manage this Constellation's lifecycle.",
 } as const;

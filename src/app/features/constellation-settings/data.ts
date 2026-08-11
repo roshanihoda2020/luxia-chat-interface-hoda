@@ -30,7 +30,7 @@ import {
 
 const ROLE_MATRIX: ProjectRoleCapability[] = [
   { role: "Project Owner", actions: ["View", "Use", "Configure", "Archive", "Delete"] },
-  { role: "Project Manager", actions: ["View", "Use", "Configure", "Archive"] },
+  { role: "Project Manager", actions: ["View", "Use", "Configure", "Archive", "Delete"] },
   { role: "Analyst", actions: ["View", "Use", "Create outputs"] },
   { role: "Member", actions: ["View", "Use"] },
 ];

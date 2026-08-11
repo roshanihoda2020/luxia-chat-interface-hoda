@@ -103,12 +103,12 @@ export const GALAXY_SETTINGS_GUIDANCE = {
   toolsIntro: "Capabilities Helios may use when answering in Galaxy.",
   accessGalaxy: "Available through Project membership",
   accessExplanation:
-    "Galaxy availability follows Project membership and the access required by each Constellation's connected Data Sources.",
+    "Galaxy availability follows Project membership. Helios uses Constellations available within this Project.",
   accessEmpty:
     "No Constellations are currently available to this Galaxy.",
   readOnlyTitle: "Read only",
   readOnlyBody:
-    "Configuration changes are available to Project Owners and Project Managers.",
+    "Galaxy Settings can be changed by Project Owners and Project Managers. Your Project role determines this — Organization Admin does not override it.",
 } as const;
 
 export const GALAXY_SETTINGS_PAGE_VARIANT = "wide" as const;

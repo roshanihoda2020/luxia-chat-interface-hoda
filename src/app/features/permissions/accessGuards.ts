@@ -5,8 +5,6 @@ import {
   getOrganizationUserById,
   getProjectMemberships,
   isDataSourceUsable,
-  permissionRank,
-  resolveUserDataSourceAccess,
 } from "./data";
 
 export const ACCESS_LEVEL_DENIED_MESSAGE =
@@ -55,30 +53,35 @@ export function getActiveProjectMembership(
   );
 }
 
-/** Organization Admin bypasses explicit Project membership for visibility/access. */
+/**
+ * Normal Project UX requires an explicit active Project membership.
+ * Org Admin is not automatic Project access.
+ */
 export function canAccessProject(
   projectId: string,
   memberships: ProjectMembership[],
   userId: string = CURRENT_USER_ID,
 ): boolean {
-  if (isOrganizationAdmin(userId)) return true;
   return Boolean(getActiveProjectMembership(projectId, memberships, userId));
 }
 
-/** Admin may configure Project/Constellation/Galaxy settings without a Project role row. */
+/**
+ * Project / Constellation / Galaxy structural configuration.
+ * Explicit Project role only — Org Admin does not bypass.
+ */
 export function canAdministerProjectConfiguration(
-  userId: string = CURRENT_USER_ID,
+  _userId: string = CURRENT_USER_ID,
   projectRole: ProjectRole | null | undefined = null,
 ): boolean {
-  return isOrganizationAdmin(userId) || canConfigureConstellation(projectRole);
+  return canConfigureConstellation(projectRole);
 }
 
-/** Admin may open Project Settings without an explicit Owner/Manager membership. */
+/** Project Settings — explicit Owner/Manager membership only. */
 export function canAccessProjectSettingsForUser(
-  userId: string = CURRENT_USER_ID,
+  _userId: string = CURRENT_USER_ID,
   projectRole: ProjectRole | null | undefined = null,
 ): boolean {
-  return isOrganizationAdmin(userId) || canAccessProjectSettings(projectRole);
+  return canAccessProjectSettings(projectRole);
 }
 
 export function canInviteProjectMembers(
@@ -120,13 +123,25 @@ export function canArchiveConstellation(
 export function canDeleteConstellation(
   role: ProjectRole | null | undefined,
 ): boolean {
-  return role === "Project Owner";
+  // Same operational lifecycle as Owner — Delete Project is the Owner-only delete rule.
+  return role === "Project Owner" || role === "Project Manager";
 }
 
 export function canConfigureConstellation(
   role: ProjectRole | null | undefined,
 ): boolean {
   return role === "Project Owner" || role === "Project Manager";
+}
+
+/**
+ * Galaxy Settings edit permission — follows Project role only.
+ * No separate Galaxy roles. No Org Admin bypass.
+ * Owner / Manager → edit; Analyst / Member → read-only.
+ */
+export function canEditGalaxySettings(
+  projectRole: ProjectRole | null | undefined,
+): boolean {
+  return canConfigureConstellation(projectRole);
 }
 
 /**
@@ -161,6 +176,9 @@ export function canAccessProjectSettings(
 export const CONSTELLATION_CONFIGURE_DENIED_MESSAGE =
   "You do not have permission to configure this Constellation.";
 
+export const CONSTELLATION_KNOWLEDGE_DENIED_MESSAGE =
+  "You do not have permission to edit Knowledge Base, Instructions, or Crawler for this Constellation.";
+
 export function countProjectMembers(
   projectId: string,
   memberships: ProjectMembership[],
@@ -174,9 +192,9 @@ export type ConstellationUseAccessResult = {
   missingSourceIds: string[];
 };
 
-/*
- * Non-admin Org Members: Constellation use requires Use on every connected source.
- * Organization Admin: full Organization access — bypasses per-source Use grants.
+/**
+ * Basic Constellation visibility / Chat eligibility for an existing Constellation.
+ * Active Project membership is sufficient. Data Source View/Use/Manage is NOT required.
  */
 export function evaluateConstellationUseAccess(input: {
   userId?: string;
@@ -186,18 +204,6 @@ export function evaluateConstellationUseAccess(input: {
   accessLevels: AccessLevelRecord[];
   dataSources?: DataSourceCatalogItem[];
 }): ConstellationUseAccessResult {
-  const userId = input.userId ?? CURRENT_USER_ID;
-  const dataSources = input.dataSources ?? DATA_SOURCE_CATALOG;
-  const missingSourceIds: string[] = [];
-
-  if (isOrganizationAdmin(userId)) {
-    return {
-      available: true,
-      reason: "Constellation available.",
-      missingSourceIds: [],
-    };
-  }
-
   if (input.membershipStatus === "pending") {
     return {
       available: false,
@@ -211,43 +217,6 @@ export function evaluateConstellationUseAccess(input: {
       available: false,
       reason: "You are not an active member of this Project.",
       missingSourceIds: [],
-    };
-  }
-
-  if (input.connectedSourceIds.length === 0) {
-    return {
-      available: false,
-      reason: "This Constellation does not have connected Data Sources yet.",
-      missingSourceIds: [],
-    };
-  }
-
-  for (const sourceId of input.connectedSourceIds) {
-    const resolved = resolveUserDataSourceAccess(
-      userId,
-      sourceId,
-      input.accessLevels,
-      dataSources,
-    );
-    if (!resolved.sourceUsable) {
-      missingSourceIds.push(sourceId);
-      continue;
-    }
-    if (!resolved.permission) {
-      missingSourceIds.push(sourceId);
-      continue;
-    }
-    if (permissionRank(resolved.permission) < permissionRank("Use")) {
-      missingSourceIds.push(sourceId);
-    }
-  }
-
-  if (missingSourceIds.length > 0) {
-    return {
-      available: false,
-      reason:
-        "You need Use access to every connected Data Source before you can use this Constellation.",
-      missingSourceIds,
     };
   }
 
@@ -273,10 +242,6 @@ export function getAccessibleConstellationIds(input: {
     return [];
   }
 
-  if (isOrganizationAdmin(userId)) {
-    return input.constellationSourceMap.map((item) => item.id);
-  }
-
   const membership = getActiveProjectMembership(
     input.projectId,
     memberships,
@@ -299,8 +264,8 @@ export function getAccessibleConstellationIds(input: {
 }
 
 /**
- * Working-surface Chat visibility: active Project membership required;
- * Galaxy chats need membership only; constellation chats also need Use on every connected source.
+ * Working-surface Chat visibility: active Project membership required.
+ * Galaxy and Constellation chats do not require Data Source Use.
  */
 export function isWorkingChatAccessible(input: {
   chatType: string;
@@ -316,18 +281,18 @@ export function isWorkingChatAccessible(input: {
   if (!canAccessProject(input.projectId, input.memberships, userId)) {
     return false;
   }
+  if (input.chatType === "galaxy") return true;
   const membership = getActiveProjectMembership(
     input.projectId,
     input.memberships,
     userId,
   );
-  if (input.chatType === "galaxy") return true;
-  if (!membership && !isOrganizationAdmin(userId)) return false;
+  if (!membership) return false;
   if (!input.constellationId) return false;
   return evaluateConstellationUseAccess({
     userId,
-    projectRole: membership?.projectRole ?? null,
-    membershipStatus: membership?.status,
+    projectRole: membership.projectRole,
+    membershipStatus: membership.status,
     connectedSourceIds: input.connectedSourceIds ?? [],
     accessLevels: input.accessLevels,
     dataSources: input.dataSources,

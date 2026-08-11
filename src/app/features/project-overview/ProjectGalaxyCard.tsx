@@ -301,7 +301,7 @@ export function ProjectGalaxyCard({
 
             <GalaxyActionGroup
               descriptionId={galaxySettingsDescId}
-              description="Manage Helios, Tools, and Instruction"
+              description="Helios, Tools, and Instruction"
             >
               <Button
                 type="button"

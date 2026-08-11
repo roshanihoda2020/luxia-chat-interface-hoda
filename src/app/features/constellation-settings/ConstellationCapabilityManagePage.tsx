@@ -55,6 +55,7 @@ export interface ConstellationCapabilityManagePageProps {
   capabilityId: CapsuleCapabilityId;
   bundle: ConstellationCapabilityBundle;
   onUpdateBundle: (next: ConstellationCapabilityBundle) => void;
+  readOnly?: boolean;
   unavailable?: boolean;
   unavailableReason?: string;
   onBackToSettings: () => void;
@@ -71,6 +72,7 @@ export function ConstellationCapabilityManagePage({
   capabilityId,
   bundle,
   onUpdateBundle,
+  readOnly = false,
   unavailable = false,
   unavailableReason,
   onBackToSettings,
@@ -85,6 +87,11 @@ export function ConstellationCapabilityManagePage({
   const closeRef = useRef<(() => void) | null>(null);
   const leaveActionRef = useRef(onBackToSettings);
   leaveActionRef.current = onBackToSettings;
+
+  const commitBundle = (next: ConstellationCapabilityBundle) => {
+    if (readOnly) return;
+    onUpdateBundle(next);
+  };
 
   const [previewTableId, setPreviewTableId] = useState<string | null>(null);
   const [detailsTableId, setDetailsTableId] = useState<string | null>(null);
@@ -149,7 +156,7 @@ export function ConstellationCapabilityManagePage({
               catalog={TABLE_CATALOG}
               closeRef={closeRef}
               onCommit={(tables: DataTableRecord[]) => {
-                onUpdateBundle({ ...bundle, tables });
+                commitBundle({ ...bundle, tables });
               }}
               onCancel={onCancel}
               onPreview={setPreviewTableId}
@@ -180,7 +187,7 @@ export function ConstellationCapabilityManagePage({
                 if (!open) setDetailsTableId(null);
               }}
               onSave={(tableId, patch) => {
-                onUpdateBundle({
+                commitBundle({
                   ...bundle,
                   tables: bundle.tables.map((table) =>
                     table.id === tableId ? { ...table, ...patch } : table,
@@ -195,7 +202,7 @@ export function ConstellationCapabilityManagePage({
                 if (!open) setColumnsTableId(null);
               }}
               onSave={(tableId, columns) => {
-                onUpdateBundle({
+                commitBundle({
                   ...bundle,
                   tables: bundle.tables.map((table) =>
                     table.id === tableId ? { ...table, columns } : table,
@@ -213,7 +220,7 @@ export function ConstellationCapabilityManagePage({
             entries={bundle.knowledgeBase}
             closeRef={closeRef}
             onCommit={(knowledgeBase: KnowledgeBaseEntry[]) => {
-              onUpdateBundle({ ...bundle, knowledgeBase });
+              commitBundle({ ...bundle, knowledgeBase });
             }}
             onCancel={onCancel}
           />
@@ -226,7 +233,7 @@ export function ConstellationCapabilityManagePage({
             data={bundle.instruction}
             closeRef={closeRef}
             onCommit={(instruction: InstructionData) => {
-              onUpdateBundle({ ...bundle, instruction });
+              commitBundle({ ...bundle, instruction });
             }}
             onCancel={onCancel}
           />
@@ -239,7 +246,7 @@ export function ConstellationCapabilityManagePage({
             files={bundle.contextFiles}
             closeRef={closeRef}
             onCommit={(contextFiles: ExtraContextFile[]) => {
-              onUpdateBundle({ ...bundle, contextFiles });
+              commitBundle({ ...bundle, contextFiles });
             }}
             onCancel={onCancel}
           />
@@ -252,7 +259,7 @@ export function ConstellationCapabilityManagePage({
             relationships={bundle.relationships}
             closeRef={closeRef}
             onCommit={(relationships: RelationshipRecord[]) => {
-              onUpdateBundle({ ...bundle, relationships });
+              commitBundle({ ...bundle, relationships });
             }}
             onCancel={onCancel}
           />
@@ -265,7 +272,7 @@ export function ConstellationCapabilityManagePage({
             metrics={bundle.metrics}
             closeRef={closeRef}
             onCommit={(metrics: MetricRecord[]) => {
-              onUpdateBundle({ ...bundle, metrics });
+              commitBundle({ ...bundle, metrics });
             }}
             onCancel={onCancel}
           />
@@ -294,7 +301,7 @@ export function ConstellationCapabilityManagePage({
               fileKind={constellation.type === "csv" ? "csv" : "pdf"}
               closeRef={closeRef}
               onCommit={(pdfFiles: PDFFileRecord[]) => {
-                onUpdateBundle({ ...bundle, pdfFiles });
+                commitBundle({ ...bundle, pdfFiles });
               }}
               onCancel={onCancel}
             />
@@ -308,7 +315,7 @@ export function ConstellationCapabilityManagePage({
             state={bundle.crawler}
             closeRef={closeRef}
             onCommit={(crawler: CrawlerState) => {
-              onUpdateBundle({ ...bundle, crawler });
+              commitBundle({ ...bundle, crawler });
             }}
             onCancel={onCancel}
           />
@@ -323,6 +330,7 @@ export function ConstellationCapabilityManagePage({
     constellation.type,
     onBackToSettings,
     onUpdateBundle,
+    readOnly,
     openColumnsTable,
     openDetailsTable,
     openPreviewTable,
@@ -398,7 +406,20 @@ export function ConstellationCapabilityManagePage({
       />
 
       <LuxiaPageBody>
-        <div className={`${LUXIA_SETTINGS_CONTENT_SURFACE_CLASS} is-padded-sm`}>
+        {readOnly ? (
+          <p
+            className="mb-3 luxia-type-body-dense"
+            style={{ color: "var(--luxia-text-secondary)" }}
+            role="status"
+          >
+            Read-only for your Project role. Changes cannot be saved.
+          </p>
+        ) : null}
+        <div
+          className={`${LUXIA_SETTINGS_CONTENT_SURFACE_CLASS} is-padded-sm`}
+          aria-disabled={readOnly || undefined}
+          style={readOnly ? { pointerEvents: "none", opacity: 0.92 } : undefined}
+        >
           {manager}
         </div>
       </LuxiaPageBody>

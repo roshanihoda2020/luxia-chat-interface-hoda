@@ -58,5 +58,5 @@ export const PERMISSION_HIERARCHY_COPY = {
   manage: "Manage includes Use and View.",
   use: "Use includes View.",
   constellationAccess:
-    "Effective Constellation access requires both an allowed Project role and access to connected Data Sources.",
+    "Active Project membership makes existing Project Constellations visible and available for Chat. Data Source permissions govern the underlying Data Source, not basic Chat.",
 } as const;

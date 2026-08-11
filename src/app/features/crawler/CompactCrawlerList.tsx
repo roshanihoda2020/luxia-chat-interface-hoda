@@ -13,14 +13,16 @@ export function CompactCrawlerList({
     onView,
     onEdit,
     onRemove,
+    readOnly = false,
 }: {
     entries: CrawlerEntry[];
     isOpen: boolean;
     onToggle: () => void;
     onOpenManager: () => void;
     onView: (id: string) => void;
-    onEdit: (id: string) => void;
-    onRemove: (id: string) => void;
+    onEdit?: (id: string) => void;
+    onRemove?: (id: string) => void;
+    readOnly?: boolean;
 }) {
     const visible = entries.filter((e) => !e.markedForRemoval);
 
@@ -29,6 +31,7 @@ export function CompactCrawlerList({
             <div className={IC_CARD_HEADER}>
                 <Globe size={14} color={IC.iconSemantic} className="flex-shrink-0" />
                 <span className="flex-1 truncate luxia-type-title-component" style={{ color: IC.iconSemantic }}>Crawler URLs</span>
+                {!readOnly ? (
                 <Tooltip>
                     <TooltipTrigger asChild>
                         <button type="button" className={IC_BTN_OPEN} aria-label="Open full editor"
@@ -40,6 +43,7 @@ export function CompactCrawlerList({
                     </TooltipTrigger>
                     <TooltipContent sideOffset={6}>Open full editor</TooltipContent>
                 </Tooltip>
+                ) : null}
                 <Tooltip>
                     <TooltipTrigger asChild>
                         <button className={IC_BTN_ICON} aria-label={isOpen ? "Collapse" : "Expand"} onClick={onToggle}
@@ -66,12 +70,24 @@ export function CompactCrawlerList({
                                     <Globe size={10} color={IC.iconSemantic} className="flex-shrink-0" />
                                     <span className="min-w-0 flex-1 truncate luxia-type-caption" style={{ color: IC.textPrimary }}>{entry.url}</span>
                                     <div className="relative z-20 flex-shrink-0" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
-                                        <CrawlerMenu onView={() => onView(entry.id)} onEdit={() => onEdit(entry.id)} onRemove={() => onRemove(entry.id)} />
+                                        {readOnly || !onEdit || !onRemove ? (
+                                            <button
+                                                type="button"
+                                                className="luxia-type-caption px-1.5 py-0.5 rounded-[6px] outline-none"
+                                                style={{ color: IC.textMuted }}
+                                                onClick={() => onView(entry.id)}
+                                            >
+                                                View
+                                            </button>
+                                        ) : (
+                                            <CrawlerMenu onView={() => onView(entry.id)} onEdit={() => onEdit(entry.id)} onRemove={() => onRemove(entry.id)} />
+                                        )}
                                     </div>
                                 </div>
                             ))}
                         </div>
                     )}
+                    {!readOnly ? (
                     <button type="button" onClick={onOpenManager}
                         className="mt-1 w-full flex items-center gap-1.5 px-2 py-1.5 rounded-[7px] luxia-type-caption transition-colors outline-none"
                         style={{ color: IC.textMuted }}
@@ -79,6 +95,7 @@ export function CompactCrawlerList({
                         onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
                         <Plus size={10} />Add URL
                     </button>
+                    ) : null}
                 </div>
             )}
         </div>

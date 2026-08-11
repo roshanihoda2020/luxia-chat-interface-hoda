@@ -46,7 +46,12 @@ import type {
   ProjectRole,
 } from "@/app/features/permissions";
 import { CURRENT_USER_ID, getOrganizationUserById } from "@/app/features/permissions";
-import { isOrganizationAdmin } from "@/app/features/permissions/accessGuards";
+import {
+  canArchiveConstellation as roleCanArchiveConstellation,
+  canConfigureConstellation as roleCanConfigureConstellation,
+  canDeleteConstellation as roleCanDeleteConstellation,
+  canEditConstellationKnowledge as roleCanEditConstellationKnowledge,
+} from "@/app/features/permissions/accessGuards";
 import { LuxiaSettingsFormActions } from "@/app/features/shared/LuxiaSettingsFormActions";
 import {
   LUXIA_DIRTY_STATE_COPY,
@@ -280,19 +285,10 @@ export function ConstellationSettingsPage({
     [sourceAccessRows],
   );
 
-  const canConfigureConstellation =
-    isOrganizationAdmin(currentUserId)
-    || currentProjectRole === "Project Owner"
-    || currentProjectRole === "Project Manager";
-  const canEditKnowledge =
-    isOrganizationAdmin(currentUserId)
-    || currentProjectRole === "Project Owner"
-    || currentProjectRole === "Project Manager"
-    || currentProjectRole === "Analyst";
-  const canArchiveConstellation =
-    currentProjectRole === "Project Owner"
-    || currentProjectRole === "Project Manager";
-  const canDeleteConstellation = currentProjectRole === "Project Owner";
+  const canConfigureConstellation = roleCanConfigureConstellation(currentProjectRole);
+  const canEditKnowledge = roleCanEditConstellationKnowledge(currentProjectRole);
+  const canArchiveConstellation = roleCanArchiveConstellation(currentProjectRole);
+  const canDeleteConstellation = roleCanDeleteConstellation(currentProjectRole);
   const lifecycleRoleHint = !currentProjectRole
     ? "Your Project role is unavailable for this action."
     : currentProjectRole === "Member"

@@ -619,21 +619,27 @@ export function resolveUserDataSourceAccess(
   const sourceStatus = source?.status ?? null;
   const sourceUsable = source ? isDataSourceUsable(source.status) : false;
 
-  if (getOrganizationUserById(userId)?.orgRole === "Admin") {
-    return {
-      permission: "Manage",
-      accessLevelNames: [],
-      viaOwner: false,
-      sourceStatus,
-      sourceUsable,
-    };
-  }
-
+  // Private owner always receives Manage (including Org Admin owning their own private source).
   if (source?.ownership === "private" && source.ownerUserId === userId) {
     return {
       permission: "Manage",
       accessLevelNames: [],
       viaOwner: true,
+      sourceStatus,
+      sourceUsable,
+    };
+  }
+
+  // Organizational sources: Org Admin has organization-level Manage.
+  // Private sources: Org Admin does NOT auto-Manage — only owner or Access Level grants.
+  if (
+    source?.ownership === "organizational"
+    && getOrganizationUserById(userId)?.orgRole === "Admin"
+  ) {
+    return {
+      permission: "Manage",
+      accessLevelNames: [],
+      viaOwner: false,
       sourceStatus,
       sourceUsable,
     };
@@ -698,17 +704,6 @@ export function buildProjectDataReadiness(input: {
     accessLevels,
     dataSources = DATA_SOURCE_CATALOG,
   } = input;
-
-  if (getOrganizationUserById(userId)?.orgRole === "Admin") {
-    return {
-      label: "Ready",
-      detail: requiredSourceIds.length === 0
-        ? "This Project has no Data Sources connected through Constellations yet."
-        : `Use or Manage available for all ${requiredSourceIds.length} Project Data Sources.`,
-      missingSourceIds: [],
-      requiredSourceIds,
-    };
-  }
 
   if (membershipStatus === "pending") {
     return {
@@ -859,19 +854,19 @@ export const PROJECT_ROLE_DEFINITIONS: {
 }[] = [
   {
     role: "Project Owner",
-    summary: "Full project control including ownership transfer and member management.",
+    summary: "Full Project control, including Delete Project and ownership transfer.",
   },
   {
     role: "Project Manager",
-    summary: "Manage project settings, members, and constellations except ownership transfer.",
+    summary: "Same Project operational control as Owner, except Delete Project and ownership control.",
   },
   {
     role: "Analyst",
-    summary: "Use the Project, Chats, and Constellations, and create approved analytical outputs. Cannot manage Project configuration or access.",
+    summary: "Chat with Project Constellations and edit Knowledge Base, Instructions, and Crawler. Cannot create Constellations or manage Project members.",
   },
   {
     role: "Member",
-    summary: "Use the Project and approved Chats/Constellations. Cannot manage configuration or access.",
+    summary: "Chat with Project Constellations. Cannot edit configuration or manage Project access.",
   },
 ];
 

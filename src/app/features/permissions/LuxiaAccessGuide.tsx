@@ -184,20 +184,13 @@ export function LuxiaAccessGuide({
                 />
                 <GuideRow
                   label="Use"
-                  description="Use the Data Source in an allowed Constellation. Includes View."
+                  description="Work with the underlying Data Source where Data Source access is required. Includes View."
                 />
                 <GuideRow
                   label="Manage"
                   description="Manage the Data Source and its access. Includes Use and View."
                 />
               </div>
-              <p
-                className="luxia-type-caption"
-                style={{ color: "var(--luxia-text-muted)" }}
-              >
-                Prototype note: Use is modeled separately in this prototype while backend
-                enforcement is being aligned.
-              </p>
             </GuideSection>
 
             <GuideDivider />
@@ -206,11 +199,11 @@ export function LuxiaAccessGuide({
               <div className="space-y-3">
                 <GuideRow
                   label="Organizational"
-                  description="Managed by the organization. Access is granted through Access Levels."
+                  description="Managed by the organization. Access is granted through Access Levels. Organization Admins may Manage organizational sources."
                 />
                 <GuideRow
                   label="Private"
-                  description="Owned by one user. The owner receives Manage permission and may share access through Access Levels."
+                  description="Owned by one user. The owner receives Manage. Other users, including Organization Admins, receive access only through explicit Access Level grants."
                 />
               </div>
             </GuideSection>
@@ -221,19 +214,19 @@ export function LuxiaAccessGuide({
               <div className="space-y-3">
                 <GuideRow
                   label="Project Owner"
-                  description="Full Project control, including ownership and destructive actions."
+                  description="Same Project operational control as Manager, plus Delete Project and ownership control."
                 />
                 <GuideRow
                   label="Project Manager"
-                  description="Manages Project members and Constellation configuration within approved limits."
+                  description="Same Project operational control as Owner, except Delete Project and ownership control."
                 />
                 <GuideRow
                   label="Analyst"
-                  description="Uses accessible Constellations and creates outputs where allowed."
+                  description="Chats with Project Constellations and can edit Knowledge Base, Instructions, and Crawler."
                 />
                 <GuideRow
                   label="Member"
-                  description="Uses permitted Project resources without management access."
+                  description="Chats with Project Constellations without configuration or member-management access."
                 />
               </div>
             </GuideSection>
@@ -252,20 +245,7 @@ export function LuxiaAccessGuide({
                   className="luxia-type-body-dense-strong"
                   style={{ color: "var(--luxia-text-primary)" }}
                 >
-                  Project role
-                </p>
-                <p
-                  className="mt-1 luxia-type-caption"
-                  style={{ color: "var(--luxia-text-muted)" }}
-                  aria-hidden
-                >
-                  +
-                </p>
-                <p
-                  className="luxia-type-body-dense-strong"
-                  style={{ color: "var(--luxia-text-primary)" }}
-                >
-                  Use permission on every connected Data Source
+                  Active Project membership
                 </p>
                 <p
                   className="mt-1 luxia-type-caption"
@@ -278,19 +258,19 @@ export function LuxiaAccessGuide({
                   className="luxia-type-body-dense-strong"
                   style={{ color: "var(--luxia-text-primary)" }}
                 >
-                  Constellation available
+                  Existing Constellations visible and Chat available
                 </p>
                 <p className="sr-only">
-                  Project role plus Use permission on every connected Data Source
-                  equals Constellation available.
+                  Active Project membership equals existing Constellations visible and Chat available.
                 </p>
               </div>
               <p
                 className="luxia-type-body-dense"
                 style={{ color: "var(--luxia-text-secondary)" }}
               >
-                If access to even one required Data Source is missing, the Constellation
-                cannot be used.
+                Data Source View, Use, or Manage is not required for basic Chat with an existing
+                Project Constellation. Those permissions govern the underlying Data Source and
+                operations that require it.
               </p>
               <p
                 className="luxia-type-caption"

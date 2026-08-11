@@ -101,8 +101,8 @@ export function FileUploadDialog({
 
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-5">
           <p className="luxia-type-caption text-[var(--luxia-text-secondary)]">
-            Ownership stays {ownershipLabel.toLowerCase()}. Access Levels control sharing for Organizational sources;
-            Private sources remain owner-managed.
+            Ownership stays {ownershipLabel.toLowerCase()}. Access Levels control sharing.
+            Organization Admins do not automatically Manage another user's private source.
           </p>
 
           <div

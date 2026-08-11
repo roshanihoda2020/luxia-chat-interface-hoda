@@ -153,6 +153,7 @@ import {
   ACCESS_LEVEL_DENIED_MESSAGE,
   ACCESS_LEVEL_CREATE_DENIED_MESSAGE,
   CONSTELLATION_CONFIGURE_DENIED_MESSAGE,
+  CONSTELLATION_KNOWLEDGE_DENIED_MESSAGE,
   PROJECT_ACTION_DENIED_MESSAGE,
   PROJECT_CREATE_DENIED_MESSAGE,
   canAdministerAccessLevels,
@@ -160,8 +161,8 @@ import {
   canArchiveProject,
   canAccessProject,
   canAdministerProjectConfiguration,
-  canConfigureConstellation,
   canEditConstellationKnowledge,
+  canEditGalaxySettings,
   canCreateOrganizationalDataSource,
   canCreateProject,
   canDeleteConstellation,
@@ -170,7 +171,6 @@ import {
   evaluateConstellationUseAccess,
   getAccessibleConstellationIds,
   getActiveProjectMembership,
-  isOrganizationAdmin,
   isWorkingChatAccessible,
   setPrototypeCurrentUserId,
   formatDemoIdentityContextLabel,
@@ -3009,10 +3009,26 @@ function KBWorkspaceModal({ entries, constellationLabel, onSave, onClose }: {
   );
 }
 
-function KBSidebarSection({ entries, isOpen, onToggle, onExpand, onAdd, onView, onEdit, onRemove }: {
-  entries: KBEntry[]; isOpen: boolean;
-  onToggle: () => void; onExpand: () => void; onAdd: () => void;
-  onView: (id: string) => void; onEdit: (id: string) => void; onRemove: (id: string) => void;
+function KBSidebarSection({
+  entries,
+  isOpen,
+  onToggle,
+  onExpand,
+  onAdd,
+  onView,
+  onEdit,
+  onRemove,
+  readOnly = false,
+}: {
+  entries: KBEntry[];
+  isOpen: boolean;
+  onToggle: () => void;
+  onExpand: () => void;
+  onAdd?: () => void;
+  onView: (id: string) => void;
+  onEdit?: (id: string) => void;
+  onRemove?: (id: string) => void;
+  readOnly?: boolean;
 }) {
   const [searchQ, setSearchQ] = useState("");
 
@@ -3024,6 +3040,7 @@ function KBSidebarSection({ entries, isOpen, onToggle, onExpand, onAdd, onView, 
       <div className={IC_CARD_HEADER}>
         <BookOpen size={14} color={IC.iconSemantic} className="flex-shrink-0" />
         <span className="flex-1 luxia-type-title-component truncate" style={{ color: IC.iconSemantic }}>Knowledge Base</span>
+        {!readOnly ? (
         <Tooltip>
           <TooltipTrigger asChild>
             <button type="button" onClick={(e) => { e.stopPropagation(); onExpand(); }}
@@ -3038,6 +3055,7 @@ function KBSidebarSection({ entries, isOpen, onToggle, onExpand, onAdd, onView, 
           </TooltipTrigger>
           <TooltipContent sideOffset={6}>Open Knowledge Base settings</TooltipContent>
         </Tooltip>
+        ) : null}
         <Tooltip>
           <TooltipTrigger asChild>
             <button onClick={onToggle}
@@ -3086,22 +3104,35 @@ function KBSidebarSection({ entries, isOpen, onToggle, onExpand, onAdd, onView, 
                 onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
                 <BookOpen size={10} color={IC.iconSemantic} className="flex-shrink-0" />
                 <span className="flex-1 luxia-type-caption truncate" style={{ color: IC.textPrimary }}>{entry.question}</span>
-                <KBEntryMenu
-                  onView={() => onView(entry.id)}
-                  onEdit={() => onEdit(entry.id)}
-                  onRemove={() => onRemove(entry.id)}
-                />
+                {readOnly || !onEdit || !onRemove ? (
+                  <button
+                    type="button"
+                    className="luxia-type-caption px-1.5 py-0.5 rounded-[6px] outline-none"
+                    style={{ color: IC.textMuted }}
+                    onClick={() => onView(entry.id)}
+                  >
+                    View
+                  </button>
+                ) : (
+                  <KBEntryMenu
+                    onView={() => onView(entry.id)}
+                    onEdit={() => onEdit(entry.id)}
+                    onRemove={() => onRemove(entry.id)}
+                  />
+                )}
               </div>
             ))
           )}
 
-          <button onClick={onAdd}
-            className="mt-1 w-full flex items-center gap-1.5 px-2 py-1.5 rounded-[7px] luxia-type-caption transition-colors outline-none"
-            style={{ color: IC.textMuted }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = IC.hover; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
-            <Plus size={10} />Add Entry
-          </button>
+          {!readOnly && onAdd ? (
+            <button onClick={onAdd}
+              className="mt-1 w-full flex items-center gap-1.5 px-2 py-1.5 rounded-[7px] luxia-type-caption transition-colors outline-none"
+              style={{ color: IC.textMuted }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = IC.hover; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
+              <Plus size={10} />Add Entry
+            </button>
+          ) : null}
         </div>
       )}
     </div>
@@ -3429,6 +3460,7 @@ function ConstellationSidebar({
   allowConstellationChange,
   isGalaxyChat,
   canConfigure = false,
+  canEditKnowledge = false,
 }: {
   width: number;
   onResizeStart: (e: React.MouseEvent) => void;
@@ -3441,8 +3473,10 @@ function ConstellationSidebar({
   projectId: string;
   allowConstellationChange: boolean;
   isGalaxyChat: boolean;
-  /** Owner/Manager may mutate inspector configuration; Analyst/Member stay read-only. */
+  /** Owner/Manager: structural constellation configuration. */
   canConfigure?: boolean;
+  /** Owner/Manager/Analyst: KB, Instructions, Crawler. */
+  canEditKnowledge?: boolean;
 }) {
   const sectionIds = CONSTELLATION_SECTIONS[constellation.type];
 
@@ -3858,6 +3892,7 @@ function ConstellationSidebar({
                 isOpen={isOpen}
                 onToggle={() => setOpenSections(p => ({ ...p, instr: !p.instr }))}
                 onSignatureChange={(sig) => registerSectionSignature("instr", sig)}
+                readOnly={!canEditKnowledge}
               />
             );
           }
@@ -3880,6 +3915,7 @@ function ConstellationSidebar({
                 isOpen={isOpen}
                 onToggle={() => setOpenSections(p => ({ ...p, crawler: !p.crawler }))}
                 onSignatureChange={(sig) => registerSectionSignature("crawler", sig)}
+                readOnly={!canEditKnowledge}
               />
             );
           }
@@ -3891,10 +3927,11 @@ function ConstellationSidebar({
                 isOpen={isOpen}
                 onToggle={() => setOpenSections(p => ({ ...p, kb: !p.kb }))}
                 onExpand={() => setKbWorkspaceOpen(true)}
-                onAdd={() => setKbAddOpen(true)}
+                onAdd={canEditKnowledge ? () => setKbAddOpen(true) : undefined}
                 onView={(id) => setKbViewId(id)}
-                onEdit={(id) => setKbEditId(id)}
-                onRemove={(id) => setKbConfirmId(id)}
+                onEdit={canEditKnowledge ? (id) => setKbEditId(id) : undefined}
+                onRemove={canEditKnowledge ? (id) => setKbConfirmId(id) : undefined}
+                readOnly={!canEditKnowledge}
               />
             );
           }
@@ -3972,7 +4009,7 @@ function ConstellationSidebar({
             {constellationFeedback.message}
           </p>
         ) : null}
-        {canConfigure ? (
+        {canConfigure || canEditKnowledge ? (
           <Button
             type="button"
             variant="primary"
@@ -4190,6 +4227,8 @@ export default function App() {
   appViewRef.current = appView;
   const activeProjectIdRef = useRef(activeProjectId);
   activeProjectIdRef.current = activeProjectId;
+  const projectMembershipsStateRef = useRef(projectMembershipsState);
+  projectMembershipsStateRef.current = projectMembershipsState;
   const constellationCreateGuardRef = useRef<ConstellationCreateNavigationGuard | null>(null);
   const accessLevelCreateDraftRef = useRef<AccessLevelRecord | null>(null);
 
@@ -4324,6 +4363,14 @@ export default function App() {
       }
 
       if (resolved.kind === "galaxy-settings") {
+        if (!canAccessProject(
+          resolved.projectId,
+          projectMembershipsStateRef.current,
+          CURRENT_USER_ID,
+        )) {
+          goHome(true);
+          return;
+        }
         setActiveProjectId(resolved.projectId);
         setSettingsConstellationId(null);
         setSettingsCapabilityPath(null);
@@ -5208,6 +5255,14 @@ export default function App() {
     return false;
   }
 
+  function guardConstellationKnowledge(projectId: string): boolean {
+    if (canEditConstellationKnowledge(projectRoleFor(projectId))) {
+      return true;
+    }
+    toast.error(CONSTELLATION_KNOWLEDGE_DENIED_MESSAGE);
+    return false;
+  }
+
   function guardAccessLevelMutation(): boolean {
     if (canAdministerAccessLevels(prototypeUserId)) return true;
     toast.error(ACCESS_LEVEL_DENIED_MESSAGE);
@@ -5603,10 +5658,16 @@ export default function App() {
   function handleUpdateCapabilityBundle(
     constellationId: string,
     next: ConstellationCapabilityBundle,
+    options?: { capabilityKind?: "knowledge" | "configure" },
   ) {
     const current = resolveConstellationSettingsRecordForView(constellationId);
     if (!current) return;
-    if (!guardConstellationConfigure(current.projectId)) return;
+    const kind = options?.capabilityKind ?? "configure";
+    if (kind === "knowledge") {
+      if (!guardConstellationKnowledge(current.projectId)) return;
+    } else if (!guardConstellationConfigure(current.projectId)) {
+      return;
+    }
     const cloned = cloneCapabilityBundle(next);
     setCapabilityBundlesById((prev) => ({
       ...prev,
@@ -6087,6 +6148,11 @@ export default function App() {
     section: GalaxySettingsSectionId = "general",
     options?: { explicitTab?: boolean; focusHeading?: boolean },
   ) {
+    if (!canAccessProject(projectId, projectMembershipsState, prototypeUserId)) {
+      toast.error(PROJECT_ACTION_DENIED_MESSAGE);
+      return;
+    }
+
     const galaxyChat = findGalaxyChatForProject(projectId, chats, homeProjects);
 
     if (!galaxyChat || galaxyChat.projectId !== projectId) {
@@ -6285,7 +6351,7 @@ export default function App() {
   }
 
   function guardGalaxyConfigure(projectId: string): boolean {
-    if (canAdministerProjectConfiguration(prototypeUserId, projectRoleFor(projectId))) {
+    if (canEditGalaxySettings(projectRoleFor(projectId))) {
       return true;
     }
     toast.error(GALAXY_CONFIGURE_DENIED_MESSAGE);
@@ -7302,22 +7368,10 @@ export default function App() {
     ) ?? null;
   }, [contextProjectId, projectMembershipsState, prototypeUserId]);
 
-  const showProjectContext = Boolean(
-    contextProjectId
-    && (
-      contextProjectMembership
-      || isOrganizationAdmin(prototypeUserId)
-    ),
-  );
+  const showProjectContext = Boolean(contextProjectId && contextProjectMembership);
 
   const sidebarProjectChats = useMemo(() => {
-    if (!contextProjectId) return [];
-    if (
-      !contextProjectMembership
-      && !isOrganizationAdmin(prototypeUserId)
-    ) {
-      return [];
-    }
+    if (!contextProjectId || !contextProjectMembership) return [];
     return overviewChats
       .filter((chat) => chat.projectId === contextProjectId)
       .filter((chat) => isWorkingChatAccessible({
@@ -7354,14 +7408,7 @@ export default function App() {
   ]);
 
   const sidebarProjectConstellations = useMemo(() => {
-    if (!contextProjectId) return [];
-    if (
-      !contextProjectMembership
-      && !isOrganizationAdmin(prototypeUserId)
-    ) {
-      return [];
-    }
-    const role = contextProjectMembership?.projectRole ?? null;
+    if (!contextProjectId || !contextProjectMembership) return [];
     return overviewConstellations
       .filter((item) => item.projectId === contextProjectId)
       .filter((item) => {
@@ -7370,8 +7417,8 @@ export default function App() {
         const connectedSourceIds = record?.connectedSources.map((source) => source.id) ?? [];
         return evaluateConstellationUseAccess({
           userId: prototypeUserId,
-          projectRole: role,
-          membershipStatus: contextProjectMembership?.status,
+          projectRole: contextProjectMembership.projectRole,
+          membershipStatus: contextProjectMembership.status,
           connectedSourceIds,
           accessLevels: accessLevelsState,
           dataSources: dataSourcesState,
@@ -7440,14 +7487,6 @@ export default function App() {
           prototypeUserId,
         )!;
         const viewerProjectRole = membership.projectRole;
-
-        if (isOrganizationAdmin(prototypeUserId)) {
-          return {
-            ...project,
-            viewerProjectRole,
-          };
-        }
-
         const accessibleConstellations = overviewConstellations.filter((item) => {
           if (item.projectId !== project.id) return false;
           const record = constellationSettingsById[item.id]
@@ -7973,12 +8012,24 @@ export default function App() {
                       const isKnowledgeCap = capId === "kb" || capId === "instr" || capId === "crawler";
                       const role = projectRoleFor(projectId || "");
                       if (isKnowledgeCap) {
-                        if (!canEditConstellationKnowledge(role) && !isOrganizationAdmin(prototypeUserId)) return;
-                      } else {
-                        if (!canAdministerProjectConfiguration(prototypeUserId, role)) return;
+                        if (!canEditConstellationKnowledge(role)) return;
+                        handleUpdateCapabilityBundle(constellationId, next, {
+                          capabilityKind: "knowledge",
+                        });
+                        return;
                       }
-                      handleUpdateCapabilityBundle(constellationId, next);
+                      if (!canAdministerProjectConfiguration(prototypeUserId, role)) return;
+                      handleUpdateCapabilityBundle(constellationId, next, {
+                        capabilityKind: "configure",
+                      });
                     }}
+                    readOnly={(() => {
+                      const capId = settingsCapabilityId ?? "instr";
+                      const isKnowledgeCap = capId === "kb" || capId === "instr" || capId === "crawler";
+                      const role = projectRoleFor(projectId || "");
+                      if (isKnowledgeCap) return !canEditConstellationKnowledge(role);
+                      return !canAdministerProjectConfiguration(prototypeUserId, role);
+                    })()}
                     unavailable={
                       settingsUnavailable
                       || settingsCapabilityUnavailable
@@ -8053,9 +8104,9 @@ export default function App() {
                     const isKnowledgeCap = capabilityId === "kb" || capabilityId === "instr" || capabilityId === "crawler";
                     const role = projectRoleFor(projectId);
                     if (isKnowledgeCap) {
-                      if (!canEditConstellationKnowledge(role) && !isOrganizationAdmin(prototypeUserId)) return;
-                    } else {
-                      if (!canAdministerProjectConfiguration(prototypeUserId, role)) return;
+                      if (!canEditConstellationKnowledge(role)) return;
+                    } else if (!canAdministerProjectConfiguration(prototypeUserId, role)) {
+                      return;
                     }
                     handleOpenConstellationCapability(
                       projectId,
@@ -8459,7 +8510,8 @@ export default function App() {
                   pendingManual={pendingManual}
                   instructionValue={galaxyInstructionById[activeChat]}
                   onSaveInstruction={
-                    activeData.projectId && userCanConfigureProject(activeData.projectId)
+                    activeData.projectId
+                    && canEditGalaxySettings(projectRoleFor(activeData.projectId))
                       ? (instruction) => {
                           handleSaveGalaxyInstruction(activeData.projectId, instruction);
                         }
@@ -8540,6 +8592,7 @@ export default function App() {
                 prototypeUserId,
                 prototypeProjectRole,
               )}
+              canEditKnowledge={canEditConstellationKnowledge(prototypeProjectRole)}
             />
           )}
           </div>
