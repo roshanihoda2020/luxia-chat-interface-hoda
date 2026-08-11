@@ -45,8 +45,6 @@ export interface ProjectOverviewPageProps {
   onOpenVirtualAssistant?: (projectId: string, assistantId: string) => void;
   onBrowseModeChange?: (mode: ProjectOverviewBrowseMode) => void;
   onRenameProject?: (projectId: string, name: string) => void;
-  onRenameGalaxy?: (projectId: string, name: string) => void;
-  onSaveGalaxyInstruction?: (projectId: string, instruction: string) => void;
   onArchiveProject?: (projectId: string) => void;
   onDeleteProject?: (projectId: string) => void;
   onOpenMembers?: (projectId: string) => void;
@@ -84,8 +82,6 @@ export function ProjectOverviewPage({
   onOpenDashboard,
   onBrowseModeChange,
   onRenameProject,
-  onRenameGalaxy,
-  onSaveGalaxyInstruction,
   onArchiveProject,
   onDeleteProject,
   onOpenMembers,
@@ -186,18 +182,9 @@ export function ProjectOverviewPage({
                 ? galaxyInstructionById?.[resolvedProject.galaxyId]
                 : undefined
             }
+            usableConstellationCount={projectConstellations.length}
             onOpenGalaxy={() => onOpenGalaxy(resolvedProject.id)}
             onOpenGalaxySettings={() => onOpenGalaxySettings(resolvedProject.id)}
-            onRenameGalaxy={
-              onRenameGalaxy
-                ? (name) => onRenameGalaxy(resolvedProject.id, name)
-                : undefined
-            }
-            onSaveGalaxyInstruction={
-              onSaveGalaxyInstruction
-                ? (instruction) => onSaveGalaxyInstruction(resolvedProject.id, instruction)
-                : undefined
-            }
           />
         </section>
 

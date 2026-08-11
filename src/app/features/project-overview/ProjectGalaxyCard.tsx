@@ -1,18 +1,17 @@
 import {
-  useEffect,
   useId,
-  useRef,
-  useState,
-  type CSSProperties,
   type ReactNode,
-  type RefObject,
 } from "react";
-import { Check, CircleHelp, Pencil, X } from "lucide-react";
+import { CircleHelp } from "lucide-react";
 import {
   LuxiaGalaxyIcon,
   LuxiaSettingsIcon,
   LuxiaVirtualAssistantIcon,
 } from "@/assets/icons";
+import {
+  galaxyHeliosCapabilityCount,
+  galaxyHeliosCapabilityLabels,
+} from "@/app/features/galaxy-settings/data";
 import type { HomeProjectCard } from "@/app/features/project/types";
 import {
   Popover,
@@ -34,10 +33,9 @@ interface ProjectGalaxyCardProps {
   project: HomeProjectCard;
   galaxyName: string;
   galaxyInstruction?: string;
+  usableConstellationCount: number;
   onOpenGalaxy: () => void;
   onOpenGalaxySettings: () => void;
-  onRenameGalaxy?: (name: string) => void;
-  onSaveGalaxyInstruction?: (instruction: string) => void;
 }
 
 function HeliosChip({ children }: { children: string }) {
@@ -80,9 +78,6 @@ function HeliosMetaRow({
   );
 }
 
-const HELIOS_TOOL_NAMES = ["Verification", "Writing Assistant"] as const;
-const HELIOS_TOOL_EXTRA_COUNT = 1;
-
 function GalaxyActionGroup({
   descriptionId,
   helperId,
@@ -121,397 +116,6 @@ function GalaxyActionGroup({
 
 const GALAXY_ACTION_BUTTON_CLASS =
   "luxia-button--on-dark h-10 min-h-10 w-full justify-center gap-2 px-3.5";
-
-function DarkEditButton({
-  label,
-  onClick,
-  buttonRef,
-}: {
-  label: string;
-  onClick: () => void;
-  buttonRef?: RefObject<HTMLButtonElement>;
-}) {
-  return (
-    <button
-      ref={buttonRef}
-      type="button"
-      aria-label={label}
-      title={label}
-      onClick={onClick}
-      className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]"
-      style={{ color: "rgba(198,177,245,0.75)", background: "transparent" }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.background = "rgba(255,255,255,0.08)";
-        e.currentTarget.style.color = "rgba(255,255,255,0.95)";
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.background = "transparent";
-        e.currentTarget.style.color = "rgba(198,177,245,0.75)";
-      }}
-    >
-      <Pencil size={14} strokeWidth={1.75} aria-hidden />
-    </button>
-  );
-}
-
-function DarkUtilityButton({
-  label,
-  onClick,
-  disabled,
-  tone,
-  children,
-}: {
-  label: string;
-  onClick: () => void;
-  disabled?: boolean;
-  tone: "emphasis" | "muted";
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      disabled={disabled}
-      onClick={onClick}
-      className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] outline-none transition-opacity focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)] disabled:cursor-not-allowed disabled:opacity-40"
-      style={{
-        color: tone === "emphasis" ? "var(--luxia-text-inverse)" : "rgba(198,177,245,0.75)",
-        background: tone === "emphasis" ? "rgba(142,99,235,0.55)" : "transparent",
-        border: tone === "emphasis" ? "1px solid rgba(198,177,245,0.35)" : "1px solid transparent",
-      }}
-    >
-      {children}
-    </button>
-  );
-}
-
-function InlineNameEdit({
-  value,
-  onSave,
-}: {
-  value: string;
-  onSave: (next: string) => void;
-}) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [draft, setDraft] = useState(value);
-  const [showEmptyError, setShowEmptyError] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const pencilRef = useRef<HTMLButtonElement>(null);
-  const rootRef = useRef<HTMLDivElement>(null);
-  const skipOutsideRef = useRef(false);
-  const errorId = useId();
-  const trimmed = draft.trim();
-  const canSave = trimmed.length > 0;
-
-  useEffect(() => {
-    if (!isEditing) setDraft(value);
-  }, [value, isEditing]);
-
-  useEffect(() => {
-    if (!isEditing) return;
-    const t = window.setTimeout(() => {
-      inputRef.current?.focus();
-      inputRef.current?.select();
-    }, 0);
-    return () => window.clearTimeout(t);
-  }, [isEditing]);
-
-  useEffect(() => {
-    if (!isEditing) return;
-    function onPointerDown(event: PointerEvent) {
-      if (skipOutsideRef.current) {
-        skipOutsideRef.current = false;
-        return;
-      }
-      const root = rootRef.current;
-      if (!root) return;
-      if (event.target instanceof Node && root.contains(event.target)) return;
-      setIsEditing(false);
-      setDraft(value);
-      setShowEmptyError(false);
-    }
-    document.addEventListener("pointerdown", onPointerDown);
-    return () => document.removeEventListener("pointerdown", onPointerDown);
-  }, [isEditing, value]);
-
-  function save() {
-    if (!canSave) {
-      setShowEmptyError(true);
-      inputRef.current?.focus();
-      return;
-    }
-    skipOutsideRef.current = true;
-    if (trimmed !== value) onSave(trimmed);
-    setIsEditing(false);
-    setShowEmptyError(false);
-    window.setTimeout(() => pencilRef.current?.focus(), 0);
-  }
-
-  function cancel() {
-    setIsEditing(false);
-    setDraft(value);
-    setShowEmptyError(false);
-    window.setTimeout(() => pencilRef.current?.focus(), 0);
-  }
-
-  if (isEditing) {
-    return (
-      <div ref={rootRef} className="w-fit max-w-full min-w-0">
-        <div className="inline-flex w-fit max-w-full min-w-0 items-center gap-2">
-          <input
-            ref={inputRef}
-            type="text"
-            value={draft}
-            onChange={(e) => {
-              setDraft(e.target.value);
-              if (showEmptyError && e.target.value.trim()) setShowEmptyError(false);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                save();
-              } else if (e.key === "Escape") {
-                e.preventDefault();
-                cancel();
-              }
-            }}
-            aria-label="Galaxy name"
-            aria-invalid={showEmptyError || undefined}
-            aria-describedby={showEmptyError ? errorId : undefined}
-            className="min-w-0 shrink bg-transparent outline-none luxia-type-title-panel"
-            style={{
-              width: `min(100%, max(12rem, min(28rem, ${Math.max(draft.length, 8) + 2}ch)))`,
-              border: "none",
-              borderBottom: showEmptyError
-                ? "2px solid var(--luxia-error)"
-                : "2px solid var(--luxia-purple-40)",
-              borderRadius: 0,
-              paddingInline: "2px",
-              color: "var(--luxia-text-inverse)",
-            }}
-          />
-          <div className="inline-flex shrink-0 items-center gap-1">
-            <DarkUtilityButton label="Save Galaxy name" onClick={save} disabled={!canSave} tone="emphasis">
-              <Check size={14} strokeWidth={2} aria-hidden />
-            </DarkUtilityButton>
-            <DarkUtilityButton label="Cancel Galaxy rename" onClick={cancel} tone="muted">
-              <X size={14} strokeWidth={2} aria-hidden />
-            </DarkUtilityButton>
-          </div>
-        </div>
-        {showEmptyError ? (
-          <p id={errorId} className="mt-1 luxia-type-caption" style={{ color: "#FCA5A5" }} role="alert">
-            Name cannot be empty.
-          </p>
-        ) : null}
-      </div>
-    );
-  }
-
-  return (
-    <div className="inline-flex max-w-full min-w-0 items-center gap-1.5">
-      <p
-        className="min-w-0 line-clamp-2 luxia-type-title-panel"
-        style={{ color: "rgba(198,177,245,0.92)", overflowWrap: "anywhere" }}
-        title={value}
-      >
-        {value}
-      </p>
-      <DarkEditButton
-        buttonRef={pencilRef}
-        label="Rename Galaxy"
-        onClick={() => {
-          setDraft(value);
-          setShowEmptyError(false);
-          setIsEditing(true);
-        }}
-      />
-    </div>
-  );
-}
-
-function InlineTextEdit({
-  value,
-  onSave,
-  editLabel,
-  multiline = false,
-  className,
-  textStyle,
-  maxLinesClass = "line-clamp-2",
-  whitespacePreserve = false,
-}: {
-  value: string;
-  onSave: (next: string) => void;
-  editLabel: string;
-  multiline?: boolean;
-  className?: string;
-  textStyle?: CSSProperties;
-  maxLinesClass?: string;
-  whitespacePreserve?: boolean;
-}) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [draft, setDraft] = useState(value);
-  const [expanded, setExpanded] = useState(false);
-  const fieldRef = useRef<HTMLTextAreaElement | HTMLInputElement>(null);
-  const pencilRef = useRef<HTMLButtonElement>(null);
-  const rootRef = useRef<HTMLDivElement>(null);
-  const skipOutsideRef = useRef(false);
-  const trimmed = draft.trim();
-  const canSave = trimmed.length > 0;
-  const isLong = value.length > 120;
-
-  useEffect(() => {
-    if (!isEditing) setDraft(value);
-  }, [value, isEditing]);
-
-  useEffect(() => {
-    if (!isEditing) return;
-    const t = window.setTimeout(() => fieldRef.current?.focus(), 0);
-    return () => window.clearTimeout(t);
-  }, [isEditing]);
-
-  useEffect(() => {
-    if (!isEditing) return;
-    function onPointerDown(event: PointerEvent) {
-      if (skipOutsideRef.current) {
-        skipOutsideRef.current = false;
-        return;
-      }
-      const root = rootRef.current;
-      if (!root) return;
-      if (event.target instanceof Node && root.contains(event.target)) return;
-      setIsEditing(false);
-      setDraft(value);
-    }
-    document.addEventListener("pointerdown", onPointerDown);
-    return () => document.removeEventListener("pointerdown", onPointerDown);
-  }, [isEditing, value]);
-
-  function save() {
-    if (!canSave) return;
-    skipOutsideRef.current = true;
-    if (trimmed !== value) onSave(trimmed);
-    setIsEditing(false);
-    window.setTimeout(() => pencilRef.current?.focus(), 0);
-  }
-
-  function cancel() {
-    setIsEditing(false);
-    setDraft(value);
-    window.setTimeout(() => pencilRef.current?.focus(), 0);
-  }
-
-  if (isEditing) {
-    return (
-      <div ref={rootRef} className="w-full min-w-0">
-        {multiline ? (
-          <textarea
-            ref={fieldRef as RefObject<HTMLTextAreaElement>}
-            value={draft}
-            rows={3}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") {
-                e.preventDefault();
-                cancel();
-              }
-              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                e.preventDefault();
-                save();
-              }
-            }}
-            aria-label={editLabel}
-            className="w-full resize-none rounded-[8px] px-2.5 py-2 luxia-type-body-dense outline-none"
-            style={{
-              color: "var(--luxia-text-inverse)",
-              background: "rgba(255,255,255,0.06)",
-              border: "1px solid rgba(198,177,245,0.35)",
-            }}
-          />
-        ) : (
-          <input
-            ref={fieldRef as RefObject<HTMLInputElement>}
-            type="text"
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                save();
-              } else if (e.key === "Escape") {
-                e.preventDefault();
-                cancel();
-              }
-            }}
-            aria-label={editLabel}
-            className="w-full rounded-[8px] px-2.5 py-2 luxia-type-body-dense outline-none"
-            style={{
-              color: "var(--luxia-text-inverse)",
-              background: "rgba(255,255,255,0.06)",
-              border: "1px solid rgba(198,177,245,0.35)",
-            }}
-          />
-        )}
-        <div className="mt-2 flex items-center gap-1">
-          <DarkUtilityButton label="Save" onClick={save} disabled={!canSave} tone="emphasis">
-            <Check size={14} strokeWidth={2} aria-hidden />
-          </DarkUtilityButton>
-          <DarkUtilityButton label="Cancel edit" onClick={cancel} tone="muted">
-            <X size={14} strokeWidth={2} aria-hidden />
-          </DarkUtilityButton>
-          {multiline ? (
-            <span className="ml-1 luxia-type-caption" style={{ color: "rgba(255,255,255,0.4)" }}>
-              Ctrl+Enter to save
-            </span>
-          ) : null}
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="relative min-w-0 pr-8">
-      <p
-        className={`min-w-0 ${expanded ? "" : maxLinesClass} ${className ?? ""} ${
-          whitespacePreserve ? "whitespace-pre-line" : ""
-        }`}
-        style={{ overflowWrap: "anywhere", ...textStyle }}
-      >
-        {value}
-      </p>
-      <div className="absolute top-0 right-0">
-        <DarkEditButton
-          buttonRef={pencilRef}
-          label={editLabel}
-          onClick={() => {
-            setDraft(value);
-            setIsEditing(true);
-          }}
-        />
-      </div>
-      {isLong && !expanded ? (
-        <button
-          type="button"
-          onClick={() => setExpanded(true)}
-          className="mt-1 luxia-type-caption outline-none focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]"
-          style={{ color: "var(--luxia-purple-30)" }}
-        >
-          Read more
-        </button>
-      ) : null}
-      {isLong && expanded ? (
-        <button
-          type="button"
-          onClick={() => setExpanded(false)}
-          className="mt-1 luxia-type-caption outline-none focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]"
-          style={{ color: "var(--luxia-purple-30)" }}
-        >
-          Show less
-        </button>
-      ) : null}
-    </div>
-  );
-}
 
 function GalaxyHeliosInfo() {
   return (
@@ -568,26 +172,26 @@ function GalaxyHeliosInfo() {
   );
 }
 
+function summarizeInstruction(value: string): string {
+  const line = value.split("\n").map((entry) => entry.trim()).find(Boolean);
+  return line ?? value;
+}
+
 export function ProjectGalaxyCard({
-  project,
+  project: _project,
   galaxyName,
   galaxyInstruction,
+  usableConstellationCount,
   onOpenGalaxy,
   onOpenGalaxySettings,
-  onRenameGalaxy,
-  onSaveGalaxyInstruction,
 }: ProjectGalaxyCardProps) {
-  const constellationCount = project.constellationCount;
   const resolvedInstruction = galaxyInstruction ?? DEFAULT_GALAXY_INSTRUCTION;
-  const [instruction, setInstruction] = useState(resolvedInstruction);
+  const capabilityCount = galaxyHeliosCapabilityCount();
+  const capabilityLabels = galaxyHeliosCapabilityLabels();
   const openGalaxyDescId = useId();
   const createWidgetDescId = useId();
   const createWidgetHelperId = useId();
   const galaxySettingsDescId = useId();
-
-  useEffect(() => {
-    setInstruction(resolvedInstruction);
-  }, [resolvedInstruction]);
 
   return (
     <section
@@ -606,7 +210,6 @@ export function ProjectGalaxyCard({
       />
 
       <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:items-start lg:gap-6">
-        
         <div className="flex min-w-0 flex-col pr-14 sm:pr-16">
           <div className="flex min-h-9 min-w-0 flex-wrap items-center gap-1">
             <h2
@@ -620,19 +223,14 @@ export function ProjectGalaxyCard({
           </div>
 
           <div className="mt-3 min-h-7 min-w-0">
-            {onRenameGalaxy ? (
-              <InlineNameEdit value={galaxyName} onSave={onRenameGalaxy} />
-            ) : (
-              <p
-                className="luxia-type-title-panel"
-                style={{ color: "rgba(198,177,245,0.92)", overflowWrap: "anywhere" }}
-              >
-                {galaxyName}
-              </p>
-            )}
+            <p
+              className="luxia-type-title-panel"
+              style={{ color: "rgba(198,177,245,0.92)", overflowWrap: "anywhere" }}
+            >
+              {galaxyName}
+            </p>
           </div>
 
-          
           <div className="mt-4 max-w-[36rem]">
             <p
               className="mb-1.5 luxia-type-overline-data"
@@ -640,22 +238,15 @@ export function ProjectGalaxyCard({
             >
               INSTRUCTION
             </p>
-            <InlineTextEdit
-              value={instruction}
-              onSave={(next) => {
-                setInstruction(next);
-                onSaveGalaxyInstruction?.(next);
-              }}
-              editLabel="Edit Galaxy instruction"
-              multiline
-              className="luxia-type-body-dense"
-              textStyle={{ color: "rgba(255,255,255,0.82)" }}
-              maxLinesClass="line-clamp-2"
-              whitespacePreserve
-            />
+            <p
+              className="line-clamp-2 luxia-type-body-dense whitespace-pre-line"
+              style={{ color: "rgba(255,255,255,0.82)", overflowWrap: "anywhere" }}
+              title={resolvedInstruction}
+            >
+              {summarizeInstruction(resolvedInstruction)}
+            </p>
           </div>
 
-          
           <div
             className="mt-5 flex max-w-full flex-wrap items-start gap-x-4 gap-y-4"
             aria-label="Galaxy actions"
@@ -728,7 +319,6 @@ export function ProjectGalaxyCard({
           </div>
         </div>
 
-        
         <div className="flex min-w-0 flex-col pr-12 pt-1 sm:pr-14 lg:pt-7">
           <h3
             id="project-helios-heading"
@@ -748,9 +338,11 @@ export function ProjectGalaxyCard({
           <div className="mt-3 flex flex-wrap gap-1.5" aria-label="Helios status">
             <HeliosChip>Active</HeliosChip>
             <HeliosChip>
-              {`${constellationCount} ${constellationCount === 1 ? "Constellation" : "Constellations"}`}
+              {`${usableConstellationCount} ${usableConstellationCount === 1 ? "Constellation" : "Constellations"}`}
             </HeliosChip>
-            <HeliosChip>3 Tools</HeliosChip>
+            <HeliosChip>
+              {`${capabilityCount} ${capabilityCount === 1 ? "Tool" : "Tools"}`}
+            </HeliosChip>
             <HeliosChip>Best-match routing</HeliosChip>
           </div>
 
@@ -759,10 +351,7 @@ export function ProjectGalaxyCard({
             aria-label="Helios configuration summary"
           >
             <HeliosMetaRow label="Tools">
-              <span>
-                {HELIOS_TOOL_NAMES.join(" · ")}
-                {` · +${HELIOS_TOOL_EXTRA_COUNT} more`}
-              </span>
+              {capabilityLabels.join(" · ")}
             </HeliosMetaRow>
 
             <HeliosMetaRow label="Instruction">
@@ -770,9 +359,11 @@ export function ProjectGalaxyCard({
             </HeliosMetaRow>
 
             <HeliosMetaRow label="Project access">
-              {constellationCount === 1
-                ? "All 1 Project Constellation"
-                : `All ${constellationCount} Project Constellations`}
+              {usableConstellationCount === 0
+                ? "No available Constellations"
+                : usableConstellationCount === 1
+                  ? "1 available Constellation"
+                  : `${usableConstellationCount} available Constellations`}
             </HeliosMetaRow>
           </div>
 

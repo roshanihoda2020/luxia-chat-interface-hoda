@@ -23,7 +23,7 @@ export const GALAXY_SETTINGS_SECTIONS: {
   label: string;
 }[] = [
   { id: "general", label: "General" },
-  { id: "instruction", label: "Instruction & Response" },
+  { id: "instruction", label: "Instructions" },
   { id: "routing", label: "Constellation Routing" },
   { id: "tools", label: "Helios & Tools" },
   { id: "access", label: "Access & Availability" },
@@ -78,31 +78,43 @@ export function parseGalaxySettingsTabFromSearch(
 
 export const GALAXY_SETTINGS_GUIDANCE = {
   page:
-    "Configure how this Project’s Galaxy responds, routes requests, and uses available tools.",
+    "Configure how this Project's Galaxy responds, routes requests, and uses available tools.",
   instruction:
-    "Guide how Galaxy should interpret requests and structure its responses.",
+    "Define the Project-level instructions Helios applies when routing and responding through this Galaxy.",
+  instructionFieldHelper:
+    "Galaxy instructions guide overall Project-level behavior. Constellation instructions still apply to their own responses.",
   routingAuto:
-    "Galaxy automatically selects an available Constellation for the request.",
+    "Helios selects the most appropriate available Constellation for each request.",
   routingManual:
-    "You select the Constellation context before sending a Galaxy request.",
+    "Choose which available Constellations Helios may use.",
   routingEmptyTitle: "No available Constellations",
   routingEmptyBody:
-    "Galaxy needs an available Constellation before it can route a request.",
-  heliosOrchestration:
-    "Helios orchestrates how Galaxy interprets requests, selects context, applies instructions, and uses available capabilities to produce responses.",
+    "Galaxy needs at least one usable Constellation before it can route Project questions.",
+  routingSearchPlaceholder: "Search Constellations",
+  heliosTitle: "Helios",
+  heliosStatus: "Active",
+  heliosDescription:
+    "Helios plans and routes Galaxy requests to the appropriate available Constellations.",
+  heliosFlow: [
+    "Understand request",
+    "Select appropriate Constellation",
+    "Return one clear answer",
+  ] as const,
   toolsIntro: "Capabilities Helios may use when answering in Galaxy.",
-  accessProject: "Available through Project membership",
+  accessGalaxy: "Available through Project membership",
+  accessExplanation:
+    "Galaxy availability follows Project membership and the access required by each Constellation's connected Data Sources.",
+  accessEmpty:
+    "No Constellations are currently available to this Galaxy.",
   readOnlyTitle: "Read only",
-  readOnlyBody: "You do not have permission to change Galaxy settings.",
+  readOnlyBody:
+    "Configuration changes are available to Project Owners and Project Managers.",
 } as const;
 
 export const GALAXY_SETTINGS_PAGE_VARIANT = "wide" as const;
 
 export const GALAXY_CONFIGURE_DENIED_MESSAGE =
   "You do not have permission to change Galaxy settings.";
-
-/** Cap for available-Constellation names listed in Settings Routing. */
-export const GALAXY_SETTINGS_CONSTELLATION_LIST_CAP = 8;
 
 export const GALAXY_MANUAL_ROUTE_REQUIRED_MESSAGE =
   "Select a Constellation before sending in Manual routing.";

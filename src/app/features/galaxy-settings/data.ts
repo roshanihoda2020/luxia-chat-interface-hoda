@@ -4,17 +4,19 @@ import {
 } from "@/app/features/galaxy";
 import type { GalaxyCapabilityInfo, GalaxySettingsRecord } from "./types";
 
-/** Real named capabilities shown on the Galaxy card — informational only (no runtime toggles). */
+/** Canonical Helios capabilities — shared by Galaxy Settings and Project Overview. */
 export const GALAXY_HELIOS_CAPABILITIES: GalaxyCapabilityInfo[] = [
   {
     id: "verification",
     name: "Verification",
-    description: "Checks answers against available Constellation context.",
+    description: "Helps validate response quality.",
+    status: "Available",
   },
   {
     id: "writing-assistant",
     name: "Writing Assistant",
-    description: "Helps structure and refine Galaxy responses.",
+    description: "Supports structured writing tasks.",
+    status: "Available",
   },
 ];
 
@@ -25,6 +27,7 @@ export function buildGalaxySettingsRecord(input: {
   name: string;
   instruction?: string;
   routeMode?: GalaxyRouteMode;
+  manualConstellationIds?: string[];
   updatedAt?: string;
 }): GalaxySettingsRecord {
   return {
@@ -34,6 +37,7 @@ export function buildGalaxySettingsRecord(input: {
     name: input.name,
     instruction: input.instruction ?? GALAXY_DEFAULT_INSTRUCTION,
     routeMode: input.routeMode ?? "auto",
+    manualConstellationIds: input.manualConstellationIds ?? [],
     updatedAt: input.updatedAt ?? "Just now",
   };
 }
@@ -41,5 +45,16 @@ export function buildGalaxySettingsRecord(input: {
 export function cloneGalaxySettingsRecord(
   record: GalaxySettingsRecord,
 ): GalaxySettingsRecord {
-  return { ...record };
+  return {
+    ...record,
+    manualConstellationIds: [...record.manualConstellationIds],
+  };
+}
+
+export function galaxyHeliosCapabilityCount(): number {
+  return GALAXY_HELIOS_CAPABILITIES.length;
+}
+
+export function galaxyHeliosCapabilityLabels(): string[] {
+  return GALAXY_HELIOS_CAPABILITIES.map((capability) => capability.name);
 }
