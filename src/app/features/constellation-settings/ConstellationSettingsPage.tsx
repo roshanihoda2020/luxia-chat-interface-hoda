@@ -46,6 +46,7 @@ import type {
   ProjectRole,
 } from "@/app/features/permissions";
 import { CURRENT_USER_ID, getOrganizationUserById } from "@/app/features/permissions";
+import { isOrganizationAdmin } from "@/app/features/permissions/accessGuards";
 import { LuxiaSettingsFormActions } from "@/app/features/shared/LuxiaSettingsFormActions";
 import {
   LUXIA_DIRTY_STATE_COPY,
@@ -280,8 +281,14 @@ export function ConstellationSettingsPage({
   );
 
   const canConfigureConstellation =
-    currentProjectRole === "Project Owner"
+    isOrganizationAdmin(currentUserId)
+    || currentProjectRole === "Project Owner"
     || currentProjectRole === "Project Manager";
+  const canEditKnowledge =
+    isOrganizationAdmin(currentUserId)
+    || currentProjectRole === "Project Owner"
+    || currentProjectRole === "Project Manager"
+    || currentProjectRole === "Analyst";
   const canArchiveConstellation =
     currentProjectRole === "Project Owner"
     || currentProjectRole === "Project Manager";
@@ -295,7 +302,9 @@ export function ConstellationSettingsPage({
   const configureRoleHint = !canConfigureConstellation
     ? (!currentProjectRole
       ? "Your Project role is unavailable for configuration."
-      : `Your Project role (${currentProjectRole}) cannot configure this Constellation.`)
+      : canEditKnowledge
+        ? `Your Project role (${currentProjectRole}) can edit Knowledge Base, Instructions, and Crawler only.`
+        : `Your Project role (${currentProjectRole}) cannot configure this Constellation.`)
     : null;
 
   const disconnectTarget = record.connectedSources.find(
@@ -687,24 +696,28 @@ export function ConstellationSettingsPage({
                           </p>
                         ) : null}
                       </div>
-                      {canConfigureConstellation ? (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="compact"
-                        onClick={() => onManageCapability(capability.id)}
-                        aria-label={capability.manageLabel}
-                      >
-                        {capability.manageLabel}
-                      </Button>
-                      ) : (
-                        <span
-                          className="luxia-type-caption shrink-0"
-                          style={{ color: "var(--luxia-text-muted)" }}
-                        >
-                          View only
-                        </span>
-                      )}
+                      {(() => {
+                        const isKnowledgeCapability = capability.id === "kb" || capability.id === "instr" || capability.id === "crawler";
+                        const canManageThis = isKnowledgeCapability ? canEditKnowledge : canConfigureConstellation;
+                        return canManageThis ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="compact"
+                            onClick={() => onManageCapability(capability.id)}
+                            aria-label={capability.manageLabel}
+                          >
+                            {capability.manageLabel}
+                          </Button>
+                        ) : (
+                          <span
+                            className="luxia-type-caption shrink-0"
+                            style={{ color: "var(--luxia-text-muted)" }}
+                          >
+                            View only
+                          </span>
+                        );
+                      })()}
                     </li>
                   );
                 })}

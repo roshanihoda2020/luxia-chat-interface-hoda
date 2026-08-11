@@ -183,7 +183,8 @@ export function DeleteProjectDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>Delete Project?</AlertDialogTitle>
           <AlertDialogDescription>
-            This will remove the Project and its associated content. This action cannot be undone.
+            Deleting this Project removes access to the Project and its associated Galaxy
+            and Constellations. This action cannot be undone from the Luxia interface.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

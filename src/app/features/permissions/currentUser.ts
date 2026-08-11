@@ -26,7 +26,7 @@ export function setPrototypeCurrentUserId(userId: string): void {
  * Not Organization roles and not a substitute for Project membership checks.
  */
 export const DEMO_PERSONA_ROLE_LABELS: Record<string, string> = {
-  "user-01": "Admin",
+  "user-01": "Project Owner",
   "user-02": "Project Manager",
   "user-03": "Analyst",
   "user-04": "Member",

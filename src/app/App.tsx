@@ -154,17 +154,23 @@ import {
   ACCESS_LEVEL_CREATE_DENIED_MESSAGE,
   CONSTELLATION_CONFIGURE_DENIED_MESSAGE,
   PROJECT_ACTION_DENIED_MESSAGE,
+  PROJECT_CREATE_DENIED_MESSAGE,
   canAdministerAccessLevels,
   canArchiveConstellation,
   canArchiveProject,
+  canAccessProject,
+  canAdministerProjectConfiguration,
   canConfigureConstellation,
+  canEditConstellationKnowledge,
   canCreateOrganizationalDataSource,
+  canCreateProject,
   canDeleteConstellation,
   canDeleteProject,
   countProjectMembers,
   evaluateConstellationUseAccess,
   getAccessibleConstellationIds,
   getActiveProjectMembership,
+  isOrganizationAdmin,
   isWorkingChatAccessible,
   setPrototypeCurrentUserId,
   getDemoPersonaRoleLabel,
@@ -5147,23 +5153,28 @@ export default function App() {
   }
 
   function userCanConfigureProject(projectId: string): boolean {
-    return canConfigureConstellation(projectRoleFor(projectId));
+    return canAdministerProjectConfiguration(
+      prototypeUserId,
+      projectRoleFor(projectId),
+    );
   }
 
   function isConstellationWorkingAccessible(
     projectId: string,
     constellationId: string,
   ): boolean {
+    if (!canAccessProject(projectId, projectMembershipsState, prototypeUserId)) {
+      return false;
+    }
     const membership = getActiveProjectMembership(
       projectId,
       projectMembershipsState,
       prototypeUserId,
     );
-    if (!membership) return false;
     return evaluateConstellationUseAccess({
       userId: prototypeUserId,
-      projectRole: membership.projectRole,
-      membershipStatus: membership.status,
+      projectRole: membership?.projectRole ?? null,
+      membershipStatus: membership?.status,
       connectedSourceIds: resolveConnectedSourceIds(constellationId),
       accessLevels: accessLevelsState,
       dataSources: dataSourcesState,
@@ -5190,12 +5201,9 @@ export default function App() {
   }
 
   function guardConstellationConfigure(projectId: string): boolean {
-    const membership = getActiveProjectMembership(
-      projectId,
-      projectMembershipsState,
-      prototypeUserId,
-    );
-    if (canConfigureConstellation(membership?.projectRole)) return true;
+    if (canAdministerProjectConfiguration(prototypeUserId, projectRoleFor(projectId))) {
+      return true;
+    }
     toast.error(CONSTELLATION_CONFIGURE_DENIED_MESSAGE);
     return false;
   }
@@ -5320,11 +5328,6 @@ export default function App() {
           ?? null);
     if (!projectId) return;
 
-    const membership = getActiveProjectMembership(
-      projectId,
-      projectMembershipsState,
-      userId,
-    );
     const onProjectSurface =
       appView === "project"
       || appView === "project-members"
@@ -5333,7 +5336,7 @@ export default function App() {
       || appView === "constellation-create"
       || appView === "chat";
 
-    if (!membership && onProjectSurface) {
+    if (!canAccessProject(projectId, projectMembershipsState, userId) && onProjectSurface) {
       handleNavigateHome();
       return;
     }
@@ -5341,21 +5344,25 @@ export default function App() {
     if (appView === "chat") {
       const chat = chats.find((item) => item.id === activeChat)
         ?? INITIAL_CHATS.find((item) => item.id === activeChat);
-      if (!chat || !membership) return;
-      if (chat.chatType !== "galaxy" && chat.constellationId) {
-        const record = constellationSettingsById[chat.constellationId]
-          ?? getConstellationSettingsRecord(chat.constellationId);
-        const connectedSourceIds = record?.connectedSources.map((source) => source.id) ?? [];
-        const allowed = evaluateConstellationUseAccess({
-          userId,
-          projectRole: membership.projectRole,
-          membershipStatus: membership.status,
-          connectedSourceIds,
-          accessLevels: accessLevelsState,
-          dataSources: dataSourcesState,
-        }).available;
-        if (!allowed) {
+      if (!chat) return;
+      if (!isWorkingChatAccessible({
+        chatType: chat.chatType,
+        projectId: chat.projectId,
+        constellationId: chat.constellationId,
+        userId,
+        memberships: projectMembershipsState,
+        accessLevels: accessLevelsState,
+        dataSources: dataSourcesState,
+        connectedSourceIds: chat.constellationId
+          ? (constellationSettingsById[chat.constellationId]
+            ?? getConstellationSettingsRecord(chat.constellationId))
+            ?.connectedSources.map((source) => source.id) ?? []
+          : [],
+      })) {
+        if (canAccessProject(projectId, projectMembershipsState, userId)) {
           handleOpenProjectOverview(projectId, "overview");
+        } else {
+          handleNavigateHome();
         }
       }
     }
@@ -5658,19 +5665,18 @@ export default function App() {
   function handleOpenProjectOverview(
     projectId: string,
     browseMode: ProjectOverviewBrowseMode = "overview",
+    options?: { skipMembershipCheck?: boolean; project?: HomeProjectCard },
   ) {
-    const membership = getActiveProjectMembership(
-      projectId,
-      projectMembershipsState,
-      prototypeUserId,
-    );
-    if (!membership) {
-      toast.error("You are not an active member of this Project.");
-      handleNavigateHome();
-      return;
+    if (!options?.skipMembershipCheck) {
+      if (!canAccessProject(projectId, projectMembershipsState, prototypeUserId)) {
+        toast.error("You are not an active member of this Project.");
+        handleNavigateHome();
+        return;
+      }
     }
 
-    const project = homeProjects.find((entry) => entry.id === projectId);
+    const project = options?.project
+      ?? homeProjects.find((entry) => entry.id === projectId);
     if (!project) {
       setActiveProjectId(projectId);
       setProjectBrowseMode(
@@ -5750,6 +5756,14 @@ export default function App() {
   const recentWork = useMemo<HomeRecentWorkItem[]>(() => (
     HOME_RECENT_WORK
       .filter((item) => homeProjects.some((project) => project.id === item.projectId))
+      .filter((item) => {
+        const chat = chats.find((c) => c.id === item.chatId)
+          ?? INITIAL_CHATS.find((c) => c.id === item.chatId);
+        if (!chat) {
+          return canAccessProject(item.projectId, projectMembershipsState, prototypeUserId);
+        }
+        return isChatWorkingAccessible(chat);
+      })
       .map((item) => {
         const chat = chats.find((c) => c.id === item.chatId);
         const key = workItemEntityKey(item);
@@ -5768,7 +5782,7 @@ export default function App() {
           projectDescription: projectCard?.description,
         };
       })
-  ), [allConstellations, chats, homeProjects, pinnedEntityOrder]);
+  ), [allConstellations, chats, homeProjects, pinnedEntityOrder, projectMembershipsState, prototypeUserId, accessLevelsState, dataSourcesState, constellationSettingsById]);
 
   useEffect(() => {
     const normalized = normalizeHomePrimaryPreference(
@@ -5891,6 +5905,24 @@ export default function App() {
       || activeData?.projectId === projectId;
 
     setHomeProjects((prev) => prev.filter((project) => project.id !== projectId));
+
+    setProjectMembershipsState((prev) =>
+      prev.filter((membership) => membership.projectId !== projectId),
+    );
+
+    const galaxyId = target.galaxyId;
+    setGalaxySessions((prev) => {
+      if (!galaxyId || !(galaxyId in prev)) return prev;
+      const next = { ...prev };
+      delete next[galaxyId];
+      return next;
+    });
+    setGalaxySettingsById((prev) => {
+      if (!galaxyId || !(galaxyId in prev)) return prev;
+      const next = { ...prev };
+      delete next[galaxyId];
+      return next;
+    });
 
     if (pinnedProjectIds.includes(projectId)) {
       const nextPins = pinnedProjectIds.filter((id) => id !== projectId);
@@ -6247,12 +6279,9 @@ export default function App() {
   }
 
   function guardGalaxyConfigure(projectId: string): boolean {
-    const membership = getActiveProjectMembership(
-      projectId,
-      projectMembershipsState,
-      prototypeUserId,
-    );
-    if (canConfigureConstellation(membership?.projectRole)) return true;
+    if (canAdministerProjectConfiguration(prototypeUserId, projectRoleFor(projectId))) {
+      return true;
+    }
     toast.error(GALAXY_CONFIGURE_DENIED_MESSAGE);
     return false;
   }
@@ -6473,12 +6502,20 @@ export default function App() {
   }
 
   function handleCreateProject(name: string) {
+    if (!canCreateProject(prototypeUserId)) {
+      toast.error(PROJECT_CREATE_DENIED_MESSAGE);
+      return;
+    }
+    const trimmed = name.trim();
+    if (!trimmed) return;
+
     const stamp = Date.now();
     const id = `project-${stamp}`;
     const galaxyId = `galaxy-${stamp}`;
-    setHomeProjects((prev) => [...prev, {
+    const galaxyLabel = trimmed;
+    const newProject: HomeProjectCard = {
       id,
-      name,
+      name: trimmed,
       galaxyId,
       constellationCount: 0,
       sourceCount: 0,
@@ -6490,8 +6527,46 @@ export default function App() {
       isEmpty: true,
       status: "active",
       description: undefined,
+    };
+
+    setHomeProjects((prev) => [...prev, newProject]);
+
+    setProjectMembershipsState((prev) => [...prev, {
+      id: `pm-${id}-${prototypeUserId}`,
+      projectId: id,
+      userId: prototypeUserId,
+      projectRole: "Project Owner",
+      status: "active",
+      joinedOrInvitedAt: new Date(stamp).toISOString(),
     }]);
-    handleOpenProjectOverview(id, "overview");
+
+    setChats((prev) => [...prev, {
+      id: galaxyId,
+      label: galaxyLabel,
+      chatType: "galaxy",
+      projectId: id,
+    }]);
+
+    setGalaxySessions((prev) => ({
+      ...prev,
+      [galaxyId]: createIdleGalaxySession(trimmed),
+    }));
+
+    setGalaxySettingsById((prev) => ({
+      ...prev,
+      [galaxyId]: buildGalaxySettingsRecord({
+        id: galaxyId,
+        projectId: id,
+        projectName: trimmed,
+        name: galaxyLabel,
+      }),
+    }));
+
+    setShowNewProjectModal(false);
+    handleOpenProjectOverview(id, "overview", {
+      skipMembershipCheck: true,
+      project: newProject,
+    });
   }
 
   function handleChatPin(id: string) {
@@ -7221,28 +7296,38 @@ export default function App() {
     ) ?? null;
   }, [contextProjectId, projectMembershipsState, prototypeUserId]);
 
-  const showProjectContext = Boolean(contextProjectId && contextProjectMembership);
+  const showProjectContext = Boolean(
+    contextProjectId
+    && (
+      contextProjectMembership
+      || isOrganizationAdmin(prototypeUserId)
+    ),
+  );
 
   const sidebarProjectChats = useMemo(() => {
-    if (!contextProjectId || !contextProjectMembership) return [];
-    const role = contextProjectMembership.projectRole;
+    if (!contextProjectId) return [];
+    if (
+      !contextProjectMembership
+      && !isOrganizationAdmin(prototypeUserId)
+    ) {
+      return [];
+    }
     return overviewChats
       .filter((chat) => chat.projectId === contextProjectId)
-      .filter((chat) => {
-        if (chat.chatSource === "galaxy") return true;
-        if (!chat.constellationId) return false;
-        const record = constellationSettingsById[chat.constellationId]
-          ?? getConstellationSettingsRecord(chat.constellationId);
-        const connectedSourceIds = record?.connectedSources.map((source) => source.id) ?? [];
-        return evaluateConstellationUseAccess({
-          userId: prototypeUserId,
-          projectRole: role,
-          membershipStatus: contextProjectMembership.status,
-          connectedSourceIds,
-          accessLevels: accessLevelsState,
-          dataSources: dataSourcesState,
-        }).available;
-      })
+      .filter((chat) => isWorkingChatAccessible({
+        chatType: chat.chatSource === "galaxy" ? "galaxy" : "constellation",
+        projectId: chat.projectId,
+        constellationId: chat.constellationId,
+        userId: prototypeUserId,
+        memberships: projectMembershipsState,
+        accessLevels: accessLevelsState,
+        dataSources: dataSourcesState,
+        connectedSourceIds: chat.constellationId
+          ? (constellationSettingsById[chat.constellationId]
+            ?? getConstellationSettingsRecord(chat.constellationId))
+            ?.connectedSources.map((source) => source.id) ?? []
+          : [],
+      }))
       .map((chat) => ({
         id: chat.id,
         label: chat.label,
@@ -7263,8 +7348,14 @@ export default function App() {
   ]);
 
   const sidebarProjectConstellations = useMemo(() => {
-    if (!contextProjectId || !contextProjectMembership) return [];
-    const role = contextProjectMembership.projectRole;
+    if (!contextProjectId) return [];
+    if (
+      !contextProjectMembership
+      && !isOrganizationAdmin(prototypeUserId)
+    ) {
+      return [];
+    }
+    const role = contextProjectMembership?.projectRole ?? null;
     return overviewConstellations
       .filter((item) => item.projectId === contextProjectId)
       .filter((item) => {
@@ -7274,7 +7365,7 @@ export default function App() {
         return evaluateConstellationUseAccess({
           userId: prototypeUserId,
           projectRole: role,
-          membershipStatus: contextProjectMembership.status,
+          membershipStatus: contextProjectMembership?.status,
           connectedSourceIds,
           accessLevels: accessLevelsState,
           dataSources: dataSourcesState,
@@ -7324,15 +7415,63 @@ export default function App() {
     ],
   );
 
-  const membershipHomeProjects = useMemo(
-    () => homeProjects.filter((project) => Boolean(
-      getActiveProjectMembership(project.id, projectMembershipsState, prototypeUserId),
-    )),
-    [homeProjects, projectMembershipsState, prototypeUserId],
+  const accessibleHomeProjects = useMemo(
+    () => {
+      const visible = homeProjects.filter((project) =>
+        canAccessProject(project.id, projectMembershipsState, prototypeUserId),
+      );
+      if (isOrganizationAdmin(prototypeUserId)) {
+        return visible;
+      }
+      return visible.map((project) => {
+        const accessibleConstellations = overviewConstellations.filter((item) => {
+          if (item.projectId !== project.id) return false;
+          const record = constellationSettingsById[item.id]
+            ?? getConstellationSettingsRecord(item.id);
+          const connectedSourceIds = record?.connectedSources.map((source) => source.id) ?? [];
+          const membership = getActiveProjectMembership(
+            project.id,
+            projectMembershipsState,
+            prototypeUserId,
+          );
+          return evaluateConstellationUseAccess({
+            userId: prototypeUserId,
+            projectRole: membership?.projectRole ?? null,
+            membershipStatus: membership?.status,
+            connectedSourceIds,
+            accessLevels: accessLevelsState,
+            dataSources: dataSourcesState,
+          }).available;
+        });
+        const sourceIds = new Set<string>();
+        for (const item of accessibleConstellations) {
+          const record = constellationSettingsById[item.id]
+            ?? getConstellationSettingsRecord(item.id);
+          for (const source of record?.connectedSources ?? []) {
+            sourceIds.add(source.id);
+          }
+        }
+        return {
+          ...project,
+          constellationCount: accessibleConstellations.length,
+          sourceCount: sourceIds.size,
+          isEmpty: accessibleConstellations.length === 0,
+        };
+      });
+    },
+    [
+      homeProjects,
+      projectMembershipsState,
+      prototypeUserId,
+      overviewConstellations,
+      constellationSettingsById,
+      accessLevelsState,
+      dataSourcesState,
+    ],
   );
 
   const sidebarSwitchableProjects = useMemo(
-    () => membershipHomeProjects.map((project) => {
+    () => accessibleHomeProjects.map((project) => {
       const membership = getActiveProjectMembership(
         project.id,
         projectMembershipsState,
@@ -7341,27 +7480,31 @@ export default function App() {
       return {
         id: project.id,
         label: project.name,
-        projectRole: membership?.projectRole ?? ("Member" as const),
+        projectRole: membership?.projectRole,
+        projectRoleLabel: membership?.projectRole
+          ?? (isOrganizationAdmin(prototypeUserId) ? "Admin" : undefined),
       };
     }),
-    [membershipHomeProjects, projectMembershipsState, prototypeUserId],
+    [accessibleHomeProjects, projectMembershipsState, prototypeUserId],
   );
 
   const workingAccessibleOverviewConstellations = useMemo(() => {
     return overviewConstellations.filter((item) => {
+      if (!canAccessProject(item.projectId, projectMembershipsState, prototypeUserId)) {
+        return false;
+      }
       const membership = getActiveProjectMembership(
         item.projectId,
         projectMembershipsState,
         prototypeUserId,
       );
-      if (!membership) return false;
       const record = constellationSettingsById[item.id]
         ?? getConstellationSettingsRecord(item.id);
       const connectedSourceIds = record?.connectedSources.map((source) => source.id) ?? [];
       return evaluateConstellationUseAccess({
         userId: prototypeUserId,
-        projectRole: membership.projectRole,
-        membershipStatus: membership.status,
+        projectRole: membership?.projectRole ?? null,
+        membershipStatus: membership?.status,
         connectedSourceIds,
         accessLevels: accessLevelsState,
         dataSources: dataSourcesState,
@@ -7387,7 +7530,7 @@ export default function App() {
       return;
     }
     const projectId = chat.projectId;
-    if (getActiveProjectMembership(projectId, projectMembershipsState, prototypeUserId)) {
+    if (canAccessProject(projectId, projectMembershipsState, prototypeUserId)) {
       handleOpenProjectOverview(projectId, "overview");
       return;
     }
@@ -7463,17 +7606,13 @@ export default function App() {
         }}
         prototypeUser={prototypeUser}
         prototypeProjectRole={prototypeProjectRole}
-        prototypeUsers={
-          import.meta.env.DEV
-            ? ORGANIZATION_USERS.map((user) => ({
-              id: user.id,
-              name: user.name,
-              orgRole: user.orgRole,
-              roleLabel: getDemoPersonaRoleLabel(user.id),
-            }))
-            : undefined
-        }
-        onPrototypeUserChange={import.meta.env.DEV ? handlePrototypeUserChange : undefined}
+        prototypeUsers={ORGANIZATION_USERS.map((user) => ({
+          id: user.id,
+          name: user.name,
+          orgRole: user.orgRole,
+          roleLabel: getDemoPersonaRoleLabel(user.id),
+        }))}
+        onPrototypeUserChange={handlePrototypeUserChange}
         onSecondaryRailOpenChange={setLeftNavSecondaryOpen}
       />
 
@@ -7481,19 +7620,8 @@ export default function App() {
         {appView === "home" ? (
           <HomePageShell scrollRequest={homeScrollRequest} variant="standard">
             <HomePage
-              projects={membershipHomeProjects}
-              recentWork={recentWork.filter((item) => {
-                const chat = chats.find((entry) => entry.id === item.id)
-                  ?? INITIAL_CHATS.find((entry) => entry.id === item.id);
-                if (!chat) {
-                  return Boolean(getActiveProjectMembership(
-                    item.projectId,
-                    projectMembershipsState,
-                    prototypeUserId,
-                  ));
-                }
-                return isChatWorkingAccessible(chat);
-              })}
+              projects={accessibleHomeProjects}
+              recentWork={recentWork}
               pinnedProjectIds={pinnedProjectIds}
               pinnedEntityOrder={pinnedEntityOrder}
               primaryPreference={primaryPreference}
@@ -7806,6 +7934,14 @@ export default function App() {
                     bundle={capabilityBundle}
                     onUpdateBundle={(next) => {
                       if (!constellationId || settingsUnavailable) return;
+                      const capId = settingsCapabilityId ?? "instr";
+                      const isKnowledgeCap = capId === "kb" || capId === "instr" || capId === "crawler";
+                      const role = projectRoleFor(projectId || "");
+                      if (isKnowledgeCap) {
+                        if (!canEditConstellationKnowledge(role) && !isOrganizationAdmin(prototypeUserId)) return;
+                      } else {
+                        if (!canAdministerProjectConfiguration(prototypeUserId, role)) return;
+                      }
                       handleUpdateCapabilityBundle(constellationId, next);
                     }}
                     unavailable={
@@ -7879,6 +8015,13 @@ export default function App() {
                   }}
                   onManageCapability={(capabilityId) => {
                     if (!projectId || !constellationId || settingsUnavailable) return;
+                    const isKnowledgeCap = capabilityId === "kb" || capabilityId === "instr" || capabilityId === "crawler";
+                    const role = projectRoleFor(projectId);
+                    if (isKnowledgeCap) {
+                      if (!canEditConstellationKnowledge(role) && !isOrganizationAdmin(prototypeUserId)) return;
+                    } else {
+                      if (!canAdministerProjectConfiguration(prototypeUserId, role)) return;
+                    }
                     handleOpenConstellationCapability(
                       projectId,
                       constellationId,
@@ -8358,7 +8501,10 @@ export default function App() {
               projectId={activeData?.projectId ?? homeProjects[0]?.id ?? "project-01"}
               allowConstellationChange={activeData?.chatType === "constellation"}
               isGalaxyChat={false}
-              canConfigure={canConfigureConstellation(prototypeProjectRole)}
+              canConfigure={canAdministerProjectConfiguration(
+                prototypeUserId,
+                prototypeProjectRole,
+              )}
             />
           )}
           </div>
@@ -8377,7 +8523,7 @@ export default function App() {
           constellations={allConstellations.filter((item) =>
             workingAccessibleOverviewConstellations.some((entry) => entry.id === item.id),
           )}
-          projects={homeProjectsAsSelectOptions(membershipHomeProjects)}
+          projects={homeProjectsAsSelectOptions(accessibleHomeProjects)}
         />
       )}
       {showNewProjectModal && (

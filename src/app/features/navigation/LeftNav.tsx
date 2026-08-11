@@ -66,7 +66,7 @@ import {
   LuxiaUserPermissionsIcon,
   type LuxiaIconProps,
 } from "@/assets/icons";
-import { canAccessProjectSettings } from "@/app/features/permissions/accessGuards";
+import { canAccessProjectSettingsForUser } from "@/app/features/permissions/accessGuards";
 import type { ProjectRole } from "@/app/features/permissions/types";
 
 export const SIDEBAR_WIDTH_EXPANDED = 280;
@@ -117,7 +117,9 @@ export type LeftNavConstellationPreview = {
 export type LeftNavProjectPreview = {
   id: string;
   label: string;
-  projectRole: ProjectRole;
+  projectRole?: ProjectRole;
+  /** When Admin enters without explicit Project membership. */
+  projectRoleLabel?: string;
 };
 
 export type LeftNavProps = {
@@ -827,6 +829,109 @@ function SidebarSecondaryRail({
   );
 }
 
+function DemoIdentityControl({
+  compact,
+  profileInitials,
+  profileName,
+  profileRoleLabel,
+  profileAria,
+  selectedOptionLabel,
+  prototypeUserId,
+  prototypeUsers,
+  onPrototypeUserChange,
+}: {
+  compact?: boolean;
+  profileInitials: string;
+  profileName: string;
+  profileRoleLabel: string;
+  profileAria: string;
+  selectedOptionLabel: string;
+  prototypeUserId?: string;
+  prototypeUsers: Array<{ id: string; name: string; roleLabel: string }>;
+  onPrototypeUserChange: (userId: string) => void;
+}) {
+  return (
+    <div className={compact ? "block w-full min-w-0" : "block min-w-0"}>
+      {!compact ? (
+        <p
+          className="mb-1 luxia-type-caption"
+          style={{ color: "rgba(255,255,255,0.45)" }}
+          id="luxia-demo-identity-label"
+        >
+          Demo identity
+        </p>
+      ) : null}
+      <Select
+        value={prototypeUserId ?? ""}
+        onValueChange={onPrototypeUserChange}
+      >
+        <SelectTrigger
+          size="sm"
+          aria-labelledby={compact ? undefined : "luxia-demo-identity-label"}
+          aria-label={compact ? "Demo identity" : "Demo identity"}
+          className={
+            compact
+              ? "h-10 min-h-10 w-full border-0 bg-transparent p-0 shadow-none hover:bg-transparent focus-visible:border-[rgba(150,219,251,0.55)] focus-visible:shadow-[0_0_0_3px_rgba(150,219,251,0.22)] [&_svg]:hidden"
+              : "h-9 min-h-9 w-full min-w-0 border-[rgba(255,255,255,0.14)] bg-[rgba(255,255,255,0.08)] px-2.5 text-left text-[rgba(255,255,255,0.92)] hover:border-[rgba(255,255,255,0.28)] focus-visible:border-[rgba(150,219,251,0.55)] focus-visible:shadow-[0_0_0_3px_rgba(150,219,251,0.22)] [&_svg]:text-[rgba(255,255,255,0.55)]"
+          }
+        >
+          {compact ? (
+            <span className="flex w-full items-center justify-center" aria-label={profileAria}>
+              <span
+                className="w-8 h-8 rounded-[8px] flex items-center justify-center text-white luxia-type-caption flex-shrink-0"
+                style={{ background: "linear-gradient(135deg, #5BC8F5 0%, #2C7A9E 100%)" }}
+                aria-hidden
+              >
+                {profileInitials}
+              </span>
+            </span>
+          ) : (
+            <SelectValue placeholder="Select identity">
+              <span className="truncate luxia-type-caption">{selectedOptionLabel}</span>
+            </SelectValue>
+          )}
+        </SelectTrigger>
+        <SelectContent
+          position="popper"
+          side="top"
+          sideOffset={6}
+          className="z-[60] min-w-[var(--radix-select-trigger-width)]"
+        >
+          {prototypeUsers.map((user) => {
+            const accessibleName = `${user.name}, ${user.roleLabel}`;
+            return (
+              <SelectItem
+                key={user.id}
+                value={user.id}
+                textValue={accessibleName}
+                className="data-[state=checked]:bg-[var(--luxia-opacity-brand-secondary-08)]"
+              >
+                <span className="flex w-full min-w-0 items-center justify-between gap-3 pr-1">
+                  <span className="truncate">{user.name}</span>
+                  <span
+                    className="flex-shrink-0 luxia-type-caption"
+                    style={{ color: "var(--luxia-text-muted)" }}
+                  >
+                    {user.roleLabel}
+                  </span>
+                </span>
+              </SelectItem>
+            );
+          })}
+        </SelectContent>
+      </Select>
+      {!compact ? (
+        <span
+          className="mt-1 block luxia-type-caption"
+          style={{ color: "rgba(255,255,255,0.35)" }}
+        >
+          Prototype preview only
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 export function LeftNav({
   collapsed,
   onToggleCollapsed,
@@ -883,7 +988,7 @@ export function LeftNav({
   const [chatQuery, setChatQuery] = useState("");
   const [projectQuery, setProjectQuery] = useState("");
 
-  const showDemoIdentity = import.meta.env.DEV && Boolean(prototypeUsers && onPrototypeUserChange);
+  const showDemoIdentity = Boolean(prototypeUsers && onPrototypeUserChange);
   const navPadding = collapsed ? "px-2" : "px-3";
   const showProjectNav = Boolean(projectId && projectLabel && showProjectContext);
   const canSwitchProjects = switchableProjects.length > 1;
@@ -912,7 +1017,7 @@ export function LeftNav({
     ? SIDEBAR_WIDTH_EXPANDED
     : (collapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_EXPANDED);
   const showProjectSettings = PROJECT_SETTINGS_DESTINATION_AVAILABLE
-    && canAccessProjectSettings(prototypeProjectRole);
+    && canAccessProjectSettingsForUser(prototypeUser?.id, prototypeProjectRole);
 
   const quickChats = useMemo(
     () =>
@@ -1173,7 +1278,7 @@ export function LeftNav({
       <ProjectSwitcherRow
         key={item.id}
         label={item.label}
-        roleLabel={item.projectRole}
+        roleLabel={item.projectRoleLabel ?? item.projectRole ?? "Member"}
         active={projectId === item.id}
         href={getProjectPath(item.id)}
         onClick={() => selectProjectAndClose(item.id)}
@@ -1257,49 +1362,68 @@ export function LeftNav({
       >
         {!railCollapsed ? <SidebarStarDecoration /> : null}
 
-        {mobileFlyoutActive && flyout === "projects" ? (
-          <SidebarSecondaryRail
-            id={projectsPanelId}
-            mode="mobile"
-            title="Projects"
-            searchPlaceholder="Search Projects"
-            noMatchLabel="No matching Projects"
-            query={projectQuery}
-            onQueryChange={setProjectQuery}
-            rows={projectRows}
-            isEmptyList={projectListEmpty}
-            onClose={closeSecondaryRail}
-            closeLabel="Close Projects navigation"
-          />
-        ) : mobileFlyoutActive && flyout === "constellations" ? (
-          <SidebarSecondaryRail
-            id={constellationsPanelId}
-            mode="mobile"
-            title="Constellations"
-            searchPlaceholder="Search Constellations"
-            noMatchLabel="No matching Constellations"
-            query={constellationQuery}
-            onQueryChange={setConstellationQuery}
-            rows={constellationRows}
-            isEmptyList={constellationListEmpty}
-            onClose={closeSecondaryRail}
-            closeLabel="Close Constellations navigation"
-          />
-        ) : mobileFlyoutActive && flyout === "chats" ? (
-          <SidebarSecondaryRail
-            id={chatsPanelId}
-            mode="mobile"
-            title="Chats"
-            searchPlaceholder="Search Chats"
-            noMatchLabel="No matching Chats"
-            query={chatQuery}
-            onQueryChange={setChatQuery}
-            rows={chatRows}
-            isEmptyList={chatListEmpty}
-            onClose={closeSecondaryRail}
-            closeLabel="Close Chats navigation"
-          />
-        ) : (
+        <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+          {isMobileDrawer && mobileFlyoutActive && flyout === "projects" ? (
+            <div
+              className="absolute inset-0 z-[4] flex flex-col overflow-hidden"
+              style={{ background: LX.gradient.nav }}
+            >
+              <SidebarSecondaryRail
+                id={projectsPanelId}
+                mode="mobile"
+                title="Projects"
+                searchPlaceholder="Search Projects"
+                noMatchLabel="No matching Projects"
+                query={projectQuery}
+                onQueryChange={setProjectQuery}
+                rows={projectRows}
+                isEmptyList={projectListEmpty}
+                onClose={closeSecondaryRail}
+                closeLabel="Close Projects navigation"
+              />
+            </div>
+          ) : null}
+          {isMobileDrawer && mobileFlyoutActive && flyout === "constellations" ? (
+            <div
+              className="absolute inset-0 z-[4] flex flex-col overflow-hidden"
+              style={{ background: LX.gradient.nav }}
+            >
+              <SidebarSecondaryRail
+                id={constellationsPanelId}
+                mode="mobile"
+                title="Constellations"
+                searchPlaceholder="Search Constellations"
+                noMatchLabel="No matching Constellations"
+                query={constellationQuery}
+                onQueryChange={setConstellationQuery}
+                rows={constellationRows}
+                isEmptyList={constellationListEmpty}
+                onClose={closeSecondaryRail}
+                closeLabel="Close Constellations navigation"
+              />
+            </div>
+          ) : null}
+          {isMobileDrawer && mobileFlyoutActive && flyout === "chats" ? (
+            <div
+              className="absolute inset-0 z-[4] flex flex-col overflow-hidden"
+              style={{ background: LX.gradient.nav }}
+            >
+              <SidebarSecondaryRail
+                id={chatsPanelId}
+                mode="mobile"
+                title="Chats"
+                searchPlaceholder="Search Chats"
+                noMatchLabel="No matching Chats"
+                query={chatQuery}
+                onQueryChange={setChatQuery}
+                rows={chatRows}
+                isEmptyList={chatListEmpty}
+                onClose={closeSecondaryRail}
+                closeLabel="Close Chats navigation"
+              />
+            </div>
+          ) : null}
+
           <>
             <div
               className={`relative z-[2] flex-shrink-0 ${railCollapsed ? "flex justify-center" : ""}`}
@@ -1628,32 +1752,52 @@ export function LeftNav({
                 ))}
               </nav>
             </div>
+          </>
+        </div>
 
-            {railCollapsed ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div
-                    className="relative z-[2] flex flex-shrink-0 items-center justify-center px-2 py-2.5"
-                    style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
-                    aria-label={profileAria}
-                  >
-                    <div
-                      className="w-8 h-8 rounded-[8px] flex items-center justify-center text-white luxia-type-caption flex-shrink-0"
-                      style={{ background: "linear-gradient(135deg, #5BC8F5 0%, #2C7A9E 100%)" }}
-                      aria-hidden
-                    >
-                      {profileInitials}
-                    </div>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="right" sideOffset={8} className="max-w-[220px]">
-                  <div className="flex flex-col gap-0.5">
-                    <span>{profileName}</span>
-                    <span>{profileRoleLabel}</span>
-                    <span style={{ opacity: 0.75 }}>Prototype preview only</span>
-                  </div>
-                </TooltipContent>
-              </Tooltip>
+        {railCollapsed ? (
+              <div
+                className="relative z-[2] flex flex-shrink-0 flex-col items-center gap-2 px-2 py-2.5"
+                style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
+              >
+                {showDemoIdentity && prototypeUsers && onPrototypeUserChange ? (
+                  <DemoIdentityControl
+                    compact
+                    profileInitials={profileInitials}
+                    profileName={profileName}
+                    profileRoleLabel={profileRoleLabel}
+                    profileAria={profileAria}
+                    selectedOptionLabel={selectedOptionLabel}
+                    prototypeUserId={prototypeUser?.id}
+                    prototypeUsers={prototypeUsers}
+                    onPrototypeUserChange={onPrototypeUserChange}
+                  />
+                ) : (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div
+                        className="flex items-center justify-center"
+                        aria-label={profileAria}
+                      >
+                        <div
+                          className="w-8 h-8 rounded-[8px] flex items-center justify-center text-white luxia-type-caption flex-shrink-0"
+                          style={{ background: "linear-gradient(135deg, #5BC8F5 0%, #2C7A9E 100%)" }}
+                          aria-hidden
+                        >
+                          {profileInitials}
+                        </div>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="right" sideOffset={8} className="max-w-[220px]">
+                      <div className="flex flex-col gap-0.5">
+                        <span>{profileName}</span>
+                        <span>{profileRoleLabel}</span>
+                        <span style={{ opacity: 0.75 }}>Prototype preview only</span>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+              </div>
             ) : (
               <div
                 className="relative z-[2] flex flex-shrink-0 flex-col gap-2 px-4 py-2.5"
@@ -1679,70 +1823,20 @@ export function LeftNav({
                     </p>
                   </div>
                 </div>
-                {showDemoIdentity ? (
-                  <div className="block min-w-0">
-                    <p
-                      className="mb-1 luxia-type-caption"
-                      style={{ color: "rgba(255,255,255,0.45)" }}
-                      id="luxia-demo-identity-label"
-                    >
-                      Demo identity
-                    </p>
-                    <Select
-                      value={prototypeUser?.id ?? ""}
-                      onValueChange={(value) => onPrototypeUserChange?.(value)}
-                    >
-                      <SelectTrigger
-                        size="sm"
-                        aria-labelledby="luxia-demo-identity-label"
-                        aria-label="Demo identity"
-                        className="h-9 min-h-9 w-full min-w-0 border-[rgba(255,255,255,0.14)] bg-[rgba(255,255,255,0.08)] px-2.5 text-left text-[rgba(255,255,255,0.92)] hover:border-[rgba(255,255,255,0.28)] focus-visible:border-[rgba(150,219,251,0.55)] focus-visible:shadow-[0_0_0_3px_rgba(150,219,251,0.22)] [&_svg]:text-[rgba(255,255,255,0.55)]"
-                      >
-                        <SelectValue placeholder="Select identity">
-                          <span className="truncate luxia-type-caption">{selectedOptionLabel}</span>
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent
-                        position="popper"
-                        side="top"
-                        sideOffset={6}
-                        className="z-[60] min-w-[var(--radix-select-trigger-width)]"
-                      >
-                        {prototypeUsers?.map((user) => {
-                          const accessibleName = `${user.name}, ${user.roleLabel}`;
-                          return (
-                            <SelectItem
-                              key={user.id}
-                              value={user.id}
-                              textValue={accessibleName}
-                              className="data-[state=checked]:bg-[var(--luxia-opacity-brand-secondary-08)]"
-                            >
-                              <span className="flex w-full min-w-0 items-center justify-between gap-3 pr-1">
-                                <span className="truncate">{user.name}</span>
-                                <span
-                                  className="flex-shrink-0 luxia-type-caption"
-                                  style={{ color: "var(--luxia-text-muted)" }}
-                                >
-                                  {user.roleLabel}
-                                </span>
-                              </span>
-                            </SelectItem>
-                          );
-                        })}
-                      </SelectContent>
-                    </Select>
-                    <span
-                      className="mt-1 block luxia-type-caption"
-                      style={{ color: "rgba(255,255,255,0.35)" }}
-                    >
-                      Prototype preview only
-                    </span>
-                  </div>
+                {showDemoIdentity && prototypeUsers && onPrototypeUserChange ? (
+                  <DemoIdentityControl
+                    profileInitials={profileInitials}
+                    profileName={profileName}
+                    profileRoleLabel={profileRoleLabel}
+                    profileAria={profileAria}
+                    selectedOptionLabel={selectedOptionLabel}
+                    prototypeUserId={prototypeUser?.id}
+                    prototypeUsers={prototypeUsers}
+                    onPrototypeUserChange={onPrototypeUserChange}
+                  />
                 ) : null}
               </div>
             )}
-          </>
-        )}
       </div>
     </aside>
   );

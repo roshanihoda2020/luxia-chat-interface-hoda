@@ -509,6 +509,16 @@ export function resolveUserDataSourceAccess(
   const sourceStatus = source?.status ?? null;
   const sourceUsable = source ? isDataSourceUsable(source.status) : false;
 
+  if (getOrganizationUserById(userId)?.orgRole === "Admin") {
+    return {
+      permission: "Manage",
+      accessLevelNames: [],
+      viaOwner: false,
+      sourceStatus,
+      sourceUsable,
+    };
+  }
+
   if (source?.ownership === "private" && source.ownerUserId === userId) {
     return {
       permission: "Manage",
@@ -578,6 +588,17 @@ export function buildProjectDataReadiness(input: {
     accessLevels,
     dataSources = DATA_SOURCE_CATALOG,
   } = input;
+
+  if (getOrganizationUserById(userId)?.orgRole === "Admin") {
+    return {
+      label: "Ready",
+      detail: requiredSourceIds.length === 0
+        ? "This Project has no Data Sources connected through Constellations yet."
+        : `Use or Manage available for all ${requiredSourceIds.length} Project Data Sources.`,
+      missingSourceIds: [],
+      requiredSourceIds,
+    };
+  }
 
   if (membershipStatus === "pending") {
     return {

@@ -29,7 +29,8 @@ import {
   LUXIA_SETTINGS_ROW_DIVIDER,
 } from "@/app/features/shared/luxiaSettingsUx";
 import {
-  canConfigureConstellation,
+  canAccessProject,
+  canAdministerProjectConfiguration,
   evaluateConstellationUseAccess,
   getActiveProjectMembership,
 } from "./accessGuards";
@@ -378,13 +379,18 @@ export function DataSourceSettingsPage({
 
   const usageVisible = useMemo(() => {
     return usageAll.filter((item) => {
+      if (!canAccessProject(item.projectId, memberships, currentUserId)) {
+        return false;
+      }
       const membership = getActiveProjectMembership(
         item.projectId,
         memberships,
         currentUserId,
       );
+      if (canAdministerProjectConfiguration(currentUserId, membership?.projectRole)) {
+        return true;
+      }
       if (!membership || membership.status !== "active") return false;
-      if (canConfigureConstellation(membership.projectRole)) return true;
       return evaluateConstellationUseAccess({
         userId: currentUserId,
         projectRole: membership.projectRole,
