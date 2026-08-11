@@ -22,6 +22,8 @@ export interface OrganizationUser {
   name: string;
   email: string;
   orgRole: "Admin" | "Member";
+  /** Organization invitation/account status — not a Project membership status. */
+  status: "active" | "pending";
 }
 
 export interface AccessLevelSourceGrant {

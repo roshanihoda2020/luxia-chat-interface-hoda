@@ -56,6 +56,8 @@ export {
   getProjectMembersPath,
   getAccessLevelsPath,
   getAccessLevelPath,
+  getOrganizationUsersPath,
+  getOrganizationUserPath,
   getDataSourcesPath,
   getDataSourceSettingsPath,
   getChatPath,

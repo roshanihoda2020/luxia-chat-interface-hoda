@@ -16,7 +16,7 @@ import {
   type ReactNode,
   type Ref,
 } from "react";
-import { Check, ChevronDown, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { Check, ChevronDown, ChevronLeft, ChevronRight, Users, X } from "lucide-react";
 import luxiaWordmarkUrl from "@/assets/brand/Luxia-Star.svg";
 import sidebarStarLogoUrl from "@/assets/brand/Star.svg";
 import { LuxiaStarLogo } from "@/app/components/LuxiaStarLogo";
@@ -43,6 +43,7 @@ import {
   getDashboardPath,
   getDataSourcesPath,
   getGalaxyPath,
+  getOrganizationUsersPath,
   getProjectChatsPath,
   getProjectMembersPath,
   getProjectPath,
@@ -90,6 +91,24 @@ const SIDEBAR_PROFILE_NAME = "User name";
 const SIDEBAR_PROFILE_INITIALS = "UN";
 
 type NavIconComponent = (props: LuxiaIconProps) => ReactElement;
+
+function LuxiaOrgUsersIcon({
+  size = 16,
+  color = "currentColor",
+  className,
+  style,
+  ...rest
+}: LuxiaIconProps) {
+  return (
+    <span
+      className={className}
+      style={{ display: "inline-flex", color, lineHeight: 0, ...style }}
+      {...rest}
+    >
+      <Users size={size} strokeWidth={1.75} color="currentColor" aria-hidden />
+    </span>
+  );
+}
 type FlyoutKind = "constellations" | "chats" | "projects";
 
 export type LeftNavChatPreview = {
@@ -130,7 +149,8 @@ export type LeftNavProps = {
   mobileOpen?: boolean;
   onMobileClose?: () => void;
   homeActive?: boolean;
-  usersActive?: boolean;
+  organizationUsersActive?: boolean;
+  accessLevelsActive?: boolean;
   dataSourcesActive?: boolean;
   projectId?: string | null;
   projectLabel?: string | null;
@@ -145,7 +165,8 @@ export type LeftNavProps = {
   chatTotalCount?: number;
   constellationTotalCount?: number;
   onHomeClick?: () => void;
-  onUsersClick?: () => void;
+  onOrganizationUsersClick?: () => void;
+  onAccessLevelsClick?: () => void;
   onDataSourcesClick?: () => void;
   onProjectSectionClick?: (section: ProjectNavSection) => void;
   onSwitchProject?: (projectId: string) => void;
@@ -168,7 +189,8 @@ const NAV_TOP_ITEMS: {
   unavailableHint?: string;
 }[] = [
   { id: "home", icon: LuxiaHomeIcon, label: "Home", available: true },
-  { id: "users", icon: LuxiaUserPermissionsIcon, label: "Access Levels", available: true },
+  { id: "orgusers", icon: LuxiaOrgUsersIcon, label: "Users", available: true },
+  { id: "accesslevels", icon: LuxiaUserPermissionsIcon, label: "Access Levels", available: true },
   {
     id: "datasources",
     icon: LuxiaDatasourceIcon,
@@ -947,7 +969,8 @@ export function LeftNav({
   mobileOpen = false,
   onMobileClose,
   homeActive,
-  usersActive,
+  organizationUsersActive,
+  accessLevelsActive,
   dataSourcesActive,
   projectId,
   projectLabel,
@@ -962,7 +985,8 @@ export function LeftNav({
   chatTotalCount,
   constellationTotalCount,
   onHomeClick,
-  onUsersClick,
+  onOrganizationUsersClick,
+  onAccessLevelsClick,
   onDataSourcesClick,
   onProjectSectionClick,
   onSwitchProject,
@@ -1459,22 +1483,26 @@ export function LeftNav({
                     active={
                       id === "home"
                         ? homeActive
-                        : id === "users"
-                          ? usersActive
-                          : id === "datasources"
-                            ? dataSourcesActive
-                            : false
+                        : id === "orgusers"
+                          ? organizationUsersActive
+                          : id === "accesslevels"
+                            ? accessLevelsActive
+                            : id === "datasources"
+                              ? dataSourcesActive
+                              : false
                     }
                     disabled={!available}
                     tooltip={!available ? unavailableHint ?? label : label}
                     href={
                       id === "home" && available
                         ? "/"
-                        : id === "users" && available
-                          ? getAccessLevelsPath()
-                          : id === "datasources" && available
-                            ? getDataSourcesPath()
-                            : undefined
+                        : id === "orgusers" && available
+                          ? getOrganizationUsersPath()
+                          : id === "accesslevels" && available
+                            ? getAccessLevelsPath()
+                            : id === "datasources" && available
+                              ? getDataSourcesPath()
+                              : undefined
                     }
                     onClick={
                       id === "home"
@@ -1483,12 +1511,18 @@ export function LeftNav({
                           onHomeClick?.();
                           onMobileClose?.();
                         }
-                        : id === "users"
+                        : id === "orgusers"
                           ? () => {
                             closeFlyout();
-                            onUsersClick?.();
+                            onOrganizationUsersClick?.();
                             onMobileClose?.();
                           }
+                          : id === "accesslevels"
+                            ? () => {
+                              closeFlyout();
+                              onAccessLevelsClick?.();
+                              onMobileClose?.();
+                            }
                           : id === "datasources"
                             ? () => {
                               closeFlyout();

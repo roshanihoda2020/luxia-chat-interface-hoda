@@ -14,6 +14,7 @@ export const DEMO_USER_AVATAR_BY_ID: Record<string, DemoUserAvatarSpec> = {
   "user-03": { initials: "U3", background: "var(--luxia-purple-50)" },
   "user-04": { initials: "U4", background: "var(--luxia-blue-60)" },
   "user-05": { initials: "U5", background: "var(--luxia-brand-primary)" },
+  "user-06": { initials: "U6", background: "var(--luxia-neutral-600)" },
 };
 
 const FALLBACK_AVATAR: DemoUserAvatarSpec = {
@@ -28,6 +29,7 @@ export function getDemoUserAvatarSpec(userId: string): DemoUserAvatarSpec {
 const SIZE_CLASS = {
   sm: "h-8 w-8 rounded-[8px] luxia-type-caption",
   md: "h-8 w-8 rounded-[8px] luxia-type-caption",
+  lg: "h-12 w-12 rounded-[10px] luxia-type-body-dense-strong",
 } as const;
 
 export function DemoUserAvatar({

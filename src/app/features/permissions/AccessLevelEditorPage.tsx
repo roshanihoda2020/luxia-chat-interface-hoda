@@ -69,10 +69,10 @@ import {
 import { HS } from "@/app/features/home/homeSurfaces";
 import {
   DATA_SOURCE_CATALOG,
-  ORGANIZATION_USERS,
   buildAccessLevelImpactPreview,
   formatDataSourceType,
   getOrganizationUserById,
+  getOrganizationUsers,
   isDataSourceUsable,
 } from "./data";
 import {
@@ -90,6 +90,7 @@ import type {
   AccessLevelRecord,
   AccessLevelSourceGrant,
   DataSourceCatalogItem,
+  OrganizationUser,
 } from "./types";
 
 const PARENT_SURFACE_CLASS = LUXIA_SETTINGS_CONTENT_SURFACE_CLASS;
@@ -247,6 +248,7 @@ export interface AccessLevelEditorPageProps {
   record: AccessLevelRecord;
   otherLevels: AccessLevelRecord[];
   dataSources?: DataSourceCatalogItem[];
+  organizationUsers?: OrganizationUser[];
   onSave: (record: AccessLevelRecord) => void;
   onCancel: () => void;
   onDelete: (id: string) => void;
@@ -267,6 +269,7 @@ export function AccessLevelEditorPage({
   record,
   otherLevels,
   dataSources = DATA_SOURCE_CATALOG,
+  organizationUsers: organizationUsersProp,
   onSave,
   onCancel,
   onDelete,
@@ -277,6 +280,7 @@ export function AccessLevelEditorPage({
   onOpenProject,
   canAdminister = true,
 }: AccessLevelEditorPageProps) {
+  const organizationUsers = organizationUsersProp ?? getOrganizationUsers();
   const initialRef = useRef(record);
   const [draft, setDraft] = useState(() => structuredClone(record));
   const [memberQuery, setMemberQuery] = useState("");
@@ -357,14 +361,14 @@ export function AccessLevelEditorPage({
 
   const filteredUsers = useMemo(() => {
     const q = memberQuery.trim().toLowerCase();
-    return ORGANIZATION_USERS.filter((user) => {
+    return organizationUsers.filter((user) => {
       if (!q) return true;
       return (
         user.name.toLowerCase().includes(q)
         || user.email.toLowerCase().includes(q)
       );
     });
-  }, [memberQuery]);
+  }, [memberQuery, organizationUsers]);
 
   const filteredSources = useMemo(() => {
     const q = sourceQuery.trim().toLowerCase();
@@ -853,7 +857,7 @@ export function AccessLevelEditorPage({
                         className="luxia-type-caption"
                         style={{ color: "var(--luxia-text-muted)" }}
                       >
-                        {draft.memberUserIds.length} of {ORGANIZATION_USERS.length}{" "}
+                        {draft.memberUserIds.length} of {organizationUsers.length}{" "}
                         selected
                       </p>
                     </div>
@@ -1562,7 +1566,7 @@ export function AccessLevelEditorPage({
             <AlertDialogTitle>Remove member?</AlertDialogTitle>
             <AlertDialogDescription>
               {pendingMemberRemove
-                ? `Remove ${ORGANIZATION_USERS.find((user) => user.id === pendingMemberRemove)?.name ?? "this user"} from this Access Level? They will lose ${draft.sourceGrants.length} Data Source grant${draft.sourceGrants.length === 1 ? "" : "s"} from this level only. Ownership and Project roles are unchanged. Save is still required to apply draft changes.`
+                ? `Remove ${organizationUsers.find((user) => user.id === pendingMemberRemove)?.name ?? "this user"} from this Access Level? They will lose ${draft.sourceGrants.length} Data Source grant${draft.sourceGrants.length === 1 ? "" : "s"} from this level only. Ownership and Project roles are unchanged. Save is still required to apply draft changes.`
                 : "Removing a member revokes Data Source permissions granted through this Access Level."}
             </AlertDialogDescription>
           </AlertDialogHeader>

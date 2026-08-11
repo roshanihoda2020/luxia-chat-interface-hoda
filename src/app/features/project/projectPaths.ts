@@ -88,6 +88,14 @@ export function getAccessLevelPath(accessLevelId: string): string {
   return `/organization/access-levels/${encodeURIComponent(accessLevelId)}`;
 }
 
+export function getOrganizationUsersPath(): string {
+  return "/organization/users";
+}
+
+export function getOrganizationUserPath(userId: string): string {
+  return `/organization/users/${encodeURIComponent(userId)}`;
+}
+
 export function getDataSourcesPath(): string {
   return "/data-sources";
 }
@@ -205,6 +213,16 @@ export function parseAccessLevelIdFromPath(pathname: string): string | null {
   return decodePathSegment(match[1]);
 }
 
+export function parseOrganizationUsersPath(pathname: string): boolean {
+  return /^\/organization\/users\/?$/.test(pathname);
+}
+
+export function parseOrganizationUserIdFromPath(pathname: string): string | null {
+  const match = pathname.match(/^\/organization\/users\/([^/]+)\/?$/);
+  if (!match?.[1]) return null;
+  return decodePathSegment(match[1]);
+}
+
 export function parseDataSourcesPath(pathname: string): boolean {
   return /^\/data-sources\/?$/.test(pathname);
 }
@@ -259,6 +277,8 @@ export type LuxiaResolvedPath =
     capabilityPath?: string;
   }
   | { kind: "project-members"; projectId: string }
+  | { kind: "organization-users" }
+  | { kind: "organization-user"; userId: string }
   | { kind: "access-levels" }
   | { kind: "access-level"; accessLevelId: string }
   | { kind: "data-sources" }
@@ -272,6 +292,15 @@ export function resolveLuxiaPathname(pathname: string): LuxiaResolvedPath {
   }
   if (pathname === "/home" || pathname === "/home/") {
     return { kind: "home", normalizeToRoot: true };
+  }
+
+  if (parseOrganizationUsersPath(pathname)) {
+    return { kind: "organization-users" };
+  }
+
+  const organizationUserId = parseOrganizationUserIdFromPath(pathname);
+  if (organizationUserId) {
+    return { kind: "organization-user", userId: organizationUserId };
   }
 
   if (parseAccessLevelsPath(pathname)) {

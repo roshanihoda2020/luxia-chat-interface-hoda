@@ -55,6 +55,8 @@ import {
   getProjectMembersPath,
   getAccessLevelsPath,
   getAccessLevelPath,
+  getOrganizationUsersPath,
+  getOrganizationUserPath,
   getDataSourcesPath,
   getDataSourceSettingsPath,
   isHomePath,
@@ -132,6 +134,9 @@ import {
 import {
   AccessLevelsPage,
   AccessLevelEditorPage,
+  OrganizationUsersPage,
+  OrganizationUserDetailPage,
+  InviteOrganizationUserDialog,
   ProjectMembersPage,
   DataSourceSettingsPage,
   canUserAccessDataSource,
@@ -141,6 +146,7 @@ import {
   DATA_SOURCE_CATALOG,
   CURRENT_USER_ID,
   getOrganizationUserById,
+  setOrganizationUsersRuntime,
   buildEmptyAccessLevel,
   cloneAccessLevel,
   getDataSourceById,
@@ -175,7 +181,11 @@ import {
   setPrototypeCurrentUserId,
   formatDemoIdentityContextLabel,
 } from "@/app/features/permissions";
-import type { AccessLevelRecord } from "@/app/features/permissions";
+import type {
+  AccessLevelRecord,
+  InviteOrganizationUserPayload,
+  OrganizationUser,
+} from "@/app/features/permissions";
 import {
   ProjectOverviewPage,
   ProjectDashboardPage,
@@ -736,6 +746,8 @@ type LuxiaAppView =
   | "constellation-settings"
   | "galaxy-settings"
   | "project-members"
+  | "organization-users"
+  | "organization-user"
   | "access-levels"
   | "access-level"
   | "data-sources"
@@ -750,6 +762,7 @@ function readInitialShellFromLocation(): {
   settingsCapabilityPath: string | null;
   settingsSection: ConstellationSettingsSectionId;
   accessLevelId: string | null;
+  organizationUserId: string | null;
   dataSourceSettingsId: string | null;
 } {
   const defaults = {
@@ -761,6 +774,7 @@ function readInitialShellFromLocation(): {
     settingsCapabilityPath: null as string | null,
     settingsSection: "general" as ConstellationSettingsSectionId,
     accessLevelId: null as string | null,
+    organizationUserId: null as string | null,
     dataSourceSettingsId: null as string | null,
   };
 
@@ -4132,6 +4146,13 @@ export default function App() {
   const [accessLevelId, setAccessLevelId] = useState<string | null>(
     INITIAL_SHELL.accessLevelId,
   );
+  const [organizationUserId, setOrganizationUserId] = useState<string | null>(
+    INITIAL_SHELL.organizationUserId,
+  );
+  const [organizationUsersState, setOrganizationUsersState] = useState<OrganizationUser[]>(
+    () => ORGANIZATION_USERS.map((user) => ({ ...user })),
+  );
+  const [inviteOrganizationUserOpen, setInviteOrganizationUserOpen] = useState(false);
   const [dataSourceSettingsId, setDataSourceSettingsId] = useState<string | null>(
     INITIAL_SHELL.dataSourceSettingsId,
   );
@@ -4263,12 +4284,17 @@ export default function App() {
   }, [leftNavCollapsedPreference]);
 
   useEffect(() => {
+    setOrganizationUsersRuntime(organizationUsersState);
+  }, [organizationUsersState]);
+
+  useEffect(() => {
     function clearSettingsRouteState() {
       setSettingsConstellationId(null);
       setSettingsCapabilityPath(null);
       setSettingsSection("general");
       setGalaxySettingsSection("general");
       setAccessLevelId(null);
+      setOrganizationUserId(null);
       setDataSourceSettingsId(null);
       setDataSourceSettingsFocus(null);
     }
@@ -4386,8 +4412,31 @@ export default function App() {
         setSettingsConstellationId(null);
         setSettingsCapabilityPath(null);
         setAccessLevelId(null);
+        setOrganizationUserId(null);
         setDataSourceSettingsId(null);
         setAppView("project-members");
+        return;
+      }
+
+      if (resolved.kind === "organization-users") {
+        setActiveProjectId(null);
+        setSettingsConstellationId(null);
+        setSettingsCapabilityPath(null);
+        setAccessLevelId(null);
+        setOrganizationUserId(null);
+        setDataSourceSettingsId(null);
+        setAppView("organization-users");
+        return;
+      }
+
+      if (resolved.kind === "organization-user") {
+        setActiveProjectId(null);
+        setSettingsConstellationId(null);
+        setSettingsCapabilityPath(null);
+        setAccessLevelId(null);
+        setOrganizationUserId(resolved.userId);
+        setDataSourceSettingsId(null);
+        setAppView("organization-user");
         return;
       }
 
@@ -4396,6 +4445,7 @@ export default function App() {
         setSettingsConstellationId(null);
         setSettingsCapabilityPath(null);
         setAccessLevelId(null);
+        setOrganizationUserId(null);
         setDataSourceSettingsId(null);
         setAppView("access-levels");
         return;
@@ -4406,6 +4456,7 @@ export default function App() {
         setSettingsConstellationId(null);
         setSettingsCapabilityPath(null);
         setAccessLevelId(null);
+        setOrganizationUserId(null);
         setDataSourceSettingsId(null);
         setAppView("data-sources");
         return;
@@ -4421,6 +4472,7 @@ export default function App() {
           setSettingsConstellationId(null);
           setSettingsCapabilityPath(null);
           setAccessLevelId(null);
+          setOrganizationUserId(null);
           setDataSourceSettingsId(null);
           setAppView("access-levels");
           if (typeof window !== "undefined") {
@@ -4435,6 +4487,7 @@ export default function App() {
         setSettingsConstellationId(null);
         setSettingsCapabilityPath(null);
         setAccessLevelId(resolved.accessLevelId);
+        setOrganizationUserId(null);
         setDataSourceSettingsId(null);
         setAppView("access-level");
         return;
@@ -4576,7 +4629,13 @@ export default function App() {
   };
   const messages = chatMessages[activeChat] ?? [];
 
-  const contextProjectId = appView === "home" || appView === "access-levels" || appView === "access-level" || appView === "data-sources" || appView === "data-source-settings"
+  const contextProjectId = appView === "home"
+    || appView === "organization-users"
+    || appView === "organization-user"
+    || appView === "access-levels"
+    || appView === "access-level"
+    || appView === "data-sources"
+    || appView === "data-source-settings"
     ? null
     : appView === "project" || appView === "constellation-create" || appView === "constellation-settings" || appView === "galaxy-settings" || appView === "project-members"
       ? activeProjectId
@@ -4948,6 +5007,7 @@ export default function App() {
     setSettingsConstellationId(null);
     setSettingsCapabilityPath(null);
     setAccessLevelId(null);
+    setOrganizationUserId(null);
     setDataSourceSettingsId(null);
     setAppView("access-levels");
     if (typeof window !== "undefined") {
@@ -4958,11 +5018,117 @@ export default function App() {
     }
   }
 
+  function handleOpenOrganizationUsers() {
+    setActiveProjectId(null);
+    setSettingsConstellationId(null);
+    setSettingsCapabilityPath(null);
+    setAccessLevelId(null);
+    setOrganizationUserId(null);
+    setDataSourceSettingsId(null);
+    setAppView("organization-users");
+    if (typeof window !== "undefined") {
+      const next = getOrganizationUsersPath();
+      if (window.location.pathname !== next) {
+        window.history.pushState({ luxiaView: "organization-users" }, "", next);
+      }
+    }
+  }
+
+  function handleOpenOrganizationUser(userId: string) {
+    setActiveProjectId(null);
+    setSettingsConstellationId(null);
+    setSettingsCapabilityPath(null);
+    setAccessLevelId(null);
+    setOrganizationUserId(userId);
+    setDataSourceSettingsId(null);
+    setAppView("organization-user");
+    if (typeof window !== "undefined") {
+      const next = getOrganizationUserPath(userId);
+      if (window.location.pathname !== next) {
+        window.history.pushState(
+          { luxiaView: "organization-user", userId },
+          "",
+          next,
+        );
+      }
+    }
+  }
+
+  function handleInviteOrganizationUser(payload: InviteOrganizationUserPayload) {
+    if (!canAdministerAccessLevels(prototypeUserId)) {
+      toast.error("You do not have permission to invite organization users.");
+      return;
+    }
+    const id = `user-${Date.now()}`;
+    const invitedAt = new Date().toISOString();
+    const newUser: OrganizationUser = {
+      id,
+      name: payload.name,
+      email: payload.email,
+      orgRole: payload.orgRole,
+      status: "pending",
+    };
+    setOrganizationUsersState((prev) => [...prev, newUser]);
+    if (payload.projectAssignments.length > 0) {
+      setProjectMembershipsState((prev) => [
+        ...prev,
+        ...payload.projectAssignments.map((assignment, index) => ({
+          id: `pm-invite-${Date.now()}-${index}`,
+          projectId: assignment.projectId,
+          userId: id,
+          projectRole: assignment.projectRole,
+          status: "pending" as const,
+          joinedOrInvitedAt: invitedAt,
+        })),
+      ]);
+    }
+    if (payload.accessLevelIds.length > 0) {
+      setAccessLevelsState((prev) =>
+        prev.map((level) => {
+          if (!payload.accessLevelIds.includes(level.id)) return level;
+          if (level.memberUserIds.includes(id)) return level;
+          return {
+            ...level,
+            memberUserIds: [...level.memberUserIds, id],
+            updatedAt: invitedAt,
+          };
+        }),
+      );
+    }
+    toast.success("Invitation sent (prototype)");
+    handleOpenOrganizationUser(id);
+  }
+
+  function removeOrganizationUserCompletely(userId: string) {
+    setOrganizationUsersState((prev) => prev.filter((user) => user.id !== userId));
+    setProjectMembershipsState((prev) =>
+      prev.filter((membership) => membership.userId !== userId),
+    );
+    setAccessLevelsState((prev) =>
+      prev.map((level) => ({
+        ...level,
+        memberUserIds: level.memberUserIds.filter((id) => id !== userId),
+      })),
+    );
+    if (prototypeUserId === userId) {
+      const fallback =
+        organizationUsersState.find(
+          (user) => user.id !== userId && user.status === "active",
+        )?.id
+        ?? CURRENT_USER_ID;
+      setPrototypeUserId(fallback);
+    }
+    if (organizationUserId === userId) {
+      handleOpenOrganizationUsers();
+    }
+  }
+
   function handleOpenDataSources() {
     setActiveProjectId(null);
     setSettingsConstellationId(null);
     setSettingsCapabilityPath(null);
     setAccessLevelId(null);
+    setOrganizationUserId(null);
     setDataSourceSettingsId(null);
     setDataSourceSettingsFocus(null);
     setAppView("data-sources");
@@ -4983,6 +5149,7 @@ export default function App() {
     setSettingsConstellationId(null);
     setSettingsCapabilityPath(null);
     setAccessLevelId(id);
+    setOrganizationUserId(null);
     setDataSourceSettingsId(null);
     setAppView("access-level");
     if (typeof window !== "undefined") {
@@ -5318,8 +5485,11 @@ export default function App() {
   }, [prototypeUserId]);
 
   const prototypeUser = useMemo(
-    () => getOrganizationUserById(prototypeUserId) ?? ORGANIZATION_USERS[0]!,
-    [prototypeUserId],
+    () =>
+      organizationUsersState.find((user) => user.id === prototypeUserId)
+      ?? organizationUsersState.find((user) => user.status === "active")
+      ?? ORGANIZATION_USERS[0]!,
+    [organizationUsersState, prototypeUserId],
   );
 
   const prototypeProjectRole = useMemo(() => {
@@ -5335,7 +5505,9 @@ export default function App() {
   }, [activeProjectId, activeChat, chats, projectMembershipsState, prototypeUserId]);
 
   function handlePrototypeUserChange(userId: string) {
-    if (!ORGANIZATION_USERS.some((user) => user.id === userId)) return;
+    if (!organizationUsersState.some((user) => user.id === userId && user.status === "active")) {
+      return;
+    }
     setPrototypeCurrentUserId(userId);
     setPrototypeUserId(userId);
     setConstellationAccessBlock(null);
@@ -5374,7 +5546,11 @@ export default function App() {
     }
 
     const projectId =
-      appView === "home" || appView === "access-levels" || appView === "access-level"
+      appView === "home"
+        || appView === "organization-users"
+        || appView === "organization-user"
+        || appView === "access-levels"
+        || appView === "access-level"
         || appView === "data-sources"
         || appView === "data-source-settings"
         ? null
@@ -7540,27 +7716,29 @@ export default function App() {
 
   const prototypeUsersForDemo = useMemo(() => {
     const inProjectContext = Boolean(activeProjectId);
-    return ORGANIZATION_USERS.map((user) => {
-      const projectRole = activeProjectId
-        ? getActiveProjectMembership(
-          activeProjectId,
-          projectMembershipsState,
-          user.id,
-        )?.projectRole ?? null
-        : null;
-      return {
-        id: user.id,
-        name: user.name,
-        orgRole: user.orgRole,
-        projectRole,
-        contextLabel: formatDemoIdentityContextLabel({
+    return organizationUsersState
+      .filter((user) => user.status === "active")
+      .map((user) => {
+        const projectRole = activeProjectId
+          ? getActiveProjectMembership(
+            activeProjectId,
+            projectMembershipsState,
+            user.id,
+          )?.projectRole ?? null
+          : null;
+        return {
+          id: user.id,
+          name: user.name,
           orgRole: user.orgRole,
           projectRole,
-          includeProjectRole: inProjectContext,
-        }),
-      };
-    });
-  }, [activeProjectId, projectMembershipsState]);
+          contextLabel: formatDemoIdentityContextLabel({
+            orgRole: user.orgRole,
+            projectRole,
+            includeProjectRole: inProjectContext,
+          }),
+        };
+      });
+  }, [activeProjectId, organizationUsersState, projectMembershipsState]);
 
   const workingAccessibleOverviewConstellations = useMemo(() => {
     return overviewConstellations.filter((item) => {
@@ -7649,7 +7827,10 @@ export default function App() {
         mobileOpen={mobileNavOpen}
         onMobileClose={() => setMobileNavOpen(false)}
         homeActive={appView === "home"}
-        usersActive={appView === "access-levels" || appView === "access-level"}
+        organizationUsersActive={
+          appView === "organization-users" || appView === "organization-user"
+        }
+        accessLevelsActive={appView === "access-levels" || appView === "access-level"}
         dataSourcesActive={appView === "data-sources" || appView === "data-source-settings"}
         projectId={contextProjectId}
         projectLabel={contextProjectLabel}
@@ -7668,7 +7849,8 @@ export default function App() {
         chatTotalCount={sidebarProjectChats.length}
         constellationTotalCount={sidebarProjectConstellations.length}
         onHomeClick={handleNavigateHome}
-        onUsersClick={handleOpenAccessLevels}
+        onOrganizationUsersClick={handleOpenOrganizationUsers}
+        onAccessLevelsClick={handleOpenAccessLevels}
         onDataSourcesClick={handleOpenDataSources}
         onProjectSectionClick={handleProjectNavSection}
         onSwitchProject={(projectId) => {
@@ -8160,7 +8342,9 @@ export default function App() {
                 project={membersProject}
                 memberships={membersForProject}
                 accessLevels={accessLevelsState}
-                organizationUsers={ORGANIZATION_USERS}
+                organizationUsers={organizationUsersState.filter(
+                  (user) => user.status === "active",
+                )}
                 dataSources={dataSourcesState}
                 projectRequiredSourceIds={getProjectRequiredDataSourceIds(membersProject.id)}
                 onSaveMemberships={(memberships) => {
@@ -8204,6 +8388,124 @@ export default function App() {
               </div>
             )}
           </HomePageShell>
+        ) : appView === "organization-users" ? (
+          <HomePageShell scrollRequest={homeScrollRequest} framed={false}>
+            <OrganizationUsersPage
+              users={organizationUsersState}
+              memberships={projectMembershipsState}
+              accessLevels={accessLevelsState}
+              onOpenUser={handleOpenOrganizationUser}
+              onInvite={() => {
+                if (!canAdministerAccessLevels(prototypeUserId)) {
+                  toast.error("You do not have permission to invite organization users.");
+                  return;
+                }
+                setInviteOrganizationUserOpen(true);
+              }}
+              onUpdateOrgRole={(userId, orgRole) => {
+                if (!canAdministerAccessLevels(prototypeUserId)) {
+                  toast.error("You do not have permission to edit Organization roles.");
+                  return;
+                }
+                setOrganizationUsersState((prev) =>
+                  prev.map((user) =>
+                    user.id === userId ? { ...user, orgRole } : user,
+                  ),
+                );
+                toast.success("Organization role updated");
+              }}
+              onRemoveUser={(userId) => {
+                if (!canAdministerAccessLevels(prototypeUserId)) {
+                  toast.error("You do not have permission to remove organization users.");
+                  return;
+                }
+                removeOrganizationUserCompletely(userId);
+                toast.success("User removed from organization");
+              }}
+              onResendInvitation={(userId) => {
+                if (!canAdministerAccessLevels(prototypeUserId)) return;
+                const user = organizationUsersState.find((entry) => entry.id === userId);
+                toast.success(
+                  user
+                    ? `Invitation resent to ${user.email} (prototype)`
+                    : "Invitation resent (prototype)",
+                );
+              }}
+              onCancelInvitation={(userId) => {
+                if (!canAdministerAccessLevels(prototypeUserId)) return;
+                removeOrganizationUserCompletely(userId);
+                toast.success("Invitation cancelled");
+              }}
+              onNavigateHome={handleNavigateHome}
+              canAdminister={canAdministerAccessLevels(prototypeUserId)}
+            />
+          </HomePageShell>
+        ) : appView === "organization-user" ? (
+          <HomePageShell scrollRequest={homeScrollRequest} framed={false}>
+            {(() => {
+              const detailUser = organizationUsersState.find(
+                (user) => user.id === organizationUserId,
+              );
+              if (!detailUser) {
+                return (
+                  <div className="mx-auto flex min-h-[50vh] max-w-lg flex-col items-start justify-center gap-4 py-16">
+                    <p
+                      className="luxia-type-overline-data"
+                      style={{ color: "var(--luxia-purple-60)" }}
+                    >
+                      Users
+                    </p>
+                    <h1
+                      className="luxia-type-title-page"
+                      style={{ color: "var(--luxia-purple-70)" }}
+                    >
+                      User unavailable
+                    </h1>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="compact"
+                      onClick={handleOpenOrganizationUsers}
+                    >
+                      Back to Users
+                    </Button>
+                  </div>
+                );
+              }
+              return (
+                <OrganizationUserDetailPage
+                  user={detailUser}
+                  memberships={projectMembershipsState}
+                  accessLevels={accessLevelsState}
+                  dataSources={dataSourcesState}
+                  projectOptions={homeProjects.map((project) => ({
+                    id: project.id,
+                    name: project.name,
+                  }))}
+                  onNavigateHome={handleNavigateHome}
+                  onNavigateUsers={handleOpenOrganizationUsers}
+                  onOpenProject={handleOpenProjectFromHome}
+                  onOpenProjectMembers={handleOpenProjectMembers}
+                  onOpenAccessLevel={handleOpenAccessLevel}
+                  canEditProjectRoles={canAdministerAccessLevels(prototypeUserId)}
+                  onUpdateProjectRole={(membershipId, projectRole) => {
+                    if (!canAdministerAccessLevels(prototypeUserId)) return;
+                    setProjectMembershipsState((prev) =>
+                      prev.map((membership) => {
+                        if (membership.id !== membershipId) return membership;
+                        if (membership.projectRole === "Project Owner") {
+                          return membership;
+                        }
+                        if (projectRole === "Project Owner") return membership;
+                        return { ...membership, projectRole };
+                      }),
+                    );
+                    toast.success("Project role updated");
+                  }}
+                />
+              );
+            })()}
+          </HomePageShell>
         ) : appView === "access-levels" ? (
           <HomePageShell scrollRequest={homeScrollRequest} framed={false}>
             <AccessLevelsPage
@@ -8246,6 +8548,7 @@ export default function App() {
                 record={editingAccessLevel}
                 otherLevels={accessLevelsState.filter((level) => level.id !== editingAccessLevel.id)}
                 dataSources={dataSourcesState}
+                organizationUsers={organizationUsersState}
                 canAdminister={canAdministerAccessLevels(prototypeUserId)}
                 onSave={(record) => {
                   if (!guardAccessLevelMutation()) return;
@@ -8708,6 +9011,17 @@ export default function App() {
             handleOpenDataSources();
           }
         }}
+      />
+      <InviteOrganizationUserDialog
+        open={inviteOrganizationUserOpen}
+        onOpenChange={setInviteOrganizationUserOpen}
+        projects={homeProjects.map((project) => ({
+          id: project.id,
+          name: project.name,
+        }))}
+        accessLevels={accessLevelsState}
+        existingEmails={organizationUsersState.map((user) => user.email)}
+        onInvite={handleInviteOrganizationUser}
       />
       <Toaster richColors closeButton position="top-right" />
       <ProjectManageDialogs

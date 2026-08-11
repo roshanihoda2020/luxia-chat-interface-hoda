@@ -30,30 +30,42 @@ export const ORGANIZATION_USERS: OrganizationUser[] = [
     name: "User name 01",
     email: "user01@luxia.example",
     orgRole: "Member",
+    status: "active",
   },
   {
     id: "user-02",
     name: "User name 02",
     email: "user02@luxia.example",
     orgRole: "Member",
+    status: "active",
   },
   {
     id: "user-03",
     name: "User name 03",
     email: "user03@luxia.example",
     orgRole: "Member",
+    status: "active",
   },
   {
     id: "user-04",
     name: "User name 04",
     email: "user04@luxia.example",
     orgRole: "Member",
+    status: "active",
   },
   {
     id: "user-05",
     name: "User name 05",
     email: "user05@luxia.example",
     orgRole: "Admin",
+    status: "active",
+  },
+  {
+    id: "user-06",
+    name: "User name 06",
+    email: "user06@luxia.example",
+    orgRole: "Member",
+    status: "pending",
   },
 ];
 
@@ -508,10 +520,23 @@ export function buildEmptyAccessLevel(): AccessLevelRecord {
   };
 }
 
+/** Mutable prototype roster so invite/edit flows stay consistent with guards. */
+let organizationUsersRuntime: OrganizationUser[] = ORGANIZATION_USERS.map((user) => ({
+  ...user,
+}));
+
+export function getOrganizationUsers(): OrganizationUser[] {
+  return organizationUsersRuntime;
+}
+
+export function setOrganizationUsersRuntime(users: OrganizationUser[]): void {
+  organizationUsersRuntime = users.map((user) => ({ ...user }));
+}
+
 export function getOrganizationUserById(
   userId: string,
 ): OrganizationUser | undefined {
-  return ORGANIZATION_USERS.find((user) => user.id === userId);
+  return organizationUsersRuntime.find((user) => user.id === userId);
 }
 
 export function getDataSourceById(

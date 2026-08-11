@@ -60,3 +60,11 @@ export const PERMISSION_HIERARCHY_COPY = {
   constellationAccess:
     "Active Project membership makes existing Project Constellations visible and available for Chat. Data Source permissions govern the underlying Data Source, not basic Chat.",
 } as const;
+
+export const ORGANIZATION_USERS_GUIDANCE = {
+  listPageDescription:
+    "Manage organization users and review their access.",
+  listPageRule:
+    "Organization role is global. Project role is per Project. Access Levels control Data Sources only.",
+  pageVariant: "standard" as const,
+} as const;
