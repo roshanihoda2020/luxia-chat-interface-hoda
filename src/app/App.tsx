@@ -8535,6 +8535,12 @@ export default function App() {
                       && isChatWorkingAccessible(chat),
                     )
                     .map((chat) => ({ id: chat.id, label: chat.label }))}
+                  relatedVidgets={getVidgetsForProject(projectId, vidgetsState)
+                    .filter((item) =>
+                      item.sourceType === "constellation"
+                      && item.constellationId === constellationId,
+                    )
+                    .map((item) => ({ id: item.id, label: item.name }))}
                   onCreateChat={
                     projectId
                     && constellationId
@@ -8543,6 +8549,9 @@ export default function App() {
                       : undefined
                   }
                   onOpenChat={handleOpenChatFromHome}
+                  onOpenVidget={(pid, nextVidgetId) => {
+                    handleOpenVidgetSettings(pid, nextVidgetId);
+                  }}
                   onSaveGeneral={(draft) => {
                     if (!constellationId || settingsUnavailable) return;
                     handleSaveConstellationSettings(constellationId, draft);

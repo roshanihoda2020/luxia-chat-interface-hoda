@@ -33,7 +33,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/app/components/ui/dropdown-menu";
 import { Input } from "@/app/components/ui/input";
@@ -150,17 +149,24 @@ export interface ConstellationSettingsRelatedChat {
   label: string;
 }
 
+export interface ConstellationSettingsRelatedVidget {
+  id: string;
+  label: string;
+}
+
 export interface ConstellationSettingsPageProps {
   record: ConstellationSettingsRecord;
   unavailable?: boolean;
   unavailableReason?: string;
   relatedChats?: ConstellationSettingsRelatedChat[];
+  relatedVidgets?: ConstellationSettingsRelatedVidget[];
   activeSection: ConstellationSettingsSectionId;
   onSectionChange: (section: ConstellationSettingsSectionId) => void;
   focusHeadingToken?: number;
   onCreateChat?: (projectId: string, constellationId: string) => void;
   onCreateVidget?: (projectId: string, constellationId: string) => void;
   onOpenChat?: (chatId: string) => void;
+  onOpenVidget?: (projectId: string, vidgetId: string) => void;
   onSaveGeneral: (draft: ConstellationSettingsDraft) => void;
   onManageCapability: (capabilityId: CapsuleCapabilityId) => void;
   onAddDataSource: (sourceId: string) => void;
@@ -186,12 +192,14 @@ export function ConstellationSettingsPage({
   unavailable = false,
   unavailableReason,
   relatedChats = [],
+  relatedVidgets = [],
   activeSection,
   onSectionChange,
   focusHeadingToken = 0,
   onCreateChat,
   onCreateVidget,
   onOpenChat,
+  onOpenVidget,
   onSaveGeneral,
   onManageCapability,
   onAddDataSource,
@@ -414,94 +422,90 @@ export function ConstellationSettingsPage({
           </div>
         }
         secondaryAction={
-          relatedChats.length === 1 && onOpenChat
-            || relatedChats.length > 1
-            ? (
-          <div className="flex flex-nowrap items-center justify-end gap-2">
-            {relatedChats.length === 1 && onOpenChat ? (
-              <Button
-                type="button"
-                {...LUXIA_PAGE_HEADER_ACTION.secondary}
-                onClick={() => onOpenChat(relatedChats[0].id)}
-              >
-                Open Chat
-              </Button>
-            ) : null}
-            {relatedChats.length > 1 ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button type="button" {...LUXIA_PAGE_HEADER_ACTION.secondary}>
-                    Chats
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="min-w-[12rem]">
-                  {relatedChats.map((chat) => (
-                    <DropdownMenuItem
-                      key={chat.id}
-                      onSelect={() => onOpenChat?.(chat.id)}
-                    >
-                      {chat.label}
-                    </DropdownMenuItem>
-                  ))}
-                  {onCreateChat ? (
-                    <>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        onSelect={() => onCreateChat(record.projectId, record.id)}
-                      >
-                        Create New Chat
-                      </DropdownMenuItem>
-                    </>
-                  ) : null}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : null}
-          </div>
-            ) : null
-        }
-        options={
           (() => {
-            const optionItems = [
-              ...(relatedChats.length === 1 && onCreateChat
-                ? [
-                    {
-                      id: "create-chat",
-                      label: "Create Chat",
-                      onSelect: () => onCreateChat(record.projectId, record.id),
-                    },
-                  ]
-                : []),
-              ...(onCreateVidget
-                ? [
-                    {
-                      id: "create-vidget",
-                      label: "Create Vidget",
-                      onSelect: () => onCreateVidget(record.projectId, record.id),
-                    },
-                  ]
-                : []),
-            ];
-            if (optionItems.length === 0) return undefined;
+            const chatAction =
+              relatedChats.length === 1 && onOpenChat ? (
+                <Button
+                  type="button"
+                  {...LUXIA_PAGE_HEADER_ACTION.secondary}
+                  onClick={() => onOpenChat(relatedChats[0]!.id)}
+                >
+                  Open Chat
+                </Button>
+              ) : relatedChats.length > 1 && onOpenChat ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button type="button" {...LUXIA_PAGE_HEADER_ACTION.secondary}>
+                      Open Chat
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="min-w-[12rem]">
+                    {relatedChats.map((chat) => (
+                      <DropdownMenuItem
+                        key={chat.id}
+                        onSelect={() => onOpenChat(chat.id)}
+                      >
+                        {chat.label}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : relatedChats.length === 0 && onCreateChat ? (
+                <Button
+                  type="button"
+                  {...LUXIA_PAGE_HEADER_ACTION.secondary}
+                  onClick={() => onCreateChat(record.projectId, record.id)}
+                >
+                  Create Chat
+                </Button>
+              ) : null;
+
+            const vidgetAction =
+              relatedVidgets.length === 1 && onOpenVidget ? (
+                <Button
+                  type="button"
+                  {...LUXIA_PAGE_HEADER_ACTION.secondary}
+                  onClick={() => onOpenVidget(record.projectId, relatedVidgets[0]!.id)}
+                >
+                  Open Vidget
+                </Button>
+              ) : relatedVidgets.length > 1 && onOpenVidget ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button type="button" {...LUXIA_PAGE_HEADER_ACTION.secondary}>
+                      Vidgets
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="min-w-[12rem]">
+                    {relatedVidgets.map((vidget) => (
+                      <DropdownMenuItem
+                        key={vidget.id}
+                        onSelect={() => onOpenVidget(record.projectId, vidget.id)}
+                      >
+                        {vidget.label}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : relatedVidgets.length === 0 && onCreateVidget ? (
+                <Button
+                  type="button"
+                  {...LUXIA_PAGE_HEADER_ACTION.secondary}
+                  onClick={() => onCreateVidget(record.projectId, record.id)}
+                >
+                  Create Vidget
+                </Button>
+              ) : null;
+
+            if (!chatAction && !vidgetAction) return null;
+
             return (
-              <LuxiaEntityOptionsMenu
-                entityLabel={record.name}
-                entityType="Constellation"
-                triggerVariant={LUXIA_PAGE_HEADER_ACTION.menuTrigger}
-                items={optionItems}
-              />
+              <div className="flex flex-nowrap items-center justify-end gap-2">
+                {chatAction}
+                {vidgetAction}
+              </div>
             );
           })()
-        }
-        primaryAction={
-          relatedChats.length === 0 && onCreateChat ? (
-            <Button
-              type="button"
-              {...LUXIA_PAGE_HEADER_ACTION.primary}
-              onClick={() => onCreateChat(record.projectId, record.id)}
-            >
-              Create Chat
-            </Button>
-          ) : null
         }
       />
       </LuxiaPageHeadingRegion>
