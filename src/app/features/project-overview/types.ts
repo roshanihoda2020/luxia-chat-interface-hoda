@@ -1,4 +1,5 @@
 import type { HomeConstellationSource } from "@/app/features/home/types";
+import type { VidgetChannel, VidgetSourceType } from "@/app/features/vidgets/types";
 
 export type ProjectOverviewBrowseMode =
   | "overview"
@@ -14,6 +15,7 @@ export type ProjectNavSection =
   | "chats"
   | "constellations"
   | "dashboard"
+  | "vidgets"
   | "members"
   | "virtual-assistant";
 
@@ -63,11 +65,12 @@ export interface ProjectDashboardOutput {
   projectId: string;
   name: string;
   outputType: ProjectDashboardOutputType;
-  /** Frontend-only conversation-source classification for Dashboard filtering. */
   conversationSource: ProjectDashboardConversationSource;
   sourceContext: string;
   updatedAt: string;
   updatedAtTimestamp: number;
+  /** Stable creator id — Dashboard modification rights for Analyst depend on this. */
+  createdByUserId: string;
 }
 
 /** @deprecated Prefer ProjectDashboardOutput for Overview gallery; kept for library prototypes. */
@@ -78,8 +81,10 @@ export interface ProjectDashboardItem {
   kind: "dashboard" | "group";
   updatedAt: string;
   updatedAtTimestamp: number;
+  createdByUserId: string;
 }
 
+/** @deprecated Legacy deployment labels — Overview now uses channel from canonical Vidgets. */
 export type ProjectWidgetDeployment =
   | "Website"
   | "Totem"
@@ -87,16 +92,22 @@ export type ProjectWidgetDeployment =
   | "Laptop"
   | "Kiosk";
 
-export type ProjectWidgetStatus = "Published" | "Draft";
+export type ProjectWidgetStatus = "Published" | "Draft" | "Paused";
 
+/**
+ * Overview Vidget row — must be derived from canonical Vidget state (not a second dataset).
+ * Meta: channel · source name · status. Never multi-Constellation counts as direct source.
+ */
 export interface ProjectWidgetItem {
   id: string;
   projectId: string;
   name: string;
-  deployment: ProjectWidgetDeployment;
-  language: string;
-  status: ProjectWidgetStatus;
-  constellationCount: number;
+  channel: VidgetChannel;
+  channelLabel: string;
+  sourceType: VidgetSourceType;
+  sourceLabel: string;
+  statusLabel: string;
+  sourceAvailable: boolean;
 }
 
 export type ProjectVirtualAssistantItem = ProjectWidgetItem;
@@ -116,7 +127,6 @@ export interface ProjectOverviewConstellation {
   projectId: string;
   sourceCount: number;
   description?: string;
-  /** Recency for Project overview preview ordering (most recently updated first). */
   updatedAtTimestamp: number;
 }
 

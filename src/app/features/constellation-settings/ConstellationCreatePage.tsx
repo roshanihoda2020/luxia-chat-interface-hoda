@@ -27,6 +27,7 @@ import {
 import {
   LuxiaPageBody,
   LuxiaPageFrame,
+  LuxiaPageHeadingRegion,
 } from "@/app/components/LuxiaPageFrame";
 import { LuxiaPageHeader } from "@/app/components/LuxiaPageHeader";
 import {
@@ -1526,6 +1527,7 @@ export function ConstellationCreatePage({
   return (
     <>
       <LuxiaPageFrame variant={CONSTELLATION_SETTINGS_PAGE_VARIANT}>
+        <LuxiaPageHeadingRegion>
         <LuxiaPageHeader
           contentGap="page"
           pageTypeLabel="CONSTELLATION"
@@ -1548,6 +1550,7 @@ export function ConstellationCreatePage({
             </p>
           }
         />
+        </LuxiaPageHeadingRegion>
         <LuxiaPageBody>
           <StepProgress
             currentStep={draft.currentStep}

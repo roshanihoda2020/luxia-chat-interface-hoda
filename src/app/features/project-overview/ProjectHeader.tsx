@@ -1,5 +1,4 @@
-import { Button, buttonVariants } from "@/app/components/ui/button";
-import { cn } from "@/app/components/ui/utils";
+import { Button } from "@/app/components/ui/button";
 import { ProjectCardMeta } from "@/app/features/project/ProjectCardMeta";
 import { HS } from "@/app/features/home/homeSurfaces";
 import type { HomeProjectCard } from "@/app/features/project/types";
@@ -7,7 +6,7 @@ import {
   LuxiaBreadcrumb,
   buildProjectOverviewBreadcrumbItems,
 } from "@/app/components/LuxiaBreadcrumb";
-import { LuxiaPageHeader, LUXIA_PAGE_HEADER_ACTION } from "@/app/components/LuxiaPageHeader";
+import { LuxiaPageHeader } from "@/app/components/LuxiaPageHeader";
 import { LuxiaEntityOptionsMenu } from "@/app/components/LuxiaEntityOptionsMenu";
 
 interface ProjectHeaderProps {
@@ -16,7 +15,6 @@ interface ProjectHeaderProps {
   onRenameProject?: (name: string) => void;
   onArchiveProject?: (projectId: string) => void;
   onDeleteProject?: (projectId: string) => void;
-  onOpenMembers?: (projectId: string) => void;
 }
 
 export function ProjectHeader({
@@ -25,7 +23,6 @@ export function ProjectHeader({
   onRenameProject,
   onArchiveProject,
   onDeleteProject,
-  onOpenMembers,
 }: ProjectHeaderProps) {
   const description = project.description?.trim();
   const crumbItems = buildProjectOverviewBreadcrumbItems({
@@ -37,9 +34,6 @@ export function ProjectHeader({
   const canDelete = Boolean(onDeleteProject);
 
   const optionItems = [
-    ...(canRename
-      ? [{ id: "edit-details", label: "Edit Project details", disabled: true as const }]
-      : []),
     ...(canArchive
       ? [{
         id: "archive",
@@ -95,26 +89,6 @@ export function ProjectHeader({
             </p>
           ) : null}
         </>
-      }
-      secondaryAction={
-        onOpenMembers ? (
-          <Button
-            type="button"
-            {...LUXIA_PAGE_HEADER_ACTION.secondary}
-            onClick={() => onOpenMembers(project.id)}
-          >
-            Members & Roles
-          </Button>
-        ) : (
-          <span
-            className={cn(
-              buttonVariants({ variant: "secondary", size: "compact" }),
-              "pointer-events-none select-none",
-            )}
-          >
-            Members & Roles
-          </span>
-        )
       }
       options={
         optionItems.length > 0 ? (

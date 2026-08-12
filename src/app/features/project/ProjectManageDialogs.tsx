@@ -22,7 +22,7 @@ import { Label } from "@/app/components/ui/label";
 import { Textarea } from "@/app/components/ui/textarea";
 import type { HomeProjectCard } from "./types";
 
-export type ProjectManageMode = "edit" | "delete";
+export type ProjectManageMode = "edit" | "delete" | "archive";
 
 export interface ProjectDetailsDraft {
   name: string;
@@ -158,6 +158,56 @@ export function EditProjectDialog({
 /** @deprecated Use EditProjectDialog */
 export const EditProjectDetailsDialog = EditProjectDialog;
 
+interface ArchiveProjectDialogProps {
+  open: boolean;
+  project: HomeProjectCard | null;
+  onClose: () => void;
+  onConfirm: (projectId: string) => void;
+}
+
+export function ArchiveProjectDialog({
+  open,
+  project,
+  onClose,
+  onConfirm,
+}: ArchiveProjectDialogProps) {
+  function handleClose() {
+    const projectName = project?.name;
+    onClose();
+    restoreProjectOptionsFocus(projectName);
+  }
+
+  return (
+    <AlertDialog open={open} onOpenChange={(next) => !next && handleClose()}>
+      <AlertDialogContent className="w-full min-w-0 max-w-[min(32rem,calc(100vw-2rem))] overflow-x-hidden">
+        <AlertDialogHeader>
+          <AlertDialogTitle>
+            {project ? `Archive ${project.name}?` : "Archive Project?"}
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            This Project will be removed from active Projects and can be restored
+            later. It is not permanently deleted.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            className="text-white hover:opacity-90"
+            style={{ background: "var(--luxia-error)" }}
+            onClick={() => {
+              if (!project) return;
+              onConfirm(project.id);
+              handleClose();
+            }}
+          >
+            Archive Project
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
 interface DeleteProjectDialogProps {
   open: boolean;
   project: HomeProjectCard | null;
@@ -211,6 +261,7 @@ interface ProjectManageDialogsProps {
   project: HomeProjectCard | null;
   onClose: () => void;
   onEditDetails: (projectId: string, details: ProjectDetailsDraft) => void;
+  onArchive: (projectId: string) => void;
   onDelete: (projectId: string) => void;
 }
 
@@ -219,6 +270,7 @@ export function ProjectManageDialogs({
   project,
   onClose,
   onEditDetails,
+  onArchive,
   onDelete,
 }: ProjectManageDialogsProps) {
   return (
@@ -228,6 +280,12 @@ export function ProjectManageDialogs({
         project={project}
         onClose={onClose}
         onSave={onEditDetails}
+      />
+      <ArchiveProjectDialog
+        open={mode === "archive"}
+        project={project}
+        onClose={onClose}
+        onConfirm={onArchive}
       />
       <DeleteProjectDialog
         open={mode === "delete"}

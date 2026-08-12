@@ -87,7 +87,6 @@ export const LUXIA_DIRTY_STATE_COPY = {
 export const LUXIA_DIRTY_INLINE_STATUS_CLASS =
   "luxia-type-caption whitespace-nowrap shrink-0";
 
-/** Local FORM Save/Cancel footer inside a Settings content surface. */
 export const LUXIA_SETTINGS_FORM_ACTIONS_CLASS =
   "mt-6 flex min-h-10 flex-nowrap items-center justify-end gap-2 pt-4";
 
@@ -100,7 +99,6 @@ export const LUXIA_CREATE_VS_EDIT = {
   },
 } as const;
 
-/** Shared Constellation Settings / Access Level editor tab list surface. */
 export const LUXIA_SETTINGS_TABLIST_CLASS =
   "luxia-settings-tablist grid h-11 w-full min-w-[44rem] grid-cols-5 gap-1 overflow-visible rounded-[var(--luxia-radius-12)] border border-[var(--luxia-settings-tablist-border)] bg-[var(--luxia-settings-tablist-bg)] p-1 text-[var(--luxia-text-primary)] sm:min-w-0";
 
@@ -109,16 +107,12 @@ export const LUXIA_SETTINGS_TAB_TRIGGER_CLASS =
 
 export const LUXIA_SETTINGS_TAB_PANEL_CLASS = "m-0 w-full p-0 outline-none";
 
-/** Level-2 primary settings panel (white surface + visible border). */
 export const LUXIA_SETTINGS_CONTENT_SURFACE_CLASS = "luxia-settings-content-surface";
 
-/** Level-3 grouped section / summary shell. */
 export const LUXIA_SETTINGS_SECTION_SURFACE_CLASS = "luxia-settings-section-surface";
 
-/** Level-3 list / table container. */
 export const LUXIA_SETTINGS_LIST_SURFACE_CLASS = "luxia-settings-list-surface";
 
-/** Shared row divider for settings lists (visible against white panels). */
 export const LUXIA_SETTINGS_ROW_DIVIDER = {
   borderTop: "1px solid var(--luxia-settings-row-divider)",
 } as const;

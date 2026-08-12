@@ -794,8 +794,8 @@ export function buildProjectDataReadiness(input: {
 
   if (viewOnlyCount > 0 && viewOnlyCount === missingSourceIds.length) {
     return {
-      label: "View only — Use required",
-      detail: `${viewOnlyCount} required Data Source${viewOnlyCount === 1 ? "" : "s"} allow View only.`,
+      label: "Use permission needed for configuration",
+      detail: `${viewOnlyCount} connected Data Source${viewOnlyCount === 1 ? "" : "s"} grant View only. Use permission is required for Data Source configuration and construction — not for basic Constellation Chat.`,
       missingSourceIds,
       requiredSourceIds,
     };
@@ -803,8 +803,8 @@ export function buildProjectDataReadiness(input: {
 
   const count = missingSourceIds.length;
   return {
-    label: `Missing access to ${count} Data Source${count === 1 ? "" : "s"}`,
-    detail: "One or more Project-connected Data Sources are unavailable for Use.",
+    label: `Missing Data Source access (${count})`,
+    detail: "One or more Project-connected Data Sources are unavailable for configuration or construction. This does not block basic Chat with existing Constellations.",
     missingSourceIds,
     requiredSourceIds,
   };

@@ -5,7 +5,7 @@ import {
   buildProjectDashboardBreadcrumbItems,
 } from "@/app/components/LuxiaBreadcrumb";
 import { LuxiaEntityOptionsMenu } from "@/app/components/LuxiaEntityOptionsMenu";
-import { LuxiaPageHeader } from "@/app/components/LuxiaPageHeader";
+import { LuxiaPageHeader, LUXIA_PAGE_HEADER_ACTION } from "@/app/components/LuxiaPageHeader";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,7 +36,18 @@ import {
 import { HS } from "@/app/features/home/homeSurfaces";
 import { getProjectNameById } from "@/app/features/project";
 import type { HomeProjectCard } from "@/app/features/project/types";
+import { CURRENT_USER_ID } from "@/app/features/permissions";
 import type { ProjectRole } from "@/app/features/permissions";
+import { toast } from "sonner";
+import {
+  canCreateDashboard,
+  canDeleteDashboard,
+  canEditDashboard,
+  canRenameDashboard,
+  DASHBOARD_CREATE_DENIED_MESSAGE,
+  DASHBOARD_DELETE_DENIED_MESSAGE,
+  DASHBOARD_EDIT_DENIED_MESSAGE,
+} from "./dashboardAccess";
 import {
   DashboardOutputPreviewGraphic,
   outputTypeLabel,
@@ -79,8 +90,16 @@ function filteredResultsLabel(count: number): string {
   return `${count} ${count === 1 ? "result" : "results"}`;
 }
 
-function canMutateDashboardOutputs(role: ProjectRole | null | undefined): boolean {
-  return role === "Project Owner" || role === "Project Manager" || role === "Analyst";
+function canMutateOutput(
+  projectRole: ProjectRole | null | undefined,
+  output: Pick<ProjectDashboardOutput, "createdByUserId">,
+  currentUserId: string,
+): boolean {
+  return canEditDashboard({
+    projectRole,
+    dashboardOwnerId: output.createdByUserId,
+    currentUserId,
+  });
 }
 
 function stopCardActivation(event: { stopPropagation: () => void }) {
@@ -91,6 +110,10 @@ export interface ProjectDashboardPageProps {
   projectId: string | null;
   projects: HomeProjectCard[];
   projectRole?: ProjectRole | null;
+  currentUserId?: string;
+  focusOutputId?: string | null;
+  viewResetKey?: number;
+  onViewOutputIdChange?: (outputId: string | null) => void;
   onNavigateHome: () => void;
   onViewProjects: () => void;
   onOpenProjectOverview: (projectId: string) => void;
@@ -101,6 +124,10 @@ export function ProjectDashboardPage({
   projectId,
   projects,
   projectRole = null,
+  currentUserId = CURRENT_USER_ID,
+  focusOutputId = null,
+  viewResetKey = 0,
+  onViewOutputIdChange,
   onNavigateHome,
   onViewProjects,
   onOpenProjectOverview,
@@ -115,7 +142,14 @@ export function ProjectDashboardPage({
   const [renameValue, setRenameValue] = useState("");
   const [renameError, setRenameError] = useState<string | null>(null);
   const [deleteOutputId, setDeleteOutputId] = useState<string | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createName, setCreateName] = useState("");
+  const [createError, setCreateError] = useState<string | null>(null);
+  const createInputRef = useRef<HTMLInputElement>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
+  const outputCounterRef = useRef(0);
+
+  const canCreate = canCreateDashboard(projectRole);
 
   const project = projectId
     ? projects.find((entry) => entry.id === projectId)
@@ -134,6 +168,25 @@ export function ProjectDashboardPage({
     setRenameError(null);
   }, [projectId]);
 
+  useEffect(() => {
+    setViewOutputId(null);
+    setRenameOutputId(null);
+    setDeleteOutputId(null);
+    setRenameValue("");
+    setRenameError(null);
+  }, [viewResetKey]);
+
+  useEffect(() => {
+    if (!focusOutputId) return;
+    if (outputs.some((item) => item.id === focusOutputId)) {
+      setViewOutputId(focusOutputId);
+    }
+  }, [focusOutputId, outputs]);
+
+  useEffect(() => {
+    onViewOutputIdChange?.(viewOutputId);
+  }, [viewOutputId, onViewOutputIdChange]);
+
   const filteredOutputs = useMemo(() => {
     return outputs.filter((item) => {
       if (typeFilter !== "all" && item.outputType !== typeFilter) return false;
@@ -143,7 +196,6 @@ export function ProjectDashboardPage({
   }, [outputs, typeFilter, sourceFilter, searchQuery]);
 
   const filtersActive = typeFilter !== "all" || sourceFilter !== "all" || searchQuery.trim().length > 0;
-  const canMutate = canMutateDashboardOutputs(projectRole);
 
   const viewOutput = viewOutputId
     ? outputs.find((item) => item.id === viewOutputId) ?? null
@@ -167,24 +219,54 @@ export function ProjectDashboardPage({
   }
 
   function openRename(outputId: string) {
-    if (!canMutateDashboardOutputs(projectRole)) return;
     const target = outputs.find((item) => item.id === outputId);
     if (!target) return;
+    if (
+      !canRenameDashboard({
+        projectRole,
+        dashboardOwnerId: target.createdByUserId,
+        currentUserId,
+      })
+    ) {
+      toast.error(DASHBOARD_EDIT_DENIED_MESSAGE);
+      return;
+    }
     setRenameOutputId(outputId);
     setRenameValue(target.name);
     setRenameError(null);
   }
 
   function openEdit(outputId: string) {
-    if (!canMutateDashboardOutputs(projectRole)) return;
     const target = outputs.find((item) => item.id === outputId);
-    if (!target || !canEditDashboardOutput(target.outputType)) return;
-    // No editable prototype flow exists yet for any output type.
+    if (!target) return;
+    if (
+      !canEditDashboard({
+        projectRole,
+        dashboardOwnerId: target.createdByUserId,
+        currentUserId,
+      })
+    ) {
+      toast.error(DASHBOARD_EDIT_DENIED_MESSAGE);
+      return;
+    }
+    if (!canEditDashboardOutput(target.outputType)) return;
   }
 
   function submitRename(event?: FormEvent) {
     event?.preventDefault();
-    if (!canMutateDashboardOutputs(projectRole) || !renameOutputId) return;
+    if (!renameOutputId) return;
+    const target = outputs.find((item) => item.id === renameOutputId);
+    if (
+      !target
+      || !canRenameDashboard({
+        projectRole,
+        dashboardOwnerId: target.createdByUserId,
+        currentUserId,
+      })
+    ) {
+      toast.error(DASHBOARD_EDIT_DENIED_MESSAGE);
+      return;
+    }
     const trimmed = renameValue.trim();
     if (!trimmed) {
       setRenameError("Enter an output name.");
@@ -209,7 +291,19 @@ export function ProjectDashboardPage({
   }
 
   function confirmDelete() {
-    if (!canMutateDashboardOutputs(projectRole) || !deleteOutputId) return;
+    if (!deleteOutputId) return;
+    const target = outputs.find((item) => item.id === deleteOutputId);
+    if (
+      !target
+      || !canDeleteDashboard({
+        projectRole,
+        dashboardOwnerId: target.createdByUserId,
+        currentUserId,
+      })
+    ) {
+      toast.error(DASHBOARD_DELETE_DENIED_MESSAGE);
+      return;
+    }
     setOutputs((prev) => prev.filter((item) => item.id !== deleteOutputId));
     if (viewOutputId === deleteOutputId) setViewOutputId(null);
     if (renameOutputId === deleteOutputId) setRenameOutputId(null);
@@ -217,9 +311,62 @@ export function ProjectDashboardPage({
   }
 
   function openDelete(outputId: string) {
-    if (!canMutateDashboardOutputs(projectRole)) return;
-    if (!outputs.some((item) => item.id === outputId)) return;
+    const target = outputs.find((item) => item.id === outputId);
+    if (!target) return;
+    if (
+      !canDeleteDashboard({
+        projectRole,
+        dashboardOwnerId: target.createdByUserId,
+        currentUserId,
+      })
+    ) {
+      toast.error(DASHBOARD_DELETE_DENIED_MESSAGE);
+      return;
+    }
     setDeleteOutputId(outputId);
+  }
+
+  function openCreateDialog() {
+    if (!canCreateDashboard(projectRole)) {
+      toast.error(DASHBOARD_CREATE_DENIED_MESSAGE);
+      return;
+    }
+    const nextIndex = outputs.length + 1;
+    setCreateName(`Output name ${String(nextIndex).padStart(2, "0")}`);
+    setCreateError(null);
+    setCreateOpen(true);
+  }
+
+  function submitCreate(event?: FormEvent) {
+    event?.preventDefault();
+    if (!projectId || !canCreateDashboard(projectRole)) {
+      toast.error(DASHBOARD_CREATE_DENIED_MESSAGE);
+      return;
+    }
+    const trimmed = createName.trim();
+    if (!trimmed) {
+      setCreateError("Enter a Dashboard output name.");
+      createInputRef.current?.focus();
+      return;
+    }
+    outputCounterRef.current += 1;
+    const now = Date.now();
+    const record: ProjectDashboardOutput = {
+      id: `${projectId}-output-new-${now}-${outputCounterRef.current}`,
+      projectId,
+      name: trimmed,
+      outputType: "metric",
+      conversationSource: "galaxy",
+      sourceContext: "Galaxy",
+      updatedAt: "Just now",
+      updatedAtTimestamp: now,
+      createdByUserId: currentUserId,
+    };
+    setOutputs((prev) => [record, ...prev]);
+    setCreateOpen(false);
+    setCreateName("");
+    setCreateError(null);
+    toast.success("Dashboard output created");
   }
 
   useEffect(() => {
@@ -230,6 +377,15 @@ export function ProjectDashboardPage({
     });
     return () => window.cancelAnimationFrame(frame);
   }, [renameOutputId]);
+
+  useEffect(() => {
+    if (!createOpen) return;
+    const frame = window.requestAnimationFrame(() => {
+      createInputRef.current?.focus();
+      createInputRef.current?.select();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [createOpen]);
 
   if (!projectId || !project) {
     return (
@@ -283,6 +439,17 @@ export function ProjectDashboardPage({
           </div>
         }
         guide="Saved charts, tables, reports, metrics, and analyses from Project conversations."
+        primaryAction={
+          canCreate ? (
+            <Button
+              type="button"
+              {...LUXIA_PAGE_HEADER_ACTION.primary}
+              onClick={openCreateDialog}
+            >
+              Create Dashboard
+            </Button>
+          ) : undefined
+        }
       />
 
       {outputs.length > 0 ? (
@@ -387,14 +554,15 @@ export function ProjectDashboardPage({
           style={{ gap: 16 }}
         >
           {filteredOutputs.map((item) => {
-            const showEdit = canMutate && canEditDashboardOutput(item.outputType);
+            const canMutateItem = canMutateOutput(projectRole, item, currentUserId);
+            const showEdit = canMutateItem && canEditDashboardOutput(item.outputType);
             const menuItems = [
               {
                 id: "view",
                 label: "View",
                 onSelect: () => openView(item.id),
               },
-              ...(canMutate
+              ...(canMutateItem
                 ? [
                     {
                       id: "rename",
@@ -503,6 +671,70 @@ export function ProjectDashboardPage({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog
+        open={createOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setCreateOpen(false);
+            setCreateName("");
+            setCreateError(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <form onSubmit={submitCreate}>
+            <DialogHeader>
+              <DialogTitle>Create Dashboard</DialogTitle>
+              <DialogDescription>
+                Add a saved output to this Project Dashboard. It will be owned by you.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="mt-4 space-y-2">
+              <Label htmlFor="dashboard-output-create">Output name</Label>
+              <Input
+                ref={createInputRef}
+                id="dashboard-output-create"
+                value={createName}
+                onChange={(event) => {
+                  setCreateName(event.target.value);
+                  if (createError) setCreateError(null);
+                }}
+                aria-invalid={Boolean(createError)}
+                aria-describedby={createError ? "dashboard-output-create-error" : undefined}
+                autoComplete="off"
+              />
+              {createError ? (
+                <p
+                  id="dashboard-output-create-error"
+                  className="luxia-type-caption"
+                  style={{ color: "var(--luxia-error)" }}
+                  role="alert"
+                >
+                  {createError}
+                </p>
+              ) : null}
+            </div>
+            <DialogFooter className="mt-6">
+              <Button
+                type="button"
+                variant="secondary"
+                size="compact"
+                onClick={() => {
+                  setCreateOpen(false);
+                  setCreateName("");
+                  setCreateError(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" variant="primary" size="compact">
+                Create
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={Boolean(renameOutput)}

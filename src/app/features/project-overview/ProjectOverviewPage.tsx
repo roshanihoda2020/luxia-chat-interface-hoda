@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { HomeProjectCard } from "@/app/features/project/types";
 import {
-  getProjectActivity,
-  getProjectDashboardOutputs,
-  getProjectWidgets,
-} from "./data";
+  resolveVidgetSourceDisplay,
+  type VidgetRecord,
+} from "@/app/features/vidgets";
+import { VIDGET_CHANNEL_LABELS, VIDGET_STATUS_LABELS } from "@/app/features/vidgets/types";
+import { getProjectActivity, getProjectDashboardOutputs } from "./data";
 import { ProjectGalaxyCard } from "./ProjectGalaxyCard";
 import { ProjectHeader, ProjectNotFoundState } from "./ProjectHeader";
 import {
@@ -19,6 +20,7 @@ import type {
   ProjectOverviewBrowseMode,
   ProjectOverviewChat,
   ProjectOverviewConstellation,
+  ProjectWidgetItem,
 } from "./types";
 
 export interface ProjectOverviewPageProps {
@@ -28,6 +30,7 @@ export interface ProjectOverviewPageProps {
   galaxyInstructionById?: Record<string, string>;
   chats: ProjectOverviewChat[];
   constellations: ProjectOverviewConstellation[];
+  vidgets?: VidgetRecord[];
   initialBrowseMode?: ProjectOverviewBrowseMode;
   onNavigateHome: () => void;
   onViewProjects: () => void;
@@ -42,12 +45,15 @@ export interface ProjectOverviewPageProps {
   onAddConstellation?: (projectId: string, name: string, type: "database" | "csv" | "pdf") => void;
   onOpenDashboard?: (projectId: string) => void;
   onNewDashboard?: (projectId: string) => void;
-  onOpenVirtualAssistant?: (projectId: string, assistantId: string) => void;
+  onOpenVirtualAssistant?: (projectId: string, vidgetId: string) => void;
+  onViewAllVidgets?: (projectId: string) => void;
+  onCreateVidget?: (projectId: string) => void;
+  onCreateVidgetFromGalaxy?: (projectId: string) => void;
+  canManageVidgets?: (projectId: string) => boolean;
   onBrowseModeChange?: (mode: ProjectOverviewBrowseMode) => void;
   onRenameProject?: (projectId: string, name: string) => void;
   onArchiveProject?: (projectId: string) => void;
   onDeleteProject?: (projectId: string) => void;
-  onOpenMembers?: (projectId: string) => void;
 }
 
 const DESIGNED_BROWSE_MODES: ProjectOverviewBrowseMode[] = ["overview"];
@@ -84,10 +90,15 @@ export function ProjectOverviewPage({
   onRenameProject,
   onArchiveProject,
   onDeleteProject,
-  onOpenMembers,
   onOpenConstellationSettings,
   onViewAllConstellations,
   onViewAllChats,
+  onOpenVirtualAssistant,
+  onViewAllVidgets,
+  onCreateVidget,
+  onCreateVidgetFromGalaxy,
+  canManageVidgets,
+  vidgets = [],
 }: ProjectOverviewPageProps) {
   const [browseMode, setBrowseMode] = useState<ProjectOverviewBrowseMode>(
     DESIGNED_BROWSE_MODES.includes(initialBrowseMode) ? initialBrowseMode : "overview",
@@ -136,10 +147,50 @@ export function ProjectOverviewPage({
     () => (projectId ? getProjectDashboardOutputs(projectId) : []),
     [projectId],
   );
-  const widgets = useMemo(
-    () => (projectId ? getProjectWidgets(projectId) : []),
-    [projectId],
-  );
+  const widgets = useMemo((): ProjectWidgetItem[] => {
+    if (!projectId || !project) return [];
+    const galaxyName =
+      galaxyNameById[project.galaxyId]
+      ?? null;
+    return vidgets
+      .filter((item) => item.projectId === projectId)
+      .slice()
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+      .map((item) => {
+        const constellation = item.constellationId
+          ? projectConstellations.find((entry) => entry.id === item.constellationId)
+          : undefined;
+        const source = resolveVidgetSourceDisplay(item, {
+          projectGalaxyId: project.galaxyId,
+          galaxyName,
+          constellation: constellation
+            ? {
+                id: constellation.id,
+                projectId: constellation.projectId,
+                name: constellation.label,
+              }
+            : item.constellationId
+              ? null
+              : undefined,
+          projectConstellations: projectConstellations.map((entry) => ({
+            id: entry.id,
+            projectId: entry.projectId,
+            name: entry.label,
+          })),
+        });
+        return {
+          id: item.id,
+          projectId: item.projectId,
+          name: item.name,
+          channel: item.channel,
+          channelLabel: VIDGET_CHANNEL_LABELS[item.channel],
+          sourceType: item.sourceType,
+          sourceLabel: source.label,
+          statusLabel: VIDGET_STATUS_LABELS[item.status],
+          sourceAvailable: source.available,
+        };
+      });
+  }, [projectId, project, vidgets, galaxyNameById, projectConstellations]);
 
   if (!projectId || !project) {
     return (
@@ -168,7 +219,6 @@ export function ProjectOverviewPage({
         onRenameProject={(name) => onRenameProject?.(resolvedProject.id, name)}
         onArchiveProject={onArchiveProject}
         onDeleteProject={onDeleteProject}
-        onOpenMembers={onOpenMembers}
       />
 
       <div className="flex min-w-0 flex-col gap-5">
@@ -185,6 +235,12 @@ export function ProjectOverviewPage({
             usableConstellationCount={projectConstellations.length}
             onOpenGalaxy={() => onOpenGalaxy(resolvedProject.id)}
             onOpenGalaxySettings={() => onOpenGalaxySettings(resolvedProject.id)}
+            canCreateVidget={canManageVidgets?.(resolvedProject.id) ?? false}
+            onCreateVidget={
+              onCreateVidgetFromGalaxy
+                ? () => onCreateVidgetFromGalaxy(resolvedProject.id)
+                : undefined
+            }
           />
         </section>
 
@@ -227,7 +283,24 @@ export function ProjectOverviewPage({
 
         <section className="min-w-0">
           <OverviewLabel>Deployment and Vidgets</OverviewLabel>
-          <WidgetsModule widgets={widgets} />
+          <WidgetsModule
+            widgets={widgets}
+            onViewAll={
+              onViewAllVidgets
+                ? () => onViewAllVidgets(resolvedProject.id)
+                : undefined
+            }
+            onCreateVidget={
+              canManageVidgets?.(resolvedProject.id) && onCreateVidget
+                ? () => onCreateVidget(resolvedProject.id)
+                : undefined
+            }
+            onOpen={
+              onOpenVirtualAssistant
+                ? (id) => onOpenVirtualAssistant(resolvedProject.id, id)
+                : undefined
+            }
+          />
         </section>
 
         <section className="min-w-0">

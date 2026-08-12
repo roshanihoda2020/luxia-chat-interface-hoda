@@ -11,6 +11,7 @@ import {
   LuxiaPageFrame,
 } from "@/app/components/LuxiaPageFrame";
 import { LuxiaPageHeader, LUXIA_PAGE_HEADER_ACTION } from "@/app/components/LuxiaPageHeader";
+import { LuxiaPageReadOnlyBadge } from "@/app/components/LuxiaPageReadOnlyBadge";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import {
@@ -161,6 +162,13 @@ export function AccessLevelsPage({
         pageTypeLabel="ACCESS LEVELS"
         title="Access Levels"
         titleStyle={{ color: HS.sectionHeading }}
+        titleMetadata={
+          !canAdminister ? (
+            <LuxiaPageReadOnlyBadge
+              ariaLabel="Read only. Only Organization Admins can create or edit Access Levels."
+            />
+          ) : undefined
+        }
         breadcrumb={
           <LuxiaBreadcrumb
             tone="page"
@@ -169,33 +177,6 @@ export function AccessLevelsPage({
           />
         }
         guide={ACCESS_LEVELS_GUIDANCE.listPageDescription}
-        context={
-          <div className="space-y-1">
-            <p className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
-              {ACCESS_LEVELS_GUIDANCE.listPageRule}
-            </p>
-            {!canAdminister ? (
-              <div
-                className="space-y-0.5"
-                role="status"
-                aria-label="Read only. Only Organization Admins can create or edit Access Levels."
-              >
-                <p
-                  className="luxia-type-caption"
-                  style={{ color: "var(--luxia-text-secondary)" }}
-                >
-                  Read only
-                </p>
-                <p
-                  className="luxia-type-caption"
-                  style={{ color: "var(--luxia-text-muted)" }}
-                >
-                  Only Organization Admins can create or edit Access Levels.
-                </p>
-              </div>
-            ) : null}
-          </div>
-        }
         actions={<LuxiaAccessGuide />}
         primaryAction={
           canAdminister ? (

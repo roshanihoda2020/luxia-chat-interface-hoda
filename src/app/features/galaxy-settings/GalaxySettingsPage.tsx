@@ -9,12 +9,13 @@ import {
 import {
   LuxiaPageBody,
   LuxiaPageFrame,
+  LuxiaPageHeadingRegion,
 } from "@/app/components/LuxiaPageFrame";
+import { LuxiaPageReadOnlyBadge } from "@/app/components/LuxiaPageReadOnlyBadge";
 import {
   LuxiaPageGuide,
   LuxiaPageHeader,
   LUXIA_PAGE_HEADER_ACTION,
-  LuxiaPageEntityUpdatedMeta,
 } from "@/app/components/LuxiaPageHeader";
 import { Badge } from "@/app/components/ui/badge";
 import { Button } from "@/app/components/ui/button";
@@ -85,6 +86,7 @@ export interface GalaxySettingsPageProps {
     draft: Pick<GalaxySettingsDraft, "routeMode" | "manualConstellationIds">,
   ) => void;
   onOpenGalaxy: (projectId: string) => void;
+  onCreateVidget?: (projectId: string) => void;
   onNavigateHome: () => void;
   onOpenProject: (projectId: string) => void;
   onOpenConstellations?: (projectId: string) => void;
@@ -97,9 +99,7 @@ import {
   CapabilityRow,
   ConflictSurface,
   DefinitionRow,
-  GS_ACCESS_LIST_WIDTH,
   GS_FORM_FIELD_WIDTH,
-  GS_FORM_TAB_WIDTH,
   GS_LIST_TAB_WIDTH,
   GS_READONLY_INPUT_CLASS,
   GS_SUBTLE_SURFACE,
@@ -336,6 +336,7 @@ export function GalaxySettingsPage({
   onSaveInstruction,
   onSaveRouting,
   onOpenGalaxy,
+  onCreateVidget,
   onNavigateHome,
   onOpenProject,
   onOpenConstellations,
@@ -398,10 +399,6 @@ export function GalaxySettingsPage({
     if (!focusHeadingToken) return;
     headingRef.current?.querySelector("h1")?.focus();
   }, [focusHeadingToken]);
-
-  const readOnlyBannerBody = currentProjectRole
-    ? `You're viewing Galaxy Settings as ${currentProjectRole.replace("Project ", "a Project ")}. ${GALAXY_SETTINGS_GUIDANCE.readOnlyBody}`
-    : GALAXY_SETTINGS_GUIDANCE.readOnlyBody;
 
   const breadcrumbItems = useMemo(
     () =>
@@ -502,53 +499,47 @@ export function GalaxySettingsPage({
 
   return (
     <LuxiaPageFrame variant={GALAXY_SETTINGS_PAGE_VARIANT}>
-      <div ref={headingRef}>
+      <LuxiaPageHeadingRegion ref={headingRef}>
         <LuxiaPageHeader
           contentGap="page"
           pageTypeLabel="GALAXY"
           title={record.name}
           titleStyle={{ color: HS.sectionHeading }}
+          titleMetadata={
+            readOnly ? (
+              <LuxiaPageReadOnlyBadge
+                ariaLabel={`Read only. ${GALAXY_SETTINGS_GUIDANCE.readOnlyBody}`}
+              />
+            ) : undefined
+          }
           breadcrumb={
             <LuxiaBreadcrumb tone="page" items={breadcrumbItems} handlers={breadcrumbHandlers} />
           }
-          context={
-            <div className="space-y-1">
-              <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
-                <p className="luxia-type-caption min-w-0" style={{ color: "var(--luxia-text-secondary)" }}>
-                  {record.projectName}
-                </p>
-                <LuxiaPageEntityUpdatedMeta updatedAt={record.updatedAt} />
-              </div>
-              {readOnly ? (
-                <div
-                  className="space-y-0.5"
-                  role="status"
-                  aria-label={`${GALAXY_SETTINGS_GUIDANCE.readOnlyTitle}. ${readOnlyBannerBody}`}
-                >
-                  <p className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
-                    {GALAXY_SETTINGS_GUIDANCE.readOnlyTitle}
-                  </p>
-                  <p className="luxia-type-caption" style={{ color: "var(--luxia-text-muted)" }}>
-                    {readOnlyBannerBody}
-                  </p>
-                </div>
-              ) : null}
-            </div>
-          }
           guide={GALAXY_SETTINGS_GUIDANCE.page}
           secondaryAction={
-            <Button
-              type="button"
-              {...LUXIA_PAGE_HEADER_ACTION.secondary}
-              onClick={() => onOpenGalaxy(record.projectId)}
-            >
-              Open Galaxy
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              {onCreateVidget && canConfigure ? (
+                <Button
+                  type="button"
+                  {...LUXIA_PAGE_HEADER_ACTION.secondary}
+                  onClick={() => onCreateVidget(record.projectId)}
+                >
+                  Create Vidget
+                </Button>
+              ) : null}
+              <Button
+                type="button"
+                {...LUXIA_PAGE_HEADER_ACTION.secondary}
+                onClick={() => onOpenGalaxy(record.projectId)}
+              >
+                Open Galaxy
+              </Button>
+            </div>
           }
           primaryAction={null}
           options={null}
         />
-      </div>
+      </LuxiaPageHeadingRegion>
 
       <LuxiaPageBody>
         <Tabs
@@ -596,135 +587,142 @@ export function GalaxySettingsPage({
 
           <div className={`w-full min-w-0 ${PARENT_SURFACE_CLASS}`}>
             <TabsContent value="general" className={SETTINGS_TAB_PANEL_CLASS}>
-              <div className={GS_FORM_TAB_WIDTH}>
-                <SectionBlock title="GALAXY DETAILS">
-                  <div className={`space-y-4 ${GS_FORM_FIELD_WIDTH}`}>
-                    {readOnly ? (
-                      <dl className="space-y-0">
-                        <DefinitionRow label="Galaxy name" value={draft.name || record.name} />
-                        <DefinitionRow label="Project" value={record.projectName} />
-                      </dl>
-                    ) : (
-                      <>
-                        <FilterField label="Galaxy name" htmlFor="gs-name">
-                          <Input
-                            id="gs-name"
-                            value={draft.name}
-                            onChange={(event) => {
-                              setDraft((prev) => ({ ...prev, name: event.target.value }));
-                            }}
-                          />
-                        </FilterField>
-                        <FilterField label="Project" htmlFor="gs-project">
-                          <Input
-                            id="gs-project"
-                            value={record.projectName}
-                            readOnly
-                            aria-readonly="true"
-                            className={GS_READONLY_INPUT_CLASS}
-                          />
-                        </FilterField>
-                      </>
-                    )}
+              <div className={GS_LIST_TAB_WIDTH}>
+                <div className="grid gap-8 lg:grid-cols-[minmax(0,1.6fr)_minmax(14rem,0.9fr)] lg:items-start">
+                  <div className="min-w-0">
+                    <SectionBlock title="GALAXY DETAILS">
+                      <div className={`space-y-4 ${GS_FORM_FIELD_WIDTH}`}>
+                        {readOnly ? (
+                          <dl className="space-y-0">
+                            <DefinitionRow label="Galaxy name" value={draft.name || record.name} />
+                            <DefinitionRow label="Project" value={record.projectName} />
+                          </dl>
+                        ) : (
+                          <>
+                            <FilterField label="Galaxy name" htmlFor="gs-name">
+                              <Input
+                                id="gs-name"
+                                value={draft.name}
+                                onChange={(event) => {
+                                  setDraft((prev) => ({ ...prev, name: event.target.value }));
+                                }}
+                              />
+                            </FilterField>
+                            <FilterField label="Project" htmlFor="gs-project">
+                              <Input
+                                id="gs-project"
+                                value={record.projectName}
+                                readOnly
+                                aria-readonly="true"
+                                className={GS_READONLY_INPUT_CLASS}
+                              />
+                            </FilterField>
+                          </>
+                        )}
+                      </div>
+                    </SectionBlock>
+
+                    <LuxiaSettingsFormActions
+                      dirty={generalDirty}
+                      canSave={canConfigure && EDITABLE_SECTIONS.has("general")}
+                      onSave={handleSaveGeneral}
+                      onCancel={handleCancelGeneral}
+                    />
                   </div>
-                </SectionBlock>
 
-                <SettingsDivider />
-
-                <SectionBlock title="INFORMATION">
-                  <dl className="max-w-none">
-                    <DefinitionRow
-                      label="Available Constellations"
-                      value={availableItems.length}
-                    />
-                    {currentProjectRole ? (
-                      <DefinitionRow label="Project role" value={currentProjectRole} />
-                    ) : null}
-                    <DefinitionRow
-                      label="Galaxy availability"
-                      value={availableItems.length > 0 ? "Available" : "Unavailable"}
-                    />
-                  </dl>
-                </SectionBlock>
-
-                <LuxiaSettingsFormActions
-                  dirty={generalDirty}
-                  canSave={canConfigure && EDITABLE_SECTIONS.has("general")}
-                  onSave={handleSaveGeneral}
-                  onCancel={handleCancelGeneral}
-                />
+                  <SectionBlock title="INFORMATION" className="min-w-0">
+                    <dl>
+                      <DefinitionRow
+                        label="Available Constellations"
+                        value={availableItems.length}
+                      />
+                      {currentProjectRole ? (
+                        <DefinitionRow label="Project role" value={currentProjectRole} />
+                      ) : null}
+                      <DefinitionRow
+                        label="Galaxy availability"
+                        value={availableItems.length > 0 ? "Available" : "Unavailable"}
+                      />
+                    </dl>
+                  </SectionBlock>
+                </div>
               </div>
             </TabsContent>
 
             <TabsContent value="instruction" className={SETTINGS_TAB_PANEL_CLASS}>
-              <div className={GS_FORM_TAB_WIDTH}>
-                <LuxiaPageGuide>{GALAXY_SETTINGS_GUIDANCE.instruction}</LuxiaPageGuide>
+              <div className={GS_LIST_TAB_WIDTH}>
+                <div className="grid gap-8 lg:grid-cols-[minmax(0,1.55fr)_minmax(16rem,0.95fr)] lg:items-start">
+                  <div className="min-w-0">
+                    <SectionBlock title="GALAXY INSTRUCTION">
+                      <LuxiaPageGuide>{GALAXY_SETTINGS_GUIDANCE.instruction}</LuxiaPageGuide>
 
-                <div className={`mt-4 ${GS_FORM_FIELD_WIDTH}`}>
-                  {readOnly ? (
-                    <div className="flex min-w-0 flex-col gap-1">
-                      <p className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
-                        Galaxy instruction
-                      </p>
-                      <div
-                        className="rounded-[var(--luxia-radius-12)] px-4 py-3 luxia-type-body-dense whitespace-pre-wrap"
-                        style={{
-                          ...GS_SUBTLE_SURFACE,
-                          color: "var(--luxia-text-primary)",
-                        }}
+                      <div className={`mt-4 ${GS_FORM_FIELD_WIDTH}`}>
+                        {readOnly ? (
+                          <div className="flex min-w-0 flex-col gap-1">
+                            <p className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
+                              Galaxy instruction
+                            </p>
+                            <div
+                              className="rounded-[var(--luxia-radius-12)] px-4 py-3 luxia-type-body-dense whitespace-pre-wrap"
+                              style={{
+                                ...GS_SUBTLE_SURFACE,
+                                color: "var(--luxia-text-primary)",
+                              }}
+                            >
+                              {draft.instruction}
+                            </div>
+                          </div>
+                        ) : (
+                          <FilterField label="Galaxy instruction" htmlFor="gs-instruction">
+                            <Textarea
+                              id="gs-instruction"
+                              value={draft.instruction}
+                              onChange={(event) => {
+                                setDraft((prev) => ({ ...prev, instruction: event.target.value }));
+                              }}
+                              rows={7}
+                              className="min-h-[10rem] resize-y"
+                            />
+                            <p className="mt-1.5 luxia-type-caption" style={{ color: "var(--luxia-text-muted)" }}>
+                              {GALAXY_SETTINGS_GUIDANCE.instructionFieldHelper}
+                            </p>
+                          </FilterField>
+                        )}
+                      </div>
+                    </SectionBlock>
+
+                    <LuxiaSettingsFormActions
+                      dirty={instructionDirty}
+                      canSave={canConfigure && EDITABLE_SECTIONS.has("instruction")}
+                      onSave={handleSaveInstruction}
+                      onCancel={handleCancelInstruction}
+                    />
+                  </div>
+
+                  <SectionBlock title="INSTRUCTION COMPATIBILITY" className="min-w-0">
+                    {instructionConflicts.length === 0 ? (
+                      <p
+                        className="luxia-type-body-dense"
+                        style={{ color: "var(--luxia-text-muted)" }}
+                        role="status"
                       >
-                        {draft.instruction}
-                      </div>
-                    </div>
-                  ) : (
-                    <FilterField label="Galaxy instruction" htmlFor="gs-instruction">
-                      <Textarea
-                        id="gs-instruction"
-                        value={draft.instruction}
-                        onChange={(event) => {
-                          setDraft((prev) => ({ ...prev, instruction: event.target.value }));
-                        }}
-                        rows={7}
-                        className="min-h-[10rem] resize-y"
-                      />
-                      <p className="mt-1.5 luxia-type-caption" style={{ color: "var(--luxia-text-muted)" }}>
-                        {GALAXY_SETTINGS_GUIDANCE.instructionFieldHelper}
+                        ✓ No instruction conflicts detected
                       </p>
-                    </FilterField>
-                  )}
+                    ) : (
+                      <div className="space-y-3">
+                        <p className="luxia-type-body-dense-strong" style={{ color: "var(--luxia-text-primary)" }}>
+                          {instructionConflicts.length} conflict
+                          {instructionConflicts.length === 1 ? "" : "s"} detected
+                        </p>
+                        <div className="space-y-2">
+                          {instructionConflicts.map((conflict) => (
+                            <InstructionConflictRow key={conflict.constellationId} conflict={conflict} />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </SectionBlock>
                 </div>
-
-                <SettingsDivider />
-
-                <SectionBlock title="INSTRUCTION COMPATIBILITY">
-                  {instructionConflicts.length === 0 ? (
-                    <p
-                      className="luxia-type-body-dense"
-                      style={{ color: "var(--luxia-text-muted)" }}
-                      role="status"
-                    >
-                      ✓ No instruction conflicts detected
-                    </p>
-                  ) : (
-                    <div className={`space-y-3 ${GS_FORM_FIELD_WIDTH}`}>
-                      <p className="luxia-type-body-dense-strong" style={{ color: "var(--luxia-text-primary)" }}>
-                        Instruction conflicts detected
-                      </p>
-                      <div className="space-y-2">
-                        {instructionConflicts.map((conflict) => (
-                          <InstructionConflictRow key={conflict.constellationId} conflict={conflict} />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </SectionBlock>
-
-                <LuxiaSettingsFormActions
-                  dirty={instructionDirty}
-                  canSave={canConfigure && EDITABLE_SECTIONS.has("instruction")}
-                  onSave={handleSaveInstruction}
-                  onCancel={handleCancelInstruction}
-                />
               </div>
             </TabsContent>
 
@@ -751,9 +749,9 @@ export function GalaxySettingsPage({
                     ) : null}
                   </div>
                 ) : (
-                  <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(14rem,17rem)] lg:items-start">
-                    <div className="min-w-0 space-y-6">
-                      <SectionBlock title="ROUTING MODE">
+                  <div className="space-y-6">
+                    <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(14rem,17rem)] lg:items-start">
+                      <SectionBlock title="ROUTING MODE" className="min-w-0">
                         {readOnly ? (
                           <dl className="max-w-none">
                             <DefinitionRow
@@ -807,92 +805,92 @@ export function GalaxySettingsPage({
                         )}
                       </SectionBlock>
 
-                      <div className="space-y-3">
-                        <FilterField label="Search Constellations" htmlFor="gs-routing-search">
-                          <Input
-                            id="gs-routing-search"
-                            value={routingSearch}
-                            onChange={(event) => setRoutingSearch(event.target.value)}
-                            placeholder={GALAXY_SETTINGS_GUIDANCE.routingSearchPlaceholder}
-                          />
-                        </FilterField>
-
-                        {!readOnly && draft.routeMode === "manual" ? (
-                          <p className="luxia-type-caption" style={{ color: "var(--luxia-text-muted)" }}>
-                            Selected: {resolvedSelection.length} of {availableItems.length}
-                          </p>
-                        ) : null}
-
-                        <SectionBlock title="AVAILABLE CONSTELLATIONS">
-                          <SettingsListSurface scrollable>
-                            {filteredAvailableItems.length === 0 ? (
-                              <li className="py-4 luxia-type-body-dense" style={{ color: "var(--luxia-text-muted)" }}>
-                                No Constellations match your search.
-                              </li>
-                            ) : (
-                              filteredAvailableItems.map((item) => (
-                                <ConstellationRoutingRow
-                                  key={item.id}
-                                  item={item}
-                                  readOnly={readOnly}
-                                  selectable={!readOnly && draft.routeMode === "manual"}
-                                  selected={
-                                    draft.routeMode === "manual"
-                                    && resolvedSelection.includes(item.id)
-                                  }
-                                  onToggle={() => toggleManualSelection(item.id)}
-                                />
-                              ))
-                            )}
-                          </SettingsListSurface>
-                        </SectionBlock>
-
-                        {unavailableItems.length > 0 ? (
-                          <Collapsible open={unavailableOpen} onOpenChange={setUnavailableOpen}>
-                            <CollapsibleTrigger asChild>
-                              <button type="button" className="group w-full outline-none focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]">
-                                <SubsectionCollapsibleTrigger
-                                  title="UNAVAILABLE"
-                                  count={unavailableItems.length}
-                                />
-                              </button>
-                            </CollapsibleTrigger>
-                            <CollapsibleContent className="pt-2">
-                              <SettingsListSurface>
-                                {unavailableItems.map((item) => (
-                                  <ConstellationRoutingRow key={item.id} item={item} readOnly />
-                                ))}
-                              </SettingsListSurface>
-                            </CollapsibleContent>
-                          </Collapsible>
-                        ) : null}
-                      </div>
+                      <SummaryPanel
+                        title="ROUTING SUMMARY"
+                        rows={[
+                          {
+                            label: "Mode",
+                            value: draft.routeMode === "auto" ? "Automatic" : "Manual",
+                          },
+                          {
+                            label: "Available",
+                            value: availableItems.length,
+                          },
+                          {
+                            label: "Selected",
+                            value:
+                              draft.routeMode === "auto"
+                                ? "Automatic"
+                                : `${resolvedSelection.length} selected`,
+                          },
+                          {
+                            label: "Unavailable",
+                            value: unavailableItems.length,
+                          },
+                        ]}
+                      />
                     </div>
 
-                    <SummaryPanel
-                      title="ROUTING SUMMARY"
-                      rows={[
-                        {
-                          label: "Mode",
-                          value: draft.routeMode === "auto" ? "Automatic" : "Manual",
-                        },
-                        {
-                          label: "Available",
-                          value: availableItems.length,
-                        },
-                        {
-                          label: "Selected",
-                          value:
-                            draft.routeMode === "auto"
-                              ? "Automatic"
-                              : `${resolvedSelection.length} selected`,
-                        },
-                        {
-                          label: "Unavailable",
-                          value: unavailableItems.length,
-                        },
-                      ]}
-                    />
+                    <div className="space-y-3">
+                      <FilterField label="Search Constellations" htmlFor="gs-routing-search">
+                        <Input
+                          id="gs-routing-search"
+                          value={routingSearch}
+                          onChange={(event) => setRoutingSearch(event.target.value)}
+                          placeholder={GALAXY_SETTINGS_GUIDANCE.routingSearchPlaceholder}
+                        />
+                      </FilterField>
+
+                      {!readOnly && draft.routeMode === "manual" ? (
+                        <p className="luxia-type-caption" style={{ color: "var(--luxia-text-muted)" }}>
+                          Selected: {resolvedSelection.length} of {availableItems.length}
+                        </p>
+                      ) : null}
+
+                      <SectionBlock title="AVAILABLE CONSTELLATIONS">
+                        <SettingsListSurface scrollable>
+                          {filteredAvailableItems.length === 0 ? (
+                            <li className="py-4 luxia-type-body-dense" style={{ color: "var(--luxia-text-muted)" }}>
+                              No Constellations match your search.
+                            </li>
+                          ) : (
+                            filteredAvailableItems.map((item) => (
+                              <ConstellationRoutingRow
+                                key={item.id}
+                                item={item}
+                                readOnly={readOnly}
+                                selectable={!readOnly && draft.routeMode === "manual"}
+                                selected={
+                                  draft.routeMode === "manual"
+                                  && resolvedSelection.includes(item.id)
+                                }
+                                onToggle={() => toggleManualSelection(item.id)}
+                              />
+                            ))
+                          )}
+                        </SettingsListSurface>
+                      </SectionBlock>
+
+                      {unavailableItems.length > 0 ? (
+                        <Collapsible open={unavailableOpen} onOpenChange={setUnavailableOpen}>
+                          <CollapsibleTrigger asChild>
+                            <button type="button" className="group w-full outline-none focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]">
+                              <SubsectionCollapsibleTrigger
+                                title="UNAVAILABLE"
+                                count={unavailableItems.length}
+                              />
+                            </button>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent className="pt-2">
+                            <SettingsListSurface>
+                              {unavailableItems.map((item) => (
+                                <ConstellationRoutingRow key={item.id} item={item} readOnly />
+                              ))}
+                            </SettingsListSurface>
+                          </CollapsibleContent>
+                        </Collapsible>
+                      ) : null}
+                    </div>
                   </div>
                 )}
 
@@ -953,80 +951,83 @@ export function GalaxySettingsPage({
             </TabsContent>
 
             <TabsContent value="access" className={SETTINGS_TAB_PANEL_CLASS}>
-              <div className={GS_LIST_TAB_WIDTH}>
-                <SectionBlock title="GALAXY ACCESS">
-                  <dl className="max-w-[42rem]">
-                    <DefinitionRow
-                      label="Galaxy access"
-                      value={GALAXY_SETTINGS_GUIDANCE.accessGalaxy}
-                    />
-                    {currentProjectRole ? (
-                      <DefinitionRow label="Project role" value={currentProjectRole} />
-                    ) : null}
-                  </dl>
-                </SectionBlock>
+              <div className={`${GS_LIST_TAB_WIDTH} space-y-6`}>
+                <div className="grid gap-8 lg:grid-cols-[minmax(0,1.55fr)_minmax(14rem,0.9fr)] lg:items-start">
+                  <SectionBlock title="GALAXY ACCESS" className="min-w-0">
+                    <dl>
+                      <DefinitionRow
+                        label="Galaxy access"
+                        value={GALAXY_SETTINGS_GUIDANCE.accessGalaxy}
+                      />
+                      {currentProjectRole ? (
+                        <DefinitionRow label="Project role" value={currentProjectRole} />
+                      ) : null}
+                    </dl>
+                  </SectionBlock>
+
+                  <SectionBlock title="AVAILABILITY SUMMARY" className="min-w-0">
+                    <dl className="grid grid-cols-2 gap-x-6 gap-y-1">
+                      <div className="flex min-w-0 flex-col gap-0.5">
+                        <dt className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
+                          Available
+                        </dt>
+                        <dd className="luxia-type-body-dense tabular-nums" style={{ color: "var(--luxia-text-primary)" }}>
+                          {availableItems.length}
+                        </dd>
+                      </div>
+                      <div className="flex min-w-0 flex-col gap-0.5">
+                        <dt className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
+                          Unavailable
+                        </dt>
+                        <dd className="luxia-type-body-dense tabular-nums" style={{ color: "var(--luxia-text-primary)" }}>
+                          {unavailableItems.length}
+                        </dd>
+                      </div>
+                    </dl>
+                  </SectionBlock>
+                </div>
 
                 <SettingsDivider />
 
                 <SectionBlock title="CONSTELLATION AVAILABILITY">
-                  <dl className="mb-4 grid max-w-md grid-cols-2 gap-x-6 gap-y-3">
-                    <div className="flex min-w-0 flex-col gap-0.5">
-                      <dt className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
-                        Available
-                      </dt>
-                      <dd className="luxia-type-body-dense tabular-nums" style={{ color: "var(--luxia-text-primary)" }}>
-                        {availableItems.length}
-                      </dd>
-                    </div>
-                    <div className="flex min-w-0 flex-col gap-0.5">
-                      <dt className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
-                        Unavailable
-                      </dt>
-                      <dd className="luxia-type-body-dense tabular-nums" style={{ color: "var(--luxia-text-primary)" }}>
-                        {unavailableItems.length}
-                      </dd>
-                    </div>
-                  </dl>
-
                   {constellationItems.length === 0 ? (
                     <p className="luxia-type-body-dense" style={{ color: "var(--luxia-text-secondary)" }}>
                       {GALAXY_SETTINGS_GUIDANCE.accessEmpty}
                     </p>
                   ) : (
-                    <div className={GS_ACCESS_LIST_WIDTH}>
-                      <SettingsListSurface scrollable>
-                        {constellationItems.map((item) => (
-                          <li key={item.id} className="luxia-settings-row flex min-w-0 items-center gap-3 py-3.5">
-                            <LuxiaConstellationIcon size={18} aria-hidden color="var(--luxia-text-secondary)" />
-                            <div className="min-w-0 flex-1">
-                              <p className="luxia-type-body-dense truncate" style={{ color: "var(--luxia-text-primary)" }}>
-                                {item.name}
-                              </p>
-                              <div className="mt-1">
-                                <ConstellationTypeBadge type={item.type} label={item.typeLabel} />
-                              </div>
+                    <SettingsListSurface scrollable>
+                      {constellationItems.map((item) => (
+                        <li key={item.id} className="luxia-settings-row flex min-w-0 items-center gap-3 py-3.5">
+                          <LuxiaConstellationIcon size={18} aria-hidden color="var(--luxia-text-secondary)" />
+                          <div className="min-w-0 flex-1">
+                            <p className="luxia-type-body-dense truncate" style={{ color: "var(--luxia-text-primary)" }}>
+                              {item.name}
+                            </p>
+                            <div className="mt-1">
+                              <ConstellationTypeBadge type={item.type} label={item.typeLabel} />
                             </div>
-                            <AvailabilityLabel available={item.available} reason={item.unavailableReason} />
-                          </li>
-                        ))}
-                      </SettingsListSurface>
-                    </div>
+                          </div>
+                          <AvailabilityLabel available={item.available} reason={item.unavailableReason} />
+                        </li>
+                      ))}
+                    </SettingsListSurface>
                   )}
                 </SectionBlock>
 
                 <SettingsDivider />
 
-                <p
-                  className="max-w-[42rem] luxia-type-body-dense"
-                  style={{ color: "var(--luxia-text-secondary)" }}
-                >
-                  {GALAXY_SETTINGS_GUIDANCE.accessExplanation}
-                </p>
-
-                <RelatedAccessNav
-                  onOpenAccessLevels={onOpenAccessLevels}
-                  onOpenDataSources={onOpenDataSources}
-                />
+                <section className="space-y-1">
+                  <p
+                    className="max-w-[42rem] luxia-type-body-dense"
+                    style={{ color: "var(--luxia-text-secondary)" }}
+                  >
+                    {GALAXY_SETTINGS_GUIDANCE.accessExplanation}
+                  </p>
+                  <RelatedAccessNav
+                    onOpenAccessLevels={onOpenAccessLevels}
+                    onOpenDataSources={onOpenDataSources}
+                  />
+                </section>
               </div>
             </TabsContent>
           </div>

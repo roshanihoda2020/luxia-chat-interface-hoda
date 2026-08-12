@@ -1,4 +1,4 @@
-/** Access Levels + Members & Roles IA: page description, compact rule, optional Help. */
+/** Access Levels + Members & Roles IA. */
 
 export type AccessLevelEditorSectionId =
   | "general"
@@ -20,11 +20,11 @@ export const ACCESS_LEVEL_EDITOR_SECTIONS: {
 
 export const ACCESS_LEVELS_GUIDANCE = {
   listPageDescription:
-    "Group members and control which Data Sources they can View, Use, or Manage.",
-  listPageRule:
-    "Access Levels apply to Data Sources, not Projects or Constellations.",
-  editorPageDescription:
-    "Choose the members and Data Source permissions included in this Access Level.",
+    "Group members and control Data Source permissions.",
+  editorPageDescriptionEditable:
+    "Manage members and Data Source permissions.",
+  editorPageDescriptionReadOnly:
+    "Review members and Data Source permissions.",
   sourcesPermissionsDescription:
     "Select Data Sources and set one permission per source.",
   sourcesPermissionHierarchy:
@@ -45,10 +45,7 @@ export type ProjectMembersSectionFocus =
   | "source-readiness";
 
 export const PROJECT_MEMBERS_GUIDANCE = {
-  pageDescription:
-    "Manage Project membership and what each person can do inside this Project.",
-  pageRule:
-    "Data Source access is managed separately through Access Levels.",
+  pageDescription: "Manage Project membership and roles.",
   /** Do not place Data Source permission checkboxes on this page. */
   allowSourcePermissionCheckboxes: false,
   pageVariant: "standard" as const,
@@ -62,9 +59,6 @@ export const PERMISSION_HIERARCHY_COPY = {
 } as const;
 
 export const ORGANIZATION_USERS_GUIDANCE = {
-  listPageDescription:
-    "Manage organization users and review their access.",
-  listPageRule:
-    "Organization role is global. Project role is per Project. Access Levels control Data Sources only.",
+  listPageDescription: "Manage organization users and review their access.",
   pageVariant: "standard" as const,
 } as const;

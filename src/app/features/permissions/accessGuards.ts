@@ -76,7 +76,6 @@ export function canAdministerProjectConfiguration(
   return canConfigureConstellation(projectRole);
 }
 
-/** Project Settings — explicit Owner/Manager membership only. */
 export function canAccessProjectSettingsForUser(
   _userId: string = CURRENT_USER_ID,
   projectRole: ProjectRole | null | undefined = null,
@@ -166,7 +165,6 @@ export function canDeleteProject(
   return role === "Project Owner";
 }
 
-/** Project Settings — Owner/Manager. */
 export function canAccessProjectSettings(
   role: ProjectRole | null | undefined,
 ): boolean {

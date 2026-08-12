@@ -30,6 +30,7 @@ import { formatConnectedConstellationCount } from "@/app/features/permissions/da
 import { LUXIA_SETTINGS_CONTENT_SURFACE_CLASS } from "@/app/features/shared/luxiaSettingsUx";
 import { buildDataSourceLibraryRows } from "./buildLibraryRows";
 import { DATA_SOURCES_GUIDANCE, DATA_SOURCES_PAGE_VARIANT } from "./ia";
+import { LuxiaDataSourcesGuide } from "./LuxiaDataSourcesGuide";
 import type {
   DataSourceLibraryAccessFilter,
   DataSourceLibraryOwnershipFilter,
@@ -47,7 +48,6 @@ export interface DataSourcesPageProps {
   dataSources: DataSourceCatalogItem[];
   accessLevels: AccessLevelRecord[];
   currentUserId: string;
-  /** Live constellation → dataSourceIds for Connected count (merged with canonical). */
   constellationConnections?: Array<{ id: string; dataSourceIds: string[] }>;
   onOpenSource: (dataSourceId: string, options?: DataSourceLibraryOpenOptions) => void;
   onNavigateHome: () => void;
@@ -150,6 +150,7 @@ export function DataSourcesPage({
           />
         }
         guide={DATA_SOURCES_GUIDANCE.description}
+        actions={<LuxiaDataSourcesGuide />}
         primaryAction={
           <Button
             type="button"

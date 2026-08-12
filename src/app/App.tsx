@@ -53,6 +53,8 @@ import {
   getConstellationSettingsPath,
   getConstellationSettingsCapabilityPath,
   getProjectMembersPath,
+  getProjectVidgetsPath,
+  getVidgetSettingsPath,
   getAccessLevelsPath,
   getAccessLevelPath,
   getOrganizationUsersPath,
@@ -192,11 +194,34 @@ import {
   ChatsLibrary,
   ConstellationsLibrary,
   CONSTELLATION_SOURCE_COUNTS,
+  getProjectDashboardOutputs,
   type ProjectNavSection,
   type ProjectOverviewBrowseMode,
   type ProjectOverviewChat,
   type ProjectOverviewConstellation,
 } from "@/app/features/project-overview";
+import {
+  SEED_VIDGETS,
+  cloneVidget,
+  duplicateVidget,
+  buildEmptyVidget,
+  getVidgetsForProject,
+  getVidgetForProject,
+  resolveVidgetSourceDisplay,
+  canManageVidgets,
+  VIDGET_MANAGE_DENIED_MESSAGE,
+  resolveVidgetCreateSource,
+  withLockedVidgetSource,
+  validateVidgetScopeForProject,
+  VidgetsPage,
+  VidgetSettingsPage,
+  CreateVidgetDialog,
+  parseVidgetSettingsTabFromSearch,
+  vidgetSettingsSectionToTab,
+  type VidgetCreateSourcePreset,
+  type VidgetSettingsSectionId,
+  type CreateVidgetSubmitPayload,
+} from "@/app/features/vidgets";
 import { parseLuxiaRelativeTimestamp } from "@/app/features/project-overview/projectOverviewPreview";
 import {
   LuxiaBreadcrumb,
@@ -746,6 +771,8 @@ type LuxiaAppView =
   | "constellation-settings"
   | "galaxy-settings"
   | "project-members"
+  | "project-vidgets"
+  | "vidget-settings"
   | "organization-users"
   | "organization-user"
   | "access-levels"
@@ -3487,9 +3514,7 @@ function ConstellationSidebar({
   projectId: string;
   allowConstellationChange: boolean;
   isGalaxyChat: boolean;
-  /** Owner/Manager: structural constellation configuration. */
   canConfigure?: boolean;
-  /** Owner/Manager/Analyst: KB, Instructions, Crawler. */
   canEditKnowledge?: boolean;
 }) {
   const sectionIds = CONSTELLATION_SECTIONS[constellation.type];
@@ -4178,6 +4203,18 @@ export default function App() {
   const [projectMembershipsState, setProjectMembershipsState] = useState(() =>
     PROJECT_MEMBERSHIPS.map((membership) => ({ ...membership })),
   );
+  const [vidgetsState, setVidgetsState] = useState(() => SEED_VIDGETS.map(cloneVidget));
+  const [vidgetId, setVidgetId] = useState<string | null>(null);
+  const [dashboardFocusOutputId, setDashboardFocusOutputId] = useState<string | null>(null);
+  const [activeDashboardOutputId, setActiveDashboardOutputId] = useState<string | null>(null);
+  const [dashboardViewResetKey, setDashboardViewResetKey] = useState(0);
+  const [vidgetSettingsSection, setVidgetSettingsSection] = useState<VidgetSettingsSectionId>("general");
+  const [vidgetSettingsFocusPreview, setVidgetSettingsFocusPreview] = useState(false);
+  const [createVidgetOpen, setCreateVidgetOpen] = useState(false);
+  const [createVidgetPreset, setCreateVidgetPreset] = useState<VidgetCreateSourcePreset>({
+    kind: "choose",
+  });
+  const [createVidgetProjectId, setCreateVidgetProjectId] = useState<string | null>(null);
   const [prototypeUserId, setPrototypeUserId] = useState(CURRENT_USER_ID);
   const [constellationAccessBlock, setConstellationAccessBlock] = useState<{
     projectId: string;
@@ -4293,6 +4330,8 @@ export default function App() {
       setSettingsCapabilityPath(null);
       setSettingsSection("general");
       setGalaxySettingsSection("general");
+      setVidgetId(null);
+      setVidgetSettingsSection("general");
       setAccessLevelId(null);
       setOrganizationUserId(null);
       setDataSourceSettingsId(null);
@@ -4414,7 +4453,34 @@ export default function App() {
         setAccessLevelId(null);
         setOrganizationUserId(null);
         setDataSourceSettingsId(null);
+        setVidgetId(null);
         setAppView("project-members");
+        return;
+      }
+
+      if (resolved.kind === "project-vidgets") {
+        setActiveProjectId(resolved.projectId);
+        setSettingsConstellationId(null);
+        setSettingsCapabilityPath(null);
+        setAccessLevelId(null);
+        setOrganizationUserId(null);
+        setDataSourceSettingsId(null);
+        setVidgetId(null);
+        setVidgetSettingsSection("general");
+        setAppView("project-vidgets");
+        return;
+      }
+
+      if (resolved.kind === "vidget-settings") {
+        setActiveProjectId(resolved.projectId);
+        setSettingsConstellationId(null);
+        setSettingsCapabilityPath(null);
+        setAccessLevelId(null);
+        setOrganizationUserId(null);
+        setDataSourceSettingsId(null);
+        setVidgetId(resolved.vidgetId);
+        setVidgetSettingsSection(parseVidgetSettingsTabFromSearch(search));
+        setAppView("vidget-settings");
         return;
       }
 
@@ -4637,7 +4703,7 @@ export default function App() {
     || appView === "data-sources"
     || appView === "data-source-settings"
     ? null
-    : appView === "project" || appView === "constellation-create" || appView === "constellation-settings" || appView === "galaxy-settings" || appView === "project-members"
+    : appView === "project" || appView === "constellation-create" || appView === "constellation-settings" || appView === "galaxy-settings" || appView === "project-members" || appView === "project-vidgets" || appView === "vidget-settings"
       ? activeProjectId
       : (activeData?.projectId ?? activeProjectId);
 
@@ -4658,6 +4724,7 @@ export default function App() {
     if (appView === "galaxy-settings") return "galaxy";
     if (appView === "constellation-create") return "constellations";
     if (appView === "project-members") return "members";
+    if (appView === "project-vidgets" || appView === "vidget-settings") return "vidgets";
     if (appView === "chat") {
       if (activeData?.chatType === "galaxy") return "galaxy";
       return "chats";
@@ -4675,6 +4742,17 @@ export default function App() {
     }
     return map;
   }, [chats]);
+
+  const constellationNameById = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const item of CANONICAL_CONSTELLATIONS) {
+      map[item.id] = item.name;
+    }
+    for (const item of allConstellations) {
+      map[item.id] = item.label;
+    }
+    return map;
+  }, [allConstellations]);
 
   const galaxyInstructionById = useMemo(() => {
     const map: Record<string, string> = {};
@@ -4993,12 +5071,112 @@ export default function App() {
     setActiveProjectId(projectId);
     setSettingsConstellationId(null);
     setSettingsCapabilityPath(null);
+    setVidgetId(null);
     setAppView("project-members");
     if (typeof window !== "undefined") {
       const next = getProjectMembersPath(projectId);
       if (window.location.pathname !== next) {
         window.history.pushState({ luxiaView: "project-members", projectId }, "", next);
       }
+    }
+  }
+
+  function handleOpenProjectVidgets(projectId: string) {
+    setActiveProjectId(projectId);
+    setVidgetId(null);
+    setVidgetSettingsSection("general");
+    setAppView("project-vidgets");
+    if (typeof window !== "undefined") {
+      const next = getProjectVidgetsPath(projectId);
+      if (window.location.pathname !== next) {
+        window.history.pushState({ luxiaView: "project-vidgets", projectId }, "", next);
+      }
+    }
+  }
+
+  function handleOpenVidgetSettings(
+    projectId: string,
+    nextVidgetId: string,
+    section?: VidgetSettingsSectionId,
+    focusPreview = false,
+  ) {
+    const resolvedSection = focusPreview ? "interface" : (section ?? "general");
+    setActiveProjectId(projectId);
+    setVidgetId(nextVidgetId);
+    setVidgetSettingsSection(resolvedSection);
+    setVidgetSettingsFocusPreview(focusPreview);
+    setAppView("vidget-settings");
+    if (typeof window !== "undefined") {
+      const next = getVidgetSettingsPath(projectId, nextVidgetId, {
+        tab: vidgetSettingsSectionToTab(resolvedSection),
+      });
+      const current = `${window.location.pathname}${window.location.search}`;
+      if (current !== next) {
+        window.history.pushState(
+          { luxiaView: "vidget-settings", projectId, vidgetId: nextVidgetId, section: resolvedSection },
+          "",
+          next,
+        );
+      }
+    }
+  }
+
+  function handleOpenCreateVidget(projectId: string, preset: VidgetCreateSourcePreset) {
+    if (!canManageVidgets(projectRoleFor(projectId))) {
+      toast.error(VIDGET_MANAGE_DENIED_MESSAGE);
+      return;
+    }
+    setCreateVidgetProjectId(projectId);
+    setCreateVidgetPreset(preset);
+    setCreateVidgetOpen(true);
+  }
+
+  function handleCreateVidgetSubmit(payload: CreateVidgetSubmitPayload): boolean {
+    const projectId = createVidgetProjectId;
+    if (!projectId) return false;
+    if (!canManageVidgets(projectRoleFor(projectId))) {
+      toast.error(VIDGET_MANAGE_DENIED_MESSAGE);
+      return false;
+    }
+
+    const project = homeProjects.find((entry) => entry.id === projectId);
+    const projectGalaxyId = project?.galaxyId
+      ?? findGalaxyChatForProject(projectId, chats, homeProjects)?.id
+      ?? null;
+
+    const projectConstellations = allConstellations.map((item) => ({
+      id: item.id,
+      projectId: item.projectId,
+    }));
+
+    const resolved = resolveVidgetCreateSource(payload, {
+      projectId,
+      projectGalaxyId,
+      projectConstellations,
+    });
+    if (!resolved.ok) {
+      toast.error(resolved.message);
+      return false;
+    }
+
+    try {
+      const record = buildEmptyVidget({
+        projectId,
+        name: payload.name,
+        channel: payload.channel,
+        sourceType: resolved.source.sourceType,
+        galaxyId: resolved.source.galaxyId,
+        constellationId: resolved.source.constellationId,
+        galaxyConstellationIds: resolved.source.galaxyConstellationIds,
+      });
+      setVidgetsState((prev) => [record, ...prev]);
+      setCreateVidgetOpen(false);
+      toast.success("Vidget created");
+      handleOpenVidgetSettings(projectId, record.id);
+      return true;
+    } catch {
+      toast.error("Could not create Vidget with the selected source.");
+      return false;
     }
   }
 
@@ -5562,6 +5740,8 @@ export default function App() {
     const onProjectSurface =
       appView === "project"
       || appView === "project-members"
+      || appView === "project-vidgets"
+      || appView === "vidget-settings"
       || appView === "constellation-settings"
       || appView === "galaxy-settings"
       || appView === "constellation-create"
@@ -5972,8 +6152,23 @@ export default function App() {
     setHomeScrollRequest((value) => value + 1);
   }
 
-  function handleOpenProjectDashboard(projectId: string) {
+  function handleOpenProjectDashboard(
+    projectId: string,
+    options?: { outputId?: string },
+  ) {
+    if (options?.outputId) {
+      setDashboardFocusOutputId(options.outputId);
+      setActiveDashboardOutputId(options.outputId);
+    } else {
+      setDashboardFocusOutputId(null);
+      setActiveDashboardOutputId(null);
+      setDashboardViewResetKey((value) => value + 1);
+    }
     handleOpenProjectOverview(projectId, "dashboards");
+  }
+
+  function handleOpenDashboardOutput(projectId: string, outputId: string) {
+    handleOpenProjectDashboard(projectId, { outputId });
   }
   function handleNavigateProjectDestination(
     destination: "galaxy" | "constellations" | "openProject",
@@ -6127,6 +6322,11 @@ export default function App() {
   function requestEditProjectDetails(projectId: string) {
     setProjectManageId(projectId);
     setProjectManageMode("edit");
+  }
+
+  function requestArchiveProject(projectId: string) {
+    setProjectManageId(projectId);
+    setProjectManageMode("archive");
   }
 
   function requestDeleteProject(projectId: string) {
@@ -6746,6 +6946,10 @@ export default function App() {
     }
     if (section === "members") {
       handleOpenProjectMembers(projectId);
+      return;
+    }
+    if (section === "vidgets" || section === "virtual-assistant") {
+      handleOpenProjectVidgets(projectId);
     }
   }
 
@@ -7616,6 +7820,30 @@ export default function App() {
     dataSourcesState,
   ]);
 
+  const sidebarProjectDashboardOutputs = useMemo(() => {
+    if (!contextProjectId || !contextProjectMembership) return [];
+    return getProjectDashboardOutputs(contextProjectId).map((item) => ({
+      id: item.id,
+      label: item.name,
+      updatedAtTimestamp: item.updatedAtTimestamp,
+    }));
+  }, [contextProjectId, contextProjectMembership]);
+
+  const sidebarProjectVidgets = useMemo(() => {
+    if (!contextProjectId || !contextProjectMembership) return [];
+    return getVidgetsForProject(contextProjectId, vidgetsState).map((item) => ({
+      id: item.id,
+      label: item.name,
+      updatedAtTimestamp: new Date(item.updatedAt).getTime() || 0,
+    }));
+  }, [contextProjectId, contextProjectMembership, vidgetsState]);
+
+  useEffect(() => {
+    setDashboardFocusOutputId(null);
+    setActiveDashboardOutputId(null);
+    setDashboardViewResetKey((value) => value + 1);
+  }, [activeProjectId]);
+
   const workingAccessibleChats = useMemo(
     () => chats.filter((chat) => isChatWorkingAccessible(chat)),
     [
@@ -7843,11 +8071,21 @@ export default function App() {
             ? settingsConstellationId
             : null
         }
+        activeDashboardOutputId={
+          appView === "project" && projectBrowseMode === "dashboards"
+            ? activeDashboardOutputId
+            : null
+        }
+        activeVidgetId={appView === "vidget-settings" ? vidgetId : null}
         projectChats={sidebarProjectChats}
         projectConstellations={sidebarProjectConstellations}
+        projectDashboardOutputs={sidebarProjectDashboardOutputs}
+        projectVidgets={sidebarProjectVidgets}
         switchableProjects={sidebarSwitchableProjects}
         chatTotalCount={sidebarProjectChats.length}
         constellationTotalCount={sidebarProjectConstellations.length}
+        dashboardTotalCount={sidebarProjectDashboardOutputs.length}
+        vidgetTotalCount={sidebarProjectVidgets.length}
         onHomeClick={handleNavigateHome}
         onOrganizationUsersClick={handleOpenOrganizationUsers}
         onAccessLevelsClick={handleOpenAccessLevels}
@@ -7859,6 +8097,10 @@ export default function App() {
         onOpenChat={handleSelectChat}
         onOpenConstellation={(projectId, constellationId) => {
           handleOpenConstellationSettings(projectId, constellationId, "general");
+        }}
+        onOpenDashboardOutput={handleOpenDashboardOutput}
+        onOpenVidget={(projectId, nextVidgetId) => {
+          handleOpenVidgetSettings(projectId, nextVidgetId);
         }}
         prototypeUser={prototypeUser}
         prototypeProjectRole={prototypeProjectRole}
@@ -7893,7 +8135,7 @@ export default function App() {
               onSetPrimaryHero={handleSetPrimaryHero}
               onShowAllOnHome={handleShowAllOnHome}
               onToggleProjectPin={handleToggleProjectPin}
-              onArchiveProject={handleArchiveProject}
+              onArchiveProject={requestArchiveProject}
               onRestoreProject={handleRestoreProject}
               onEditProject={requestEditProjectDetails}
               onDeleteProject={requestDeleteProject}
@@ -7928,6 +8170,10 @@ export default function App() {
                 projectId={activeProjectId}
                 projects={homeProjects}
                 projectRole={prototypeProjectRole}
+                currentUserId={prototypeUserId}
+                focusOutputId={dashboardFocusOutputId}
+                viewResetKey={dashboardViewResetKey}
+                onViewOutputIdChange={setActiveDashboardOutputId}
                 onNavigateHome={handleNavigateHome}
                 onViewProjects={() => {
                   setAppView("home");
@@ -8027,7 +8273,7 @@ export default function App() {
                 }
                 onArchiveProject={
                   activeProjectId && userCanArchiveProject(activeProjectId)
-                    ? handleArchiveProject
+                    ? requestArchiveProject
                     : undefined
                 }
                 onDeleteProject={
@@ -8035,7 +8281,22 @@ export default function App() {
                     ? requestDeleteProject
                     : undefined
                 }
-                onOpenMembers={handleOpenProjectMembers}
+                onViewAllVidgets={handleOpenProjectVidgets}
+                vidgets={
+                  activeProjectId
+                    ? getVidgetsForProject(activeProjectId, vidgetsState)
+                    : []
+                }
+                onCreateVidgetFromGalaxy={(projectId) =>
+                  handleOpenCreateVidget(projectId, { kind: "galaxy" })
+                }
+                onCreateVidget={(projectId) =>
+                  handleOpenCreateVidget(projectId, { kind: "choose" })
+                }
+                canManageVidgets={(projectId) => canManageVidgets(projectRoleFor(projectId))}
+                onOpenVirtualAssistant={(projectId, vidgetId) => {
+                  handleOpenVidgetSettings(projectId, vidgetId);
+                }}
               />
             )}
           </HomePageShell>
@@ -8130,6 +8391,11 @@ export default function App() {
                   onOpenAccessLevels={handleOpenAccessLevels}
                   onOpenDataSources={handleOpenDataSources}
                   currentProjectRole={membership?.projectRole ?? null}
+                  onCreateVidget={
+                    canManageVidgets(membership?.projectRole)
+                      ? (pid) => handleOpenCreateVidget(pid, { kind: "galaxy" })
+                      : undefined
+                  }
                 />
               );
             })()}
@@ -8331,6 +8597,274 @@ export default function App() {
                         && membership.status === "active",
                     )?.projectRole ?? null
                   }
+                  onCreateVidget={
+                    canManageVidgets(projectRoleFor(projectId))
+                      ? (pid, constellationId) =>
+                        handleOpenCreateVidget(pid, {
+                          kind: "constellation",
+                          constellationId,
+                        })
+                      : undefined
+                  }
+                />
+              );
+            })()}
+          </HomePageShell>
+        ) : appView === "project-vidgets" && activeProjectId ? (
+          <HomePageShell scrollRequest={homeScrollRequest} framed={false}>
+            {(() => {
+              const projectId = activeProjectId;
+              const project = homeProjects.find((entry) => entry.id === projectId);
+              const galaxyChat = findGalaxyChatForProject(projectId, chats, homeProjects);
+              const projectGalaxyId = project?.galaxyId
+                ?? galaxyChat?.id
+                ?? null;
+              const galaxyName = projectGalaxyId
+                ? (galaxyNameById[projectGalaxyId] ?? galaxyChat?.label ?? "")
+                : "";
+              const constellationProjectById = Object.fromEntries(
+                allConstellations.map((item) => [item.id, item.projectId]),
+              );
+              return (
+                <VidgetsPage
+                  projectId={projectId}
+                  projectName={getProjectNameById(projectId, homeProjects)}
+                  galaxyName={galaxyName}
+                  projectGalaxyId={projectGalaxyId}
+                  vidgets={getVidgetsForProject(projectId, vidgetsState)}
+                  constellationNameById={constellationNameById}
+                  constellationProjectById={constellationProjectById}
+                  canManage={canManageVidgets(projectRoleFor(projectId))}
+                  onNavigateHome={handleNavigateHome}
+                  onOpenProject={(pid) => handleOpenProjectOverview(pid, "overview")}
+                  onCreate={() => handleOpenCreateVidget(projectId, { kind: "choose" })}
+                  onOpen={(id) => handleOpenVidgetSettings(projectId, id)}
+                  onPreview={(id) =>
+                    handleOpenVidgetSettings(projectId, id, "interface", true)
+                  }
+                  onRename={(id, name) => {
+                    if (!canManageVidgets(projectRoleFor(projectId))) {
+                      toast.error(VIDGET_MANAGE_DENIED_MESSAGE);
+                      return;
+                    }
+                    const trimmed = name.trim();
+                    if (!trimmed) return;
+                    setVidgetsState((prev) =>
+                      prev.map((item) =>
+                        item.id === id
+                          ? { ...item, name: trimmed, updatedAt: new Date().toISOString() }
+                          : item,
+                      ),
+                    );
+                    toast.success("Vidget renamed");
+                  }}
+                  onDuplicate={(id) => {
+                    if (!canManageVidgets(projectRoleFor(projectId))) {
+                      toast.error(VIDGET_MANAGE_DENIED_MESSAGE);
+                      return;
+                    }
+                    const source = vidgetsState.find(
+                      (item) => item.id === id && item.projectId === projectId,
+                    );
+                    if (!source) return;
+                    const copy = duplicateVidget(source);
+                    setVidgetsState((prev) => [copy, ...prev]);
+                    toast.success("Vidget duplicated");
+                  }}
+                  onDelete={(id) => {
+                    if (!canManageVidgets(projectRoleFor(projectId))) {
+                      toast.error(VIDGET_MANAGE_DENIED_MESSAGE);
+                      return;
+                    }
+                    setVidgetsState((prev) =>
+                      prev.filter(
+                        (item) => !(item.id === id && item.projectId === projectId),
+                      ),
+                    );
+                    toast.success("Vidget deleted");
+                  }}
+                />
+              );
+            })()}
+          </HomePageShell>
+        ) : appView === "vidget-settings" && activeProjectId && vidgetId ? (
+          <HomePageShell scrollRequest={homeScrollRequest} framed={false}>
+            {(() => {
+              const projectId = activeProjectId;
+              const record =
+                getVidgetForProject(projectId, vidgetId, vidgetsState) ?? null;
+              if (!record) {
+                return (
+                  <div className="mx-auto flex min-h-[50vh] max-w-lg flex-col items-start justify-center gap-4 py-16">
+                    <p className="luxia-type-overline-data" style={{ color: "var(--luxia-purple-60)" }}>
+                      Vidget settings
+                    </p>
+                    <h1 className="luxia-type-title-page" style={{ color: "var(--luxia-purple-70)" }}>
+                      Unavailable
+                    </h1>
+                    <p className="luxia-type-body-dense" style={{ color: "var(--luxia-text-secondary)" }}>
+                      This Vidget is not available in the current Project.
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="compact"
+                      onClick={() => handleOpenProjectVidgets(projectId)}
+                    >
+                      Back to Vidgets
+                    </Button>
+                  </div>
+                );
+              }
+              const galaxyChat = findGalaxyChatForProject(projectId, chats, homeProjects);
+              const project = homeProjects.find((entry) => entry.id === projectId);
+              const projectGalaxyId = project?.galaxyId
+                ?? galaxyChat?.id
+                ?? null;
+              const galaxyName = projectGalaxyId
+                ? (galaxyNameById[projectGalaxyId] ?? null)
+                : null;
+              const constellationOptions = allConstellations
+                .filter((item) => item.projectId === projectId)
+                .map((item) => ({ id: item.id, name: item.label }));
+              const projectConstellations = constellationOptions.map((item) => ({
+                id: item.id,
+                projectId,
+                name: item.name,
+              }));
+              const boundConstellation = record.constellationId
+                ? allConstellations.find((item) => item.id === record.constellationId)
+                : undefined;
+              const sourceDisplay = resolveVidgetSourceDisplay(record, {
+                projectGalaxyId,
+                galaxyName,
+                constellation: boundConstellation
+                  ? {
+                      id: boundConstellation.id,
+                      projectId: boundConstellation.projectId,
+                      name: boundConstellation.label,
+                    }
+                  : record.constellationId
+                    ? null
+                    : undefined,
+                projectConstellations,
+              });
+              const constellationName = sourceDisplay.available
+                && sourceDisplay.sourceType === "constellation"
+                ? sourceDisplay.label
+                : null;
+              const resolvedGalaxyName = sourceDisplay.available
+                && sourceDisplay.sourceType === "galaxy"
+                ? sourceDisplay.label
+                : galaxyName ?? "";
+              return (
+                <VidgetSettingsPage
+                  record={record}
+                  projectId={projectId}
+                  projectName={getProjectNameById(projectId, homeProjects)}
+                  galaxyName={resolvedGalaxyName}
+                  constellationName={constellationName}
+                  constellationOptions={constellationOptions}
+                  sourceAvailable={sourceDisplay.available}
+                  sourceDisplayLabel={sourceDisplay.label}
+                  activeSection={vidgetSettingsSection}
+                  focusPreviewOnMount={vidgetSettingsFocusPreview}
+                  onPreviewFocusHandled={() => setVidgetSettingsFocusPreview(false)}
+                  onSectionChange={(section) => {
+                    setVidgetSettingsSection(section);
+                    if (typeof window === "undefined") return;
+                    const next = getVidgetSettingsPath(projectId, record.id, {
+                      tab: vidgetSettingsSectionToTab(section),
+                    });
+                    const current = `${window.location.pathname}${window.location.search}`;
+                    if (current === next) return;
+                    window.history.pushState(
+                      {
+                        luxiaView: "vidget-settings",
+                        projectId,
+                        vidgetId: record.id,
+                        section,
+                      },
+                      "",
+                      next,
+                    );
+                  }}
+                  onSave={(nextRecord) => {
+                    if (!canManageVidgets(projectRoleFor(projectId))) {
+                      toast.error(VIDGET_MANAGE_DENIED_MESSAGE);
+                      return;
+                    }
+                    if (
+                      nextRecord.id !== record.id
+                      || nextRecord.projectId !== projectId
+                    ) {
+                      toast.error("This Vidget is not available in the current Project.");
+                      return;
+                    }
+                    const locked = withLockedVidgetSource(nextRecord, record);
+                    const scopeCheck = validateVidgetScopeForProject(
+                      locked,
+                      allConstellations.map((item) => ({
+                        id: item.id,
+                        projectId: item.projectId,
+                      })),
+                    );
+                    if (!scopeCheck.valid) {
+                      toast.error(scopeCheck.message ?? "Invalid Vidget source scope.");
+                      return;
+                    }
+                    setVidgetsState((prev) =>
+                      prev.map((item) =>
+                        item.id === locked.id && item.projectId === projectId
+                          ? cloneVidget(locked)
+                          : item,
+                      ),
+                    );
+                    toast.success("Vidget saved");
+                  }}
+                  onPublish={(nextRecord) => {
+                    if (!canManageVidgets(projectRoleFor(projectId))) {
+                      toast.error(VIDGET_MANAGE_DENIED_MESSAGE);
+                      return false;
+                    }
+                    if (!sourceDisplay.available) {
+                      toast.error("Cannot publish: the Vidget source is unavailable.");
+                      return false;
+                    }
+                    if (
+                      nextRecord.id !== record.id
+                      || nextRecord.projectId !== projectId
+                    ) {
+                      toast.error("This Vidget is not available in the current Project.");
+                      return false;
+                    }
+                    const locked = withLockedVidgetSource(nextRecord, record);
+                    const publishScopeCheck = validateVidgetScopeForProject(
+                      locked,
+                      allConstellations.map((item) => ({
+                        id: item.id,
+                        projectId: item.projectId,
+                      })),
+                    );
+                    if (!publishScopeCheck.valid) {
+                      toast.error(
+                        publishScopeCheck.message ?? "Cannot publish: invalid Vidget source scope.",
+                      );
+                      return false;
+                    }
+                    setVidgetsState((prev) =>
+                      prev.map((item) =>
+                        item.id === locked.id && item.projectId === projectId
+                          ? cloneVidget(locked)
+                          : item,
+                      ),
+                    );
+                    return true;
+                  }}
+                  onNavigateHome={handleNavigateHome}
+                  onOpenProject={(pid) => handleOpenProjectOverview(pid, "overview")}
+                  onOpenVidgets={handleOpenProjectVidgets}
+                  currentProjectRole={projectRoleFor(projectId)}
                 />
               );
             })()}
@@ -9023,6 +9557,48 @@ export default function App() {
         existingEmails={organizationUsersState.map((user) => user.email)}
         onInvite={handleInviteOrganizationUser}
       />
+      <CreateVidgetDialog
+        open={createVidgetOpen}
+        onOpenChange={setCreateVidgetOpen}
+        projectName={
+          createVidgetProjectId
+            ? getProjectNameById(createVidgetProjectId, homeProjects)
+            : ""
+        }
+        galaxyId={(() => {
+          if (!createVidgetProjectId) return null;
+          const project = homeProjects.find((entry) => entry.id === createVidgetProjectId);
+          if (project?.galaxyId) return project.galaxyId;
+          return findGalaxyChatForProject(
+            createVidgetProjectId,
+            chats,
+            homeProjects,
+          )?.id ?? null;
+        })()}
+        galaxyName={(() => {
+          if (!createVidgetProjectId) return "";
+          const galaxyChat = findGalaxyChatForProject(
+            createVidgetProjectId,
+            chats,
+            homeProjects,
+          );
+          if (galaxyChat) return galaxyNameById[galaxyChat.id] ?? galaxyChat.label;
+          return getProjectNameById(createVidgetProjectId, homeProjects);
+        })()}
+        constellations={
+          createVidgetProjectId
+            ? allConstellations
+              .filter((item) => item.projectId === createVidgetProjectId)
+              .map((item) => ({
+                id: item.id,
+                name: item.label,
+                type: item.type,
+              }))
+            : []
+        }
+        sourcePreset={createVidgetPreset}
+        onCreate={handleCreateVidgetSubmit}
+      />
       <Toaster richColors closeButton position="top-right" />
       <ProjectManageDialogs
         mode={projectManageMode}
@@ -9033,6 +9609,7 @@ export default function App() {
         }
         onClose={closeProjectManageDialogs}
         onEditDetails={handleEditProjectDetails}
+        onArchive={handleArchiveProject}
         onDelete={handleDeleteProject}
       />
     </div>

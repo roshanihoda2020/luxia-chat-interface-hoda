@@ -6,16 +6,12 @@ import {
   LUXIA_SETTINGS_LIST_SURFACE_CLASS,
 } from "@/app/features/shared/luxiaSettingsUx";
 
-/** Form-focused tabs (General, Instructions) — ~720–820px */
 export const GS_FORM_TAB_WIDTH = "w-full max-w-[52rem]";
 
-/** List / information tabs — ~900–1100px */
 export const GS_LIST_TAB_WIDTH = "w-full max-w-[68rem]";
 
-/** Comfortable editable field width — ~560–680px */
 export const GS_FORM_FIELD_WIDTH = "w-full max-w-[40rem]";
 
-/** Access & availability list — ~700–850px */
 export const GS_ACCESS_LIST_WIDTH = "w-full max-w-[52rem]";
 
 export const GS_READONLY_INPUT_CLASS =

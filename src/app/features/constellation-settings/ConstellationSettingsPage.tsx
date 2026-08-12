@@ -9,7 +9,9 @@ import { LuxiaEntityOptionsMenu } from "@/app/components/LuxiaEntityOptionsMenu"
 import {
   LuxiaPageBody,
   LuxiaPageFrame,
+  LuxiaPageHeadingRegion,
 } from "@/app/components/LuxiaPageFrame";
+import { LuxiaPageReadOnlyBadge } from "@/app/components/LuxiaPageReadOnlyBadge";
 import {
   LuxiaPageGuide,
   LuxiaPageHeader,
@@ -83,7 +85,6 @@ import {
 
 const PARENT_SURFACE_CLASS = LUXIA_SETTINGS_CONTENT_SURFACE_CLASS;
 
-/** Tab panels inherit surface padding — no per-tab outer p-*. */
 const SETTINGS_TAB_PANEL_CLASS = LUXIA_SETTINGS_TAB_PANEL_CLASS;
 
 const ROW_DIVIDER = LUXIA_SETTINGS_ROW_DIVIDER;
@@ -156,9 +157,9 @@ export interface ConstellationSettingsPageProps {
   relatedChats?: ConstellationSettingsRelatedChat[];
   activeSection: ConstellationSettingsSectionId;
   onSectionChange: (section: ConstellationSettingsSectionId) => void;
-  /** Bumps when focus should move to the Settings page heading after navigation. */
   focusHeadingToken?: number;
   onCreateChat?: (projectId: string, constellationId: string) => void;
+  onCreateVidget?: (projectId: string, constellationId: string) => void;
   onOpenChat?: (chatId: string) => void;
   onSaveGeneral: (draft: ConstellationSettingsDraft) => void;
   onManageCapability: (capabilityId: CapsuleCapabilityId) => void;
@@ -174,12 +175,9 @@ export interface ConstellationSettingsPageProps {
   onOpenConstellation: (projectId: string, constellationId: string) => void;
   onOpenMembers?: (projectId: string) => void;
   onOpenAccessLevels?: () => void;
-  /** Live Access Levels for effective Constellation Access (same session). */
   accessLevels?: AccessLevelRecord[];
-  /** Catalog used for access-aware Add Data Source selection. */
   dataSources?: DataSourceCatalogItem[];
   currentUserId?: string;
-  /** Current user's Project role for this Constellation's Project. */
   currentProjectRole?: ProjectRole | null;
 }
 
@@ -192,6 +190,7 @@ export function ConstellationSettingsPage({
   onSectionChange,
   focusHeadingToken = 0,
   onCreateChat,
+  onCreateVidget,
   onOpenChat,
   onSaveGeneral,
   onManageCapability,
@@ -287,6 +286,7 @@ export function ConstellationSettingsPage({
 
   const canConfigureConstellation = roleCanConfigureConstellation(currentProjectRole);
   const canEditKnowledge = roleCanEditConstellationKnowledge(currentProjectRole);
+  const isPageReadOnly = !canConfigureConstellation && !canEditKnowledge;
   const canArchiveConstellation = roleCanArchiveConstellation(currentProjectRole);
   const canDeleteConstellation = roleCanDeleteConstellation(currentProjectRole);
   const lifecycleRoleHint = !currentProjectRole
@@ -302,6 +302,7 @@ export function ConstellationSettingsPage({
         ? `Your Project role (${currentProjectRole}) can edit Knowledge Base, Instructions, and Crawler only.`
         : `Your Project role (${currentProjectRole}) cannot configure this Constellation.`)
     : null;
+  const showConfigureRoleHint = Boolean(configureRoleHint) && !isPageReadOnly;
 
   const disconnectTarget = record.connectedSources.find(
     (source) => source.id === disconnectSourceId,
@@ -365,7 +366,7 @@ export function ConstellationSettingsPage({
 
   return (
     <LuxiaPageFrame variant={CONSTELLATION_SETTINGS_PAGE_VARIANT}>
-      <div ref={headingRef}>
+      <LuxiaPageHeadingRegion ref={headingRef}>
       <LuxiaPageHeader
         contentGap="page"
         pageTypeLabel="Constellation Settings"
@@ -386,6 +387,11 @@ export function ConstellationSettingsPage({
           toast.success(LUXIA_DIRTY_STATE_COPY.saveSuccess);
         } : undefined}
         renameLabel={`Rename ${record.name}`}
+        titleMetadata={
+          isPageReadOnly ? (
+            <LuxiaPageReadOnlyBadge ariaLabel="Read only. Constellation Settings cannot be changed for your Project role." />
+          ) : undefined
+        }
         breadcrumb={
           <LuxiaBreadcrumb
             tone="page"
@@ -400,8 +406,7 @@ export function ConstellationSettingsPage({
               style={{ color: "var(--luxia-text-secondary)" }}
             >
               {constellationTypeLabel(record.type)}
-              {" · "}
-              {record.status === "active" ? "Active" : "Archived"}
+              {record.status !== "active" ? " · Archived" : ""}
               {" · "}
               {record.projectName}
             </p>
@@ -466,21 +471,12 @@ export function ConstellationSettingsPage({
                     },
                   ]
                 : []),
-              ...(onOpenMembers
+              ...(onCreateVidget
                 ? [
                     {
-                      id: "members",
-                      label: "Members & roles",
-                      onSelect: () => onOpenMembers(record.projectId),
-                    },
-                  ]
-                : []),
-              ...(onOpenAccessLevels
-                ? [
-                    {
-                      id: "access-levels",
-                      label: "Access Levels",
-                      onSelect: onOpenAccessLevels,
+                      id: "create-vidget",
+                      label: "Create Vidget",
+                      onSelect: () => onCreateVidget(record.projectId, record.id),
                     },
                   ]
                 : []),
@@ -508,6 +504,7 @@ export function ConstellationSettingsPage({
           ) : null
         }
       />
+      </LuxiaPageHeadingRegion>
 
       <LuxiaPageBody>
         <Tabs
@@ -554,7 +551,7 @@ export function ConstellationSettingsPage({
           <div className={`w-full min-w-0 ${PARENT_SURFACE_CLASS}`}>
             <TabsContent value="general" className={SETTINGS_TAB_PANEL_CLASS}>
               <div className="space-y-4 max-w-xl">
-                {configureRoleHint ? (
+                {showConfigureRoleHint ? (
                   <p
                     className="luxia-type-body-dense"
                     style={{ color: "var(--luxia-text-secondary)" }}
@@ -646,7 +643,7 @@ export function ConstellationSettingsPage({
               value="configuration"
               className={SETTINGS_TAB_PANEL_CLASS}
             >
-              {configureRoleHint ? (
+              {showConfigureRoleHint ? (
                 <p
                   className="mb-4 luxia-type-body-dense"
                   style={{ color: "var(--luxia-text-secondary)" }}
@@ -1192,7 +1189,6 @@ export function ConstellationSettingsPage({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      </div>
     </LuxiaPageFrame>
   );
 }

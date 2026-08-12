@@ -56,7 +56,6 @@ function GuideSection({
   );
 }
 
-/** Compact Users guide — Organization role vs Project role vs Access Level. */
 export function LuxiaUsersGuide({
   triggerLabel = "Users guide",
   className,
@@ -111,15 +110,19 @@ export function LuxiaUsersGuide({
             <div className="space-y-3">
               <GuideRow
                 label="Organization role"
-                description="Organization-level authority (Admin or Member) for this user."
+                description="Global to the organization — Admin or Member authority for organization-wide actions."
               />
               <GuideRow
                 label="Project role"
-                description="What a user can do in a specific Project. The same user can have different roles in different Projects."
+                description="Assigned separately per Project membership. The same user can hold different roles in different Projects."
               />
               <GuideRow
                 label="Access Level"
-                description="Data Source permissions (View, Use, Manage). Does not assign Projects or Constellations."
+                description="Controls Data Source permissions only (View, Use, Manage). Does not assign Project membership or Constellations."
+              />
+              <GuideRow
+                label="Organization Admin"
+                description="Manages organization users — invite, update roles, and remove users from the organization."
               />
             </div>
           </GuideSection>

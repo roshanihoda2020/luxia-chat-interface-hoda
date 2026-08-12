@@ -50,7 +50,8 @@ const MODULE_SURFACE: Record<
       "linear-gradient(0deg, var(--luxia-opacity-purple-04), var(--luxia-opacity-purple-04)), var(--luxia-blue-10)",
     borderColor:
       "color-mix(in srgb, var(--luxia-purple-20) 22%, color-mix(in srgb, var(--luxia-blue-20) 35%, var(--luxia-neutral-200)))",
-    footerBorder: "var(--luxia-border-subtle)",
+    footerBorder:
+      "color-mix(in srgb, var(--luxia-purple-20) 32%, var(--luxia-neutral-200))",
     boxShadow: "none",
   },
 };
@@ -257,9 +258,7 @@ export function ProjectPreviewRow({
   onClick?: () => void;
   ariaLabel: string;
   iconColor?: string;
-  /** Secondary controls (e.g. Settings). Rendered outside the primary Open control. */
   actions?: ReactNode;
-  /** Hide trailing chevron when it duplicates another visible action. */
   showChevron?: boolean;
 }) {
   const interactive = Boolean(onClick);

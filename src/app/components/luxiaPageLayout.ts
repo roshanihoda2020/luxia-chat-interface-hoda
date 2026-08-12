@@ -5,7 +5,6 @@
  */
 export type LuxiaPageVariant = "standard" | "wide" | "workspace";
 
-/** Accepted aliases for gradual migration. */
 export type LuxiaPageFrameVariant =
   | LuxiaPageVariant
   | "default"
@@ -60,6 +59,24 @@ export function getLuxiaPageFrameStyle(
     maxWidth: maxWidth === "none" ? "100%" : maxWidth,
     marginInline: "auto",
     paddingInline: LUXIA_PAGE_LAYOUT.gutter,
+    boxSizing: "border-box",
+  };
+}
+
+/**
+ * Heading region width for pages whose body uses the wide frame.
+ * Keeps eyebrow/title/breadcrumb/actions aligned with standard pages.
+ */
+export function getLuxiaPageHeadingRegionStyle(): {
+  width: string;
+  maxWidth: string;
+  marginInline: string;
+  boxSizing: "border-box";
+} {
+  return {
+    width: "100%",
+    maxWidth: LUXIA_PAGE_LAYOUT.maxWidth.standard,
+    marginInline: "auto",
     boxSizing: "border-box",
   };
 }

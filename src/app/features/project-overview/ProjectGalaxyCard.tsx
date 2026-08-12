@@ -36,6 +36,8 @@ interface ProjectGalaxyCardProps {
   usableConstellationCount: number;
   onOpenGalaxy: () => void;
   onOpenGalaxySettings: () => void;
+  onCreateVidget?: () => void;
+  canCreateVidget?: boolean;
 }
 
 function HeliosChip({ children }: { children: string }) {
@@ -184,6 +186,8 @@ export function ProjectGalaxyCard({
   usableConstellationCount,
   onOpenGalaxy,
   onOpenGalaxySettings,
+  onCreateVidget,
+  canCreateVidget = false,
 }: ProjectGalaxyCardProps) {
   const resolvedInstruction = galaxyInstruction ?? DEFAULT_GALAXY_INSTRUCTION;
   const capabilityCount = galaxyHeliosCapabilityCount();
@@ -269,35 +273,27 @@ export function ProjectGalaxyCard({
               </Button>
             </GalaxyActionGroup>
 
-            <GalaxyActionGroup
-              descriptionId={createWidgetDescId}
-              helperId={createWidgetHelperId}
-              description="A configurable AI assistant powered by Galaxy."
-              helper="For website, totem, kiosk, or embedded experiences."
-            >
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="inline-flex w-full">
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="compact"
-                      disabled
-                      aria-disabled="true"
-                      aria-label="Create Vidget"
-                      aria-describedby={`${createWidgetDescId} ${createWidgetHelperId}`}
-                      className={GALAXY_ACTION_BUTTON_CLASS}
-                    >
-                      <LuxiaVirtualAssistantIcon size={16} aria-hidden color="currentColor" />
-                      Create Vidget
-                    </Button>
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" sideOffset={6}>
-                  Vidget creation is not available in this prototype.
-                </TooltipContent>
-              </Tooltip>
-            </GalaxyActionGroup>
+            {canCreateVidget && onCreateVidget ? (
+              <GalaxyActionGroup
+                descriptionId={createWidgetDescId}
+                helperId={createWidgetHelperId}
+                description="A configurable AI assistant powered by Galaxy."
+                helper="For website, totem, kiosk, or embedded experiences."
+              >
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="compact"
+                  onClick={onCreateVidget}
+                  aria-label="Create Vidget"
+                  aria-describedby={`${createWidgetDescId} ${createWidgetHelperId}`}
+                  className={GALAXY_ACTION_BUTTON_CLASS}
+                >
+                  <LuxiaVirtualAssistantIcon size={16} aria-hidden color="currentColor" />
+                  Create Vidget
+                </Button>
+              </GalaxyActionGroup>
+            ) : null}
 
             <GalaxyActionGroup
               descriptionId={galaxySettingsDescId}

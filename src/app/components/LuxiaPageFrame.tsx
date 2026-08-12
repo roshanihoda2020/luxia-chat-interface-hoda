@@ -1,6 +1,7 @@
-import type { CSSProperties, ReactNode } from "react";
+import { forwardRef, type CSSProperties, type ReactNode } from "react";
 import {
   getLuxiaPageFrameStyle,
+  getLuxiaPageHeadingRegionStyle,
   LUXIA_PAGE_LAYOUT,
   type LuxiaPageFrameVariant,
 } from "./luxiaPageLayout";
@@ -12,16 +13,10 @@ export interface LuxiaPageFrameProps {
   variant?: LuxiaPageFrameVariant;
   className?: string;
   style?: CSSProperties;
-  /** When false, omit shared horizontal gutter (caller owns padding). Default true. */
   withGutter?: boolean;
-  /** When true, omit top/bottom shell padding. Default false. */
   flush?: boolean;
 }
 
-/**
- * Shared content frame for Luxia pages.
- * Always full-width within the shell, centered, with identical gutters.
- */
 export function LuxiaPageFrame({
   children,
   variant = "standard",
@@ -67,3 +62,34 @@ export function LuxiaPageBody({
     </div>
   );
 }
+
+export interface LuxiaPageHeadingRegionProps {
+  children: ReactNode;
+  className?: string;
+  style?: CSSProperties;
+}
+
+export const LuxiaPageHeadingRegion = forwardRef<
+  HTMLDivElement,
+  LuxiaPageHeadingRegionProps
+>(function LuxiaPageHeadingRegion(
+  { children, className = "", style },
+  ref,
+) {
+  const region = getLuxiaPageHeadingRegionStyle();
+  return (
+    <div
+      ref={ref}
+      className={`luxia-page-heading-region min-w-0 ${className}`.trim()}
+      style={{
+        width: region.width,
+        maxWidth: region.maxWidth,
+        marginInline: region.marginInline,
+        boxSizing: region.boxSizing,
+        ...style,
+      }}
+    >
+      {children}
+    </div>
+  );
+});

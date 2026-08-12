@@ -351,7 +351,7 @@ export function ProjectMembersPage({
 
   const inviteReadinessNote = inviteUserId
     ? `After add: ${invitePreview?.label ?? "—"}. Member is active in this Project immediately.`
-    : "Select a user to preview Data Source readiness for this Project.";
+    : "Select a user to preview connected Data Source access for this Project.";
 
   const roleChangeMembership = roleChangeMembershipId
     ? memberships.find((m) => m.id === roleChangeMembershipId)
@@ -418,15 +418,10 @@ export function ProjectMembersPage({
           />
         }
         guide={PROJECT_MEMBERS_GUIDANCE.pageDescription}
-        context={
-          <p className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
-            {PROJECT_MEMBERS_GUIDANCE.pageRule}
-          </p>
-        }
         secondaryAction={
           <Button
             type="button"
-            {...LUXIA_PAGE_HEADER_ACTION.secondary}
+            {...LUXIA_PAGE_HEADER_ACTION.tertiary}
             onClick={() => setRolesOpen(true)}
           >
             Compare Project roles
@@ -528,7 +523,7 @@ export function ProjectMembersPage({
                         className="mt-1 luxia-type-caption"
                         style={{ color: "var(--luxia-text-secondary)" }}
                       >
-                        Project data readiness: {readiness.label}
+                        Connected Data Source access: {readiness.label}
                       </p>
                     </div>
 
@@ -647,7 +642,8 @@ export function ProjectMembersPage({
             </DialogTitle>
             <DialogDescription>
               Project roles control actions within this Project. Data Source
-              access is managed via Access Levels.
+              access is managed separately through Access Levels and does not
+              block basic Chat with existing Project Constellations.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -746,7 +742,7 @@ export function ProjectMembersPage({
                 border: "1px solid var(--luxia-settings-section-border)",
               }}
             >
-              Data Source readiness: {inviteReadinessNote}
+              Data Source access: {inviteReadinessNote}
             </p>
           </div>
           <DialogFooter>
@@ -815,7 +811,7 @@ export function ProjectMembersPage({
                     </dd>
                   </div>
                   <div>
-                    <dt className="luxia-type-metadata" style={{ color: "var(--luxia-text-muted)" }}>Project readiness</dt>
+                    <dt className="luxia-type-metadata" style={{ color: "var(--luxia-text-muted)" }}>Data Source access</dt>
                     <dd>{details.readiness.label}</dd>
                   </div>
                 </dl>
@@ -1047,7 +1043,9 @@ export function ProjectMembersPage({
           <AlertDialogFooter>
             <AlertDialogCancel>Keep member</AlertDialogCancel>
             <AlertDialogAction onClick={confirmRemove}>
-              Remove member
+              {memberships.find((m) => m.id === removeMembershipId)?.status === "pending"
+                ? "Cancel invitation"
+                : "Remove member"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

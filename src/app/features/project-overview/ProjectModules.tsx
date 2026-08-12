@@ -2,6 +2,10 @@ import { Badge } from "@/app/components/ui/badge";
 import { Button } from "@/app/components/ui/button";
 import type { HomeConstellationSource } from "@/app/features/home/types";
 import {
+  VidgetChannelMetaIcon,
+  VidgetSourceMetaIcon,
+} from "@/app/features/vidgets/vidgetMetaIcons";
+import {
   LuxiaChatIcon,
   LuxiaConstellationIcon,
   LuxiaDashboardIcon,
@@ -327,8 +331,14 @@ export function DashboardsModule({
 
 export function WidgetsModule({
   widgets,
+  onViewAll,
+  onCreateVidget,
+  onOpen,
 }: {
   widgets: ProjectWidgetItem[];
+  onViewAll?: () => void;
+  onCreateVidget?: () => void;
+  onOpen?: (id: string) => void;
 }) {
   const preview = widgets.slice(0, 3);
   return (
@@ -337,7 +347,7 @@ export function WidgetsModule({
       title="Vidgets"
       count={widgets.length}
       countLabel={widgets.length === 1 ? "Vidget" : "Vidgets"}
-      description="Configure and deploy a Vidget powered by Galaxy across websites, embedded interfaces, kiosks, and totems."
+      description="Configure and deploy a Vidget from Galaxy or a Constellation across websites, embeds, kiosks, and totems."
       iconColor="var(--luxia-purple-60)"
       size="supporting"
       surface="assistant"
@@ -349,15 +359,17 @@ export function WidgetsModule({
       }
       footer={
         <>
-          <ProjectViewAllLink label="View all Vidgets" />
-          <span />
+          <ProjectViewAllLink label="View all Vidgets" onClick={onViewAll} />
+          {onCreateVidget ? (
+            <ProjectOutlineButton label="Create Vidget" onClick={onCreateVidget} />
+          ) : null}
         </>
       }
     >
       {preview.length === 0 ? (
         <ProjectModuleEmptyState
           title="No Vidgets yet"
-          description="Deployed Galaxy experiences for this Project will appear here when available."
+          description="External AI experiences for this Project will appear here when available."
         />
       ) : (
         <div className="flex flex-col gap-2">
@@ -367,16 +379,26 @@ export function WidgetsModule({
               icon={<LuxiaVirtualAssistantIcon size={18} aria-hidden color="currentColor" />}
               title={item.name}
               ariaLabel={item.name}
+              onClick={onOpen ? () => onOpen(item.id) : undefined}
               meta={
                 <>
-                  <ProjectMetaText>
-                    {item.deployment} · {item.language}
-                  </ProjectMetaText>
-                  <ProjectMetaText>
-                    {item.constellationCount}{" "}
-                    {item.constellationCount === 1 ? "Constellation" : "Constellations"}
-                  </ProjectMetaText>
-                  <ProjectMetaText>{item.status}</ProjectMetaText>
+                  <span
+                    className="inline-flex items-center gap-1.5 luxia-type-caption"
+                    style={{ color: "var(--luxia-text-muted)" }}
+                  >
+                    <VidgetChannelMetaIcon channel={item.channel} />
+                    <span>{item.channelLabel}</span>
+                  </span>
+                  <ProjectMetaText>·</ProjectMetaText>
+                  <span
+                    className="inline-flex items-center gap-1.5 luxia-type-caption"
+                    style={{ color: "var(--luxia-text-muted)" }}
+                  >
+                    <VidgetSourceMetaIcon sourceType={item.sourceType} />
+                    <span>{item.sourceLabel}</span>
+                  </span>
+                  <ProjectMetaText>·</ProjectMetaText>
+                  <ProjectMetaText>{item.statusLabel}</ProjectMetaText>
                 </>
               }
             />

@@ -9,6 +9,7 @@ export type LuxiaBreadcrumbDestination =
   | { kind: "dashboard"; projectId: string; dashboardId?: string }
   | { kind: "virtual-assistant"; projectId: string; virtualAssistantId?: string }
   | { kind: "organization-users" }
+  | { kind: "vidgets"; projectId: string }
   | { kind: "access-levels" }
   | { kind: "data-sources" }
   | { kind: "members"; projectId: string }
@@ -32,6 +33,7 @@ export interface LuxiaBreadcrumbHandlers {
   onDashboard?: (projectId: string, dashboardId?: string) => void;
   onVirtualAssistant?: (projectId: string, virtualAssistantId?: string) => void;
   onOrganizationUsers?: () => void;
+  onVidgets?: (projectId: string) => void;
   onAccessLevels?: () => void;
   onDataSources?: () => void;
   onMembers?: (projectId: string) => void;
@@ -69,6 +71,10 @@ function resolveNavigate(
       return handlers.onAccessLevels;
     case "organization-users":
       return handlers.onOrganizationUsers;
+    case "vidgets":
+      return handlers.onVidgets
+        ? () => handlers.onVidgets!(destination.projectId)
+        : undefined;
     case "data-sources":
       return handlers.onDataSources;
     case "members":
@@ -250,6 +256,7 @@ export function buildGalaxySettingsBreadcrumbItems(input: {
   galaxyName: string;
 }): LuxiaBreadcrumbItem[] {
   return [
+    { id: "home", label: "Home", destination: { kind: "home" } },
     {
       id: `project-${input.projectId}`,
       label: input.projectName,

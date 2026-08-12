@@ -48,6 +48,8 @@ export {
   getConstellationSettingsPath,
   getConstellationSettingsCapabilityPath,
   getProjectMembersPath,
+  getProjectVidgetsPath,
+  getVidgetSettingsPath,
   getAccessLevelsPath,
   getAccessLevelPath,
   getOrganizationUsersPath,

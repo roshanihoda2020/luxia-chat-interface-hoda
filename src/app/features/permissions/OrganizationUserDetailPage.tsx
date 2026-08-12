@@ -21,7 +21,6 @@ import {
 import { HS } from "@/app/features/home/homeSurfaces";
 import { getProjectNameById } from "@/app/features/project/data";
 import { LUXIA_SETTINGS_CONTENT_SURFACE_CLASS } from "@/app/features/shared/luxiaSettingsUx";
-import { DemoUserAvatar } from "./demoUserAvatar";
 import { formatOrganizationRoleLabel } from "./currentUser";
 import { INVITABLE_PROJECT_ROLES } from "./data";
 import { ORGANIZATION_USERS_GUIDANCE } from "./ia";
@@ -138,29 +137,30 @@ export function OrganizationUserDetailPage({
             handlers={breadcrumbHandlers}
           />
         }
-        guide={user.email}
         context={
-          <div className="flex flex-wrap items-center gap-3 pt-1">
-            <DemoUserAvatar userId={user.id} size="lg" aria-hidden />
-            <div className="min-w-0 space-y-1">
-              <div
-                className="flex flex-wrap gap-x-4 gap-y-1 luxia-type-caption"
-                style={{ color: "var(--luxia-text-secondary)" }}
-              >
-                <span>{formatOrganizationRoleLabel(user.orgRole)}</span>
-                <span style={{ textTransform: "capitalize" }}>
-                  {user.status === "pending" ? "Pending" : "Active"}
+          <div
+            className="flex flex-wrap items-center gap-x-2 gap-y-1 luxia-type-caption"
+            style={{ color: "var(--luxia-text-secondary)" }}
+          >
+            <span>{formatOrganizationRoleLabel(user.orgRole)}</span>
+            {user.status === "pending" ? (
+              <>
+                <span aria-hidden style={{ color: "var(--luxia-text-muted)" }}>
+                  ·
                 </span>
-              </div>
-              <p
-                className="luxia-type-caption"
-                style={{ color: "var(--luxia-text-muted)" }}
-              >
-                Organization role is global. Project roles below come from each
-                Project membership.
-              </p>
-            </div>
+                <span style={{ textTransform: "capitalize" }}>Pending</span>
+              </>
+            ) : null}
           </div>
+        }
+        guide={
+          <a
+            href={`mailto:${user.email}`}
+            className="luxia-type-body-dense underline-offset-2 hover:underline"
+            style={{ color: "var(--luxia-text-secondary)" }}
+          >
+            {user.email}
+          </a>
         }
         primaryAction={
           <Button
@@ -187,8 +187,7 @@ export function OrganizationUserDetailPage({
               className="luxia-type-body-dense"
               style={{ color: "var(--luxia-text-secondary)" }}
             >
-              Project role belongs to this user and each Project membership —
-              not a single global Project role.
+              Roles are assigned separately for each Project.
             </p>
           </div>
 
@@ -314,8 +313,7 @@ export function OrganizationUserDetailPage({
               className="luxia-type-body-dense"
               style={{ color: "var(--luxia-text-secondary)" }}
             >
-              Access Levels grant Data Source permissions only. They do not
-              assign Project membership.
+              Controls this user&apos;s Data Source access.
             </p>
           </div>
 

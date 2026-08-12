@@ -22,6 +22,21 @@ function projectIndex(projectId: string): number {
   return index >= 0 ? index : 0;
 }
 
+/** Demo Dashboard creators — only users who belong to each Project. */
+const DASHBOARD_DEMO_CREATORS: Record<string, string[]> = {
+  "project-01": ["user-01", "user-03", "user-02", "user-05", "user-01", "user-03", "user-02", "user-05"],
+  "project-02": ["user-03", "user-01", "user-03", "user-01", "user-03", "user-01", "user-03", "user-01"],
+  "project-03": ["user-02", "user-04", "user-01", "user-02", "user-04", "user-01", "user-02", "user-04"],
+  "project-04": ["user-04", "user-02", "user-03", "user-04", "user-02", "user-03", "user-04", "user-02"],
+  "project-05": ["user-05", "user-01", "user-04", "user-05", "user-01", "user-04", "user-05", "user-01"],
+  "project-06": ["user-04", "user-03", "user-05", "user-04", "user-03", "user-05", "user-04", "user-03"],
+};
+
+function dashboardDemoCreator(projectId: string, index: number): string {
+  const roster = DASHBOARD_DEMO_CREATORS[projectId] ?? ["user-01"];
+  return roster[index % roster.length] ?? "user-01";
+}
+
 export const PROJECT_ACTIVITY: ProjectActivityItem[] = PROJECT_IDS.flatMap((projectId) => {
   const index = projectIndex(projectId);
   const n = index + 1;
@@ -113,10 +128,8 @@ export const PROJECT_DASHBOARD_OUTPUTS: ProjectDashboardOutput[] = PROJECT_IDS.f
   (projectId) => {
     const homeProject = HOME_PROJECTS.find((project) => project.id === projectId);
     if (homeProject?.isEmpty) return [];
-    return [
+    const templates: Omit<ProjectDashboardOutput, "id" | "projectId" | "createdByUserId">[] = [
       {
-        id: `${projectId}-output-01`,
-        projectId,
         name: "Output name 01",
         outputType: "chart",
         conversationSource: "galaxy",
@@ -125,8 +138,6 @@ export const PROJECT_DASHBOARD_OUTPUTS: ProjectDashboardOutput[] = PROJECT_IDS.f
         updatedAtTimestamp: NOW - HOUR_MS * 2,
       },
       {
-        id: `${projectId}-output-02`,
-        projectId,
         name: "Output name 02",
         outputType: "table",
         conversationSource: "constellation-chat",
@@ -135,8 +146,6 @@ export const PROJECT_DASHBOARD_OUTPUTS: ProjectDashboardOutput[] = PROJECT_IDS.f
         updatedAtTimestamp: NOW - DAY_MS,
       },
       {
-        id: `${projectId}-output-03`,
-        projectId,
         name: "Output name 03",
         outputType: "report",
         conversationSource: "constellation-chat",
@@ -145,8 +154,6 @@ export const PROJECT_DASHBOARD_OUTPUTS: ProjectDashboardOutput[] = PROJECT_IDS.f
         updatedAtTimestamp: NOW - DAY_MS * 3,
       },
       {
-        id: `${projectId}-output-04`,
-        projectId,
         name: "Output name 04",
         outputType: "metric",
         conversationSource: "galaxy",
@@ -155,8 +162,6 @@ export const PROJECT_DASHBOARD_OUTPUTS: ProjectDashboardOutput[] = PROJECT_IDS.f
         updatedAtTimestamp: NOW - DAY_MS * 4,
       },
       {
-        id: `${projectId}-output-05`,
-        projectId,
         name: "Output name 05",
         outputType: "analysis",
         conversationSource: "constellation-chat",
@@ -165,8 +170,6 @@ export const PROJECT_DASHBOARD_OUTPUTS: ProjectDashboardOutput[] = PROJECT_IDS.f
         updatedAtTimestamp: NOW - DAY_MS * 5,
       },
       {
-        id: `${projectId}-output-06`,
-        projectId,
         name: "Output name 06",
         outputType: "insight",
         conversationSource: "constellation-chat",
@@ -175,8 +178,6 @@ export const PROJECT_DASHBOARD_OUTPUTS: ProjectDashboardOutput[] = PROJECT_IDS.f
         updatedAtTimestamp: NOW - DAY_MS * 6,
       },
       {
-        id: `${projectId}-output-07`,
-        projectId,
         name: "Output name 07",
         outputType: "comparison",
         conversationSource: "galaxy",
@@ -185,8 +186,6 @@ export const PROJECT_DASHBOARD_OUTPUTS: ProjectDashboardOutput[] = PROJECT_IDS.f
         updatedAtTimestamp: NOW - DAY_MS * 7,
       },
       {
-        id: `${projectId}-output-08`,
-        projectId,
         name: "Output name 08",
         outputType: "mixed",
         conversationSource: "constellation-chat",
@@ -195,6 +194,12 @@ export const PROJECT_DASHBOARD_OUTPUTS: ProjectDashboardOutput[] = PROJECT_IDS.f
         updatedAtTimestamp: NOW - DAY_MS * 7 - HOUR_MS,
       },
     ];
+    return templates.map((item, index) => ({
+      id: `${projectId}-output-${pad(index + 1)}`,
+      projectId,
+      ...item,
+      createdByUserId: dashboardDemoCreator(projectId, index),
+    }));
   },
 );
 
@@ -211,6 +216,7 @@ export const PROJECT_DASHBOARDS: ProjectDashboardItem[] = PROJECT_IDS.flatMap((p
       kind: "dashboard",
       updatedAt: "2h ago",
       updatedAtTimestamp: NOW - HOUR_MS * 2,
+      createdByUserId: dashboardDemoCreator(projectId, 0),
     },
     {
       id: `${projectId}-dashboard-02`,
@@ -219,6 +225,7 @@ export const PROJECT_DASHBOARDS: ProjectDashboardItem[] = PROJECT_IDS.flatMap((p
       kind: "dashboard",
       updatedAt: "1 day ago",
       updatedAtTimestamp: NOW - DAY_MS,
+      createdByUserId: dashboardDemoCreator(projectId, 1),
     },
   ];
   if (index % 2 === 0) {
@@ -229,38 +236,18 @@ export const PROJECT_DASHBOARDS: ProjectDashboardItem[] = PROJECT_IDS.flatMap((p
       kind: "group",
       updatedAt: "3 days ago",
       updatedAtTimestamp: NOW - DAY_MS * 3,
+      createdByUserId: dashboardDemoCreator(projectId, 2),
     });
   }
   return items;
 });
 
-const WIDGET_DEPLOYMENTS = [
-  "Website",
-  "Totem",
-  "Embedded assistant",
-] as const;
+/** @deprecated Use canonical Vidget state — kept empty to avoid a second dataset. */
+export const PROJECT_WIDGETS: ProjectWidgetItem[] = [];
 
-export const PROJECT_WIDGETS: ProjectWidgetItem[] = PROJECT_IDS.flatMap((projectId) => {
-  const index = projectIndex(projectId);
-  const homeProject = HOME_PROJECTS.find((project) => project.id === projectId);
-  if (homeProject?.isEmpty) return [];
-  const n = index + 1;
-  const count = index === 0 ? 3 : index === 6 ? 4 : 2;
-  return Array.from({ length: count }, (_, i) => ({
-    id: `${projectId}-va-${pad(i + 1)}`,
-    projectId,
-    name: `Vidget name ${pad(Math.min(n + i, 10))}`,
-    deployment: WIDGET_DEPLOYMENTS[i % WIDGET_DEPLOYMENTS.length],
-    language: i % 2 === 0 ? "English" : "Spanish",
-    status: i === 1 ? ("Draft" as const) : ("Published" as const),
-    constellationCount: i === 0 ? 3 : i === 1 ? 1 : 2,
-  }));
-});
-
-/** @deprecated Alias — stable getter name for existing imports. */
+/** @deprecated Alias — empty; use canonical Vidget state. */
 export const PROJECT_VIRTUAL_ASSISTANTS = PROJECT_WIDGETS;
 
-/** Derived from the canonical Constellation catalog — do not hardcode. */
 export const CONSTELLATION_SOURCE_COUNTS: Record<string, number> =
   buildConstellationSourceCountMap();
 

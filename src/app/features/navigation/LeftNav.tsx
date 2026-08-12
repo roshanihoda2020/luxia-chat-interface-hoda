@@ -1,9 +1,3 @@
-/**
- * Luxia left sidebar with selective secondary rails.
- * Project switcher / Constellations / Chats open secondary rails;
- * other destinations stay direct. Primary collapse is independent of those rails.
- */
-
 import {
   useCallback,
   useEffect,
@@ -46,9 +40,11 @@ import {
   getOrganizationUsersPath,
   getProjectChatsPath,
   getProjectMembersPath,
+  getProjectVidgetsPath,
   getProjectPath,
   getChatPath,
   getConstellationChatPath,
+  getVidgetSettingsPath,
 } from "@/app/features/project/projectPaths";
 import {
   LuxiaChatIcon,
@@ -61,6 +57,7 @@ import {
   LuxiaSettingsIcon,
   LuxiaSupportIcon,
   LuxiaUserPermissionsIcon,
+  LuxiaVirtualAssistantIcon,
   type LuxiaIconProps,
 } from "@/assets/icons";
 import { canAccessProjectSettingsForUser } from "@/app/features/permissions/accessGuards";
@@ -68,7 +65,6 @@ import type { ProjectRole } from "@/app/features/permissions/types";
 
 export const SIDEBAR_WIDTH_EXPANDED = 280;
 export const SIDEBAR_WIDTH_COLLAPSED = 76;
-/** Full-height Constellations / Chats secondary rail width (desktop). */
 export const SIDEBAR_SECONDARY_WIDTH = 280;
 export const LEFT_NAV_COLLAPSED_STORAGE_KEY = "luxia-left-nav-collapsed";
 export const LEFT_NAV_MOBILE_BREAKPOINT = 768;
@@ -109,7 +105,19 @@ function LuxiaOrgUsersIcon({
     </span>
   );
 }
-type FlyoutKind = "constellations" | "chats" | "projects";
+type FlyoutKind = "constellations" | "chats" | "dashboard" | "vidgets" | "projects";
+
+export type LeftNavDashboardPreview = {
+  id: string;
+  label: string;
+  updatedAtTimestamp: number;
+};
+
+export type LeftNavVidgetPreview = {
+  id: string;
+  label: string;
+  updatedAtTimestamp: number;
+};
 
 export type LeftNavChatPreview = {
   id: string;
@@ -159,11 +167,17 @@ export type LeftNavProps = {
   activeProjectSection?: ProjectNavSection | null;
   activeChatId?: string | null;
   activeConstellationId?: string | null;
+  activeDashboardOutputId?: string | null;
+  activeVidgetId?: string | null;
   projectChats?: LeftNavChatPreview[];
   projectConstellations?: LeftNavConstellationPreview[];
+  projectDashboardOutputs?: LeftNavDashboardPreview[];
+  projectVidgets?: LeftNavVidgetPreview[];
   switchableProjects?: LeftNavProjectPreview[];
   chatTotalCount?: number;
   constellationTotalCount?: number;
+  dashboardTotalCount?: number;
+  vidgetTotalCount?: number;
   onHomeClick?: () => void;
   onOrganizationUsersClick?: () => void;
   onAccessLevelsClick?: () => void;
@@ -172,6 +186,8 @@ export type LeftNavProps = {
   onSwitchProject?: (projectId: string) => void;
   onOpenChat?: (chatId: string) => void;
   onOpenConstellation?: (projectId: string, constellationId: string) => void;
+  onOpenDashboardOutput?: (projectId: string, outputId: string) => void;
+  onOpenVidget?: (projectId: string, vidgetId: string) => void;
   prototypeUser?: { id: string; name: string; orgRole: string };
   prototypeProjectRole?: ProjectRole | null;
   activeProjectLabel?: string | null;
@@ -314,7 +330,7 @@ function NavItem({
           >
             {label}
           </span>
-          {typeof count === "number" && count > 0 ? (
+          {typeof count === "number" ? (
             <span
               className="luxia-type-caption tabular-nums"
               style={{ color: "rgba(255,255,255,0.4)" }}
@@ -515,7 +531,7 @@ function ProjectDisclosureSection({
           >
             {label}
           </span>
-          {count > 0 ? (
+          {typeof count === "number" ? (
             <span className="luxia-type-caption tabular-nums" style={{ color: "rgba(255,255,255,0.4)" }}>
               {count}
             </span>
@@ -779,8 +795,6 @@ function SidebarSecondaryRail({
         className="flex-shrink-0 px-3.5 pb-2.5 pt-3"
         style={{
           borderBottom: "1px solid rgba(255,255,255,0.07)",
-          // Keep title/X/search clear of the floating primary-collapse control
-          // anchored on the outer nav shell when this rail is open.
           ...(mode === "desktop"
             ? { paddingRight: SIDEBAR_TOGGLE_SIZE }
             : null),
@@ -979,11 +993,17 @@ export function LeftNav({
   activeProjectSection,
   activeChatId,
   activeConstellationId,
+  activeDashboardOutputId,
+  activeVidgetId,
   projectChats = [],
   projectConstellations = [],
+  projectDashboardOutputs = [],
+  projectVidgets = [],
   switchableProjects = [],
   chatTotalCount,
   constellationTotalCount,
+  dashboardTotalCount,
+  vidgetTotalCount,
   onHomeClick,
   onOrganizationUsersClick,
   onAccessLevelsClick,
@@ -992,6 +1012,8 @@ export function LeftNav({
   onSwitchProject,
   onOpenChat,
   onOpenConstellation,
+  onOpenDashboardOutput,
+  onOpenVidget,
   prototypeUser,
   prototypeProjectRole,
   activeProjectLabel,
@@ -1002,6 +1024,8 @@ export function LeftNav({
   const reactId = useId();
   const constellationsPanelId = `${reactId}-constellations-rail`;
   const chatsPanelId = `${reactId}-chats-rail`;
+  const dashboardPanelId = `${reactId}-dashboard-rail`;
+  const vidgetsPanelId = `${reactId}-vidgets-rail`;
   const projectsPanelId = `${reactId}-projects-rail`;
 
   const asideRef = useRef<HTMLElement>(null);
@@ -1010,8 +1034,14 @@ export function LeftNav({
   const chatsAnchorRef = useRef<HTMLDivElement>(null);
   const constellationsDisclosureRef = useRef<HTMLButtonElement>(null);
   const chatsDisclosureRef = useRef<HTMLButtonElement>(null);
+  const dashboardAnchorRef = useRef<HTMLDivElement>(null);
+  const vidgetsAnchorRef = useRef<HTMLDivElement>(null);
+  const dashboardDisclosureRef = useRef<HTMLButtonElement>(null);
+  const vidgetsDisclosureRef = useRef<HTMLButtonElement>(null);
   const collapsedConstellationsRef = useRef<HTMLButtonElement>(null);
   const collapsedChatsRef = useRef<HTMLButtonElement>(null);
+  const collapsedDashboardRef = useRef<HTMLButtonElement>(null);
+  const collapsedVidgetsRef = useRef<HTMLButtonElement>(null);
   const projectSwitcherRef = useRef<HTMLButtonElement>(null);
   const collapsedProjectSwitcherRef = useRef<HTMLButtonElement>(null);
   const restoreFocusKindRef = useRef<FlyoutKind | null>(null);
@@ -1019,6 +1049,8 @@ export function LeftNav({
   const [flyout, setFlyout] = useState<FlyoutKind | null>(null);
   const [constellationQuery, setConstellationQuery] = useState("");
   const [chatQuery, setChatQuery] = useState("");
+  const [dashboardQuery, setDashboardQuery] = useState("");
+  const [vidgetQuery, setVidgetQuery] = useState("");
   const [projectQuery, setProjectQuery] = useState("");
 
   const showDemoIdentity = Boolean(prototypeUsers && onPrototypeUserChange);
@@ -1030,6 +1062,7 @@ export function LeftNav({
   const dashboardHref = projectId ? getDashboardPath(projectId) : undefined;
   const constellationsHref = projectId ? getConstellationsPath(projectId) : undefined;
   const chatsHref = projectId ? getProjectChatsPath(projectId) : undefined;
+  const vidgetsHref = projectId ? getProjectVidgetsPath(projectId) : undefined;
   const membersHref = projectId ? getProjectMembersPath(projectId) : undefined;
 
   const profileName = prototypeUser?.name ?? SIDEBAR_PROFILE_NAME;
@@ -1044,6 +1077,8 @@ export function LeftNav({
 
   const chatsCount = chatTotalCount ?? projectChats.length;
   const constellationsCount = constellationTotalCount ?? projectConstellations.length;
+  const dashboardCount = dashboardTotalCount ?? projectDashboardOutputs.length;
+  const vidgetsCount = vidgetTotalCount ?? projectVidgets.length;
   const railCollapsed = isMobileDrawer ? false : collapsed;
   const widthStyle = isMobileDrawer
     ? SIDEBAR_WIDTH_EXPANDED
@@ -1073,6 +1108,28 @@ export function LeftNav({
     [projectConstellations, activeConstellationId],
   );
 
+  const quickDashboardOutputs = useMemo(
+    () =>
+      pickQuickFlyoutItems(
+        projectDashboardOutputs,
+        activeDashboardOutputId,
+        SECONDARY_QUICK_LIMIT,
+        (item) => item.updatedAtTimestamp,
+      ),
+    [projectDashboardOutputs, activeDashboardOutputId],
+  );
+
+  const quickVidgets = useMemo(
+    () =>
+      pickQuickFlyoutItems(
+        projectVidgets,
+        activeVidgetId,
+        SECONDARY_QUICK_LIMIT,
+        (item) => item.updatedAtTimestamp,
+      ),
+    [projectVidgets, activeVidgetId],
+  );
+
   const constellationSearchRows = useMemo(
     () => filterFlyoutSearch(projectConstellations, constellationQuery, SECONDARY_SEARCH_RESULT_LIMIT),
     [projectConstellations, constellationQuery],
@@ -1081,6 +1138,16 @@ export function LeftNav({
   const chatSearchRows = useMemo(
     () => filterFlyoutSearch(projectChats, chatQuery, SECONDARY_SEARCH_RESULT_LIMIT),
     [projectChats, chatQuery],
+  );
+
+  const dashboardSearchRows = useMemo(
+    () => filterFlyoutSearch(projectDashboardOutputs, dashboardQuery, SECONDARY_SEARCH_RESULT_LIMIT),
+    [projectDashboardOutputs, dashboardQuery],
+  );
+
+  const vidgetSearchRows = useMemo(
+    () => filterFlyoutSearch(projectVidgets, vidgetQuery, SECONDARY_SEARCH_RESULT_LIMIT),
+    [projectVidgets, vidgetQuery],
   );
 
   const projectBrowseRows = useMemo(() => {
@@ -1105,9 +1172,17 @@ export function LeftNav({
           : projectSwitcherRef.current;
       }
       if (railCollapsed) {
+        if (kind === "dashboard") return collapsedDashboardRef.current;
+        if (kind === "vidgets") return collapsedVidgetsRef.current;
         return kind === "constellations"
           ? collapsedConstellationsRef.current
           : collapsedChatsRef.current;
+      }
+      if (kind === "dashboard") {
+        return dashboardDisclosureRef.current ?? dashboardAnchorRef.current;
+      }
+      if (kind === "vidgets") {
+        return vidgetsDisclosureRef.current ?? vidgetsAnchorRef.current;
       }
       return kind === "constellations"
         ? (constellationsDisclosureRef.current ?? constellationsAnchorRef.current)
@@ -1126,6 +1201,8 @@ export function LeftNav({
       setFlyout(null);
       setConstellationQuery("");
       setChatQuery("");
+      setDashboardQuery("");
+      setVidgetQuery("");
       setProjectQuery("");
     },
     [flyout],
@@ -1136,6 +1213,8 @@ export function LeftNav({
     setFlyout(null);
     setConstellationQuery("");
     setChatQuery("");
+    setDashboardQuery("");
+    setVidgetQuery("");
     setProjectQuery("");
   }, []);
 
@@ -1153,12 +1232,16 @@ export function LeftNav({
         restoreFocusKindRef.current = kind;
         setConstellationQuery("");
         setChatQuery("");
+        setDashboardQuery("");
+        setVidgetQuery("");
         setProjectQuery("");
         return null;
       }
       restoreFocusKindRef.current = null;
       setConstellationQuery("");
       setChatQuery("");
+      setDashboardQuery("");
+      setVidgetQuery("");
       setProjectQuery("");
       return kind;
     });
@@ -1288,6 +1371,41 @@ export function LeftNav({
     );
   }
 
+  function renderDashboardRow(item: LeftNavDashboardPreview) {
+    return (
+      <FlyoutNavRow
+        key={item.id}
+        icon={LuxiaDashboardIcon}
+        label={item.label}
+        active={activeDashboardOutputId === item.id}
+        onClick={() => {
+          if (!projectId) return;
+          navigateChildEntity(() => {
+            onOpenDashboardOutput?.(projectId, item.id);
+          });
+        }}
+      />
+    );
+  }
+
+  function renderVidgetRow(item: LeftNavVidgetPreview) {
+    return (
+      <FlyoutNavRow
+        key={item.id}
+        icon={LuxiaVirtualAssistantIcon}
+        label={item.label}
+        active={activeVidgetId === item.id}
+        href={projectId ? getVidgetSettingsPath(projectId, item.id) : undefined}
+        onClick={() => {
+          if (!projectId) return;
+          navigateChildEntity(() => {
+            onOpenVidget?.(projectId, item.id);
+          });
+        }}
+      />
+    );
+  }
+
   const constellationRows = constellationQuery.trim()
     ? constellationSearchRows.map(renderConstellationRow)
     : quickConstellations.map(renderConstellationRow);
@@ -1296,6 +1414,14 @@ export function LeftNav({
     ? chatSearchRows.map(renderChatRow)
     : quickChats.map(renderChatRow);
 
+  const dashboardRows = dashboardQuery.trim()
+    ? dashboardSearchRows.map(renderDashboardRow)
+    : quickDashboardOutputs.map(renderDashboardRow);
+
+  const vidgetRows = vidgetQuery.trim()
+    ? vidgetSearchRows.map(renderVidgetRow)
+    : quickVidgets.map(renderVidgetRow);
+
   const constellationListEmpty = constellationQuery.trim()
     ? constellationSearchRows.length === 0
     : quickConstellations.length === 0;
@@ -1303,6 +1429,14 @@ export function LeftNav({
   const chatListEmpty = chatQuery.trim()
     ? chatSearchRows.length === 0
     : quickChats.length === 0;
+
+  const dashboardListEmpty = dashboardQuery.trim()
+    ? dashboardSearchRows.length === 0
+    : quickDashboardOutputs.length === 0;
+
+  const vidgetListEmpty = vidgetQuery.trim()
+    ? vidgetSearchRows.length === 0
+    : quickVidgets.length === 0;
 
   function renderProjectRow(item: LeftNavProjectPreview) {
     const roleLabel = item.projectRole ?? NO_PROJECT_ROLE_LABEL;
@@ -1370,6 +1504,34 @@ export function LeftNav({
         isEmptyList={chatListEmpty}
         onClose={closeSecondaryRail}
         closeLabel="Close Chats navigation"
+      />
+    ) : !isMobileDrawer && flyout === "dashboard" ? (
+      <SidebarSecondaryRail
+        id={dashboardPanelId}
+        mode="desktop"
+        title="Dashboard"
+        searchPlaceholder="Search Dashboard"
+        noMatchLabel="No matching Dashboard outputs"
+        query={dashboardQuery}
+        onQueryChange={setDashboardQuery}
+        rows={dashboardRows}
+        isEmptyList={dashboardListEmpty}
+        onClose={closeSecondaryRail}
+        closeLabel="Close Dashboard navigation"
+      />
+    ) : !isMobileDrawer && flyout === "vidgets" ? (
+      <SidebarSecondaryRail
+        id={vidgetsPanelId}
+        mode="desktop"
+        title="Vidgets"
+        searchPlaceholder="Search Vidgets"
+        noMatchLabel="No matching Vidgets"
+        query={vidgetQuery}
+        onQueryChange={setVidgetQuery}
+        rows={vidgetRows}
+        isEmptyList={vidgetListEmpty}
+        onClose={closeSecondaryRail}
+        closeLabel="Close Vidgets navigation"
       />
     ) : null;
 
@@ -1452,6 +1614,46 @@ export function LeftNav({
                 isEmptyList={chatListEmpty}
                 onClose={closeSecondaryRail}
                 closeLabel="Close Chats navigation"
+              />
+            </div>
+          ) : null}
+          {isMobileDrawer && mobileFlyoutActive && flyout === "dashboard" ? (
+            <div
+              className="absolute inset-0 z-[4] flex flex-col overflow-hidden"
+              style={{ background: LX.gradient.nav }}
+            >
+              <SidebarSecondaryRail
+                id={dashboardPanelId}
+                mode="mobile"
+                title="Dashboard"
+                searchPlaceholder="Search Dashboard"
+                noMatchLabel="No matching Dashboard outputs"
+                query={dashboardQuery}
+                onQueryChange={setDashboardQuery}
+                rows={dashboardRows}
+                isEmptyList={dashboardListEmpty}
+                onClose={closeSecondaryRail}
+                closeLabel="Close Dashboard navigation"
+              />
+            </div>
+          ) : null}
+          {isMobileDrawer && mobileFlyoutActive && flyout === "vidgets" ? (
+            <div
+              className="absolute inset-0 z-[4] flex flex-col overflow-hidden"
+              style={{ background: LX.gradient.nav }}
+            >
+              <SidebarSecondaryRail
+                id={vidgetsPanelId}
+                mode="mobile"
+                title="Vidgets"
+                searchPlaceholder="Search Vidgets"
+                noMatchLabel="No matching Vidgets"
+                query={vidgetQuery}
+                onQueryChange={setVidgetQuery}
+                rows={vidgetRows}
+                isEmptyList={vidgetListEmpty}
+                onClose={closeSecondaryRail}
+                closeLabel="Close Vidgets navigation"
               />
             </div>
           ) : null}
@@ -1555,7 +1757,7 @@ export function LeftNav({
                           <button
                             ref={projectSwitcherRef}
                             type="button"
-                            className="mt-1 flex w-full min-w-0 items-center gap-1.5 rounded text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(150,219,251,0.45)]"
+                            className="mt-2 flex w-full min-w-0 items-center gap-1.5 rounded text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(150,219,251,0.45)]"
                             style={{
                               color: "rgba(255,255,255,0.88)",
                               background: flyout === "projects"
@@ -1595,7 +1797,7 @@ export function LeftNav({
                           </button>
                         ) : (
                           <p
-                            className="mt-1 truncate luxia-type-nav-sidebar"
+                            className="mt-2 truncate luxia-type-nav-sidebar"
                             style={{ color: "rgba(255,255,255,0.88)" }}
                             title={projectLabel ?? undefined}
                           >
@@ -1687,6 +1889,39 @@ export function LeftNav({
                             buttonRef={collapsedChatsRef}
                             onClick={() => toggleFlyout("chats")}
                           />
+                          <NavItem
+                            icon={LuxiaDashboardIcon}
+                            label="Dashboard"
+                            tooltip="Dashboard"
+                            active={
+                              activeProjectSection === "dashboard"
+                              || flyout === "dashboard"
+                              || Boolean(activeDashboardOutputId)
+                            }
+                            collapsed
+                            count={dashboardCount}
+                            ariaExpanded={flyout === "dashboard"}
+                            ariaControls={dashboardPanelId}
+                            buttonRef={collapsedDashboardRef}
+                            onClick={() => toggleFlyout("dashboard")}
+                          />
+                          <NavItem
+                            icon={LuxiaVirtualAssistantIcon}
+                            label="Vidgets"
+                            tooltip="Vidgets"
+                            active={
+                              activeProjectSection === "vidgets"
+                              || activeProjectSection === "virtual-assistant"
+                              || flyout === "vidgets"
+                              || Boolean(activeVidgetId)
+                            }
+                            collapsed
+                            count={vidgetsCount}
+                            ariaExpanded={flyout === "vidgets"}
+                            ariaControls={vidgetsPanelId}
+                            buttonRef={collapsedVidgetsRef}
+                            onClick={() => toggleFlyout("vidgets")}
+                          />
                         </>
                       ) : (
                         <>
@@ -1730,22 +1965,54 @@ export function LeftNav({
                               });
                             }}
                           />
+                          <ProjectDisclosureSection
+                            label="Dashboard"
+                            icon={LuxiaDashboardIcon}
+                            count={dashboardCount}
+                            href={dashboardHref}
+                            active={
+                              activeProjectSection === "dashboard"
+                              || Boolean(activeDashboardOutputId)
+                            }
+                            childActive={Boolean(activeDashboardOutputId)}
+                            expanded={flyout === "dashboard"}
+                            panelId={dashboardPanelId}
+                            anchorRef={dashboardAnchorRef}
+                            disclosureRef={dashboardDisclosureRef}
+                            onToggleExpand={() => toggleFlyout("dashboard")}
+                            onNavigate={() => {
+                              navigateAndCloseFlyout(() => {
+                                onProjectSectionClick?.("dashboard");
+                                onMobileClose?.();
+                              });
+                            }}
+                          />
+                          <ProjectDisclosureSection
+                            label="Vidgets"
+                            icon={LuxiaVirtualAssistantIcon}
+                            count={vidgetsCount}
+                            href={vidgetsHref}
+                            active={
+                              activeProjectSection === "vidgets"
+                              || activeProjectSection === "virtual-assistant"
+                              || Boolean(activeVidgetId)
+                            }
+                            childActive={Boolean(activeVidgetId)}
+                            expanded={flyout === "vidgets"}
+                            panelId={vidgetsPanelId}
+                            anchorRef={vidgetsAnchorRef}
+                            disclosureRef={vidgetsDisclosureRef}
+                            onToggleExpand={() => toggleFlyout("vidgets")}
+                            onNavigate={() => {
+                              navigateAndCloseFlyout(() => {
+                                onProjectSectionClick?.("vidgets");
+                                onMobileClose?.();
+                              });
+                            }}
+                          />
                         </>
                       )}
 
-                      <NavItem
-                        icon={LuxiaDashboardIcon}
-                        label="Dashboard"
-                        tooltip="Dashboard"
-                        active={activeProjectSection === "dashboard"}
-                        collapsed={railCollapsed}
-                        href={dashboardHref}
-                        onClick={() => {
-                          closeFlyout();
-                          onProjectSectionClick?.("dashboard");
-                          onMobileClose?.();
-                        }}
-                      />
                       <NavItem
                         icon={LuxiaUserPermissionsIcon}
                         label="Members & Roles"

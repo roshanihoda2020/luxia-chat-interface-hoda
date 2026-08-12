@@ -501,6 +501,7 @@ export function DashboardsLibrary({
   onNavigateHome,
   onBack,
   onNew,
+  canCreate = false,
 }: {
   projectId: string;
   projectName: string;
@@ -508,7 +509,8 @@ export function DashboardsLibrary({
   onNavigateHome: () => void;
   onBack: () => void;
   onOpen?: (id: string) => void;
-  onNew: () => void;
+  onNew?: () => void;
+  canCreate?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const filtered = useMemo(() => {
@@ -528,9 +530,11 @@ export function DashboardsLibrary({
       onNavigateHome={onNavigateHome}
       onBackToProject={onBack}
       actions={
-        <Button type="button" {...LUXIA_PAGE_HEADER_ACTION.primary} onClick={onNew}>
-          New Dashboard
-        </Button>
+        canCreate && onNew ? (
+          <Button type="button" {...LUXIA_PAGE_HEADER_ACTION.primary} onClick={onNew}>
+            New Dashboard
+          </Button>
+        ) : undefined
       }
       searchLabel="Search Dashboards"
       searchValue={query}
@@ -611,7 +615,7 @@ export function VirtualAssistantsLibrary({
               ariaLabel={item.name}
               meta={
                 <ProjectMetaText>
-                  {item.deployment} · {item.status}
+                  {item.channelLabel} · {item.sourceLabel} · {item.statusLabel}
                 </ProjectMetaText>
               }
             />

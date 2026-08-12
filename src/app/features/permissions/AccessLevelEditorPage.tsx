@@ -16,12 +16,14 @@ import {
 import {
   LuxiaPageBody,
   LuxiaPageFrame,
+  LuxiaPageHeadingRegion,
 } from "@/app/components/LuxiaPageFrame";
 import {
   LuxiaPageGuide,
   LuxiaPageHeader,
   LuxiaPageEntityUpdatedMeta,
 } from "@/app/components/LuxiaPageHeader";
+import { LuxiaPageReadOnlyBadge } from "@/app/components/LuxiaPageReadOnlyBadge";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -570,11 +572,19 @@ export function AccessLevelEditorPage({
 
   return (
     <LuxiaPageFrame variant={ACCESS_LEVELS_GUIDANCE.pageVariant}>
+      <LuxiaPageHeadingRegion>
       <LuxiaPageHeader
         contentGap="page"
         pageTypeLabel="ACCESS LEVEL"
         title={pageTitle}
         titleStyle={{ color: HS.sectionHeading }}
+        titleMetadata={
+          readOnly ? (
+            <LuxiaPageReadOnlyBadge
+              ariaLabel="Read only. Only Organization Admins can edit Access Levels."
+            />
+          ) : undefined
+        }
         breadcrumb={
           <LuxiaBreadcrumb
             tone="page"
@@ -582,42 +592,23 @@ export function AccessLevelEditorPage({
             handlers={breadcrumbHandlers}
           />
         }
-        guide={ACCESS_LEVELS_GUIDANCE.editorPageDescription}
+        guide={
+          readOnly
+            ? ACCESS_LEVELS_GUIDANCE.editorPageDescriptionReadOnly
+            : ACCESS_LEVELS_GUIDANCE.editorPageDescriptionEditable
+        }
         primaryAction={null}
         secondaryAction={null}
         actions={<LuxiaAccessGuide />}
         context={
-          <div className="space-y-1">
-            {!isNew && draft.updatedAt ? (
-              <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
-                <LuxiaPageEntityUpdatedMeta
-                  updatedAt={formatAccessLevelUpdatedAt(draft.updatedAt)}
-                />
-              </div>
-            ) : null}
-            {readOnly ? (
-              <div
-                className="space-y-0.5"
-                role="status"
-                aria-label="Read only. Only Organization Admins can edit Access Levels."
-              >
-                <p
-                  className="luxia-type-caption"
-                  style={{ color: "var(--luxia-text-secondary)" }}
-                >
-                  Read only
-                </p>
-                <p
-                  className="luxia-type-caption"
-                  style={{ color: "var(--luxia-text-muted)" }}
-                >
-                  Only Organization Admins can edit Access Levels.
-                </p>
-              </div>
-            ) : null}
-          </div>
+          !isNew && draft.updatedAt ? (
+            <LuxiaPageEntityUpdatedMeta
+              updatedAt={formatAccessLevelUpdatedAt(draft.updatedAt)}
+            />
+          ) : null
         }
       />
+      </LuxiaPageHeadingRegion>
 
       <LuxiaPageBody>
         <form onSubmit={handleSave}>

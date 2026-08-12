@@ -685,12 +685,9 @@ export function LuxiaPageHeader({
       }`}
     >
       {titleMetadata && !(canRename && isEditing) ? (
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 min-w-0">
-          <div className="min-w-0">{titleBlock}</div>
-
-          <div className="min-w-0 shrink-0 basis-full sm:basis-auto sm:ml-auto">
-            {titleMetadata}
-          </div>
+        <div className="inline-flex max-w-full min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
+          {titleBlock}
+          <div className="min-w-0 shrink-0">{titleMetadata}</div>
         </div>
       ) : (
         titleBlock

@@ -80,6 +80,22 @@ export function getProjectMembersPath(projectId: string): string {
   return `/projects/${encodeURIComponent(projectId)}/members`;
 }
 
+export function getProjectVidgetsPath(projectId: string): string {
+  return `/projects/${encodeURIComponent(projectId)}/vidgets`;
+}
+
+export function getVidgetSettingsPath(
+  projectId: string,
+  vidgetId: string,
+  options?: { tab?: string },
+): string {
+  const base = `/projects/${encodeURIComponent(projectId)}/vidgets/${encodeURIComponent(vidgetId)}/settings`;
+  if (!options?.tab) return base;
+  const params = new URLSearchParams();
+  params.set("tab", options.tab);
+  return `${base}?${params.toString()}`;
+}
+
 export function getAccessLevelsPath(): string {
   return "/organization/access-levels";
 }
@@ -203,6 +219,26 @@ export function parseProjectMembersFromPath(pathname: string): string | null {
   return decodePathSegment(match[1]);
 }
 
+export function parseProjectVidgetsFromPath(pathname: string): string | null {
+  const match = pathname.match(/^\/projects\/([^/]+)\/vidgets\/?$/);
+  if (!match?.[1]) return null;
+  return decodePathSegment(match[1]);
+}
+
+export function parseVidgetSettingsFromPath(pathname: string): {
+  projectId: string;
+  vidgetId: string;
+} | null {
+  const match = pathname.match(
+    /^\/projects\/([^/]+)\/vidgets\/([^/]+)\/settings\/?$/,
+  );
+  if (!match?.[1] || !match[2]) return null;
+  return {
+    projectId: decodePathSegment(match[1]),
+    vidgetId: decodePathSegment(match[2]),
+  };
+}
+
 export function parseAccessLevelsPath(pathname: string): boolean {
   return /^\/organization\/access-levels\/?$/.test(pathname);
 }
@@ -277,6 +313,8 @@ export type LuxiaResolvedPath =
     capabilityPath?: string;
   }
   | { kind: "project-members"; projectId: string }
+  | { kind: "project-vidgets"; projectId: string }
+  | { kind: "vidget-settings"; projectId: string; vidgetId: string }
   | { kind: "organization-users" }
   | { kind: "organization-user"; userId: string }
   | { kind: "access-levels" }
@@ -368,6 +406,20 @@ export function resolveLuxiaPathname(pathname: string): LuxiaResolvedPath {
   const membersProjectId = parseProjectMembersFromPath(pathname);
   if (membersProjectId) {
     return { kind: "project-members", projectId: membersProjectId };
+  }
+
+  const vidgetSettings = parseVidgetSettingsFromPath(pathname);
+  if (vidgetSettings) {
+    return {
+      kind: "vidget-settings",
+      projectId: vidgetSettings.projectId,
+      vidgetId: vidgetSettings.vidgetId,
+    };
+  }
+
+  const vidgetsProjectId = parseProjectVidgetsFromPath(pathname);
+  if (vidgetsProjectId) {
+    return { kind: "project-vidgets", projectId: vidgetsProjectId };
   }
 
   const constellationCreateProjectId = parseConstellationCreateProjectIdFromPath(pathname);

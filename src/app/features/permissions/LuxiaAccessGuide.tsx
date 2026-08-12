@@ -79,7 +79,6 @@ function GuideDivider() {
   );
 }
 
-/** Shared educational Access guide for Access Levels surfaces. */
 export function LuxiaAccessGuide({
   triggerLabel = "Access guide",
   className,
@@ -163,7 +162,13 @@ export function LuxiaAccessGuide({
                 className="luxia-type-caption"
                 style={{ color: "var(--luxia-text-muted)" }}
               >
-                They do not directly assign Projects, Constellations, Chats, or Galaxies.
+                They do not assign Project membership or directly assign Constellations.
+              </p>
+              <p
+                className="luxia-type-caption"
+                style={{ color: "var(--luxia-text-muted)" }}
+              >
+                Only Organization Admins can create or edit Access Levels.
               </p>
             </GuideSection>
 

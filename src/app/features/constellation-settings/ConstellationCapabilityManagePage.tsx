@@ -7,8 +7,14 @@ import {
 import {
   LuxiaPageBody,
   LuxiaPageFrame,
+  LuxiaPageHeadingRegion,
 } from "@/app/components/LuxiaPageFrame";
-import { LuxiaPageHeader, LUXIA_PAGE_HEADER_ACTION } from "@/app/components/LuxiaPageHeader";
+import { LuxiaPageReadOnlyBadge } from "@/app/components/LuxiaPageReadOnlyBadge";
+import {
+  LuxiaPageGuide,
+  LuxiaPageHeader,
+  LUXIA_PAGE_HEADER_ACTION,
+} from "@/app/components/LuxiaPageHeader";
 import { Button } from "@/app/components/ui/button";
 import { ActiveDataTablesManager } from "@/app/features/active-data-tables/ActiveDataTablesManager";
 import { TABLE_CATALOG } from "@/app/features/active-data-tables/data";
@@ -62,7 +68,6 @@ export interface ConstellationCapabilityManagePageProps {
   onNavigateHome: () => void;
   onOpenProject: (id: string) => void;
   onOpenConstellations: (id: string) => void;
-  /** Constellation name crumb → Settings with General active. */
   onOpenConstellation: (projectId: string, constellationId: string) => void;
 }
 
@@ -362,11 +367,17 @@ export function ConstellationCapabilityManagePage({
 
   return (
     <LuxiaPageFrame variant={CONSTELLATION_SETTINGS_PAGE_VARIANT}>
+      <LuxiaPageHeadingRegion>
       <LuxiaPageHeader
         contentGap="page"
         pageTypeLabel="Constellation Settings"
         title={capabilityMeta.label}
         titleStyle={{ color: HS.sectionHeading }}
+        titleMetadata={
+          readOnly ? (
+            <LuxiaPageReadOnlyBadge ariaLabel="Read only. Changes cannot be saved for your Project role." />
+          ) : undefined
+        }
         titleLeading={
           <CapabilityIcon
             size={18}
@@ -385,10 +396,9 @@ export function ConstellationCapabilityManagePage({
         context={
           <p className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
             {constellationTypeLabel(constellation.type)}
-            {" · "}
-            {constellation.status === "active" || constellation.status === "Active"
-              ? "Active"
-              : constellation.status}
+            {constellation.status !== "active" && constellation.status !== "Active"
+              ? ` · ${constellation.status === "archived" || constellation.status === "Archived" ? "Archived" : constellation.status}`
+              : ""}
             {" · "}
             {project.name}
           </p>
@@ -404,17 +414,9 @@ export function ConstellationCapabilityManagePage({
           </Button>
         }
       />
+      </LuxiaPageHeadingRegion>
 
       <LuxiaPageBody>
-        {readOnly ? (
-          <p
-            className="mb-3 luxia-type-body-dense"
-            style={{ color: "var(--luxia-text-secondary)" }}
-            role="status"
-          >
-            Read-only for your Project role. Changes cannot be saved.
-          </p>
-        ) : null}
         <div
           className={`${LUXIA_SETTINGS_CONTENT_SURFACE_CLASS} is-padded-sm`}
           aria-disabled={readOnly || undefined}

@@ -10,7 +10,6 @@ const NOW = Date.now();
 
 export const PROJECT_DESCRIPTION_PLACEHOLDER = `${"x".repeat(80)}`;
 
-/** One Constellation’s contribution to Project-derived Data Source counts. */
 export interface ProjectConstellationSourceEntry {
   constellationId: string;
   projectId: string;
@@ -41,7 +40,6 @@ export function deriveProjectEntityCounts(
   };
 }
 
-/** Seeded unique Data Source count — derived from canonical Constellation links only. */
 export function uniqueSourceCountForProject(projectId: string): number {
   return deriveProjectEntityCounts(
     projectId,

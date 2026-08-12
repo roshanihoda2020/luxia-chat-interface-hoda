@@ -11,6 +11,7 @@ import {
   LuxiaPageFrame,
 } from "@/app/components/LuxiaPageFrame";
 import { LuxiaPageHeader, LUXIA_PAGE_HEADER_ACTION } from "@/app/components/LuxiaPageHeader";
+import { LuxiaPageReadOnlyBadge } from "@/app/components/LuxiaPageReadOnlyBadge";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import {
@@ -169,6 +170,13 @@ export function OrganizationUsersPage({
         pageTypeLabel="ORGANIZATION"
         title="Users"
         titleStyle={{ color: HS.sectionHeading }}
+        titleMetadata={
+          !canAdminister ? (
+            <LuxiaPageReadOnlyBadge
+              ariaLabel="Read only. Only Organization Admins can invite or manage users."
+            />
+          ) : undefined
+        }
         breadcrumb={
           <LuxiaBreadcrumb
             tone="page"
@@ -177,36 +185,6 @@ export function OrganizationUsersPage({
           />
         }
         guide={ORGANIZATION_USERS_GUIDANCE.listPageDescription}
-        context={
-          <div className="space-y-1">
-            <p
-              className="luxia-type-caption"
-              style={{ color: "var(--luxia-text-secondary)" }}
-            >
-              {ORGANIZATION_USERS_GUIDANCE.listPageRule}
-            </p>
-            {!canAdminister ? (
-              <div
-                className="space-y-0.5"
-                role="status"
-                aria-label="Read only. Only Organization Admins can invite or manage users."
-              >
-                <p
-                  className="luxia-type-caption"
-                  style={{ color: "var(--luxia-text-secondary)" }}
-                >
-                  Read only
-                </p>
-                <p
-                  className="luxia-type-caption"
-                  style={{ color: "var(--luxia-text-muted)" }}
-                >
-                  Only Organization Admins can invite or manage organization users.
-                </p>
-              </div>
-            ) : null}
-          </div>
-        }
         actions={<LuxiaUsersGuide />}
         primaryAction={
           canAdminister ? (

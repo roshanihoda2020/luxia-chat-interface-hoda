@@ -16,6 +16,16 @@ export {
   getProjectVirtualAssistants,
   getProjectWidgets,
 } from "./data";
+export {
+  canCreateDashboard,
+  canDeleteDashboard,
+  canEditDashboard,
+  canRenameDashboard,
+  canViewProjectDashboard,
+  DASHBOARD_CREATE_DENIED_MESSAGE,
+  DASHBOARD_DELETE_DENIED_MESSAGE,
+  DASHBOARD_EDIT_DENIED_MESSAGE,
+} from "./dashboardAccess";
 export { ChatsLibrary, ConstellationsLibrary } from "./ProjectLibraries";
 export {
   DashboardOutputPreviewGraphic,

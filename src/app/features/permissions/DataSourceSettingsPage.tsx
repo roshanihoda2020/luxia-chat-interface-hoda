@@ -15,6 +15,16 @@ import {
   LUXIA_PAGE_HEADER_ACTION,
 } from "@/app/components/LuxiaPageHeader";
 import { Button } from "@/app/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/app/components/ui/alert-dialog";
 import { Input } from "@/app/components/ui/input";
 import { CANONICAL_CONSTELLATIONS } from "@/app/features/constellation/catalog";
 import { FilterField } from "@/app/features/home/browserShared";
@@ -95,7 +105,6 @@ function SectionHeading({
   );
 }
 
-/** Constellation Settings–aligned read-only metadata cell. */
 function MetaCell({
   label,
   value,
@@ -323,6 +332,7 @@ export function DataSourceSettingsPage({
     : null;
 
   const [nameDraft, setNameDraft] = useState(source?.name ?? "");
+  const [archiveOpen, setArchiveOpen] = useState(false);
   useEffect(() => {
     setNameDraft(source?.name ?? "");
   }, [source?.id, source?.name]);
@@ -501,7 +511,7 @@ export function DataSourceSettingsPage({
         }
         guide={
           source && canAccess
-            ? "Review identity, connection or content metadata, Access Level associations, and Constellation usage for this Data Source."
+            ? "Review configuration, access, and usage."
             : "This Data Source is not available in your accessible library."
         }
         secondaryAction={
@@ -523,7 +533,7 @@ export function DataSourceSettingsPage({
             <div>
               <SectionHeading
                 title="General"
-                helper="Identity and ownership for this Data Source."
+                helper="Identity and ownership."
               />
 
               {canManage ? (
@@ -597,7 +607,7 @@ export function DataSourceSettingsPage({
                     }
                     helper={
                       source.contentSummary.kind === "database"
-                        ? "Non-secret connection identity for this Data Source."
+                        ? "Connection details. Do not expose secrets."
                         : "Ingestion metadata captured when this Data Source was created."
                     }
                   />
@@ -642,7 +652,7 @@ export function DataSourceSettingsPage({
               <div className="pt-6">
                 <SectionHeading
                   title="Access"
-                  helper="Ownership and Access Level grants for this Data Source."
+                  helper="Ownership and Access Level grants."
                 />
 
                 <dl className="grid gap-x-6 gap-y-0 sm:grid-cols-2 lg:grid-cols-3">
@@ -752,7 +762,7 @@ export function DataSourceSettingsPage({
               <div className="pt-6">
                 <SectionHeading
                   title="Usage"
-                  helper="Constellations that connect this Data Source. Project names are secondary context only."
+                  helper="Constellations that connect this Data Source."
                 />
 
                 {usageVisible.length === 0 ? (
@@ -903,10 +913,7 @@ export function DataSourceSettingsPage({
                         type="button"
                         variant="destructive"
                         size="compact"
-                        onClick={() => {
-                          onSaveSource({ ...source, status: "archived" });
-                          toast.success("Data Source archived.");
-                        }}
+                        onClick={() => setArchiveOpen(true)}
                       >
                         Archive Data Source
                       </Button>
@@ -943,6 +950,34 @@ export function DataSourceSettingsPage({
           </div>
         )}
       </LuxiaPageBody>
+
+      {source && canManage && onSaveSource ? (
+        <AlertDialog open={archiveOpen} onOpenChange={setArchiveOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Archive {source.name}?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This Data Source will be removed from active use and can be restored
+                later. Connected Projects and Constellations are not deleted.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                className="text-white hover:opacity-90"
+                style={{ background: "var(--luxia-error)" }}
+                onClick={() => {
+                  onSaveSource({ ...source, status: "archived" });
+                  toast.success("Data Source archived.");
+                  setArchiveOpen(false);
+                }}
+              >
+                Archive Data Source
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      ) : null}
     </LuxiaPageFrame>
   );
 }

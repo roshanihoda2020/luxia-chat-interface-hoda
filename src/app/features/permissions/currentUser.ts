@@ -14,7 +14,6 @@ export function setPrototypeCurrentUserId(userId: string): void {
   CURRENT_USER_ID = userId;
 }
 
-/** Presentation-only Organization role label for profile and demo UI. */
 export function formatOrganizationRoleLabel(
   orgRole: string | undefined | null,
 ): string {
