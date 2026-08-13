@@ -340,6 +340,11 @@
     #16122E 44%,
     #131028 100%
   );
+  --luxia-galaxy-hero-surface: linear-gradient(
+    165deg,
+    var(--luxia-brand-primary-dark) 0%,
+    #1C1336 100%
+  );
   --luxia-galaxy-shell: #16122E;
   --luxia-galaxy-shell-shadow:
     0 18px 44px rgba(8, 5, 18, 0.24),

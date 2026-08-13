@@ -80,7 +80,7 @@ import {
   writePinnedProjectIds,
 } from "@/app/features/home";
 import type { HomeBrowseMode, HomeProjectCard, HomeRecentWorkItem } from "@/app/features/home";
-import { getProjectNameById, ProjectManageDialogs, deriveProjectEntityCounts } from "@/app/features/project";
+import { getProjectNameById, ProjectManageDialogs, deriveProjectEntityCounts, filterActiveProjects } from "@/app/features/project";
 import type { ProjectManageMode, ProjectConstellationSourceEntry } from "@/app/features/project";
 import {
   ConstellationSettingsPage,
@@ -123,6 +123,14 @@ import {
   DataSourcesPage,
   NewDataSourceFlow,
 } from "@/app/features/data-sources";
+import {
+  LuxiaSettingsDialog,
+  organizationSettingsSectionToAccountSection,
+  parseOrganizationSettingsTabFromSearch,
+  parsePersonalSettingsTabFromSearch,
+  personalSettingsSectionToAccountSection,
+  type AccountSettingsSectionId,
+} from "@/app/features/settings";
 import { Toaster, toast } from "sonner";
 import {
   CAPSULE_CAPABILITY_ICON,
@@ -206,6 +214,7 @@ import {
   type ProjectOverviewConstellation,
   type ProjectActivityItem,
 } from "@/app/features/project-overview";
+import { PROJECT_DASHBOARD_OUTPUTS } from "@/app/features/project-overview/data";
 import {
   ProjectAssistantHost,
   type ProjectAssistantMessage,
@@ -4173,6 +4182,8 @@ export default function App() {
     INITIAL_SHELL.settingsSection,
   );
   const [galaxySettingsSection, setGalaxySettingsSection] = useState<GalaxySettingsSectionId>("general");
+  const [accountSettingsOpen, setAccountSettingsOpen] = useState(false);
+  const [accountSettingsSection, setAccountSettingsSection] = useState<AccountSettingsSectionId>("profile");
   const [galaxySettingsFocusHeadingToken, setGalaxySettingsFocusHeadingToken] = useState(0);
   const [galaxySettingsById, setGalaxySettingsById] = useState<
     Record<string, GalaxySettingsRecord>
@@ -4547,6 +4558,26 @@ export default function App() {
         setOrganizationUserId(null);
         setDataSourceSettingsId(null);
         setAppView("data-sources");
+        return;
+      }
+
+      if (resolved.kind === "personal-settings") {
+        setAccountSettingsSection(
+          personalSettingsSectionToAccountSection(parsePersonalSettingsTabFromSearch(search)),
+        );
+        setAccountSettingsOpen(true);
+        setMobileNavOpen(false);
+        setProjectAssistantOpen(false);
+        return;
+      }
+
+      if (resolved.kind === "organization-settings") {
+        setAccountSettingsSection(
+          organizationSettingsSectionToAccountSection(parseOrganizationSettingsTabFromSearch(search)),
+        );
+        setAccountSettingsOpen(true);
+        setMobileNavOpen(false);
+        setProjectAssistantOpen(false);
         return;
       }
 
@@ -5356,6 +5387,36 @@ export default function App() {
         window.history.pushState({ luxiaView: "data-sources" }, "", next);
       }
     }
+  }
+
+  function handleOpenAccountSettings(section: AccountSettingsSectionId = accountSettingsSection) {
+    setProjectAssistantOpen(false);
+    setAccountSettingsSection(section);
+    setAccountSettingsOpen(true);
+    setMobileNavOpen(false);
+  }
+
+  function handleAccountSettingsSectionChange(section: AccountSettingsSectionId) {
+    setAccountSettingsSection(section);
+  }
+
+  function handleCloseAccountSettings() {
+    setAccountSettingsOpen(false);
+  }
+
+  function handleSettingsOpenDataSources() {
+    setAccountSettingsOpen(false);
+    handleOpenDataSources();
+  }
+
+  function handleSettingsOpenUsers() {
+    setAccountSettingsOpen(false);
+    handleOpenOrganizationUsers();
+  }
+
+  function handleSettingsOpenAccessLevels() {
+    setAccountSettingsOpen(false);
+    handleOpenAccessLevels();
   }
 
   function handleOpenAccessLevel(id: string) {
@@ -8016,6 +8077,42 @@ export default function App() {
       });
   }, [activeProjectId, organizationUsersState, projectMembershipsState]);
 
+  const privateDataSourceCountForUser = useMemo(
+    () => dataSourcesState.filter(
+      (source) => source.ownership === "private" && source.ownerUserId === prototypeUserId,
+    ).length,
+    [dataSourcesState, prototypeUserId],
+  );
+
+  const organizationalDataSourceCount = useMemo(
+    () => dataSourcesState.filter((source) => source.ownership === "organizational").length,
+    [dataSourcesState],
+  );
+
+  const organizationMemberSummary = useMemo(() => ({
+    total: organizationUsersState.length,
+    active: organizationUsersState.filter((user) => user.status === "active").length,
+    invited: organizationUsersState.filter((user) => user.status === "pending").length,
+  }), [organizationUsersState]);
+
+  const organizationUsageMetrics = useMemo(() => ({
+    projects: filterActiveProjects(homeProjects).length,
+    users: organizationUsersState.length,
+    dataSources: dataSourcesState.length,
+    accessLevels: accessLevelsState.length,
+    constellations: CANONICAL_CONSTELLATIONS.length,
+    chats: chats.length,
+    dashboardOutputs: PROJECT_DASHBOARD_OUTPUTS.length,
+    vidgets: vidgetsState.length,
+  }), [
+    homeProjects,
+    organizationUsersState,
+    dataSourcesState,
+    accessLevelsState,
+    chats,
+    vidgetsState,
+  ]);
+
   const workingAccessibleOverviewConstellations = useMemo(() => {
     return overviewConstellations.filter((item) => {
       if (!canAccessProject(item.projectId, projectMembershipsState, prototypeUserId)) {
@@ -8210,6 +8307,7 @@ export default function App() {
         }
         prototypeUsers={prototypeUsersForDemo}
         onPrototypeUserChange={handlePrototypeUserChange}
+        onSettingsClick={() => handleOpenAccountSettings("profile")}
         onSecondaryRailOpenChange={setLeftNavSecondaryOpen}
       />
 
@@ -9755,6 +9853,26 @@ export default function App() {
         onArchive={handleArchiveProject}
         onDelete={handleDeleteProject}
       />
+      {prototypeUser ? (
+        <LuxiaSettingsDialog
+          open={accountSettingsOpen}
+          onOpenChange={(open) => {
+            if (!open) handleCloseAccountSettings();
+            else setAccountSettingsOpen(true);
+          }}
+          user={prototypeUser}
+          activeSection={accountSettingsSection}
+          onSectionChange={handleAccountSettingsSectionChange}
+          privateDataSourceCount={privateDataSourceCountForUser}
+          memberSummary={organizationMemberSummary}
+          accessLevelCount={accessLevelsState.length}
+          organizationalDataSourceCount={organizationalDataSourceCount}
+          usageMetrics={organizationUsageMetrics}
+          onOpenDataSources={handleSettingsOpenDataSources}
+          onOpenUsers={handleSettingsOpenUsers}
+          onOpenAccessLevels={handleSettingsOpenAccessLevels}
+        />
+      ) : null}
     </div>
   );
 }

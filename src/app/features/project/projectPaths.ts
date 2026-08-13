@@ -124,6 +124,44 @@ export function getDataSourceSettingsPath(dataSourceId: string): string {
   return `/data-sources/${encodeURIComponent(dataSourceId)}/settings`;
 }
 
+export type PersonalSettingsTabQuery = "profile" | "my-data";
+
+export type OrganizationSettingsTabQuery =
+  | "general"
+  | "members"
+  | "access-data"
+  | "usage";
+
+export function getPersonalSettingsPath(options?: {
+  tab?: PersonalSettingsTabQuery | null;
+  includeTabQuery?: boolean;
+}): string {
+  const base = "/settings/personal";
+  const tab = options?.tab ?? null;
+  if (!tab) return base;
+  if (tab === "profile" && !options?.includeTabQuery) return base;
+  return `${base}?tab=${encodeURIComponent(tab)}`;
+}
+
+export function getOrganizationSettingsPath(options?: {
+  tab?: OrganizationSettingsTabQuery | null;
+  includeTabQuery?: boolean;
+}): string {
+  const base = "/settings/organization";
+  const tab = options?.tab ?? null;
+  if (!tab) return base;
+  if (tab === "general" && !options?.includeTabQuery) return base;
+  return `${base}?tab=${encodeURIComponent(tab)}`;
+}
+
+export function parsePersonalSettingsPath(pathname: string): boolean {
+  return /^\/settings\/personal\/?$/.test(pathname);
+}
+
+export function parseOrganizationSettingsPath(pathname: string): boolean {
+  return /^\/settings\/organization\/?$/.test(pathname);
+}
+
 export function getChatPath(chatId: string): string {
   return `/chats/${encodeURIComponent(chatId)}`;
 }
@@ -332,6 +370,8 @@ export type LuxiaResolvedPath =
   | { kind: "access-level"; accessLevelId: string }
   | { kind: "data-sources" }
   | { kind: "data-source-settings"; dataSourceId: string }
+  | { kind: "personal-settings" }
+  | { kind: "organization-settings" }
   | { kind: "chat"; chatId: string; projectId?: string; constellationId?: string }
   | { kind: "invalid" };
 
@@ -368,6 +408,14 @@ export function resolveLuxiaPathname(pathname: string): LuxiaResolvedPath {
   const dataSourceId = parseDataSourceSettingsFromPath(pathname);
   if (dataSourceId) {
     return { kind: "data-source-settings", dataSourceId };
+  }
+
+  if (parsePersonalSettingsPath(pathname)) {
+    return { kind: "personal-settings" };
+  }
+
+  if (parseOrganizationSettingsPath(pathname)) {
+    return { kind: "organization-settings" };
   }
 
   const galaxySettingsProjectId = parseGalaxySettingsProjectIdFromPath(pathname);

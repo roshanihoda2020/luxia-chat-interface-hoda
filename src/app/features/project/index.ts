@@ -63,6 +63,8 @@ export {
   getOrganizationUserPath,
   getDataSourcesPath,
   getDataSourceSettingsPath,
+  getPersonalSettingsPath,
+  getOrganizationSettingsPath,
   getChatPath,
   getConstellationChatPath,
   parseProjectIdFromPath,

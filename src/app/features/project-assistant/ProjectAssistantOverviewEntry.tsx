@@ -8,10 +8,8 @@ import { ProjectNavigatorIcon } from "./ProjectNavigatorIcon";
 const NAVIGATOR_TITLE_COLOR = "var(--luxia-purple-70)";
 const NAVIGATOR_DESCRIPTION_COLOR =
   "color-mix(in srgb, var(--luxia-neutral-600, #475569) 74%, var(--luxia-purple-60))";
-const NAVIGATOR_BORDER_COLOR =
-  "color-mix(in srgb, var(--luxia-purple-10) 28%, var(--luxia-neutral-200))";
-const NAVIGATOR_FOOTER_BORDER_COLOR =
-  "color-mix(in srgb, var(--luxia-purple-10) 18%, var(--luxia-neutral-200))";
+const NAVIGATOR_BORDER_COLOR = "var(--luxia-opacity-brand-primary-16)";
+const NAVIGATOR_FOOTER_BORDER_COLOR = "var(--luxia-border-default)";
 
 export function ProjectAssistantOverviewEntry({
   onAskProject,
@@ -22,8 +20,7 @@ export function ProjectAssistantOverviewEntry({
     <section
       className="relative flex min-w-0 flex-col overflow-hidden rounded-[var(--luxia-radius-16)] border p-4"
       style={{
-        background:
-          "linear-gradient(0deg, var(--luxia-opacity-brand-primary-04), var(--luxia-opacity-brand-primary-04)), var(--luxia-neutral-50, #F8FAFC)",
+        background: "var(--luxia-opacity-brand-primary-08)",
         borderColor: NAVIGATOR_BORDER_COLOR,
         boxShadow: PROJECT_OVERVIEW_MODULE_SHADOW,
       }}

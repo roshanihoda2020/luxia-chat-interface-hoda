@@ -140,7 +140,7 @@ export function ProjectGalaxyCard({
     <section
       className="relative flex min-w-0 flex-col overflow-hidden rounded-[var(--luxia-radius-16)] px-5 py-6 sm:px-6 sm:py-7"
       style={{
-        background: "linear-gradient(165deg, #281B41 0%, #1C1336 100%)",
+        background: "var(--luxia-galaxy-hero-surface)",
         boxShadow: PROJECT_OVERVIEW_GALAXY_SHADOW,
         border: "1px solid rgba(255,255,255,0.08)",
       }}

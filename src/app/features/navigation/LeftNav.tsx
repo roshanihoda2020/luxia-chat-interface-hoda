@@ -19,16 +19,9 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/app/components/ui/tooltip";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/app/components/ui/select";
+import { AccountMenu } from "@/app/features/navigation/AccountMenu";
 import { LX } from "@/app/features/active-data-tables/luxiaTokens";
 import type { ProjectNavSection } from "@/app/features/project-overview/types";
-import { DemoUserAvatar } from "@/app/features/permissions/demoUserAvatar";
 import { formatOrganizationRoleLabel, NO_PROJECT_ROLE_LABEL } from "@/app/features/permissions/currentUser";
 import {
   getAccessLevelsPath,
@@ -55,7 +48,6 @@ import {
   LuxiaHomeIcon,
   LuxiaProjectsIcon,
   LuxiaSettingsIcon,
-  LuxiaSupportIcon,
   LuxiaUserPermissionsIcon,
   LuxiaVirtualAssistantIcon,
   type LuxiaIconProps,
@@ -84,7 +76,6 @@ const SECONDARY_SEARCH_RESULT_LIMIT = 12;
 const PROJECT_SWITCHER_LIST_LIMIT = 50;
 
 const SIDEBAR_PROFILE_NAME = "User name";
-const SIDEBAR_PROFILE_INITIALS = "UN";
 
 type NavIconComponent = (props: LuxiaIconProps) => ReactElement;
 
@@ -188,11 +179,12 @@ export type LeftNavProps = {
   onOpenConstellation?: (projectId: string, constellationId: string) => void;
   onOpenDashboardOutput?: (projectId: string, outputId: string) => void;
   onOpenVidget?: (projectId: string, vidgetId: string) => void;
-  prototypeUser?: { id: string; name: string; orgRole: string };
+  prototypeUser?: { id: string; name: string; email: string; orgRole: string };
   prototypeProjectRole?: ProjectRole | null;
   activeProjectLabel?: string | null;
   onPrototypeUserChange?: (userId: string) => void;
   prototypeUsers?: DemoPrototypeUser[];
+  onSettingsClick?: () => void;
   /** Notifies shell when desktop secondary rail open state changes (for content width). */
   onSecondaryRailOpenChange?: (open: boolean) => void;
 };
@@ -212,22 +204,6 @@ const NAV_TOP_ITEMS: {
     icon: LuxiaDatasourceIcon,
     label: "Data Sources",
     available: true,
-  },
-];
-
-const NAV_BOTTOM_ITEMS: {
-  id: string;
-  icon: NavIconComponent;
-  label: string;
-  available: boolean;
-  unavailableHint?: string;
-}[] = [
-  {
-    id: "support",
-    icon: LuxiaSupportIcon,
-    label: "Support",
-    available: false,
-    unavailableHint: "Support is not available in this prototype.",
   },
 ];
 
@@ -854,128 +830,6 @@ function SidebarSecondaryRail({
   );
 }
 
-function DemoIdentityControl({
-  compact,
-  profileName,
-  orgRoleLabel,
-  projectContextLine,
-  profileAria,
-  prototypeUserId,
-  prototypeUsers,
-  onPrototypeUserChange,
-}: {
-  compact?: boolean;
-  profileName: string;
-  orgRoleLabel: string;
-  projectContextLine?: string | null;
-  profileAria: string;
-  prototypeUserId?: string;
-  prototypeUsers: DemoPrototypeUser[];
-  onPrototypeUserChange: (userId: string) => void;
-}) {
-  return (
-    <div className={compact ? "block w-full min-w-0" : "block min-w-0"}>
-      {!compact ? (
-        <p
-          className="mb-1 luxia-type-caption"
-          style={{ color: "rgba(255,255,255,0.45)" }}
-          id="luxia-demo-identity-label"
-        >
-          Demo identity
-        </p>
-      ) : null}
-      <Select
-        value={prototypeUserId ?? ""}
-        onValueChange={onPrototypeUserChange}
-      >
-        <SelectTrigger
-          size="sm"
-          aria-labelledby={compact ? undefined : "luxia-demo-identity-label"}
-          aria-label={compact ? "Demo identity" : "Demo identity"}
-          className={
-            compact
-              ? "h-10 min-h-10 w-full border-0 bg-transparent p-0 shadow-none hover:bg-transparent focus-visible:border-[rgba(150,219,251,0.55)] focus-visible:shadow-[0_0_0_3px_rgba(150,219,251,0.22)] [&_svg]:hidden"
-              : "h-9 min-h-9 w-full min-w-0 border-[rgba(255,255,255,0.14)] bg-[rgba(255,255,255,0.08)] px-2.5 py-0 text-left text-[rgba(255,255,255,0.92)] hover:border-[rgba(255,255,255,0.28)] focus-visible:border-[rgba(150,219,251,0.55)] focus-visible:shadow-[0_0_0_3px_rgba(150,219,251,0.22)] [&_svg]:text-[rgba(255,255,255,0.55)]"
-          }
-        >
-          {compact ? (
-            <span className="flex w-full items-center justify-center" aria-label={profileAria}>
-              {prototypeUserId ? (
-                <DemoUserAvatar userId={prototypeUserId} aria-hidden={false} />
-              ) : null}
-            </span>
-          ) : (
-            <SelectValue placeholder="Select identity">
-              <span className="flex min-w-0 items-center gap-2 text-left leading-tight">
-                {prototypeUserId ? (
-                  <DemoUserAvatar userId={prototypeUserId} />
-                ) : null}
-                <span className="min-w-0 flex flex-1 flex-col gap-0.5">
-                  <span className="truncate luxia-type-caption">{profileName}</span>
-                  <span
-                    className="truncate luxia-type-caption"
-                    style={{ color: "rgba(255,255,255,0.55)" }}
-                  >
-                    {orgRoleLabel}
-                  </span>
-                </span>
-              </span>
-            </SelectValue>
-          )}
-        </SelectTrigger>
-        <SelectContent
-          position="popper"
-          side="top"
-          sideOffset={6}
-          className="z-[60] min-w-[var(--radix-select-trigger-width)]"
-        >
-          {prototypeUsers.map((user) => {
-            const accessibleName = `${user.name}, ${user.contextLabel}`;
-            return (
-              <SelectItem
-                key={user.id}
-                value={user.id}
-                textValue={accessibleName}
-                className="data-[state=checked]:bg-[var(--luxia-opacity-brand-secondary-08)]"
-              >
-                <span className="flex w-full min-w-0 items-center gap-2 py-0.5 pr-1">
-                  <DemoUserAvatar userId={user.id} />
-                  <span className="min-w-0 flex flex-1 flex-col gap-0.5">
-                    <span className="truncate">{user.name}</span>
-                    <span
-                      className="truncate luxia-type-caption"
-                      style={{ color: "var(--luxia-text-muted)" }}
-                    >
-                      {user.contextLabel}
-                    </span>
-                  </span>
-                </span>
-              </SelectItem>
-            );
-          })}
-        </SelectContent>
-      </Select>
-      {!compact && projectContextLine ? (
-        <p
-          className="mt-1 min-w-0 truncate luxia-type-caption leading-tight"
-          style={{ color: "rgba(255,255,255,0.38)" }}
-          title={projectContextLine}
-        >
-          {projectContextLine}
-        </p>
-      ) : null}
-      {!compact ? (
-        <span
-          className="mt-1 block luxia-type-caption leading-tight"
-          style={{ color: "rgba(255,255,255,0.35)" }}
-        >
-          Prototype preview only
-        </span>
-      ) : null}
-    </div>
-  );
-}
-
 export function LeftNav({
   collapsed,
   onToggleCollapsed,
@@ -1019,6 +873,7 @@ export function LeftNav({
   activeProjectLabel,
   onPrototypeUserChange,
   prototypeUsers,
+  onSettingsClick,
   onSecondaryRailOpenChange,
 }: LeftNavProps) {
   const reactId = useId();
@@ -1053,7 +908,6 @@ export function LeftNav({
   const [vidgetQuery, setVidgetQuery] = useState("");
   const [projectQuery, setProjectQuery] = useState("");
 
-  const showDemoIdentity = Boolean(prototypeUsers && onPrototypeUserChange);
   const navPadding = collapsed ? "px-2" : "px-3";
   const showProjectNav = Boolean(projectId && projectLabel && showProjectContext);
   const canSwitchProjects = switchableProjects.length > 1;
@@ -1066,14 +920,9 @@ export function LeftNav({
   const membersHref = projectId ? getProjectMembersPath(projectId) : undefined;
 
   const profileName = prototypeUser?.name ?? SIDEBAR_PROFILE_NAME;
+  const profileEmail = prototypeUser?.email ?? "";
   const profileOrgRoleLabel = formatOrganizationRoleLabel(prototypeUser?.orgRole);
-  const demoProjectContextLine = activeProjectLabel
-    ? `${activeProjectLabel} · ${prototypeProjectRole ?? NO_PROJECT_ROLE_LABEL}`
-    : null;
   const profileAria = `User profile: ${profileName}. ${profileOrgRoleLabel}.`;
-  const demoAria = demoProjectContextLine
-    ? `Demo identity: ${profileName}. ${profileOrgRoleLabel}. ${demoProjectContextLine}. Prototype preview only.`
-    : `Demo identity: ${profileName}. ${profileOrgRoleLabel}. Prototype preview only.`;
 
   const chatsCount = chatTotalCount ?? projectChats.length;
   const constellationsCount = constellationTotalCount ?? projectConstellations.length;
@@ -2043,114 +1892,25 @@ export function LeftNav({
                 </>
               ) : null}
             </div>
-
-            <div
-              className={`relative z-[2] flex-shrink-0 ${navPadding} space-y-px pb-1 pt-2`}
-              style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
-            >
-              <nav className="space-y-px" aria-label="Utilities">
-                {NAV_BOTTOM_ITEMS.map(({ id, icon, label, available, unavailableHint }) => (
-                  <NavItem
-                    key={id}
-                    icon={icon}
-                    label={label}
-                    collapsed={railCollapsed}
-                    disabled={!available}
-                    tooltip={!available ? unavailableHint ?? label : label}
-                  />
-                ))}
-              </nav>
-            </div>
           </>
         </div>
 
-        {railCollapsed ? (
-              <div
-                className="relative z-[2] flex flex-shrink-0 flex-col items-center gap-2 px-2 py-2.5"
-                style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
-              >
-                {showDemoIdentity && prototypeUsers && onPrototypeUserChange ? (
-                  <DemoIdentityControl
-                    compact
-                    profileName={profileName}
-                    orgRoleLabel={profileOrgRoleLabel}
-                    projectContextLine={demoProjectContextLine}
-                    profileAria={demoAria}
-                    prototypeUserId={prototypeUser?.id}
-                    prototypeUsers={prototypeUsers}
-                    onPrototypeUserChange={onPrototypeUserChange}
-                  />
-                ) : (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div
-                        className="flex items-center justify-center"
-                        aria-label={profileAria}
-                      >
-                        {prototypeUser?.id ? (
-                          <DemoUserAvatar userId={prototypeUser.id} aria-hidden={false} />
-                        ) : (
-                          <div
-                            className="w-8 h-8 rounded-[8px] flex items-center justify-center text-white luxia-type-caption flex-shrink-0"
-                            style={{ background: "var(--luxia-neutral-600)" }}
-                            aria-hidden
-                          >
-                            {SIDEBAR_PROFILE_INITIALS}
-                          </div>
-                        )}
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent side="right" sideOffset={8} className="max-w-[220px]">
-                      <div className="flex flex-col gap-0.5">
-                        <span>{profileName}</span>
-                        <span>{profileOrgRoleLabel}</span>
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                )}
-              </div>
-            ) : (
-              <div
-                className="relative z-[2] flex flex-shrink-0 flex-col gap-2 px-4 py-2.5"
-                style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
-              >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  {prototypeUser?.id ? (
-                    <DemoUserAvatar userId={prototypeUser.id} aria-hidden={false} />
-                  ) : (
-                    <div
-                      className="w-8 h-8 rounded-[8px] flex items-center justify-center text-white luxia-type-caption flex-shrink-0"
-                      style={{ background: "var(--luxia-neutral-600)" }}
-                      aria-hidden
-                    >
-                      {SIDEBAR_PROFILE_INITIALS}
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-white luxia-type-profile-secondary truncate leading-tight">
-                      {profileName}
-                    </p>
-                    <p
-                      className="luxia-type-profile-secondary truncate leading-tight"
-                      style={{ color: "rgba(255,255,255,0.4)" }}
-                    >
-                      {profileOrgRoleLabel}
-                    </p>
-                  </div>
-                </div>
-                {showDemoIdentity && prototypeUsers && onPrototypeUserChange ? (
-                  <DemoIdentityControl
-                    profileName={profileName}
-                    orgRoleLabel={profileOrgRoleLabel}
-                    projectContextLine={demoProjectContextLine}
-                    profileAria={demoAria}
-                    prototypeUserId={prototypeUser?.id}
-                    prototypeUsers={prototypeUsers}
-                    onPrototypeUserChange={onPrototypeUserChange}
-                  />
-                ) : null}
-              </div>
-            )}
+        <div
+          className={`relative z-[2] flex flex-shrink-0 ${railCollapsed ? "px-2 py-2.5" : "px-3 py-2.5"}`}
+          style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
+        >
+          <AccountMenu
+            collapsed={railCollapsed}
+            profileName={profileName}
+            profileEmail={profileEmail}
+            orgRoleLabel={profileOrgRoleLabel}
+            profileAria={profileAria}
+            prototypeUserId={prototypeUser?.id}
+            prototypeUsers={prototypeUsers}
+            onPrototypeUserChange={onPrototypeUserChange}
+            onSettingsClick={onSettingsClick}
+          />
+        </div>
       </div>
     </aside>
   );
