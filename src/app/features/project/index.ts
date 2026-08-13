@@ -50,6 +50,7 @@ export {
   getDashboardPath,
   getConstellationsPath,
   getProjectChatsPath,
+  getProjectActivityPath,
   getConstellationCreatePath,
   getConstellationSettingsPath,
   getConstellationSettingsCapabilityPath,

@@ -5,7 +5,8 @@ export type ProjectDomainMarkerTone =
   | "chat"
   | "constellation"
   | "dashboard"
-  | "virtual-assistant";
+  | "virtual-assistant"
+  | "navigator";
 
 const MARKER_TONE: Record<
   ProjectDomainMarkerTone,
@@ -28,8 +29,12 @@ const MARKER_TONE: Record<
     color: "var(--luxia-blue-70)",
   },
   "virtual-assistant": {
-    background: "var(--luxia-purple-20)",
-    color: "var(--luxia-purple-70)",
+    background: "var(--luxia-blue-20)",
+    color: "var(--luxia-blue-70)",
+  },
+  navigator: {
+    background: "var(--luxia-purple-70)",
+    color: "var(--luxia-text-inverse)",
   },
 };
 

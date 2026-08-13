@@ -8,7 +8,8 @@ const DAY_MS = 86_400_000;
 const HOUR_MS = 3_600_000;
 const NOW = Date.now();
 
-export const PROJECT_DESCRIPTION_PLACEHOLDER = `${"x".repeat(80)}`;
+export const PROJECT_DESCRIPTION_PLACEHOLDER =
+  "Short Project description for demos and layout.";
 
 export interface ProjectConstellationSourceEntry {
   constellationId: string;
@@ -69,7 +70,7 @@ const HOME_PROJECT_BASE: Omit<HomeProjectCard, "constellationCount" | "sourceCou
     isEmpty: false,
     status: "active",
     recentPreview: "Galaxy and constellation activity",
-    description: PROJECT_DESCRIPTION_PLACEHOLDER,
+    description: "Primary workspace for Project name 01 knowledge and conversations.",
   },
   {
     id: "project-02",
@@ -82,7 +83,7 @@ const HOME_PROJECT_BASE: Omit<HomeProjectCard, "constellationCount" | "sourceCou
     isFeatured: false,
     isEmpty: false,
     status: "active",
-    description: PROJECT_DESCRIPTION_PLACEHOLDER,
+    description: "Shared Project for ongoing analysis and Constellation work.",
   },
   {
     id: "project-03",
@@ -95,7 +96,7 @@ const HOME_PROJECT_BASE: Omit<HomeProjectCard, "constellationCount" | "sourceCou
     isFeatured: false,
     isEmpty: false,
     status: "active",
-    description: PROJECT_DESCRIPTION_PLACEHOLDER,
+    description: "Focused Project space for structured knowledge and Chats.",
   },
   {
     id: "project-04",
@@ -108,7 +109,7 @@ const HOME_PROJECT_BASE: Omit<HomeProjectCard, "constellationCount" | "sourceCou
     isFeatured: false,
     isEmpty: false,
     status: "active",
-    description: PROJECT_DESCRIPTION_PLACEHOLDER,
+    description: "Lightweight Project used for configuration and access demos.",
   },
   {
     id: "project-05",
@@ -121,7 +122,7 @@ const HOME_PROJECT_BASE: Omit<HomeProjectCard, "constellationCount" | "sourceCou
     isFeatured: false,
     isEmpty: false,
     status: "active",
-    description: PROJECT_DESCRIPTION_PLACEHOLDER,
+    description: "Exploration Project for Dashboard outputs and Vidgets.",
   },
   {
     id: "project-06",
@@ -134,7 +135,7 @@ const HOME_PROJECT_BASE: Omit<HomeProjectCard, "constellationCount" | "sourceCou
     isFeatured: false,
     isEmpty: false,
     status: "active",
-    description: PROJECT_DESCRIPTION_PLACEHOLDER,
+    description: "Broader Project with multiple Constellations and Chats.",
   },
 ];
 

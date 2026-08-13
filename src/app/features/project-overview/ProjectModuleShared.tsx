@@ -3,6 +3,12 @@ import { LuxiaArrowRightIcon } from "@/assets/icons";
 import { Button } from "@/app/components/ui/button";
 import { HS } from "@/app/features/home/homeSurfaces";
 
+/** Shared Overview module elevation — Navigator, Dashboard, Constellations, Chats, Vidgets, Activity. */
+export const PROJECT_OVERVIEW_MODULE_SHADOW = "var(--luxia-shadow-sm)";
+
+/** Galaxy Overview elevation — one step above normal modules, same shadow family. */
+export const PROJECT_OVERVIEW_GALAXY_SHADOW = "var(--luxia-shadow-md)";
+
 export type ProjectModuleSurface =
   | "default"
   | "knowledge"
@@ -18,7 +24,7 @@ const MODULE_SURFACE: Record<
     background: "var(--luxia-surface)",
     borderColor: "var(--luxia-border-default)",
     footerBorder: "var(--luxia-border-subtle)",
-    boxShadow: "var(--luxia-shadow-sm)",
+    boxShadow: PROJECT_OVERVIEW_MODULE_SHADOW,
   },
   knowledge: {
     background:
@@ -27,7 +33,7 @@ const MODULE_SURFACE: Record<
       "color-mix(in srgb, var(--luxia-purple-20) 42%, var(--luxia-neutral-200))",
     footerBorder:
       "color-mix(in srgb, var(--luxia-purple-20) 32%, var(--luxia-neutral-200))",
-    boxShadow: "var(--luxia-shadow-sm)",
+    boxShadow: PROJECT_OVERVIEW_MODULE_SHADOW,
   },
   interaction: {
     background:
@@ -35,7 +41,7 @@ const MODULE_SURFACE: Record<
     borderColor:
       "color-mix(in srgb, var(--luxia-purple-20) 28%, var(--luxia-neutral-200))",
     footerBorder: "var(--luxia-border-subtle)",
-    boxShadow: "var(--luxia-shadow-sm)",
+    boxShadow: PROJECT_OVERVIEW_MODULE_SHADOW,
   },
   output: {
     background: "var(--luxia-blue-10)",
@@ -43,7 +49,7 @@ const MODULE_SURFACE: Record<
       "color-mix(in srgb, var(--luxia-blue-20) 55%, var(--luxia-neutral-200))",
     footerBorder:
       "color-mix(in srgb, var(--luxia-blue-20) 40%, var(--luxia-neutral-200))",
-    boxShadow: "var(--luxia-shadow-sm)",
+    boxShadow: PROJECT_OVERVIEW_MODULE_SHADOW,
   },
   assistant: {
     background:
@@ -52,7 +58,7 @@ const MODULE_SURFACE: Record<
       "color-mix(in srgb, var(--luxia-purple-20) 22%, color-mix(in srgb, var(--luxia-blue-20) 35%, var(--luxia-neutral-200)))",
     footerBorder:
       "color-mix(in srgb, var(--luxia-purple-20) 32%, var(--luxia-neutral-200))",
-    boxShadow: "none",
+    boxShadow: PROJECT_OVERVIEW_MODULE_SHADOW,
   },
 };
 
@@ -176,6 +182,7 @@ export function ProjectModuleCard({
   marker,
   headingColor = "var(--luxia-purple-70)",
   iconColor = "var(--luxia-purple-60)",
+  descriptionColor,
   size = "knowledge",
   surface = "default",
 }: {
@@ -189,6 +196,7 @@ export function ProjectModuleCard({
   marker?: ReactNode;
   headingColor?: string;
   iconColor?: string;
+  descriptionColor?: string;
   size?: "primary" | "knowledge" | "output" | "supporting";
   surface?: ProjectModuleSurface;
 }) {
@@ -205,7 +213,7 @@ export function ProjectModuleCard({
   const sectionStyle: CSSProperties = {
     background: surfaceStyle.background,
     borderColor: surfaceStyle.borderColor,
-    boxShadow: size === "supporting" ? "none" : surfaceStyle.boxShadow,
+    boxShadow: surfaceStyle.boxShadow,
   };
 
   return (
@@ -215,18 +223,22 @@ export function ProjectModuleCard({
     >
       {marker}
       <header className={`mb-2 flex min-w-0 shrink-0 items-center gap-2.5 ${marker ? "pr-11" : ""}`}>
-        <span className="inline-flex shrink-0" style={{ color: iconColor }} aria-hidden>
-          {icon}
-        </span>
-        <h2 className="luxia-type-title-card min-w-0 truncate" style={{ color: headingColor }}>
-          {title}
-        </h2>
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="inline-flex size-5 shrink-0 items-center justify-center" style={{ color: iconColor }} aria-hidden>
+            {icon}
+          </span>
+          <h2 className="luxia-type-heading-h4 min-w-0 truncate" style={{ color: headingColor }}>
+            {title}
+          </h2>
+        </div>
         <ProjectCountBadge count={count} label={countLabel} />
       </header>
       {description ? (
         <p
-          className={`mb-3 shrink-0 line-clamp-2 luxia-type-caption ${marker ? "pr-11" : ""}`}
-          style={{ color: "var(--luxia-neutral-600, #475569)" }}
+          className={`mb-2.5 shrink-0 line-clamp-2 luxia-type-body-dense ${marker ? "pr-11" : ""}`}
+          style={{
+            color: descriptionColor ?? "var(--luxia-neutral-600, #475569)",
+          }}
         >
           {description}
         </p>

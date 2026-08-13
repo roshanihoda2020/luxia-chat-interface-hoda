@@ -70,7 +70,6 @@ export function deriveProjectSummaryPreview<T>(
     }
   }
 
-  // Stable deterministic order: first N from the canonical incoming list.
   return { total, preview: items.slice(0, limit) };
 }
 

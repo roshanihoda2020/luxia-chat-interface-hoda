@@ -81,6 +81,9 @@ export function ChatsModule({
       count={total}
       countLabel={total === 1 ? "Chat" : "Chats"}
       description="Continue conversations with Galaxy or individual Constellations."
+      headingColor="var(--luxia-purple-50)"
+      iconColor="var(--luxia-purple-50)"
+      descriptionColor="var(--luxia-purple-60)"
       size="knowledge"
       surface="knowledge"
       marker={
@@ -172,6 +175,9 @@ export function ConstellationsModule({
       count={total}
       countLabel={total === 1 ? "Constellation" : "Constellations"}
       description="Focused knowledge environments built from connected Project data sources."
+      headingColor="var(--luxia-purple-50)"
+      iconColor="var(--luxia-purple-50)"
+      descriptionColor="var(--luxia-purple-60)"
       size="knowledge"
       surface="knowledge"
       marker={
@@ -258,7 +264,8 @@ export function DashboardsModule({
       countLabel={outputs.length === 1 ? "saved output" : "saved outputs"}
       description="Saved charts, tables, reports, metrics, and analyses from Project conversations."
       headingColor="var(--luxia-blue-70)"
-      iconColor="var(--luxia-blue-60)"
+      iconColor="var(--luxia-blue-70)"
+      descriptionColor="color-mix(in srgb, var(--luxia-blue-70) 55%, var(--luxia-blue-60))"
       size="output"
       surface="output"
       marker={
@@ -280,9 +287,12 @@ export function DashboardsModule({
           description="Charts, tables, and reports saved from conversations will appear here."
         />
       ) : (
-        <div className="flex min-w-0 flex-col gap-3">
+        <div className="flex min-w-0 flex-col">
           {lastUpdated ? (
-            <p className="luxia-type-caption" style={{ color: "var(--luxia-neutral-600, #475569)" }}>
+            <p
+              className="mb-2.5 luxia-type-caption"
+              style={{ color: "var(--luxia-neutral-500, #64748B)" }}
+            >
               Last updated {lastUpdated}
             </p>
           ) : null}
@@ -300,7 +310,7 @@ export function DashboardsModule({
                 aria-label={`${item.name}, ${outputTypeLabel(item.outputType)}, from ${item.sourceContext}, updated ${item.updatedAt}`}
               >
                 <DashboardOutputPreviewGraphic variant={item.outputType} />
-                <div className="mt-2 flex min-w-0 flex-1 flex-col gap-0.5 px-0.5">
+                <div className="mt-2 flex min-w-0 flex-1 flex-col gap-1 px-0.5">
                   <p
                     className="truncate luxia-type-body-dense-strong"
                     style={{ color: "var(--luxia-text-primary)" }}
@@ -348,7 +358,9 @@ export function WidgetsModule({
       count={widgets.length}
       countLabel={widgets.length === 1 ? "Vidget" : "Vidgets"}
       description="Configure and deploy a Vidget from Galaxy or a Constellation across websites, embeds, kiosks, and totems."
-      iconColor="var(--luxia-purple-60)"
+      headingColor="var(--luxia-blue-70)"
+      iconColor="var(--luxia-blue-70)"
+      descriptionColor="var(--luxia-blue-60)"
       size="supporting"
       surface="assistant"
       marker={
@@ -372,18 +384,19 @@ export function WidgetsModule({
           description="External AI experiences for this Project will appear here when available."
         />
       ) : (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col">
           {preview.map((item) => (
             <ProjectPreviewRow
               key={item.id}
               icon={<LuxiaVirtualAssistantIcon size={18} aria-hidden color="currentColor" />}
               title={item.name}
               ariaLabel={item.name}
+              iconColor="var(--luxia-blue-70)"
               onClick={onOpen ? () => onOpen(item.id) : undefined}
               meta={
                 <>
                   <span
-                    className="inline-flex items-center gap-1.5 luxia-type-caption"
+                    className="inline-flex items-center gap-1.5 luxia-type-body-dense"
                     style={{ color: "var(--luxia-text-muted)" }}
                   >
                     <VidgetChannelMetaIcon channel={item.channel} />
@@ -391,7 +404,7 @@ export function WidgetsModule({
                   </span>
                   <ProjectMetaText>·</ProjectMetaText>
                   <span
-                    className="inline-flex items-center gap-1.5 luxia-type-caption"
+                    className="inline-flex items-center gap-1.5 luxia-type-body-dense"
                     style={{ color: "var(--luxia-text-muted)" }}
                   >
                     <VidgetSourceMetaIcon sourceType={item.sourceType} />

@@ -41,6 +41,10 @@ export function getProjectChatsPath(projectId: string): string {
   return `/projects/${encodeURIComponent(projectId)}/chats`;
 }
 
+export function getProjectActivityPath(projectId: string): string {
+  return `/projects/${encodeURIComponent(projectId)}/activity`;
+}
+
 export function getConstellationCreatePath(projectId: string): string {
   return `/projects/${encodeURIComponent(projectId)}/constellations/new`;
 }
@@ -183,6 +187,12 @@ export function parseProjectChatsProjectIdFromPath(pathname: string): string | n
   return decodePathSegment(match[1]);
 }
 
+export function parseProjectActivityProjectIdFromPath(pathname: string): string | null {
+  const match = pathname.match(/^\/projects\/([^/]+)\/activity\/?$/);
+  if (!match?.[1]) return null;
+  return decodePathSegment(match[1]);
+}
+
 export function parseConstellationSettingsCapabilityFromPath(pathname: string): {
   projectId: string;
   constellationId: string;
@@ -305,6 +315,7 @@ export type LuxiaResolvedPath =
   | { kind: "dashboard"; projectId: string }
   | { kind: "constellations"; projectId: string }
   | { kind: "project-chats"; projectId: string }
+  | { kind: "project-activity"; projectId: string }
   | { kind: "constellation-create"; projectId: string }
   | {
     kind: "constellation-settings";
@@ -435,6 +446,11 @@ export function resolveLuxiaPathname(pathname: string): LuxiaResolvedPath {
   const projectChatsId = parseProjectChatsProjectIdFromPath(pathname);
   if (projectChatsId) {
     return { kind: "project-chats", projectId: projectChatsId };
+  }
+
+  const projectActivityId = parseProjectActivityProjectIdFromPath(pathname);
+  if (projectActivityId) {
+    return { kind: "project-activity", projectId: projectActivityId };
   }
 
   const projectId = parseProjectIdFromPath(pathname);

@@ -57,7 +57,7 @@ export type GalaxySessionState = {
 };
 
 export const GALAXY_DEFAULT_INSTRUCTION =
-  "Answer using official financial policy only.\nPrefer latest approved documentation.\nIgnore archived reports.";
+  "Prioritize approved Project knowledge and provide concise, grounded responses.";
 
 export const GALAXY_DEFAULT_DESCRIPTION =
   "Routes questions across this project's knowledge to find the most relevant constellation and verified sources.";

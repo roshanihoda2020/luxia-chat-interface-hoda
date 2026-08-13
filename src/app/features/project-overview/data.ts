@@ -1,5 +1,5 @@
 import { HOME_PROJECTS } from "@/app/features/project/data";
-import { buildConstellationSourceCountMap } from "@/app/features/constellation/catalog";
+import { buildConstellationSourceCountMap, getProjectConstellations } from "@/app/features/constellation/catalog";
 import type {
   ProjectActivityItem,
   ProjectDashboardItem,
@@ -17,10 +17,167 @@ function pad(n: number): string {
   return String(n).padStart(2, "0");
 }
 
-function projectIndex(projectId: string): number {
-  const index = PROJECT_IDS.indexOf(projectId);
-  return index >= 0 ? index : 0;
+const DEMO_CHAT_BY_PROJECT: Record<
+  string,
+  { chatId: string; constellationId: string; chatLabel: string; constellationLabel: string }
+> = {
+  "project-01": {
+    chatId: "chat-01",
+    constellationId: "con1",
+    chatLabel: "Chat name 01",
+    constellationLabel: "Constellation name 01",
+  },
+  "project-02": {
+    chatId: "chat-06",
+    constellationId: "con6",
+    chatLabel: "Chat name 06",
+    constellationLabel: "Constellation name 06",
+  },
+  "project-03": {
+    chatId: "chat-09",
+    constellationId: "con9",
+    chatLabel: "Chat name 09",
+    constellationLabel: "Constellation name 09",
+  },
+  "project-04": {
+    chatId: "chat-11",
+    constellationId: "con11",
+    chatLabel: "Chat name 11",
+    constellationLabel: "Constellation name 11",
+  },
+  "project-05": {
+    chatId: "chat-13",
+    constellationId: "con15",
+    chatLabel: "Chat name 13",
+    constellationLabel: "Constellation name 15",
+  },
+  "project-06": {
+    chatId: "chat-14",
+    constellationId: "con17",
+    chatLabel: "Chat name 14",
+    constellationLabel: "Constellation name 17",
+  },
+};
+
+const DEMO_VIDGET_BY_PROJECT: Record<
+  string,
+  { id: string; name: string; channelLabel: string }
+> = {
+  "project-01": { id: "vidget-01", name: "Vidget name 01", channelLabel: "Website" },
+  "project-02": { id: "vidget-p2-01", name: "Vidget name 04", channelLabel: "Totem" },
+  "project-03": { id: "vidget-p3-01", name: "Vidget name 05", channelLabel: "Website" },
+};
+
+function constellationSourceLabel(type: string): string {
+  if (type === "pdf") return "PDF";
+  if (type === "csv") return "CSV";
+  return "Database";
 }
+
+function buildProjectActivity(projectId: string): ProjectActivityItem[] {
+  const homeProject = HOME_PROJECTS.find((project) => project.id === projectId);
+  if (homeProject?.isEmpty || homeProject?.constellationCount === 0) {
+    return [];
+  }
+
+  const chatDemo = DEMO_CHAT_BY_PROJECT[projectId];
+  const constellations = getProjectConstellations(projectId);
+  const constellationUpdate = constellations[1] ?? constellations[0];
+  const vidgetDemo = DEMO_VIDGET_BY_PROJECT[projectId];
+  const index = PROJECT_IDS.indexOf(projectId);
+  const offsetHours = Math.max(index, 0);
+
+  const base: ProjectActivityItem[] = [];
+
+  if (chatDemo) {
+    base.push({
+      id: `${projectId}-act-01`,
+      projectId,
+      type: "chat",
+      primary: `${chatDemo.chatLabel} was created`,
+      secondary: chatDemo.constellationLabel,
+      timestamp: offsetHours <= 1 ? "1 hour ago" : `${offsetHours + 1} hours ago`,
+      timestampValue: NOW - HOUR_MS * (offsetHours + 1),
+      chatId: chatDemo.chatId,
+      constellationId: chatDemo.constellationId,
+    });
+  }
+
+  if (constellationUpdate) {
+    base.push({
+      id: `${projectId}-act-02`,
+      projectId,
+      type: "constellation",
+      primary: `${constellationUpdate.name} was updated`,
+      secondary: constellationSourceLabel(constellationUpdate.type),
+      timestamp: offsetHours <= 2 ? "3 hours ago" : `${offsetHours + 3} hours ago`,
+      timestampValue: NOW - HOUR_MS * (offsetHours + 3),
+      constellationId: constellationUpdate.id,
+    });
+  }
+
+  base.push({
+    id: `${projectId}-act-03`,
+    projectId,
+    type: "output",
+    primary: "Output name 01 was saved to Dashboard",
+    secondary: "Chart",
+    timestamp: "Yesterday",
+    timestampValue: NOW - DAY_MS - HOUR_MS * offsetHours,
+    outputId: `${projectId}-output-01`,
+  });
+
+  base.push({
+    id: `${projectId}-act-04`,
+    projectId,
+    type: "dashboard",
+    primary: "Dashboard was updated",
+    timestamp: "2 days ago",
+    timestampValue: NOW - DAY_MS * 2 - HOUR_MS * offsetHours,
+    dashboardId: `${projectId}-dashboard-01`,
+  });
+
+  if (vidgetDemo) {
+    base.push({
+      id: `${projectId}-act-05`,
+      projectId,
+      type: "widget",
+      primary: `${vidgetDemo.name} was published`,
+      secondary: vidgetDemo.channelLabel,
+      timestamp: "3 days ago",
+      timestampValue: NOW - DAY_MS * 3 - HOUR_MS * offsetHours,
+      virtualAssistantId: vidgetDemo.id,
+    });
+  }
+
+  base.push({
+    id: `${projectId}-act-06`,
+    projectId,
+    type: "instruction",
+    primary: "Galaxy Instruction was updated",
+    secondary: homeProject?.name,
+    timestamp: "4 days ago",
+    timestampValue: NOW - DAY_MS * 4 - HOUR_MS * offsetHours,
+  });
+
+  if (projectId === "project-01") {
+    base.push({
+      id: `${projectId}-act-07`,
+      projectId,
+      type: "member",
+      primary: "User name was added",
+      secondary: "Analyst",
+      timestamp: "5 days ago",
+      timestampValue: NOW - DAY_MS * 5,
+    });
+  }
+
+  return base;
+}
+
+export const PROJECT_ACTIVITY: ProjectActivityItem[] = PROJECT_IDS.flatMap((projectId) =>
+  buildProjectActivity(projectId),
+);
 
 /** Demo Dashboard creators — only users who belong to each Project. */
 const DASHBOARD_DEMO_CREATORS: Record<string, string[]> = {
@@ -37,92 +194,10 @@ function dashboardDemoCreator(projectId: string, index: number): string {
   return roster[index % roster.length] ?? "user-01";
 }
 
-export const PROJECT_ACTIVITY: ProjectActivityItem[] = PROJECT_IDS.flatMap((projectId) => {
-  const index = projectIndex(projectId);
-  const n = index + 1;
-  const homeProject = HOME_PROJECTS.find((project) => project.id === projectId);
-  const base: ProjectActivityItem[] = [
-    {
-      id: `${projectId}-act-01`,
-      projectId,
-      type: "chat",
-      primary: `Chat name ${pad(Math.min(n, 8))} was created`,
-      secondary: `Constellation name ${pad(Math.min(n, 8))}`,
-      timestamp: "1 hour ago",
-      timestampValue: NOW - HOUR_MS,
-      chatId: n <= 8 ? `chat-${pad(n)}` : undefined,
-      constellationId: n <= 4 ? `con${(n - 1) * 2 + 1}` : undefined,
-    },
-    {
-      id: `${projectId}-act-02`,
-      projectId,
-      type: "constellation",
-      primary: `Constellation name ${pad(Math.min(n + 1, 8))} was updated`,
-      secondary: n % 3 === 0 ? "PDF" : n % 3 === 1 ? "Database" : "CSV",
-      timestamp: "3 hours ago",
-      timestampValue: NOW - HOUR_MS * 3,
-      constellationId: n <= 4 ? `con${Math.min((n - 1) * 2 + 2, 8)}` : undefined,
-    },
-    {
-      id: `${projectId}-act-03`,
-      projectId,
-      type: "output",
-      primary: `Output name ${pad(n)} was saved to Dashboard`,
-      secondary: "Chart",
-      timestamp: "Yesterday",
-      timestampValue: NOW - DAY_MS,
-      dashboardId: `${projectId}-output-01`,
-    },
-    {
-      id: `${projectId}-act-04`,
-      projectId,
-      type: "dashboard",
-      primary: `Dashboard was updated`,
-      timestamp: "2 days ago",
-      timestampValue: NOW - DAY_MS * 2,
-      dashboardId: `${projectId}-dashboard-01`,
-    },
-  ];
-
-  if (index === 0 && homeProject) {
-    base.push(
-      {
-        id: `${projectId}-act-05`,
-        projectId,
-        type: "widget",
-        primary: "Vidget name 01 was published",
-        secondary: "Website",
-        timestamp: "3 days ago",
-        timestampValue: NOW - DAY_MS * 3,
-        virtualAssistantId: `${projectId}-va-01`,
-      },
-      {
-        id: `${projectId}-act-06`,
-        projectId,
-        type: "instruction",
-        primary: "Galaxy Instruction was updated",
-        secondary: homeProject.name,
-        timestamp: "4 days ago",
-        timestampValue: NOW - DAY_MS * 4,
-      },
-      {
-        id: `${projectId}-act-07`,
-        projectId,
-        type: "member",
-        primary: "User name was added",
-        secondary: "Analyst",
-        timestamp: "5 days ago",
-        timestampValue: NOW - DAY_MS * 5,
-      },
-    );
-  }
-
-  if (homeProject?.isEmpty || homeProject?.constellationCount === 0) {
-    return [];
-  }
-
-  return base;
-});
+function projectIndex(projectId: string): number {
+  const index = PROJECT_IDS.indexOf(projectId);
+  return index >= 0 ? index : 0;
+}
 
 export const PROJECT_DASHBOARD_OUTPUTS: ProjectDashboardOutput[] = PROJECT_IDS.flatMap(
   (projectId) => {

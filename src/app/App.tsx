@@ -49,6 +49,7 @@ import {
   getConstellationChatPath,
   getConstellationsPath,
   getProjectChatsPath,
+  getProjectActivityPath,
   getConstellationCreatePath,
   getConstellationSettingsPath,
   getConstellationSettingsCapabilityPath,
@@ -193,13 +194,22 @@ import {
   ProjectDashboardPage,
   ChatsLibrary,
   ConstellationsLibrary,
+  ActivityLibrary,
   CONSTELLATION_SOURCE_COUNTS,
+  getProjectActivity,
   getProjectDashboardOutputs,
+  buildActivityNavigationContext,
+  openProjectActivity,
   type ProjectNavSection,
   type ProjectOverviewBrowseMode,
   type ProjectOverviewChat,
   type ProjectOverviewConstellation,
+  type ProjectActivityItem,
 } from "@/app/features/project-overview";
+import {
+  ProjectAssistantHost,
+  type ProjectAssistantMessage,
+} from "@/app/features/project-assistant";
 import {
   SEED_VIDGETS,
   cloneVidget,
@@ -4215,6 +4225,10 @@ export default function App() {
     kind: "choose",
   });
   const [createVidgetProjectId, setCreateVidgetProjectId] = useState<string | null>(null);
+  const [projectAssistantOpen, setProjectAssistantOpen] = useState(false);
+  const [projectAssistantSessions, setProjectAssistantSessions] = useState<
+    Record<string, ProjectAssistantMessage[]>
+  >({});
   const [prototypeUserId, setPrototypeUserId] = useState(CURRENT_USER_ID);
   const [constellationAccessBlock, setConstellationAccessBlock] = useState<{
     projectId: string;
@@ -4407,6 +4421,14 @@ export default function App() {
         clearSettingsRouteState();
         setActiveProjectId(resolved.projectId);
         setProjectBrowseMode("chats");
+        setAppView("project");
+        return;
+      }
+
+      if (resolved.kind === "project-activity") {
+        clearSettingsRouteState();
+        setActiveProjectId(resolved.projectId);
+        setProjectBrowseMode("activity");
         setAppView("project");
         return;
       }
@@ -5060,6 +5082,24 @@ export default function App() {
       if (window.location.pathname !== next) {
         window.history.pushState(
           { luxiaView: "project", projectId, browse: "chats" },
+          "",
+          next,
+        );
+      }
+    }
+  }
+
+  function handleOpenActivityList(projectId: string) {
+    setActiveProjectId(projectId);
+    setProjectBrowseMode("activity");
+    setSettingsConstellationId(null);
+    setSettingsCapabilityPath(null);
+    setAppView("project");
+    if (typeof window !== "undefined") {
+      const next = getProjectActivityPath(projectId);
+      if (window.location.pathname !== next) {
+        window.history.pushState(
+          { luxiaView: "project", projectId, browse: "activity" },
           "",
           next,
         );
@@ -7750,6 +7790,14 @@ export default function App() {
 
   const showProjectContext = Boolean(contextProjectId && contextProjectMembership);
 
+  useEffect(() => {
+    setProjectAssistantOpen(false);
+  }, [contextProjectId]);
+
+  const projectAssistantMessages = contextProjectId
+    ? projectAssistantSessions[contextProjectId] ?? []
+    : [];
+
   const sidebarProjectChats = useMemo(() => {
     if (!contextProjectId || !contextProjectMembership) return [];
     return overviewChats
@@ -7999,6 +8047,57 @@ export default function App() {
     dataSourcesState,
   ]);
 
+  const projectActivityNavigationContext = useMemo(() => {
+    if (!activeProjectId) return null;
+    const projectChats = workingAccessibleOverviewChats.filter(
+      (chat) => chat.projectId === activeProjectId,
+    );
+    const projectConstellations = workingAccessibleOverviewConstellations.filter(
+      (entry) => entry.projectId === activeProjectId,
+    );
+    return buildActivityNavigationContext({
+      projectId: activeProjectId,
+      chatIds: projectChats.map((chat) => chat.id),
+      constellationIds: projectConstellations.map((entry) => entry.id),
+      outputIds: getProjectDashboardOutputs(activeProjectId).map((output) => output.id),
+      vidgetIds: getVidgetsForProject(activeProjectId, vidgetsState).map((vidget) => vidget.id),
+      hasGalaxy: Boolean(findGalaxyChatForProject(activeProjectId, chats, homeProjects)),
+    });
+  }, [
+    activeProjectId,
+    workingAccessibleOverviewChats,
+    workingAccessibleOverviewConstellations,
+    vidgetsState,
+    chats,
+    homeProjects,
+  ]);
+
+  function handleOpenProjectActivity(item: ProjectActivityItem) {
+    if (!projectActivityNavigationContext || item.projectId !== projectActivityNavigationContext.projectId) {
+      return;
+    }
+    openProjectActivity(item, projectActivityNavigationContext, {
+      onOpenChat: handleOpenChatFromHome,
+      onOpenConstellation: handleOpenConstellationFromProject,
+      onOpenDashboard: handleOpenProjectDashboard,
+      onOpenDashboardOutput: handleOpenDashboardOutput,
+      onOpenVidget: handleOpenVidgetSettings,
+      onOpenGalaxy: handleOpenGalaxyFromHome,
+      onOpenGalaxySettings: handleOpenGalaxySettingsFromOverview,
+    });
+  }
+
+  const projectAssistantConstellations = useMemo(() => {
+    if (!contextProjectId || !contextProjectMembership) return [];
+    return workingAccessibleOverviewConstellations
+      .filter((item) => item.projectId === contextProjectId)
+      .map((item) => ({ id: item.id, name: item.label }));
+  }, [
+    contextProjectId,
+    contextProjectMembership,
+    workingAccessibleOverviewConstellations,
+  ]);
+
   useEffect(() => {
     if (appView !== "chat") return;
     const chat = chats.find((item) => item.id === activeChat);
@@ -8232,6 +8331,16 @@ export default function App() {
                 onOpenChat={handleOpenChatFromHome}
                 onNewChat={() => handleNewChatFromProject(activeProjectId)}
               />
+            ) : projectBrowseMode === "activity" && activeProjectId && projectActivityNavigationContext ? (
+              <ActivityLibrary
+                projectId={activeProjectId}
+                projectName={getProjectNameById(activeProjectId, homeProjects)}
+                items={getProjectActivity(activeProjectId)}
+                navigationContext={projectActivityNavigationContext}
+                onNavigateHome={handleNavigateHome}
+                onBack={() => handleOpenProjectOverview(activeProjectId, "overview")}
+                onOpen={handleOpenProjectActivity}
+              />
             ) : (
               <ProjectOverviewPage
                 projectId={activeProjectId}
@@ -8266,9 +8375,17 @@ export default function App() {
                     : undefined
                 }
                 onOpenDashboard={handleOpenProjectDashboard}
+                onOpenDashboardOutput={handleOpenDashboardOutput}
+                onViewAllActivity={handleOpenActivityList}
+                activityNavigationContext={projectActivityNavigationContext ?? undefined}
                 onRenameProject={
                   activeProjectId && userCanConfigureProject(activeProjectId)
                     ? handleRenameProject
+                    : undefined
+                }
+                onEditProject={
+                  activeProjectId && userCanConfigureProject(activeProjectId)
+                    ? requestEditProjectDetails
                     : undefined
                 }
                 onArchiveProject={
@@ -8294,6 +8411,7 @@ export default function App() {
                   handleOpenCreateVidget(projectId, { kind: "choose" })
                 }
                 canManageVidgets={(projectId) => canManageVidgets(projectRoleFor(projectId))}
+                onAskProjectAssistant={() => setProjectAssistantOpen(true)}
                 onOpenVirtualAssistant={(projectId, vidgetId) => {
                   handleOpenVidgetSettings(projectId, vidgetId);
                 }}
@@ -9609,6 +9727,22 @@ export default function App() {
         onCreate={handleCreateVidgetSubmit}
       />
       <Toaster richColors closeButton position="top-right" />
+      <ProjectAssistantHost
+        projectId={contextProjectId}
+        projectName={contextProjectLabel ?? "Project"}
+        constellations={projectAssistantConstellations}
+        visible={showProjectContext}
+        open={projectAssistantOpen}
+        onOpenChange={setProjectAssistantOpen}
+        messages={projectAssistantMessages}
+        onMessagesChange={(next) => {
+          if (!contextProjectId) return;
+          setProjectAssistantSessions((prev) => ({
+            ...prev,
+            [contextProjectId]: next,
+          }));
+        }}
+      />
       <ProjectManageDialogs
         mode={projectManageMode}
         project={

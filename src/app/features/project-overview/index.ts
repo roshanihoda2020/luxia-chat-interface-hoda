@@ -7,6 +7,7 @@ export type {
   ProjectOverviewBrowseMode,
   ProjectOverviewChat,
   ProjectOverviewConstellation,
+  ProjectActivityItem,
 } from "./types";
 export {
   CONSTELLATION_SOURCE_COUNTS,
@@ -26,7 +27,17 @@ export {
   DASHBOARD_DELETE_DENIED_MESSAGE,
   DASHBOARD_EDIT_DENIED_MESSAGE,
 } from "./dashboardAccess";
-export { ChatsLibrary, ConstellationsLibrary } from "./ProjectLibraries";
+export { ChatsLibrary, ConstellationsLibrary, ActivityLibrary } from "./ProjectLibraries";
+export {
+  buildActivityNavigationContext,
+  openProjectActivity,
+  activityHasDestination,
+} from "./activityNavigation";
+export type {
+  ActivityNavigationContext,
+  ActivityNavigationHandlers,
+  ActivityDestination,
+} from "./activityNavigation";
 export {
   DashboardOutputPreviewGraphic,
   outputTypeLabel,

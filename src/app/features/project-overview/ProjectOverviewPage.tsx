@@ -6,6 +6,9 @@ import {
 } from "@/app/features/vidgets";
 import { VIDGET_CHANNEL_LABELS, VIDGET_STATUS_LABELS } from "@/app/features/vidgets/types";
 import { getProjectActivity, getProjectDashboardOutputs } from "./data";
+import { ProjectAssistantOverviewEntry } from "@/app/features/project-assistant";
+import type { ActivityNavigationContext } from "./activityNavigation";
+import { openProjectActivity } from "./activityNavigation";
 import { ProjectGalaxyCard } from "./ProjectGalaxyCard";
 import { ProjectHeader, ProjectNotFoundState } from "./ProjectHeader";
 import {
@@ -44,14 +47,18 @@ export interface ProjectOverviewPageProps {
   onNewChat: (projectId: string) => void;
   onAddConstellation?: (projectId: string, name: string, type: "database" | "csv" | "pdf") => void;
   onOpenDashboard?: (projectId: string) => void;
-  onNewDashboard?: (projectId: string) => void;
+  onOpenDashboardOutput?: (projectId: string, outputId: string) => void;
   onOpenVirtualAssistant?: (projectId: string, vidgetId: string) => void;
+  onViewAllActivity?: (projectId: string) => void;
+  activityNavigationContext?: ActivityNavigationContext;
   onViewAllVidgets?: (projectId: string) => void;
   onCreateVidget?: (projectId: string) => void;
   onCreateVidgetFromGalaxy?: (projectId: string) => void;
   canManageVidgets?: (projectId: string) => boolean;
+  onAskProjectAssistant?: (projectId: string) => void;
   onBrowseModeChange?: (mode: ProjectOverviewBrowseMode) => void;
   onRenameProject?: (projectId: string, name: string) => void;
+  onEditProject?: (projectId: string) => void;
   onArchiveProject?: (projectId: string) => void;
   onDeleteProject?: (projectId: string) => void;
 }
@@ -86,18 +93,23 @@ export function ProjectOverviewPage({
   onNewChat,
   onAddConstellation,
   onOpenDashboard,
+  onOpenDashboardOutput,
   onBrowseModeChange,
   onRenameProject,
+  onEditProject,
   onArchiveProject,
   onDeleteProject,
   onOpenConstellationSettings,
   onViewAllConstellations,
   onViewAllChats,
   onOpenVirtualAssistant,
+  onViewAllActivity,
   onViewAllVidgets,
+  activityNavigationContext,
   onCreateVidget,
   onCreateVidgetFromGalaxy,
   canManageVidgets,
+  onAskProjectAssistant,
   vidgets = [],
 }: ProjectOverviewPageProps) {
   const [browseMode, setBrowseMode] = useState<ProjectOverviewBrowseMode>(
@@ -206,10 +218,28 @@ export function ProjectOverviewPage({
     ?? `Galaxy name ${resolvedProject.id.replace("project-", "")}`;
 
   function handleActivityOpen(item: ProjectActivityItem) {
-    if (item.chatId) {
-      onOpenChat(item.chatId);
-    }
+    if (!activityNavigationContext) return;
+    openProjectActivity(item, activityNavigationContext, {
+      onOpenChat,
+      onOpenConstellation,
+      onOpenDashboard: (projectId) => onOpenDashboard?.(projectId),
+      onOpenDashboardOutput: (projectId, outputId) =>
+        onOpenDashboardOutput?.(projectId, outputId),
+      onOpenVidget: (projectId, vidgetId) =>
+        onOpenVirtualAssistant?.(projectId, vidgetId),
+      onOpenGalaxy,
+      onOpenGalaxySettings,
+    });
   }
+
+  const resolvedActivityContext = activityNavigationContext ?? {
+    projectId: resolvedProject.id,
+    chatIds: new Set(projectChats.map((chat) => chat.id)),
+    constellationIds: new Set(projectConstellations.map((item) => item.id)),
+    outputIds: new Set(dashboardOutputs.map((item) => item.id)),
+    vidgetIds: new Set(widgets.map((item) => item.id)),
+    hasGalaxy: Boolean(resolvedProject.galaxyId),
+  };
 
   return (
     <>
@@ -217,11 +247,18 @@ export function ProjectOverviewPage({
         project={resolvedProject}
         onNavigateHome={onNavigateHome}
         onRenameProject={(name) => onRenameProject?.(resolvedProject.id, name)}
+        onEditProject={onEditProject}
         onArchiveProject={onArchiveProject}
         onDeleteProject={onDeleteProject}
       />
 
       <div className="flex min-w-0 flex-col gap-5">
+        {onAskProjectAssistant ? (
+          <ProjectAssistantOverviewEntry
+            onAskProject={() => onAskProjectAssistant(resolvedProject.id)}
+          />
+        ) : null}
+
         <section className="min-w-0">
           <OverviewLabel>Project intelligence</OverviewLabel>
           <ProjectGalaxyCard
@@ -307,7 +344,13 @@ export function ProjectOverviewPage({
           <OverviewLabel>Recent activity</OverviewLabel>
           <RecentActivityCard
             items={activity}
+            navigationContext={resolvedActivityContext}
             onOpenActivity={handleActivityOpen}
+            onViewAll={
+              onViewAllActivity
+                ? () => onViewAllActivity(resolvedProject.id)
+                : undefined
+            }
           />
         </section>
       </div>

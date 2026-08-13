@@ -13,6 +13,7 @@ interface ProjectHeaderProps {
   project: HomeProjectCard;
   onNavigateHome: () => void;
   onRenameProject?: (name: string) => void;
+  onEditProject?: (projectId: string) => void;
   onArchiveProject?: (projectId: string) => void;
   onDeleteProject?: (projectId: string) => void;
 }
@@ -21,6 +22,7 @@ export function ProjectHeader({
   project,
   onNavigateHome,
   onRenameProject,
+  onEditProject,
   onArchiveProject,
   onDeleteProject,
 }: ProjectHeaderProps) {
@@ -30,10 +32,19 @@ export function ProjectHeader({
     projectName: project.name,
   });
   const canRename = Boolean(onRenameProject);
+  const canEdit = Boolean(onEditProject);
   const canArchive = Boolean(onArchiveProject) && project.status !== "archived";
   const canDelete = Boolean(onDeleteProject);
 
   const optionItems = [
+    ...(canEdit
+      ? [{
+        id: "edit",
+        label: "Edit Project",
+        ariaLabel: `Edit ${project.name}`,
+        onSelect: () => onEditProject!(project.id),
+      }]
+      : []),
     ...(canArchive
       ? [{
         id: "archive",

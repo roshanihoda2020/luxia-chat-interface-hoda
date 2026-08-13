@@ -1703,12 +1703,20 @@ export function VidgetLivePreview({
         device === "mobile" || device === "totem" ? "gap-3" : "gap-4"
       }`}
     >
-      <p
-        className="luxia-type-overline-data"
-        style={{ color: "var(--luxia-text-secondary)" }}
-      >
-        Live preview
-      </p>
+      <div className="flex w-full min-w-0 max-w-[36rem] flex-col items-center gap-1.5">
+        <p
+          className="luxia-type-overline-data"
+          style={{ color: "var(--luxia-text-secondary)" }}
+        >
+          Live preview
+        </p>
+        <p
+          className="text-center luxia-type-caption"
+          style={{ color: "var(--luxia-text-muted)" }}
+        >
+          Test your Vidget here. Ask a question to check how it responds using its configured knowledge.
+        </p>
+      </div>
 
       <div className="w-full min-w-0 max-w-[36rem]">
         <PreviewModeTabs device={device} onDeviceChange={onDeviceChange} />

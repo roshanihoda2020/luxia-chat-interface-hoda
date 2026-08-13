@@ -1,17 +1,12 @@
-import {
-  useId,
-  type ReactNode,
-} from "react";
+import { useId } from "react";
 import { CircleHelp } from "lucide-react";
 import {
   LuxiaGalaxyIcon,
   LuxiaSettingsIcon,
   LuxiaVirtualAssistantIcon,
 } from "@/assets/icons";
-import {
-  galaxyHeliosCapabilityCount,
-  galaxyHeliosCapabilityLabels,
-} from "@/app/features/galaxy-settings/data";
+import { galaxyHeliosCapabilityCount } from "@/app/features/galaxy-settings/data";
+import { GALAXY_DEFAULT_INSTRUCTION } from "@/app/features/galaxy/constants";
 import type { HomeProjectCard } from "@/app/features/project/types";
 import {
   Popover,
@@ -25,12 +20,11 @@ import {
 } from "@/app/components/ui/tooltip";
 import { Button } from "@/app/components/ui/button";
 import { ProjectDomainMarker } from "./ProjectDomainMarker";
-
-const DEFAULT_GALAXY_INSTRUCTION =
-  "Answer using approved Project knowledge and route each request to the most relevant Constellation.";
+import { PROJECT_OVERVIEW_GALAXY_SHADOW } from "./ProjectModuleShared";
 
 interface ProjectGalaxyCardProps {
   project: HomeProjectCard;
+  /** Preserved for identity/routing; not shown on Overview in the single-Galaxy phase. */
   galaxyName: string;
   galaxyInstruction?: string;
   usableConstellationCount: number;
@@ -39,85 +33,6 @@ interface ProjectGalaxyCardProps {
   onCreateVidget?: () => void;
   canCreateVidget?: boolean;
 }
-
-function HeliosChip({ children }: { children: string }) {
-  return (
-    <span
-      className="inline-flex h-6 items-center rounded-[6px] px-2 luxia-type-caption"
-      style={{
-        color: "rgba(255,255,255,0.82)",
-        background: "rgba(255,255,255,0.06)",
-        border: "1px solid rgba(255,255,255,0.10)",
-      }}
-    >
-      {children}
-    </span>
-  );
-}
-
-function HeliosMetaRow({
-  label,
-  children,
-}: {
-  label: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="min-w-0">
-      <p
-        className="luxia-type-overline-data"
-        style={{ color: "var(--luxia-purple-40)" }}
-      >
-        {label}
-      </p>
-      <div
-        className="mt-1 luxia-type-caption"
-        style={{ color: "rgba(255,255,255,0.82)", overflowWrap: "anywhere" }}
-      >
-        {children}
-      </div>
-    </div>
-  );
-}
-
-function GalaxyActionGroup({
-  descriptionId,
-  helperId,
-  description,
-  helper,
-  children,
-}: {
-  descriptionId: string;
-  helperId?: string;
-  description: string;
-  helper?: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="flex w-full min-w-0 flex-col items-stretch sm:w-[11.5rem] sm:items-stretch">
-      {children}
-      <p
-        id={descriptionId}
-        className="mt-2 luxia-type-caption"
-        style={{ color: "rgba(198,177,245,0.72)", overflowWrap: "anywhere" }}
-      >
-        {description}
-      </p>
-      {helper ? (
-        <p
-          id={helperId}
-          className="mt-1 luxia-type-caption"
-          style={{ color: "rgba(198,177,245,0.48)", overflowWrap: "anywhere" }}
-        >
-          {helper}
-        </p>
-      ) : null}
-    </div>
-  );
-}
-
-const GALAXY_ACTION_BUTTON_CLASS =
-  "luxia-button--on-dark h-10 min-h-10 w-full justify-center gap-2 px-3.5";
 
 function GalaxyHeliosInfo() {
   return (
@@ -128,7 +43,7 @@ function GalaxyHeliosInfo() {
             <button
               type="button"
               aria-label="Learn about Galaxy and Helios"
-              className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]"
+              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]"
               style={{ color: "rgba(198,177,245,0.72)", background: "transparent" }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.background = "rgba(255,255,255,0.08)";
@@ -139,7 +54,7 @@ function GalaxyHeliosInfo() {
                 e.currentTarget.style.color = "rgba(198,177,245,0.72)";
               }}
             >
-              <CircleHelp size={16} strokeWidth={1.75} aria-hidden />
+              <CircleHelp size={18} strokeWidth={1.75} aria-hidden />
             </button>
           </PopoverTrigger>
         </TooltipTrigger>
@@ -160,14 +75,9 @@ function GalaxyHeliosInfo() {
         <p className="luxia-type-overline-data" style={{ color: "var(--luxia-purple-40)" }}>
           About Galaxy and Helios
         </p>
-        <p className="mt-2 luxia-type-caption" style={{ color: "rgba(255,255,255,0.82)" }}>
-          Galaxy is the Project-level intelligence layer that helps users work across the
-          Project’s Constellations and knowledge.
-        </p>
-        <p className="mt-2 luxia-type-caption" style={{ color: "rgba(255,255,255,0.82)" }}>
-          Helios is the single orchestrator inside Galaxy. It uses the Project’s Constellations,
-          Tools, and Instructions to decide how requests should be handled and how answers
-          should be produced.
+        <p className="mt-2 luxia-type-body-small" style={{ color: "rgba(255,255,255,0.82)" }}>
+          Galaxy is configured orchestration across selected Project knowledge, instructions
+          and tools. Helios manages routing and coordination within that Galaxy.
         </p>
       </PopoverContent>
     </Popover>
@@ -179,9 +89,34 @@ function summarizeInstruction(value: string): string {
   return line ?? value;
 }
 
+function ConfigurationMetric({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="min-w-0">
+      <p
+        className="luxia-type-overline-data"
+        style={{ color: "var(--luxia-purple-40)" }}
+      >
+        {label}
+      </p>
+      <p
+        className="mt-1 luxia-type-body-default-strong"
+        style={{ color: "rgba(255,255,255,0.94)" }}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
+
 export function ProjectGalaxyCard({
   project: _project,
-  galaxyName,
+  galaxyName: _galaxyName,
   galaxyInstruction,
   usableConstellationCount,
   onOpenGalaxy,
@@ -189,20 +124,24 @@ export function ProjectGalaxyCard({
   onCreateVidget,
   canCreateVidget = false,
 }: ProjectGalaxyCardProps) {
-  const resolvedInstruction = galaxyInstruction ?? DEFAULT_GALAXY_INSTRUCTION;
+  const resolvedInstruction = galaxyInstruction ?? GALAXY_DEFAULT_INSTRUCTION;
   const capabilityCount = galaxyHeliosCapabilityCount();
-  const capabilityLabels = galaxyHeliosCapabilityLabels();
-  const openGalaxyDescId = useId();
-  const createWidgetDescId = useId();
-  const createWidgetHelperId = useId();
-  const galaxySettingsDescId = useId();
+  const constellationValue =
+    usableConstellationCount === 1
+      ? "1 Constellation"
+      : `${usableConstellationCount} Constellations`;
+  const toolsValue =
+    capabilityCount === 1 ? "1 Tool" : `${capabilityCount} Tools`;
+  const actionsLabelId = useId();
+  const configurationLabelId = useId();
+  const showCreateVidget = Boolean(canCreateVidget && onCreateVidget);
 
   return (
     <section
-      className="relative flex min-w-0 flex-col overflow-hidden rounded-[var(--luxia-radius-16)] p-5 sm:p-5 lg:p-5"
+      className="relative flex min-w-0 flex-col overflow-hidden rounded-[var(--luxia-radius-16)] px-5 py-6 sm:px-6 sm:py-7"
       style={{
         background: "linear-gradient(165deg, #281B41 0%, #1C1336 100%)",
-        boxShadow: "var(--luxia-galaxy-shell-shadow)",
+        boxShadow: PROJECT_OVERVIEW_GALAXY_SHADOW,
         border: "1px solid rgba(255,255,255,0.08)",
       }}
       aria-labelledby="project-galaxy-heading"
@@ -213,12 +152,12 @@ export function ProjectGalaxyCard({
         icon={<LuxiaGalaxyIcon size={28} aria-hidden color="currentColor" />}
       />
 
-      <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:items-start lg:gap-6">
-        <div className="flex min-w-0 flex-col pr-14 sm:pr-16">
-          <div className="flex min-h-9 min-w-0 flex-wrap items-center gap-1">
+      <div className="relative z-[2] grid min-w-0 w-full gap-7 pr-12 sm:pr-14 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)] lg:items-start lg:gap-5 xl:gap-6 lg:pr-[4.25rem]">
+        <div className="flex min-w-0 flex-col">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
             <h2
               id="project-galaxy-heading"
-              className="luxia-type-heading-h3"
+              className="luxia-type-display-h1"
               style={{ color: "var(--luxia-text-inverse)" }}
             >
               Galaxy
@@ -226,25 +165,38 @@ export function ProjectGalaxyCard({
             <GalaxyHeliosInfo />
           </div>
 
-          <div className="mt-3 min-h-7 min-w-0">
+          <p
+            className="mt-3 min-w-0 luxia-type-body-large"
+            style={{ color: "rgba(255,255,255,0.88)" }}
+          >
+            Configured orchestration across selected Project knowledge, instructions and tools.
+          </p>
+
+          <div className="mt-6 min-w-0">
             <p
-              className="luxia-type-title-panel"
-              style={{ color: "rgba(198,177,245,0.92)", overflowWrap: "anywhere" }}
+              className="mb-2 luxia-type-overline-form"
+              style={{ color: "var(--luxia-purple-40)" }}
             >
-              {galaxyName}
+              Helios
+            </p>
+            <p
+              className="luxia-type-body-default"
+              style={{ color: "rgba(198,177,245,0.86)" }}
+            >
+              Manages routing and coordination within this Galaxy.
             </p>
           </div>
 
-          <div className="mt-4 max-w-[36rem]">
+          <div className="mt-6 min-w-0">
             <p
-              className="mb-1.5 luxia-type-overline-data"
+              className="mb-2 luxia-type-overline-form"
               style={{ color: "var(--luxia-purple-40)" }}
             >
-              INSTRUCTION
+              Instruction
             </p>
             <p
-              className="line-clamp-2 luxia-type-body-dense whitespace-pre-line"
-              style={{ color: "rgba(255,255,255,0.82)", overflowWrap: "anywhere" }}
+              className="line-clamp-3 luxia-type-body-default-strong whitespace-pre-line"
+              style={{ color: "rgba(255,255,255,0.92)", overflowWrap: "anywhere" }}
               title={resolvedInstruction}
             >
               {summarizeInstruction(resolvedInstruction)}
@@ -252,124 +204,79 @@ export function ProjectGalaxyCard({
           </div>
 
           <div
-            className="mt-5 flex max-w-full flex-wrap items-start gap-x-4 gap-y-4"
-            aria-label="Galaxy actions"
+            className="mt-7 flex max-w-full flex-wrap items-center gap-2.5"
+            aria-labelledby={actionsLabelId}
           >
-            <GalaxyActionGroup
-              descriptionId={openGalaxyDescId}
-              description="Ask across Project knowledge"
+            <span id={actionsLabelId} className="sr-only">
+              Galaxy actions
+            </span>
+            <Button
+              type="button"
+              variant="primary"
+              size="compact"
+              onClick={onOpenGalaxy}
+              aria-label="Open Galaxy"
+              className="luxia-button--on-dark h-10 min-h-10 gap-2 px-3.5"
             >
-              <Button
-                type="button"
-                variant="primary"
-                size="compact"
-                onClick={onOpenGalaxy}
-                aria-label="Open Galaxy"
-                aria-describedby={openGalaxyDescId}
-                className={GALAXY_ACTION_BUTTON_CLASS}
-              >
-                <LuxiaGalaxyIcon size={16} aria-hidden color="currentColor" />
-                Open Galaxy
-              </Button>
-            </GalaxyActionGroup>
+              <LuxiaGalaxyIcon size={16} aria-hidden color="currentColor" />
+              Open Galaxy
+            </Button>
 
-            {canCreateVidget && onCreateVidget ? (
-              <GalaxyActionGroup
-                descriptionId={createWidgetDescId}
-                helperId={createWidgetHelperId}
-                description="A configurable AI assistant powered by Galaxy."
-                helper="For website, totem, kiosk, or embedded experiences."
-              >
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="compact"
-                  onClick={onCreateVidget}
-                  aria-label="Create Vidget"
-                  aria-describedby={`${createWidgetDescId} ${createWidgetHelperId}`}
-                  className={GALAXY_ACTION_BUTTON_CLASS}
-                >
-                  <LuxiaVirtualAssistantIcon size={16} aria-hidden color="currentColor" />
-                  Create Vidget
-                </Button>
-              </GalaxyActionGroup>
-            ) : null}
-
-            <GalaxyActionGroup
-              descriptionId={galaxySettingsDescId}
-              description="Helios, Tools, and Instruction"
-            >
+            {showCreateVidget ? (
               <Button
                 type="button"
                 variant="secondary"
                 size="compact"
-                onClick={onOpenGalaxySettings}
-                aria-label="Galaxy Settings"
-                aria-describedby={galaxySettingsDescId}
-                className={GALAXY_ACTION_BUTTON_CLASS}
+                onClick={onCreateVidget}
+                aria-label="Create Vidget"
+                className="luxia-button--on-dark h-10 min-h-10 gap-2 px-3.5"
               >
-                <LuxiaSettingsIcon size={16} aria-hidden color="currentColor" />
-                Galaxy Settings
+                <LuxiaVirtualAssistantIcon size={16} aria-hidden color="currentColor" />
+                Create Vidget
               </Button>
-            </GalaxyActionGroup>
+            ) : null}
+
+            <Button
+              type="button"
+              variant="secondary"
+              size="compact"
+              onClick={onOpenGalaxySettings}
+              aria-label="Galaxy Settings"
+              className="luxia-button--on-dark h-10 min-h-10 gap-2 px-3.5"
+            >
+              <LuxiaSettingsIcon size={16} aria-hidden color="currentColor" />
+              Settings
+            </Button>
           </div>
         </div>
 
-        <div className="flex min-w-0 flex-col pr-12 pt-1 sm:pr-14 lg:pt-7">
-          <h3
-            id="project-helios-heading"
-            className="luxia-type-title-card"
-            style={{ color: "var(--luxia-text-inverse)" }}
-          >
-            Helios
-          </h3>
-
+        <aside
+          className="min-w-0 border-t pt-6 lg:border-t-0 lg:pt-12 lg:pl-1"
+          style={{ borderColor: "rgba(255,255,255,0.08)" }}
+          aria-labelledby={configurationLabelId}
+        >
           <p
-            className="mt-1 luxia-type-body-dense"
-            style={{ color: "rgba(198,177,245,0.72)" }}
+            id={configurationLabelId}
+            className="mb-3.5 luxia-type-overline-form"
+            style={{ color: "var(--luxia-purple-40)" }}
           >
-            Project orchestrator
+            Configuration
           </p>
-
-          <div className="mt-3 flex flex-wrap gap-1.5" aria-label="Helios status">
-            <HeliosChip>Active</HeliosChip>
-            <HeliosChip>
-              {`${usableConstellationCount} ${usableConstellationCount === 1 ? "Constellation" : "Constellations"}`}
-            </HeliosChip>
-            <HeliosChip>
-              {`${capabilityCount} ${capabilityCount === 1 ? "Tool" : "Tools"}`}
-            </HeliosChip>
-            <HeliosChip>Best-match routing</HeliosChip>
+          <div className="flex flex-col gap-3.5">
+            <ConfigurationMetric
+              label="Knowledge scope"
+              value={constellationValue}
+            />
+            <ConfigurationMetric
+              label="Capabilities"
+              value={toolsValue}
+            />
+            <ConfigurationMetric
+              label="Routing"
+              value="Best-match"
+            />
           </div>
-
-          <div
-            className="mt-4 flex flex-col gap-3"
-            aria-label="Helios configuration summary"
-          >
-            <HeliosMetaRow label="Tools">
-              {capabilityLabels.join(" · ")}
-            </HeliosMetaRow>
-
-            <HeliosMetaRow label="Instruction">
-              Project Instruction active
-            </HeliosMetaRow>
-
-            <HeliosMetaRow label="Project access">
-              {usableConstellationCount === 0
-                ? "No available Constellations"
-                : usableConstellationCount === 1
-                  ? "1 available Constellation"
-                  : `${usableConstellationCount} available Constellations`}
-            </HeliosMetaRow>
-          </div>
-
-          <p
-            className="mt-3 max-w-[18rem] luxia-type-caption"
-            style={{ color: "rgba(198,177,245,0.72)" }}
-          >
-            Routes each request to the most relevant Constellation.
-          </p>
-        </div>
+        </aside>
       </div>
     </section>
   );

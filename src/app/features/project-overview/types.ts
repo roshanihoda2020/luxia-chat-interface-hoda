@@ -41,7 +41,10 @@ export interface ProjectActivityItem {
   timestampValue: number;
   chatId?: string;
   constellationId?: string;
+  /** General Dashboard entity — used for dashboard-wide activity. */
   dashboardId?: string;
+  /** Saved Dashboard output — used for output activity navigation. */
+  outputId?: string;
   virtualAssistantId?: string;
 }
 

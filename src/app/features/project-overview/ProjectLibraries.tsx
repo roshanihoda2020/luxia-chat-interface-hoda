@@ -14,7 +14,9 @@ import {
   LuxiaDashboardIcon,
   LuxiaVirtualAssistantIcon,
 } from "@/assets/icons";
-import { activityIcon } from "./RecentActivityCard";
+import { ActivityRow } from "./RecentActivityCard";
+import type { ActivityNavigationContext } from "./activityNavigation";
+import { activityHasDestination } from "./activityNavigation";
 import { ProjectMetaText, ProjectOutlineButton, ProjectPreviewRow } from "./ProjectModuleShared";
 import { Button } from "@/app/components/ui/button";
 import { LUXIA_PAGE_HEADER_ACTION } from "@/app/components/LuxiaPageHeader";
@@ -139,6 +141,7 @@ export function ActivityLibrary({
   projectId,
   projectName,
   items,
+  navigationContext,
   onNavigateHome,
   onBack,
   onOpen,
@@ -146,6 +149,7 @@ export function ActivityLibrary({
   projectId: string;
   projectName: string;
   items: ProjectActivityItem[];
+  navigationContext: ActivityNavigationContext;
   onNavigateHome: () => void;
   onBack: () => void;
   onOpen: (item: ProjectActivityItem) => void;
@@ -176,7 +180,7 @@ export function ActivityLibrary({
       libraryId="activity"
       projectId={projectId}
       projectName={projectName}
-      description={`All recent activity for ${projectName}`}
+      description={`Project activity for ${projectName}`}
       countLabel={`${filtered.length} ${filtered.length === 1 ? "item" : "items"}`}
       onNavigateHome={onNavigateHome}
       onBackToProject={onBack}
@@ -197,7 +201,9 @@ export function ActivityLibrary({
             <option value="constellation">Constellation</option>
             <option value="source">Source</option>
             <option value="dashboard">Dashboard</option>
-            <option value="virtual-assistant">Vidget</option>
+            <option value="output">Output</option>
+            <option value="widget">Vidget</option>
+            <option value="instruction">Galaxy</option>
             <option value="member">Member</option>
             <option value="project">Project</option>
           </select>
@@ -215,37 +221,30 @@ export function ActivityLibrary({
       )}
     >
       {filtered.length === 0 ? (
-        <EmptyLibrary title="No activity found" description="Try a different search or filter." />
+        <EmptyLibrary
+          title={items.length === 0 ? "No recent activity yet." : "No activity found"}
+          description={
+            items.length === 0
+              ? "Updates from this Project will appear here."
+              : "Try a different search or filter."
+          }
+        />
       ) : (
         <ul
           className="overflow-hidden rounded-[var(--luxia-radius-16)] border bg-white divide-y"
           style={{ borderColor: "var(--luxia-border-default)" }}
         >
           {filtered.map((item) => {
-            const canNavigate = Boolean(item.chatId || item.constellationId);
+            const canNavigate = activityHasDestination(item, navigationContext);
             return (
               <li key={item.id}>
-                <button
-                  type="button"
-                  disabled={!canNavigate}
-                  onClick={() => canNavigate && onOpen(item)}
-                  className="flex w-full min-w-0 items-center gap-3 px-4 py-3 text-left outline-none transition-colors enabled:hover:bg-[var(--luxia-opacity-brand-primary-04)] enabled:focus-visible:ring-2 enabled:focus-visible:ring-[var(--luxia-border-focus)]"
-                >
-                  <span className="shrink-0">{activityIcon(item.type)}</span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block luxia-type-body-dense-strong" style={{ color: "var(--luxia-text-primary)" }}>
-                      {item.primary}
-                    </span>
-                    {item.secondary ? (
-                      <span className="mt-0.5 block luxia-type-caption" style={{ color: "var(--luxia-neutral-600, #475569)" }}>
-                        {item.secondary}
-                      </span>
-                    ) : null}
-                  </span>
-                  <span className="shrink-0 luxia-type-caption" style={{ color: "var(--luxia-neutral-500, #64748B)" }}>
-                    {item.timestamp}
-                  </span>
-                </button>
+                <div className="px-2">
+                  <ActivityRow
+                    item={item}
+                    canNavigate={canNavigate}
+                    onOpenActivity={onOpen}
+                  />
+                </div>
               </li>
             );
           })}
