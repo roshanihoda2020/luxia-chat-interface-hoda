@@ -249,6 +249,7 @@ import {
 } from "@/app/components/LuxiaBreadcrumb";
 import { LuxiaPageHeader, LuxiaPageHeaderShell, LUXIA_PAGE_INTRO, LUXIA_PAGE_HEADER_ACTION } from "@/app/components/LuxiaPageHeader";
 import { LuxiaEntityOptionsMenu } from "@/app/components/LuxiaEntityOptionsMenu";
+import { ResponseActionsFooter } from "@/app/features/chat/ResponseActionsFooter";
 import { LX } from "@/app/features/active-data-tables/tokens";
 import { IC, IC_BTN_ICON, IC_BTN_OPEN, IC_CARD_HEADER, IC_INPUT_TEXT, IC_SEARCH_SHELL, IC_SEARCH_SHELL_STYLE, icCardStyle, icHoverOff, icHoverOn, icInspectorAccentStyle, icInspectorDescriptionColor, icInspectorTitleColor, icOpenActiveOn, icSearchShellBlur, icSearchShellFocus, icSearchShellHoverOff, icSearchShellHoverOn, icTextareaStyle } from "@/app/features/active-data-tables/inspectorTheme";
 import { Button } from "@/app/components/ui/button";
@@ -269,11 +270,11 @@ import { SearchableSelect } from "@/app/components/ui/searchable-select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/app/components/ui/tooltip";
 import {
   ChevronDown, ChevronRight, ChevronLeft,
-  Plus, X, Pin, Copy, Bookmark, SquareArrowOutUpRight,
+  Plus, X, Pin, Copy, SquareArrowOutUpRight,
   FileText, Database, BookOpen,
   Send, Mic, Eye, Upload, GripVertical,
   Trash2, Check, Edit3, BarChart3, Table2,
-  RefreshCw, Search, MoreHorizontal,
+  Search, MoreHorizontal,
   AlignLeft, Layers, Share2, List, FileBarChart2,
   type LucideIcon,
 } from "lucide-react";
@@ -1798,14 +1799,14 @@ function AICard({
   onOpenGalaxyConstellation?: () => void;
   onViewGalaxyActivity?: () => void;
 }) {
-  const [hover, setHover] = useState(false);
   const insights = getResponseInsights(message.content, message.insights);
   const galaxy = message.galaxy;
   const showAnswerBody = !galaxy || galaxy.phase === "answering" || galaxy.phase === "complete";
   const showStandardFooter = !galaxy && (message.sources || insights);
+  const showResponseActions = Boolean(showAnswerBody && message.content);
 
   return (
-    <div className="flex items-start gap-3 mb-7 min-w-0 max-w-full" onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
+    <div className="flex items-start gap-3 mb-7 min-w-0 max-w-full">
       <div className="flex-shrink-0 w-8 flex items-start justify-center rounded-[8px]"
         style={{ background: "transparent" }}>
         <LuxiaStarLogo size={24} />
@@ -1815,38 +1816,30 @@ function AICard({
           <span className="luxia-type-body-dense font-bold" style={{ color: LX.primary }}>Luxia</span>
           <span className="luxia-type-caption" style={{ color: LX.borderStrong }}>{message.timestamp}</span>
         </div>
-        <div className="px-5 py-4 rounded-[16px] min-w-0 overflow-hidden"
+        <div className="rounded-[16px] min-w-0 overflow-hidden"
           style={{ background: "white", border: "1px solid #EAF0F6", boxShadow: "0 6px 18px rgba(15,23,42,0.08)" }}>
-          {galaxy && galaxy.phase !== "complete" ? (
-            <GalaxyProvenanceRow meta={galaxy} />
-          ) : null}
-          {showAnswerBody && message.content ? (
-            <div className="luxia-chat-text" style={{ color: LX.primary }}>{renderContent(message.content)}</div>
-          ) : null}
-          {galaxy && galaxy.phase === "complete" ? (
-            <GalaxyProvenanceRow
-              meta={galaxy}
-              onViewActivity={onViewGalaxyActivity}
-              onOpenConstellation={onOpenGalaxyConstellation}
-            />
-          ) : null}
-          {showStandardFooter ? (
-            <SourceFooter
-              sources={message.sources}
-              insights={insights ?? undefined}
-            />
-          ) : null}
-        </div>
-        <div className="flex items-center gap-0.5 mt-2 transition-opacity duration-150" style={{ opacity: hover ? 1 : 0 }}>
-          {[{ icon: Copy, label: "Copy" }, { icon: RefreshCw, label: "Regenerate" }, { icon: Bookmark, label: "Save" }].map(({ icon: Icon, label }) => (
-            <button key={label}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-[8px] luxia-type-caption transition-colors"
-              style={{ color: LX.textMuted }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.borderSubtle; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
-              <Icon size={11} />{label}
-            </button>
-          ))}
+          <div className="px-5 py-4 min-w-0">
+            {galaxy && galaxy.phase !== "complete" ? (
+              <GalaxyProvenanceRow meta={galaxy} />
+            ) : null}
+            {showAnswerBody && message.content ? (
+              <div className="luxia-chat-text" style={{ color: LX.primary }}>{renderContent(message.content)}</div>
+            ) : null}
+            {galaxy && galaxy.phase === "complete" ? (
+              <GalaxyProvenanceRow
+                meta={galaxy}
+                onViewActivity={onViewGalaxyActivity}
+                onOpenConstellation={onOpenGalaxyConstellation}
+              />
+            ) : null}
+            {showStandardFooter ? (
+              <SourceFooter
+                sources={message.sources}
+                insights={insights ?? undefined}
+              />
+            ) : null}
+          </div>
+          {showResponseActions ? <ResponseActionsFooter content={message.content} /> : null}
         </div>
       </div>
     </div>
