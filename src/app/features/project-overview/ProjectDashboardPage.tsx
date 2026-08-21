@@ -340,6 +340,43 @@ export function ProjectDashboardPage({
     setDeleteOutputId(outputId);
   }
 
+  function getOutputMenuItems(item: ProjectDashboardOutput) {
+    const canMutateItem = canMutateOutput(projectRole, item, currentUserId);
+    const showEdit = canMutateItem && canEditDashboardOutput(item.outputType);
+    return [
+      {
+        id: "view",
+        label: "View",
+        onSelect: () => openView(item.id),
+      },
+      ...(canMutateItem
+        ? [
+            {
+              id: "rename",
+              label: "Rename",
+              onSelect: () => openRename(item.id),
+            },
+            ...(showEdit
+              ? [
+                  {
+                    id: "edit",
+                    label: "Edit",
+                    onSelect: () => openEdit(item.id),
+                  },
+                ]
+              : []),
+            {
+              id: "delete",
+              label: "Delete",
+              destructive: true as const,
+              separatorBefore: true,
+              onSelect: () => openDelete(item.id),
+            },
+          ]
+        : []),
+    ];
+  }
+
   function openCreateDialog() {
     if (!canCreateDashboard(projectRole)) {
       toast.error(DASHBOARD_CREATE_DENIED_MESSAGE);
@@ -467,7 +504,10 @@ export function ProjectDashboardPage({
       />
 
       {outputs.length > 0 ? (
-        <div className="flex min-w-0 flex-col gap-3">
+        <div
+          className="flex min-w-0 flex-col gap-3"
+          style={{ marginBottom: "var(--luxia-spacing-16)" }}
+        >
           <label className="block w-full max-w-full">
             <span className="sr-only">Search outputs</span>
             <div className="relative">
@@ -492,51 +532,56 @@ export function ProjectDashboardPage({
             </div>
           </label>
 
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <CollectionFilterBar
-              trailing={
-                <>
-                  <CollectorViewToggle
-                    value={viewMode}
-                    onChange={handleViewModeChange}
-                  />
-                  {filtersActive ? (
-                    <ResultsCount>{filteredResultsLabel(filteredOutputs.length)}</ResultsCount>
-                  ) : null}
-                </>
+          <CollectionFilterBar
+            style={{ columnGap: "var(--luxia-spacing-16)" }}
+            trailing={
+              <div
+                className="flex min-w-0 flex-wrap items-center"
+                style={{
+                  gap: "var(--luxia-spacing-12)",
+                  marginInlineStart: "var(--luxia-spacing-12)",
+                }}
+              >
+                <CollectorViewToggle
+                  value={viewMode}
+                  onChange={handleViewModeChange}
+                />
+                {filtersActive ? (
+                  <ResultsCount>{filteredResultsLabel(filteredOutputs.length)}</ResultsCount>
+                ) : null}
+              </div>
+            }
+          >
+            <BrowserFilterSelect
+              label="Output type"
+              value={typeFilter}
+              aria-label="Output type"
+              onChange={(event) => setTypeFilter(event.target.value as OutputTypeFilter)}
+            >
+              <option value="all">All output types</option>
+              <option value="chart">Chart</option>
+              <option value="table">Table</option>
+              <option value="report">Report</option>
+              <option value="metric">Metric</option>
+              <option value="analysis">Analysis</option>
+              <option value="insight">Insight</option>
+              <option value="comparison">Comparison</option>
+              <option value="mixed">Mixed</option>
+            </BrowserFilterSelect>
+
+            <BrowserFilterSelect
+              label="Conversation source"
+              value={sourceFilter}
+              aria-label="Conversation source"
+              onChange={(event) =>
+                setSourceFilter(event.target.value as ConversationSourceFilter)
               }
             >
-              <BrowserFilterSelect
-                label="Output type"
-                value={typeFilter}
-                aria-label="Output type"
-                onChange={(event) => setTypeFilter(event.target.value as OutputTypeFilter)}
-              >
-                <option value="all">All output types</option>
-                <option value="chart">Chart</option>
-                <option value="table">Table</option>
-                <option value="report">Report</option>
-                <option value="metric">Metric</option>
-                <option value="analysis">Analysis</option>
-                <option value="insight">Insight</option>
-                <option value="comparison">Comparison</option>
-                <option value="mixed">Mixed</option>
-              </BrowserFilterSelect>
-
-              <BrowserFilterSelect
-                label="Conversation source"
-                value={sourceFilter}
-                aria-label="Conversation source"
-                onChange={(event) =>
-                  setSourceFilter(event.target.value as ConversationSourceFilter)
-                }
-              >
-                <option value="all">All conversations</option>
-                <option value="galaxy">Galaxy</option>
-                <option value="constellation-chat">Constellation Chats</option>
-              </BrowserFilterSelect>
-            </CollectionFilterBar>
-          </div>
+              <option value="all">All conversations</option>
+              <option value="galaxy">Galaxy</option>
+              <option value="constellation-chat">Constellation Chats</option>
+            </BrowserFilterSelect>
+          </CollectionFilterBar>
         </div>
       ) : null}
 
@@ -577,95 +622,62 @@ export function ProjectDashboardPage({
           style={{ gap: 16 }}
         >
           {filteredOutputs.map((item) => {
-            const canMutateItem = canMutateOutput(projectRole, item, currentUserId);
-            const showEdit = canMutateItem && canEditDashboardOutput(item.outputType);
-            const menuItems = [
-              {
-                id: "view",
-                label: "View",
-                onSelect: () => openView(item.id),
-              },
-              ...(canMutateItem
-                ? [
-                    {
-                      id: "rename",
-                      label: "Rename",
-                      onSelect: () => openRename(item.id),
-                    },
-                    ...(showEdit
-                      ? [
-                          {
-                            id: "edit",
-                            label: "Edit",
-                            onSelect: () => openEdit(item.id),
-                          },
-                        ]
-                      : []),
-                    {
-                      id: "delete",
-                      label: "Delete",
-                      destructive: true as const,
-                      separatorBefore: true,
-                      onSelect: () => openDelete(item.id),
-                    },
-                  ]
-                : []),
-            ];
+            const menuItems = getOutputMenuItems(item);
 
             return (
-            <article
-              key={item.id}
-              className="relative flex min-w-0 flex-col rounded-[12px] p-3"
-              style={{
-                background: "var(--luxia-surface)",
-                border:
-                  "1px solid color-mix(in srgb, var(--luxia-blue-20) 45%, var(--luxia-neutral-200))",
-              }}
-              aria-label={`${item.name}, ${outputTypeLabel(item.outputType)}, from ${item.sourceContext}, updated ${item.updatedAt}`}
-            >
-              <div
-                className="absolute right-2 top-2 z-[1]"
-                onClick={stopCardActivation}
-                onPointerDown={stopCardActivation}
+              <article
+                key={item.id}
+                className="relative flex min-w-0 flex-col rounded-[12px] p-3"
+                style={{
+                  background: "var(--luxia-surface)",
+                  border:
+                    "1px solid color-mix(in srgb, var(--luxia-blue-20) 45%, var(--luxia-neutral-200))",
+                }}
+                aria-label={`${item.name}, ${outputTypeLabel(item.outputType)}, from ${item.sourceContext}, updated ${item.updatedAt}`}
               >
-                <LuxiaEntityOptionsMenu
-                  entityLabel={item.name}
-                  entityType="Output"
-                  ariaLabel={`Output options for ${item.name}`}
-                  align="end"
-                  items={menuItems}
-                />
-              </div>
-
-              <button
-                type="button"
-                className="min-w-0 flex-1 rounded-[10px] text-left outline-none focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]"
-                onClick={() => openView(item.id)}
-                aria-label={`View output ${item.name}`}
-              >
-                <DashboardOutputPreviewGraphic variant={item.outputType} size="full" />
-                <div className="mt-3 flex min-w-0 flex-1 flex-col gap-1 px-0.5 pr-8">
-                  <h2
-                    className="truncate luxia-type-body-dense-strong"
-                    style={{ color: "var(--luxia-purple-70)" }}
-                  >
-                    {item.name}
-                  </h2>
-                  <p
-                    className="truncate luxia-type-caption"
-                    style={{ color: "var(--luxia-neutral-600, #475569)" }}
-                  >
-                    {outputTypeLabel(item.outputType)} · {item.sourceContext}
-                  </p>
-                  <p
-                    className="mt-auto pt-1 luxia-type-caption"
-                    style={{ color: "var(--luxia-neutral-500, #64748B)" }}
-                  >
-                    Updated {item.updatedAt}
-                  </p>
+                <div
+                  className="absolute right-2 top-2 z-[1]"
+                  onClick={stopCardActivation}
+                  onPointerDown={stopCardActivation}
+                >
+                  <LuxiaEntityOptionsMenu
+                    entityLabel={item.name}
+                    entityType="Output"
+                    ariaLabel={`Output options for ${item.name}`}
+                    align="end"
+                    items={menuItems}
+                  />
                 </div>
-              </button>
-            </article>
+
+                <button
+                  type="button"
+                  className="min-w-0 flex-1 rounded-[10px] text-left outline-none focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]"
+                  onClick={() => openView(item.id)}
+                  aria-label={`View output ${item.name}`}
+                >
+                  <DashboardOutputPreviewGraphic variant={item.outputType} size="full" />
+                  <div className="mt-3 flex min-w-0 flex-1 flex-col gap-1 px-0.5 pr-8">
+                    <h2
+                      className="truncate luxia-type-body-dense-strong"
+                      style={{ color: "var(--luxia-purple-70)" }}
+                    >
+                      {item.name}
+                    </h2>
+                    <p
+                      className="truncate luxia-type-caption"
+                      style={{ color: "var(--luxia-neutral-600, #475569)" }}
+                    >
+                      {outputTypeLabel(item.outputType)} · {item.sourceContext}
+                    </p>
+                    <p
+                      className="mt-auto pt-1 luxia-type-caption"
+                      style={{ color: "var(--luxia-neutral-500, #64748B)" }}
+                    >
+                      Updated {item.updatedAt}
+                    </p>
+                  </div>
+                </button>
+              </article>
             );
           })}
         </div>
@@ -679,40 +691,7 @@ export function ProjectDashboardPage({
           role="list"
         >
           {filteredOutputs.map((item) => {
-            const canMutateItem = canMutateOutput(projectRole, item, currentUserId);
-            const showEdit = canMutateItem && canEditDashboardOutput(item.outputType);
-            const menuItems = [
-              {
-                id: "view",
-                label: "View",
-                onSelect: () => openView(item.id),
-              },
-              ...(canMutateItem
-                ? [
-                    {
-                      id: "rename",
-                      label: "Rename",
-                      onSelect: () => openRename(item.id),
-                    },
-                    ...(showEdit
-                      ? [
-                          {
-                            id: "edit",
-                            label: "Edit",
-                            onSelect: () => openEdit(item.id),
-                          },
-                        ]
-                      : []),
-                    {
-                      id: "delete",
-                      label: "Delete",
-                      destructive: true as const,
-                      separatorBefore: true,
-                      onSelect: () => openDelete(item.id),
-                    },
-                  ]
-                : []),
-            ];
+            const menuItems = getOutputMenuItems(item);
 
             return (
               <div

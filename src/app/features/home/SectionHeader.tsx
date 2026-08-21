@@ -9,7 +9,7 @@ interface SectionHeaderProps {
   iconColor: string;
   onViewAll?: () => void;
   viewAllAriaLabel?: string;
-  /** Optional controls rendered before View all (e.g. Grid/List toggle). */
+  /** Optional trailing controls shown before View all. */
   actions?: ReactNode;
 }
 

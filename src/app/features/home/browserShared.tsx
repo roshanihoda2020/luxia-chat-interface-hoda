@@ -1,4 +1,4 @@
-import type { ReactNode, SelectHTMLAttributes } from "react";
+import type { CSSProperties, ReactNode, SelectHTMLAttributes } from "react";
 import { useId } from "react";
 import { Search } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
@@ -239,13 +239,18 @@ export function CollectionFilterBar({
   children,
   trailing,
   className = "",
+  style,
 }: {
   children: ReactNode;
   trailing?: ReactNode;
   className?: string;
+  style?: CSSProperties;
 }) {
   return (
-    <div className={`flex flex-wrap items-end gap-x-4 gap-y-3 ${className}`.trim()}>
+    <div
+      className={`flex flex-wrap items-end gap-x-4 gap-y-3 ${className}`.trim()}
+      style={style}
+    >
       {children}
       {trailing ? (
         <div className="ml-auto flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 self-end">

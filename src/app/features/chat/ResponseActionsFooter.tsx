@@ -32,7 +32,7 @@ const DASHBOARD_BREAKPOINT = 400;
 
 type Feedback = "none" | "liked" | "disliked";
 
-export function isDashboardCompatibleOutput(content: string): boolean {
+function isDashboardCompatibleOutput(content: string): boolean {
   const text = content.trim();
   if (!text) return false;
 
