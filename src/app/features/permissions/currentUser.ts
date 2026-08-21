@@ -8,7 +8,7 @@
 
 import type { ProjectRole } from "./types";
 
-export let CURRENT_USER_ID = "user-01";
+export let CURRENT_USER_ID = "user-05";
 
 export function setPrototypeCurrentUserId(userId: string): void {
   CURRENT_USER_ID = userId;

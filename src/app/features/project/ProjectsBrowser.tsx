@@ -22,6 +22,13 @@ import {
   HS,
 } from "@/app/features/home/homeSurfaces";
 import { PinButton } from "@/app/features/home/PinButton";
+import {
+  CollectorViewToggle,
+  readCollectorViewMode,
+  writeCollectorViewMode,
+  type CollectorViewMode,
+} from "@/app/features/shared";
+import { NO_PROJECT_ROLE_LABEL } from "@/app/features/permissions/currentUser";
 import { isProjectActive, isProjectArchived, rankProjectsForPreview } from "./data";
 import { ProjectCardFooter, ProjectCardMeta } from "./ProjectCardMeta";
 import { ProjectCornerMarker } from "./ProjectCornerMarker";
@@ -122,10 +129,18 @@ export function ProjectsBrowser({
   const [sortMode, setSortMode] =
     useState<ProjectSortMode>("updated");
   const [page, setPage] = useState(1);
+  const [viewMode, setViewMode] = useState<CollectorViewMode>(() =>
+    readCollectorViewMode("projects"),
+  );
 
   const cardStyle = getHomeCardStyle("supportingProject");
   const text = getProjectCardTypography(cardStyle);
   const isArchivedTab = lifecycleTab === "archived";
+
+  function handleViewModeChange(mode: CollectorViewMode) {
+    setViewMode(mode);
+    writeCollectorViewMode("projects", mode);
+  }
 
   useEffect(() => {
     setPage(1);
@@ -261,6 +276,11 @@ export function ProjectsBrowser({
                 </Button>
               ) : null}
 
+              <CollectorViewToggle
+                value={viewMode}
+                onChange={handleViewModeChange}
+              />
+
               <ResultsCount>
                 {filtered.length}{" "}
                 {isArchivedTab ? "archived" : "active"}{" "}
@@ -352,7 +372,7 @@ export function ProjectsBrowser({
               : "No matching Projects."}
           </p>
         )
-      ) : (
+      ) : viewMode === "grid" ? (
         <div className={BROWSER_COLLECTION_GRID}>
           {pageItems.map((project) => {
             const description =
@@ -476,6 +496,111 @@ export function ProjectsBrowser({
                     />
                   }
                 />
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div
+          className="overflow-hidden rounded-[var(--luxia-radius-12)] border bg-white"
+          style={{ borderColor: "var(--luxia-border-default)" }}
+          role="list"
+        >
+          {pageItems.map((project) => {
+            const description = project.description?.trim();
+            const archived = isProjectArchived(project);
+            const optionsItems = buildProjectCardOptions(project, {
+              onEditProject,
+              onArchiveProject,
+              onRestoreProject,
+              onDeleteProject,
+              canEditProject,
+              canArchiveProject,
+              canDeleteProject,
+              canRestoreProject,
+            });
+            const roleLabel =
+              project.viewerProjectRole !== undefined
+                ? (project.viewerProjectRole ?? NO_PROJECT_ROLE_LABEL)
+                : null;
+            const metaLine = [
+              `${project.constellationCount} ${project.constellationCount === 1 ? "Constellation" : "Constellations"}`,
+              `${project.sourceCount ?? 0} ${(project.sourceCount ?? 0) === 1 ? "Source" : "Sources"}`,
+              `${project.memberCount} ${project.memberCount === 1 ? "member" : "members"}`,
+            ].join(" · ");
+            const secondaryMeta = [
+              roleLabel ? `Your role · ${roleLabel}` : null,
+              `Updated ${project.updatedAt}`,
+            ]
+              .filter(Boolean)
+              .join(" · ");
+
+            return (
+              <div
+                key={project.id}
+                role="listitem"
+                className="flex min-w-0 flex-wrap items-center gap-3 border-b px-4 py-3 last:border-b-0"
+                style={{
+                  borderColor: "var(--luxia-border-default)",
+                }}
+              >
+                <div className="min-w-0 flex-1">
+                  <a
+                    href={getProjectPath(project.id)}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      onOpenProject(project.id);
+                    }}
+                    className="block truncate rounded-[4px] luxia-type-body-dense-strong outline-none hover:opacity-90 focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]"
+                    style={{ color: "var(--luxia-text-primary)" }}
+                    title={project.name}
+                    aria-label={`Open Project ${project.name}`}
+                  >
+                    {project.name}
+                  </a>
+                  {description ? (
+                    <p
+                      className="mt-0.5 line-clamp-1 luxia-type-caption"
+                      style={{ color: "var(--luxia-text-secondary)" }}
+                      title={description}
+                    >
+                      {description}
+                    </p>
+                  ) : null}
+                  <p
+                    className="mt-1.5 truncate luxia-type-caption"
+                    style={{ color: "var(--luxia-text-muted)" }}
+                  >
+                    <span>{metaLine}</span>
+                    {secondaryMeta ? (
+                      <span className="hidden md:inline">{` · ${secondaryMeta}`}</span>
+                    ) : null}
+                  </p>
+                </div>
+
+                <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                  {!archived ? (
+                    <PinButton
+                      pinned={project.isPinned}
+                      label={project.name}
+                      controlSize="project"
+                      onToggle={() => onToggleProjectPin(project.id)}
+                    />
+                  ) : null}
+                  <LuxiaEntityOptionsMenu
+                    entityType="Project"
+                    entityLabel={project.name}
+                    ariaLabel={`Project options for ${project.name}`}
+                    items={optionsItems}
+                  />
+                  <ProjectDestinationActions
+                    projectId={project.id}
+                    projectName={project.name}
+                    compact
+                    onOpenProject={onOpenProject}
+                    onNavigate={onNavigateProjectDestination}
+                  />
+                </div>
               </div>
             );
           })}

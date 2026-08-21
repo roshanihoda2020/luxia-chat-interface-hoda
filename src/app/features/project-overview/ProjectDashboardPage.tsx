@@ -38,6 +38,12 @@ import { getProjectNameById } from "@/app/features/project";
 import type { HomeProjectCard } from "@/app/features/project/types";
 import { CURRENT_USER_ID } from "@/app/features/permissions";
 import type { ProjectRole } from "@/app/features/permissions";
+import {
+  CollectorViewToggle,
+  readCollectorViewMode,
+  writeCollectorViewMode,
+  type CollectorViewMode,
+} from "@/app/features/shared";
 import { toast } from "sonner";
 import {
   canCreateDashboard,
@@ -136,6 +142,9 @@ export function ProjectDashboardPage({
   const [typeFilter, setTypeFilter] = useState<OutputTypeFilter>("all");
   const [sourceFilter, setSourceFilter] = useState<ConversationSourceFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [viewMode, setViewMode] = useState<CollectorViewMode>(() =>
+    readCollectorViewMode("dashboard"),
+  );
   const [outputs, setOutputs] = useState<ProjectDashboardOutput[]>([]);
   const [viewOutputId, setViewOutputId] = useState<string | null>(null);
   const [renameOutputId, setRenameOutputId] = useState<string | null>(null);
@@ -150,6 +159,11 @@ export function ProjectDashboardPage({
   const outputCounterRef = useRef(0);
 
   const canCreate = canCreateDashboard(projectRole);
+
+  function handleViewModeChange(mode: CollectorViewMode) {
+    setViewMode(mode);
+    writeCollectorViewMode("dashboard", mode);
+  }
 
   const project = projectId
     ? projects.find((entry) => entry.id === projectId)
@@ -479,7 +493,19 @@ export function ProjectDashboardPage({
           </label>
 
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <CollectionFilterBar>
+            <CollectionFilterBar
+              trailing={
+                <>
+                  <CollectorViewToggle
+                    value={viewMode}
+                    onChange={handleViewModeChange}
+                  />
+                  {filtersActive ? (
+                    <ResultsCount>{filteredResultsLabel(filteredOutputs.length)}</ResultsCount>
+                  ) : null}
+                </>
+              }
+            >
               <BrowserFilterSelect
                 label="Output type"
                 value={typeFilter}
@@ -510,9 +536,6 @@ export function ProjectDashboardPage({
                 <option value="constellation-chat">Constellation Chats</option>
               </BrowserFilterSelect>
             </CollectionFilterBar>
-            {filtersActive ? (
-              <ResultsCount>{filteredResultsLabel(filteredOutputs.length)}</ResultsCount>
-            ) : null}
           </div>
         </div>
       ) : null}
@@ -548,7 +571,7 @@ export function ProjectDashboardPage({
           title="No matching outputs"
           onClear={filtersActive ? clearFilters : undefined}
         />
-      ) : (
+      ) : viewMode === "grid" ? (
         <div
           className="grid min-w-0 grid-cols-1 items-stretch gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
           style={{ gap: 16 }}
@@ -643,6 +666,98 @@ export function ProjectDashboardPage({
                 </div>
               </button>
             </article>
+            );
+          })}
+        </div>
+      ) : (
+        <div
+          className="overflow-hidden rounded-[12px] border bg-[var(--luxia-surface)]"
+          style={{
+            borderColor:
+              "color-mix(in srgb, var(--luxia-blue-20) 40%, var(--luxia-neutral-200))",
+          }}
+          role="list"
+        >
+          {filteredOutputs.map((item) => {
+            const canMutateItem = canMutateOutput(projectRole, item, currentUserId);
+            const showEdit = canMutateItem && canEditDashboardOutput(item.outputType);
+            const menuItems = [
+              {
+                id: "view",
+                label: "View",
+                onSelect: () => openView(item.id),
+              },
+              ...(canMutateItem
+                ? [
+                    {
+                      id: "rename",
+                      label: "Rename",
+                      onSelect: () => openRename(item.id),
+                    },
+                    ...(showEdit
+                      ? [
+                          {
+                            id: "edit",
+                            label: "Edit",
+                            onSelect: () => openEdit(item.id),
+                          },
+                        ]
+                      : []),
+                    {
+                      id: "delete",
+                      label: "Delete",
+                      destructive: true as const,
+                      separatorBefore: true,
+                      onSelect: () => openDelete(item.id),
+                    },
+                  ]
+                : []),
+            ];
+
+            return (
+              <div
+                key={item.id}
+                role="listitem"
+                className="flex min-w-0 items-center gap-3 border-b px-4 py-3 last:border-b-0"
+                style={{ borderColor: "var(--luxia-border-default)" }}
+              >
+                <button
+                  type="button"
+                  className="min-w-0 flex-1 rounded-[6px] text-left outline-none focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]"
+                  onClick={() => openView(item.id)}
+                  aria-label={`View output ${item.name}`}
+                >
+                  <p
+                    className="truncate luxia-type-body-dense-strong"
+                    style={{ color: "var(--luxia-purple-70)" }}
+                  >
+                    {item.name}
+                  </p>
+                  <p
+                    className="mt-1 truncate luxia-type-caption"
+                    style={{ color: "var(--luxia-neutral-600, #475569)" }}
+                  >
+                    <span>{outputTypeLabel(item.outputType)}</span>
+                    <span className="hidden sm:inline">{` · ${item.sourceContext}`}</span>
+                    <span className="hidden md:inline">{` · Updated ${item.updatedAt}`}</span>
+                  </p>
+                  <p
+                    className="mt-0.5 truncate luxia-type-caption sm:hidden"
+                    style={{ color: "var(--luxia-neutral-500, #64748B)" }}
+                  >
+                    {item.sourceContext} · Updated {item.updatedAt}
+                  </p>
+                </button>
+                <div className="shrink-0" onClick={stopCardActivation} onPointerDown={stopCardActivation}>
+                  <LuxiaEntityOptionsMenu
+                    entityLabel={item.name}
+                    entityType="Output"
+                    ariaLabel={`Output options for ${item.name}`}
+                    align="end"
+                    items={menuItems}
+                  />
+                </div>
+              </div>
             );
           })}
         </div>

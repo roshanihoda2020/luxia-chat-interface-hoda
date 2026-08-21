@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { LuxiaProjectsIcon } from "@/assets/icons";
 import { Button } from "@/app/components/ui/button";
 import {
@@ -8,6 +9,13 @@ import { EntityIdentityRow } from "@/app/features/home/entityIdentity";
 import { getHomeCardStyle, getProjectCardTypography, HS, HI } from "@/app/features/home/homeSurfaces";
 import { PinButton } from "@/app/features/home/PinButton";
 import { SectionHeader } from "@/app/features/home/SectionHeader";
+import { NO_PROJECT_ROLE_LABEL } from "@/app/features/permissions/currentUser";
+import {
+  CollectorViewToggle,
+  readCollectorViewMode,
+  writeCollectorViewMode,
+  type CollectorViewMode,
+} from "@/app/features/shared";
 import { getProjectPreview, isProjectArchived } from "./data";
 import { getProjectPath } from "./projectPaths";
 import { ProjectCardFooter, ProjectCardMeta } from "./ProjectCardMeta";
@@ -344,6 +352,9 @@ export function ProjectsPreview({
   onOpenProject,
   onNavigateProjectDestination,
 }: ProjectsPreviewProps) {
+  const [viewMode, setViewMode] = useState<CollectorViewMode>(() =>
+    readCollectorViewMode("home-projects"),
+  );
   const { featured, supporting, showViewAll } = getProjectPreview(
     projects,
     pinnedProjectOrder,
@@ -354,6 +365,12 @@ export function ProjectsPreview({
   const featuredText = getProjectCardTypography(featuredStyle);
   const supportingStyle = getHomeCardStyle("supportingProject");
   const supportingText = getProjectCardTypography(supportingStyle);
+  const previewProjects = [featured, ...supporting];
+
+  function handleViewModeChange(mode: CollectorViewMode) {
+    setViewMode(mode);
+    writeCollectorViewMode("home-projects", mode);
+  }
 
   return (
     <section aria-labelledby="home-projects-heading">
@@ -364,62 +381,175 @@ export function ProjectsPreview({
         iconColor={HS.sectionIconProjects}
         onViewAll={showViewAll ? onViewAll : undefined}
         viewAllAriaLabel="View all Projects"
+        actions={(
+          <CollectorViewToggle
+            value={viewMode}
+            onChange={handleViewModeChange}
+          />
+        )}
       />
 
-      <div className="mb-4">
-        <ProjectCardShell
-          project={featured}
-          markerSize="featured"
-          padClass={HI.cardPadFeatured}
-          borderRadius={HS.heroRadius}
-          background={featuredStyle.bg}
-          border={featuredStyle.border}
-          titleClass="luxia-type-heading-h4"
-          titleColor={featuredText.title}
-          descriptionColor="var(--luxia-text-secondary)"
-          compactActions={false}
-          onToggleProjectPin={onToggleProjectPin}
-          onArchiveProject={onArchiveProject}
-          onRestoreProject={onRestoreProject}
-          onEditProject={onEditProject}
-          onDeleteProject={onDeleteProject}
-          canEditProject={canEditProject}
-          canArchiveProject={canArchiveProject}
-          canDeleteProject={canDeleteProject}
-          canRestoreProject={canRestoreProject}
-          onOpenProject={onOpenProject}
-          onNavigate={onNavigateProjectDestination}
-        />
-      </div>
+      {viewMode === "grid" ? (
+        <>
+          <div className="mb-4">
+            <ProjectCardShell
+              project={featured}
+              markerSize="featured"
+              padClass={HI.cardPadFeatured}
+              borderRadius={HS.heroRadius}
+              background={featuredStyle.bg}
+              border={featuredStyle.border}
+              titleClass="luxia-type-heading-h4"
+              titleColor={featuredText.title}
+              descriptionColor="var(--luxia-text-secondary)"
+              compactActions={false}
+              onToggleProjectPin={onToggleProjectPin}
+              onArchiveProject={onArchiveProject}
+              onRestoreProject={onRestoreProject}
+              onEditProject={onEditProject}
+              onDeleteProject={onDeleteProject}
+              canEditProject={canEditProject}
+              canArchiveProject={canArchiveProject}
+              canDeleteProject={canDeleteProject}
+              canRestoreProject={canRestoreProject}
+              onOpenProject={onOpenProject}
+              onNavigate={onNavigateProjectDestination}
+            />
+          </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:items-stretch">
-        {supporting.map((project) => (
-          <ProjectCardShell
-            key={project.id}
-            project={project}
-            markerSize="supporting"
-            padClass={HI.cardPadSupporting}
-            borderRadius="var(--luxia-radius-12)"
-            background={supportingStyle.bg}
-            border={supportingStyle.border}
-            titleClass="luxia-type-title-card"
-            titleColor={supportingText.title}
-            descriptionColor="var(--luxia-text-secondary)"
-            compactActions
-            onToggleProjectPin={onToggleProjectPin}
-            onArchiveProject={onArchiveProject}
-            onRestoreProject={onRestoreProject}
-            onEditProject={onEditProject}
-            onDeleteProject={onDeleteProject}
-            canEditProject={canEditProject}
-            canArchiveProject={canArchiveProject}
-            canDeleteProject={canDeleteProject}
-            canRestoreProject={canRestoreProject}
-            onOpenProject={onOpenProject}
-            onNavigate={onNavigateProjectDestination}
-          />
-        ))}
-      </div>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:items-stretch">
+            {supporting.map((project) => (
+              <ProjectCardShell
+                key={project.id}
+                project={project}
+                markerSize="supporting"
+                padClass={HI.cardPadSupporting}
+                borderRadius="var(--luxia-radius-12)"
+                background={supportingStyle.bg}
+                border={supportingStyle.border}
+                titleClass="luxia-type-title-card"
+                titleColor={supportingText.title}
+                descriptionColor="var(--luxia-text-secondary)"
+                compactActions
+                onToggleProjectPin={onToggleProjectPin}
+                onArchiveProject={onArchiveProject}
+                onRestoreProject={onRestoreProject}
+                onEditProject={onEditProject}
+                onDeleteProject={onDeleteProject}
+                canEditProject={canEditProject}
+                canArchiveProject={canArchiveProject}
+                canDeleteProject={canDeleteProject}
+                canRestoreProject={canRestoreProject}
+                onOpenProject={onOpenProject}
+                onNavigate={onNavigateProjectDestination}
+              />
+            ))}
+          </div>
+        </>
+      ) : (
+        <div
+          className="overflow-hidden rounded-[var(--luxia-radius-12)] border bg-white"
+          style={{ borderColor: "var(--luxia-border-default)" }}
+          role="list"
+        >
+          {previewProjects.map((project) => {
+            const description = project.description?.trim();
+            const archived = isProjectArchived(project);
+            const optionsItems = buildProjectCardOptions(project, {
+              onEditProject,
+              onArchiveProject,
+              onRestoreProject,
+              onDeleteProject,
+              canEditProject,
+              canArchiveProject,
+              canDeleteProject,
+              canRestoreProject,
+            });
+            const roleLabel =
+              project.viewerProjectRole !== undefined
+                ? (project.viewerProjectRole ?? NO_PROJECT_ROLE_LABEL)
+                : null;
+            const metaLine = [
+              `${project.constellationCount} ${project.constellationCount === 1 ? "Constellation" : "Constellations"}`,
+              `${project.sourceCount ?? 0} ${(project.sourceCount ?? 0) === 1 ? "Source" : "Sources"}`,
+              `${project.memberCount} ${project.memberCount === 1 ? "member" : "members"}`,
+            ].join(" · ");
+            const secondaryMeta = [
+              roleLabel ? `Your role · ${roleLabel}` : null,
+              `Updated ${project.updatedAt}`,
+            ]
+              .filter(Boolean)
+              .join(" · ");
+
+            return (
+              <div
+                key={project.id}
+                role="listitem"
+                className="flex min-w-0 flex-wrap items-center gap-3 border-b px-4 py-3 last:border-b-0"
+                style={{ borderColor: "var(--luxia-border-default)" }}
+              >
+                <div className="min-w-0 flex-1">
+                  <a
+                    href={getProjectPath(project.id)}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      onOpenProject(project.id);
+                    }}
+                    className="block truncate rounded-[4px] luxia-type-body-dense-strong outline-none hover:opacity-90 focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]"
+                    style={{ color: "var(--luxia-text-primary)" }}
+                    title={project.name}
+                    aria-label={`Open Project ${project.name}`}
+                  >
+                    {project.name}
+                  </a>
+                  {description ? (
+                    <p
+                      className="mt-0.5 line-clamp-1 luxia-type-caption"
+                      style={{ color: "var(--luxia-text-secondary)" }}
+                      title={description}
+                    >
+                      {description}
+                    </p>
+                  ) : null}
+                  <p
+                    className="mt-1.5 truncate luxia-type-caption"
+                    style={{ color: "var(--luxia-text-muted)" }}
+                  >
+                    <span>{metaLine}</span>
+                    {secondaryMeta ? (
+                      <span className="hidden md:inline">{` · ${secondaryMeta}`}</span>
+                    ) : null}
+                  </p>
+                </div>
+
+                <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                  {!archived ? (
+                    <PinButton
+                      pinned={project.isPinned}
+                      label={project.name}
+                      controlSize="project"
+                      onToggle={() => onToggleProjectPin(project.id)}
+                    />
+                  ) : null}
+                  <LuxiaEntityOptionsMenu
+                    entityType="Project"
+                    entityLabel={project.name}
+                    ariaLabel={`Project options for ${project.name}`}
+                    items={optionsItems}
+                  />
+                  <ProjectDestinationActions
+                    projectId={project.id}
+                    projectName={project.name}
+                    compact
+                    onOpenProject={onOpenProject}
+                    onNavigate={onNavigateProjectDestination}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </section>
   );
 }

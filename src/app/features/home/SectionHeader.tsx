@@ -9,6 +9,8 @@ interface SectionHeaderProps {
   iconColor: string;
   onViewAll?: () => void;
   viewAllAriaLabel?: string;
+  /** Optional controls rendered before View all (e.g. Grid/List toggle). */
+  actions?: ReactNode;
 }
 
 export function SectionHeader({
@@ -18,7 +20,10 @@ export function SectionHeader({
   iconColor,
   onViewAll,
   viewAllAriaLabel,
+  actions,
 }: SectionHeaderProps) {
+  const hasTrailing = Boolean(actions) || Boolean(onViewAll);
+
   return (
     <div className={`${HI.sectionHeadingGap} flex flex-wrap items-center justify-between gap-x-4 gap-y-2`}>
       <div className="flex min-w-0 items-center gap-3">
@@ -33,12 +38,17 @@ export function SectionHeader({
           {title}
         </h2>
       </div>
-      {onViewAll ? (
-        <ViewAllAction
-          label="View all"
-          ariaLabel={viewAllAriaLabel ?? `View all ${title}`}
-          onClick={onViewAll}
-        />
+      {hasTrailing ? (
+        <div className="flex min-w-0 shrink-0 flex-wrap items-center justify-end gap-x-3 gap-y-2">
+          {actions}
+          {onViewAll ? (
+            <ViewAllAction
+              label="View all"
+              ariaLabel={viewAllAriaLabel ?? `View all ${title}`}
+              onClick={onViewAll}
+            />
+          ) : null}
+        </div>
       ) : null}
     </div>
   );
