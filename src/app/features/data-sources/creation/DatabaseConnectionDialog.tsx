@@ -169,7 +169,7 @@ export function DatabaseConnectionDialog({
       }}
     >
       <DialogContent className="flex max-h-[min(92vh,44rem)] max-w-lg flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
-        <DialogHeader className="shrink-0 space-y-1.5 border-b px-6 py-5 text-left" style={{ borderColor: "var(--luxia-border-subtle)" }}>
+        <DialogHeader className="shrink-0">
           <DialogTitle>Connect database</DialogTitle>
           <DialogDescription>
             {option?.label ?? "Database"} · {sourceName}
@@ -473,10 +473,7 @@ export function DatabaseConnectionDialog({
           ) : null}
         </div>
 
-        <DialogFooter
-          className="shrink-0 flex-col gap-2 border-t px-6 py-4 sm:flex-row sm:justify-between"
-          style={{ borderColor: "var(--luxia-border-subtle)" }}
-        >
+        <DialogFooter className="shrink-0 flex-col gap-2 sm:flex-row sm:justify-between">
           <Button type="button" variant="secondary" size="compact" onClick={onBack}>
             Back
           </Button>

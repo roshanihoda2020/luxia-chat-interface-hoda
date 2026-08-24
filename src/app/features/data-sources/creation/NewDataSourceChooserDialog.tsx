@@ -55,7 +55,7 @@ export function NewDataSourceChooserDialog({
       }}
     >
       <DialogContent className="flex max-h-[min(90vh,42rem)] max-w-xl flex-col gap-0 overflow-hidden p-0 sm:max-w-xl">
-        <DialogHeader className="shrink-0 space-y-1.5 border-b px-6 py-5 text-left" style={{ borderColor: "var(--luxia-border-subtle)" }}>
+        <DialogHeader className="shrink-0">
           <DialogTitle>New Data Source</DialogTitle>
           <DialogDescription>
             Choose the type of Data Source you want to connect.
@@ -189,7 +189,7 @@ export function NewDataSourceChooserDialog({
           ) : null}
         </div>
 
-        <DialogFooter className="shrink-0 border-t px-6 py-4" style={{ borderColor: "var(--luxia-border-subtle)" }}>
+        <DialogFooter className="shrink-0">
           <Button type="button" variant="secondary" size="compact" onClick={onCancel}>
             Cancel
           </Button>

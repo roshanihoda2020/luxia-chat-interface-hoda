@@ -10,6 +10,11 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/app/components/ui/dialog";
+import {
+  LUXIA_DIALOG_CLOSE_ON_DARK_CLASS,
+  STRUCTURED_MODAL_DARK_CHROME_STYLE,
+} from "@/app/features/shared/structuredModalChrome";
+import { cn } from "@/app/components/ui/utils";
 
 /** @deprecated Custom content overrides are no longer used; kept for API compatibility. */
 export interface LuxiaAccessGuideContent {
@@ -102,20 +107,24 @@ export function LuxiaAccessGuide({
         className="flex max-h-[calc(100vh-80px)] w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-[680px]"
       >
         <header
-          className="relative shrink-0 border-b px-6 pb-4 pt-6 pr-14"
-          style={{ borderColor: "var(--luxia-border-subtle)" }}
+          className="relative shrink-0 px-6 py-4 pr-14"
+          style={STRUCTURED_MODAL_DARK_CHROME_STYLE}
         >
-          <DialogTitle className="select-none">Access guide</DialogTitle>
+          <DialogTitle className="select-none text-[var(--luxia-text-inverse)]">
+            Access guide
+          </DialogTitle>
           <DialogDescription
             id="luxia-access-guide-description"
-            className="mt-1.5"
-            style={{ color: "var(--luxia-text-secondary)" }}
+            className="mt-1.5 text-[var(--luxia-purple-10)]"
           >
             Understand how roles, ownership, and Data Source permissions work together.
           </DialogDescription>
           <DialogClose
             type="button"
-            className="luxia-button luxia-button--ghost luxia-button--icon-compact absolute top-4 right-4 opacity-70 transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]"
+            className={cn(
+              "luxia-button luxia-button--ghost luxia-button--icon-compact absolute top-3.5 right-3.5",
+              LUXIA_DIALOG_CLOSE_ON_DARK_CLASS,
+            )}
             aria-label="Close Access guide"
           >
             <XIcon aria-hidden />

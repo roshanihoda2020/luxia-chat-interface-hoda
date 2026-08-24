@@ -19,7 +19,9 @@ function CrawlerFormDialog({ open, onOpenChange, mode, initialValues, onSubmit }
                 <DialogHeader>
                     <DialogTitle className="luxia-type-title-panel">{mode === "add" ? "Add crawler URL" : "Edit crawler URL"}</DialogTitle>
                 </DialogHeader>
-                <CrawlerForm values={values} onChange={setValues} />
+                <div className="px-6 py-4">
+                    <CrawlerForm values={values} onChange={setValues} />
+                </div>
                 <DialogFooter className="gap-2 sm:gap-2">
                     <Button type="button" variant="secondary" className="px-4" onClick={() => onOpenChange(false)}>Cancel</Button>
                     <Button type="button" className="px-4" disabled={!valid} onClick={() => { onSubmit({ ...values, url: values.url.trim() }); onOpenChange(false); }}>{mode === "add" ? "Add" : "Update"}</Button>

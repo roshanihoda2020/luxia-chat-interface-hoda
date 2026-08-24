@@ -116,10 +116,7 @@ export function AddConstellationDataSourceDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="flex max-h-[min(90vh,36rem)] max-w-lg flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
-        <DialogHeader
-          className="shrink-0 space-y-1.5 border-b px-6 py-5 text-left"
-          style={{ borderColor: "var(--luxia-border-subtle)" }}
-        >
+        <DialogHeader className="shrink-0">
           <DialogTitle>Add Data Source</DialogTitle>
           <DialogDescription>
             Choose an accessible Data Source with Use or Manage permission. Access
@@ -214,10 +211,7 @@ export function AddConstellationDataSourceDialog({
           )}
         </div>
 
-        <DialogFooter
-          className="shrink-0 border-t px-6 py-4"
-          style={{ borderColor: "var(--luxia-border-subtle)" }}
-        >
+        <DialogFooter className="shrink-0">
           <Button
             type="button"
             variant="secondary"

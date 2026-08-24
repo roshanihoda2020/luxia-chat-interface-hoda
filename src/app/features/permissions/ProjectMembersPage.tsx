@@ -637,16 +637,14 @@ export function ProjectMembersPage({
       <Dialog open={rolesOpen} onOpenChange={setRolesOpen}>
         <DialogContent className="max-h-[min(88vh,720px)] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle style={{ color: "var(--luxia-purple-70)" }}>
-              Compare roles
-            </DialogTitle>
+            <DialogTitle>Compare roles</DialogTitle>
             <DialogDescription>
               Project roles control actions within this Project. Data Source
               access is managed separately through Access Levels and does not
               block basic Chat with existing Project Constellations.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-4 px-6 py-4">
             {PROJECT_ROLE_DEFINITIONS.map((def) => (
               <section key={def.role}>
                 <h3
@@ -670,15 +668,13 @@ export function ProjectMembersPage({
       <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle style={{ color: "var(--luxia-purple-70)" }}>
-              Invite Member
-            </DialogTitle>
+            <DialogTitle>Invite Member</DialogTitle>
             <DialogDescription>
               Invite an organization user to this Project. Ownership cannot be
               assigned via invite.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-4 px-6 py-4">
             <FilterField label="User" htmlFor="invite-user">
               <Select value={inviteUserId} onValueChange={setInviteUserId}>
                 <SelectTrigger id="invite-user" aria-label="User to invite">
@@ -773,9 +769,7 @@ export function ProjectMembersPage({
       >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle style={{ color: "var(--luxia-purple-70)" }}>
-              Data Source access
-            </DialogTitle>
+            <DialogTitle>Data Source access</DialogTitle>
             <DialogDescription>
               Project-required Data Sources for {project.name} (prototype preview).
             </DialogDescription>
@@ -783,7 +777,7 @@ export function ProjectMembersPage({
           {accessSummaryUserId ? (() => {
             const details = buildAccessSummaryDetails(accessSummaryUserId);
             return (
-              <div className="space-y-3">
+              <div className="space-y-3 px-6 py-4">
                 <div className="flex items-center gap-2.5">
                   <DemoUserAvatar userId={accessSummaryUserId} aria-hidden={false} />
                   <p
@@ -882,15 +876,13 @@ export function ProjectMembersPage({
       <Dialog open={transferOpen} onOpenChange={setTransferOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle style={{ color: "var(--luxia-purple-70)" }}>
-              Transfer ownership
-            </DialogTitle>
+            <DialogTitle>Transfer ownership</DialogTitle>
             <DialogDescription>
               Choose the new Project Owner. You will receive a different role on
               this Project.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-4 px-6 py-4">
             <FilterField label="New owner" htmlFor="transfer-owner">
               <Select
                 value={transferTargetUserId}
@@ -965,7 +957,7 @@ export function ProjectMembersPage({
       >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle style={{ color: "var(--luxia-purple-70)" }}>
+            <DialogTitle>
               {roleChangeMembership?.status === "pending"
                 ? "Change intended role"
                 : "Change role"}
@@ -974,6 +966,7 @@ export function ProjectMembersPage({
               Project roles cannot include Owner via this action.
             </DialogDescription>
           </DialogHeader>
+          <div className="px-6 py-4">
           <FilterField label="Project role" htmlFor="change-role">
             <Select
               value={roleChangeValue}
@@ -995,6 +988,7 @@ export function ProjectMembersPage({
               </SelectContent>
             </Select>
           </FilterField>
+          </div>
           <DialogFooter>
             <Button
               type="button"

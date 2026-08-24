@@ -196,6 +196,7 @@ import type {
   AccessLevelRecord,
   InviteOrganizationUserPayload,
   OrganizationUser,
+  PrototypeMfaMethod,
 } from "@/app/features/permissions";
 import {
   ProjectOverviewPage,
@@ -253,6 +254,11 @@ import { ResponseActionsFooter } from "@/app/features/chat/ResponseActionsFooter
 import { LX } from "@/app/features/active-data-tables/tokens";
 import { IC, IC_BTN_ICON, IC_BTN_OPEN, IC_CARD_HEADER, IC_INPUT_TEXT, IC_SEARCH_SHELL, IC_SEARCH_SHELL_STYLE, icCardStyle, icHoverOff, icHoverOn, icInspectorAccentStyle, icInspectorDescriptionColor, icInspectorTitleColor, icOpenActiveOn, icSearchShellBlur, icSearchShellFocus, icSearchShellHoverOff, icSearchShellHoverOn, icTextareaStyle } from "@/app/features/active-data-tables/inspectorTheme";
 import { Button } from "@/app/components/ui/button";
+import { cn } from "@/app/components/ui/utils";
+import {
+  LUXIA_DIALOG_CLOSE_ON_DARK_CLASS,
+  STRUCTURED_MODAL_DARK_CHROME_STYLE,
+} from "@/app/features/shared/structuredModalChrome";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -1236,23 +1242,28 @@ function NewChatModal({
         aria-modal="true"
         aria-labelledby="new-chat-title"
       >
-        <div className="flex items-start justify-between px-7 pt-6 pb-4 flex-shrink-0">
+        <div
+          className="flex flex-shrink-0 items-start justify-between px-7 py-4"
+          style={STRUCTURED_MODAL_DARK_CHROME_STYLE}
+        >
           <div>
-            <h2 id="new-chat-title" className="luxia-type-title-modal mb-1" style={{ color: LX.primary }}>Create Chat</h2>
-            <p className="luxia-type-body-dense" style={{ color: LX.textMuted }}>
+            <h2 id="new-chat-title" className="luxia-type-title-modal mb-1 text-[var(--luxia-text-inverse)]">
+              Create Chat
+            </h2>
+            <p className="luxia-type-body-dense text-[var(--luxia-purple-10)]">
               Choose a chat type and project to start a new conversation.
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-full transition-colors flex-shrink-0 mt-0.5 outline-none"
-            style={{ border: `1px solid ${LX.border}` }}
+            className={cn(
+              "mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full outline-none transition-opacity",
+              LUXIA_DIALOG_CLOSE_ON_DARK_CLASS,
+            )}
             aria-label="Close create chat dialog"
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.borderSubtle; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
           >
-            <X size={13} style={{ color: LX.textMuted }} />
+            <X size={13} />
           </button>
         </div>
 
@@ -1363,18 +1374,27 @@ function LuxiaDialog({ open, onClose, title, children, footer }: {
     <div className="fixed inset-0 z-[9990] flex items-center justify-center p-4"
       style={{ background: "rgba(15,23,42,0.40)" }}
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="w-full max-w-md flex flex-col max-h-[85vh]"
+      <div className="flex w-full max-w-md max-h-[85vh] flex-col overflow-hidden"
         style={{ background: "white", border: "1px solid #E2E8F0", borderRadius: 16, boxShadow: "0 12px 32px rgba(15,23,42,0.14)" }}>
-        <div className="flex-shrink-0 flex items-center justify-between px-7 pt-6 pb-4">
-          <h2 className="luxia-type-title-modal" style={{ color: LX.primary }}>{title}</h2>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-[8px] transition-colors outline-none"
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.borderSubtle; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
-            <X size={16} style={{ color: LX.textMuted }} />
+        <div
+          className="flex flex-shrink-0 items-center justify-between px-7 py-4"
+          style={STRUCTURED_MODAL_DARK_CHROME_STYLE}
+        >
+          <h2 className="luxia-type-title-modal text-[var(--luxia-text-inverse)]">{title}</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className={cn(
+              "flex h-8 w-8 items-center justify-center rounded-[8px] outline-none transition-opacity",
+              LUXIA_DIALOG_CLOSE_ON_DARK_CLASS,
+            )}
+            aria-label="Close"
+          >
+            <X size={16} />
           </button>
         </div>
         <div className="flex-1 overflow-y-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical px-7 pb-2">{children}</div>
-        <div className="flex-shrink-0 flex items-center justify-end gap-3 px-7 py-5" style={{ borderTop: `1px solid ${LX.border}` }}>
+        <div className="flex flex-shrink-0 items-center justify-end gap-3 px-7 py-5" style={{ borderTop: `1px solid ${LX.border}` }}>
           {footer}
         </div>
       </div>
@@ -2272,30 +2292,41 @@ function ConfirmRemoveDialog({ label, onConfirm, onCancel }: {
   return ReactDOM.createPortal(
     <div className="fixed inset-0 z-[9990] flex items-center justify-center" onClick={onCancel}>
       <div className="absolute inset-0" style={{ background: "rgba(16,5,32,0.3)", backdropFilter: "blur(3px)" }} />
-      <div className="relative rounded-[20px] p-7 w-[380px]"
+      <div
+        className="relative w-[380px] overflow-hidden rounded-[20px]"
         style={{ background: "white", boxShadow: "0 12px 32px rgba(15,23,42,0.14)" }}
-        onClick={(e) => e.stopPropagation()}>
-        <div className="w-10 h-10 rounded-[12px] flex items-center justify-center mb-4"
-          style={{ background: "rgba(247,80,80,0.06)", border: "1px solid rgba(247,80,80,0.14)" }}>
-          <Trash2 size={17} style={{ color: LX.error }} />
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="confirm-remove-title"
+      >
+        <div className="px-6 py-4" style={STRUCTURED_MODAL_DARK_CHROME_STYLE}>
+          <h3
+            id="confirm-remove-title"
+            className="luxia-type-title-modal text-[var(--luxia-text-inverse)]"
+          >
+            Remove item?
+          </h3>
         </div>
-        <h3 className="luxia-type-body-small-strong mb-1.5" style={{ color: LX.primary }}>Remove item?</h3>
-        <p className="luxia-type-body-dense mb-6" style={{ color: LX.textMuted }}>
-          This will be removed from the constellation. This action cannot be undone.
-        </p>
-        <div className="flex items-center gap-2.5">
-          <button onClick={onCancel}
-            className="flex-1 h-[40px] rounded-[10px] luxia-type-body-dense-strong transition-colors outline-none"
-            style={{ color: LX.textMuted, border: `1px solid ${LX.border}`, background: "white" }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.subtle; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "white"; }}>
-            Cancel
-          </button>
-          <button onClick={onConfirm}
-            className="flex-1 h-[40px] rounded-[10px] luxia-type-body-dense-strong text-white hover:opacity-90 transition-opacity outline-none"
-            style={{ background: LX.error }}>
-            Remove
-          </button>
+        <div className="px-6 py-5">
+          <p className="luxia-type-body-dense mb-5" style={{ color: LX.textMuted }}>
+            <span className="luxia-type-body-dense-strong" style={{ color: LX.primary }}>{label}</span>
+            {" "}will be removed from the constellation. This action cannot be undone.
+          </p>
+          <div className="flex items-center gap-2.5">
+            <button onClick={onCancel}
+              className="flex-1 h-[40px] rounded-[10px] luxia-type-body-dense-strong transition-colors outline-none"
+              style={{ color: LX.textMuted, border: `1px solid ${LX.border}`, background: "white" }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.subtle; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "white"; }}>
+              Cancel
+            </button>
+            <button onClick={onConfirm}
+              className="flex-1 h-[40px] rounded-[10px] luxia-type-body-dense-strong text-white hover:opacity-90 transition-opacity outline-none"
+              style={{ background: LX.error }}>
+              Remove
+            </button>
+          </div>
         </div>
       </div>
     </div>,
@@ -2311,14 +2342,24 @@ function ItemPreviewModal({ label, icon: Icon, onClose }: {
       <div className="absolute inset-0 bg-black/30" style={{ backdropFilter: "blur(2px)" }} />
       <div className="relative rounded-[20px] w-[560px] max-h-[70vh] overflow-hidden flex flex-col"
         style={{ background: "white", boxShadow: LX.shadow.xl }} onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center gap-3 px-6 py-5 flex-shrink-0" style={{ borderBottom: `1px solid ${LX.border}` }}>
-          <div className="w-8 h-8 rounded-[8px] flex items-center justify-center" style={{ background: LX.blueT10 }}>
-            <Icon size={14} color={LX.accent} />
+        <div
+          className="flex flex-shrink-0 items-center gap-3 px-6 py-4"
+          style={STRUCTURED_MODAL_DARK_CHROME_STYLE}
+        >
+          <div className="flex h-8 w-8 items-center justify-center rounded-[8px]" style={{ background: "rgba(255,255,255,0.12)" }}>
+            <Icon size={14} color="var(--luxia-text-inverse)" />
           </div>
-          <h3 className="flex-1 luxia-type-title-panel truncate" style={{ color: LX.primary }}>{label}</h3>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/5 transition-colors"
-            style={{ border: `1px solid ${LX.border}` }}>
-            <X size={14} style={{ color: LX.muted }} />
+          <h3 className="min-w-0 flex-1 truncate luxia-type-title-panel text-[var(--luxia-text-inverse)]">{label}</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className={cn(
+              "flex h-8 w-8 items-center justify-center rounded-full outline-none transition-opacity",
+              LUXIA_DIALOG_CLOSE_ON_DARK_CLASS,
+            )}
+            aria-label="Close preview"
+          >
+            <X size={14} />
           </button>
         </div>
         <div className="flex-1 overflow-y-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical px-6 py-6">
@@ -2406,21 +2447,28 @@ function SectionWorkspaceModal({ sectionId, items, instruction, onSave, onClose 
         style={{ background: "white", boxShadow: "0 12px 32px rgba(15,23,42,0.14)" }}
         onClick={(e) => e.stopPropagation()}>
 
-        <div className="flex items-center gap-3 px-7 py-5 flex-shrink-0" style={{ borderBottom: `1px solid ${LX.border}` }}>
-          <div className="w-9 h-9 rounded-[10px] flex items-center justify-center flex-shrink-0"
-            style={{ background: "rgba(142,99,235,0.08)" }}>
-            <Icon size={16} color={LX.secondary} />
+        <div
+          className="flex flex-shrink-0 items-center gap-3 px-7 py-4"
+          style={STRUCTURED_MODAL_DARK_CHROME_STYLE}
+        >
+          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[10px]"
+            style={{ background: "rgba(255,255,255,0.12)" }}>
+            <Icon size={16} color="var(--luxia-text-inverse)" />
           </div>
-          <div className="flex-1 min-w-0">
-            <h2 className="luxia-type-title-panel" style={{ color: LX.primary }}>{meta.label}</h2>
-            <p className="luxia-type-caption mt-0.5" style={{ color: LX.textMuted }}>Changes are local until saved</p>
+          <div className="min-w-0 flex-1">
+            <h2 className="luxia-type-title-panel text-[var(--luxia-text-inverse)]">{meta.label}</h2>
+            <p className="mt-0.5 luxia-type-caption text-[var(--luxia-purple-10)]">Changes are local until saved</p>
           </div>
-          <button onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-full transition-colors outline-none"
-            style={{ border: `1px solid ${LX.border}` }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.borderSubtle; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
-            <X size={14} style={{ color: LX.textMuted }} />
+          <button
+            type="button"
+            onClick={onClose}
+            className={cn(
+              "flex h-8 w-8 items-center justify-center rounded-full outline-none transition-opacity",
+              LUXIA_DIALOG_CLOSE_ON_DARK_CLASS,
+            )}
+            aria-label="Close"
+          >
+            <X size={14} />
           </button>
         </div>
 
@@ -2599,18 +2647,27 @@ function KBEntryModal({ mode: initialMode, entry, onSave, onAdd, onClose }: {
       <div className="relative rounded-[24px] w-[600px] max-h-[90vh] flex flex-col overflow-hidden"
         style={{ background: LX.surface, boxShadow: LX.shadow.xl }} onClick={(e) => e.stopPropagation()}>
 
-        <div className="flex items-center gap-3 px-8 pt-6 pb-5 flex-shrink-0">
-          <div className="w-9 h-9 rounded-[10px] flex items-center justify-center" style={{ background: LX.blueT10 }}>
-            <BookOpen size={15} color={LX.secondary} />
+        <div
+          className="flex flex-shrink-0 items-center gap-3 px-8 py-4"
+          style={STRUCTURED_MODAL_DARK_CHROME_STYLE}
+        >
+          <div className="flex h-9 w-9 items-center justify-center rounded-[10px]" style={{ background: "rgba(255,255,255,0.12)" }}>
+            <BookOpen size={15} color="var(--luxia-text-inverse)" />
           </div>
-          <div className="flex-1 min-w-0">
-            <h2 className="luxia-type-title-panel" style={{ color: LX.primary }}>{title}</h2>
+          <div className="min-w-0 flex-1">
+            <h2 className="luxia-type-title-panel text-[var(--luxia-text-inverse)]">{title}</h2>
           </div>
-          <Button type="button" variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 " aria-label="Close">
-            <X size={14} style={{ color: LX.textMuted }} />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={onClose}
+            className={cn("h-8 w-8", LUXIA_DIALOG_CLOSE_ON_DARK_CLASS)}
+            aria-label="Close"
+          >
+            <X size={14} />
           </Button>
         </div>
-        <div className="h-px mx-8 flex-shrink-0" style={{ background: LX.border }} />
 
         <div className="flex-1 overflow-y-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical px-8 py-6 space-y-5">
           <div>
@@ -2751,17 +2808,29 @@ function AutoKBModal({ constellationLabel, onAdd, onClose }: {
       <div className="absolute inset-0 bg-black/35" style={{ backdropFilter: "blur(3px)" }} />
       <div className="relative rounded-[24px] w-[640px] max-h-[86vh] flex flex-col overflow-hidden"
         style={{ background: LX.surface, boxShadow: LX.shadow.xl }} onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center gap-3 px-7 py-5 flex-shrink-0" style={{ borderBottom: `1px solid ${LX.border}` }}>
-          <div className="w-9 h-9 rounded-[10px] flex items-center justify-center flex-shrink-0"
-            style={{ background: `linear-gradient(135deg, ${LX.blueT10} 0%, ${LX.sl10} 100%)` }}>
-            <LuxiaAiIcon size={15} color={LX.secondary} />
+        <div
+          className="flex flex-shrink-0 items-center gap-3 px-7 py-4"
+          style={STRUCTURED_MODAL_DARK_CHROME_STYLE}
+        >
+          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[10px]"
+            style={{ background: "rgba(255,255,255,0.12)" }}>
+            <LuxiaAiIcon size={15} color="var(--luxia-text-inverse)" />
           </div>
-          <div className="flex-1 min-w-0">
-            <h2 className="luxia-type-title-panel" style={{ color: LX.primary }}>Auto-generate Knowledge</h2>
-            <p className="luxia-type-metadata" style={{ color: LX.textMuted }}>From <span className="font-bold">{constellationLabel}</span></p>
+          <div className="min-w-0 flex-1">
+            <h2 className="luxia-type-title-panel text-[var(--luxia-text-inverse)]">Auto-generate Knowledge</h2>
+            <p className="luxia-type-metadata text-[var(--luxia-purple-10)]">
+              From <span className="font-bold">{constellationLabel}</span>
+            </p>
           </div>
-          <Button type="button" variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 " aria-label="Close">
-            <X size={14} style={{ color: LX.textMuted }} />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={onClose}
+            className={cn("h-8 w-8", LUXIA_DIALOG_CLOSE_ON_DARK_CLASS)}
+            aria-label="Close"
+          >
+            <X size={14} />
           </Button>
         </div>
         <div className="flex items-center gap-4 px-7 py-3.5 flex-shrink-0" style={{ borderBottom: `1px solid ${LX.border}` }}>
@@ -2895,15 +2964,25 @@ function KBWorkspaceModal({ entries, constellationLabel, onSave, onClose }: {
         <div className="relative w-[760px] max-h-[88vh] rounded-[24px] overflow-hidden flex flex-col"
           style={{ background: LX.surface, boxShadow: LX.shadow.xl }} onClick={(e) => e.stopPropagation()}>
 
-          <div className="flex items-center gap-4 px-8 py-6 flex-shrink-0">
-            <div className="flex-1 min-w-0">
-              <h2 className="luxia-type-heading-h4 leading-none" style={{ color: LX.primary }}>Knowledge Base</h2>
-              <p className="luxia-type-body-dense mt-1" style={{ color: LX.textMuted }}>
+          <div
+            className="flex flex-shrink-0 items-center gap-4 px-8 py-4"
+            style={STRUCTURED_MODAL_DARK_CHROME_STYLE}
+          >
+            <div className="min-w-0 flex-1">
+              <h2 className="luxia-type-heading-h4 leading-none text-[var(--luxia-text-inverse)]">Knowledge Base</h2>
+              <p className="mt-1 luxia-type-body-dense text-[var(--luxia-purple-10)]">
                 {constellationLabel} · {pending.length} {pending.length === 1 ? "entry" : "entries"}
               </p>
             </div>
-            <Button type="button" variant="ghost" size="icon" onClick={onClose} className="h-9 w-9 " aria-label="Close knowledge base">
-              <X size={15} style={{ color: LX.textMuted }} />
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={onClose}
+              className={cn("h-9 w-9", LUXIA_DIALOG_CLOSE_ON_DARK_CLASS)}
+              aria-label="Close knowledge base"
+            >
+              <X size={15} />
             </Button>
           </div>
 
@@ -5309,6 +5388,10 @@ export default function App() {
       email: payload.email,
       orgRole: payload.orgRole,
       status: "pending",
+      jobTitle: "",
+      mobile: "",
+      mfaEnabled: false,
+      mfaMethod: null,
     };
     setOrganizationUsersState((prev) => [...prev, newUser]);
     if (payload.projectAssignments.length > 0) {
@@ -5395,6 +5478,43 @@ export default function App() {
 
   function handleCloseAccountSettings() {
     setAccountSettingsOpen(false);
+  }
+
+  function handleUpdateProfile(
+    userId: string,
+    draft: { name: string; jobTitle: string; mobile: string },
+  ) {
+    const nextName = draft.name.trim();
+    if (!nextName) return;
+    setOrganizationUsersState((prev) =>
+      prev.map((user) =>
+        user.id === userId
+          ? {
+              ...user,
+              name: nextName,
+              jobTitle: draft.jobTitle.trim(),
+              mobile: draft.mobile.trim(),
+            }
+          : user,
+      ),
+    );
+  }
+
+  function handleUpdateProfileMfa(
+    userId: string,
+    next: { mfaEnabled: boolean; mfaMethod: PrototypeMfaMethod | null },
+  ) {
+    setOrganizationUsersState((prev) =>
+      prev.map((user) =>
+        user.id === userId
+          ? {
+              ...user,
+              mfaEnabled: next.mfaEnabled,
+              mfaMethod: next.mfaEnabled ? next.mfaMethod : null,
+            }
+          : user,
+      ),
+    );
   }
 
   function handleSettingsOpenDataSources() {
@@ -9864,6 +9984,8 @@ export default function App() {
           onOpenDataSources={handleSettingsOpenDataSources}
           onOpenUsers={handleSettingsOpenUsers}
           onOpenAccessLevels={handleSettingsOpenAccessLevels}
+          onUpdateProfile={handleUpdateProfile}
+          onUpdateProfileMfa={handleUpdateProfileMfa}
         />
       ) : null}
     </div>

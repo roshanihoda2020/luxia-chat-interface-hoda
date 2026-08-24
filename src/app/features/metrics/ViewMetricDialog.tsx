@@ -20,7 +20,7 @@ export function ViewMetricDialog({
                 <DialogHeader>
                     <DialogTitle className="luxia-type-title-panel">{item.name}</DialogTitle>
                 </DialogHeader>
-                <div className="space-y-3">
+                <div className="space-y-3 px-6 py-4">
                     <div>
                         <p className="luxia-type-caption" style={{ color: LX.textMuted }}>Metric Description</p>
                         <p className="mt-1 luxia-type-body-dense-strong leading-relaxed" style={{ color: LX.primary }}>{item.description}</p>

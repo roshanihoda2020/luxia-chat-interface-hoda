@@ -477,7 +477,7 @@ export function VidgetsPage({
             value={renameValue}
             onChange={(event) => setRenameValue(event.target.value)}
             aria-label="Vidget name"
-            className="mt-2"
+            className="mx-6 my-4"
           />
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>

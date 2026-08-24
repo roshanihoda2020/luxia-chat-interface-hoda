@@ -189,7 +189,7 @@ export function InviteOrganizationUserDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="flex max-h-[min(92vh,40rem)] w-[min(100%,32rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
-        <DialogHeader className="space-y-2 px-5 py-4 text-left">
+        <DialogHeader className="space-y-2 text-left">
           <DialogTitle>Invite user</DialogTitle>
           <DialogDescription>
             Invite someone to the organization. Project roles and Access Levels
@@ -205,10 +205,9 @@ export function InviteOrganizationUserDialog({
                   className="luxia-type-caption"
                   style={{
                     color: active
-                      ? "var(--luxia-text-primary)"
-                      : done
-                        ? "var(--luxia-text-secondary)"
-                        : "var(--luxia-text-muted)",
+                      ? "var(--luxia-text-inverse)"
+                      : "var(--luxia-purple-10)",
+                    opacity: active ? 1 : done ? 0.85 : 0.55,
                     fontWeight: active ? 600 : 400,
                   }}
                 >

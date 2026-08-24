@@ -11,3 +11,12 @@ export {
   type CollectorViewKey,
   type CollectorViewMode,
 } from "./collectorViewMode";
+
+export {
+  STRUCTURED_MODAL_DARK_BASE,
+  STRUCTURED_MODAL_DARK_CHROME_STYLE,
+  STRUCTURED_MODAL_DARK_SURFACE,
+  LUXIA_DIALOG_DARK_CHROME_STYLE,
+  LUXIA_DIALOG_HEADER_CLASS,
+  LUXIA_DIALOG_CLOSE_ON_DARK_CLASS,
+} from "./structuredModalChrome";

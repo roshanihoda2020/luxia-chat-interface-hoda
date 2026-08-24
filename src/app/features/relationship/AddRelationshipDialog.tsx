@@ -49,7 +49,9 @@ function RelationshipFormDialog({
                         {mode === "add" ? "Add relationship" : "Edit relationship"}
                     </DialogTitle>
                 </DialogHeader>
-                <RelationshipForm values={values} onChange={setValues} />
+                <div className="px-6 py-4">
+                    <RelationshipForm values={values} onChange={setValues} />
+                </div>
                 <DialogFooter className="gap-2 sm:gap-2">
                     <Button type="button" variant="secondary" className="px-4" onClick={() => onOpenChange(false)}>
                         Cancel

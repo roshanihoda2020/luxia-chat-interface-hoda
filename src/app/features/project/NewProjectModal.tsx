@@ -33,7 +33,7 @@ export function NewProjectModal({ open, onClose, onCreate }: NewProjectModalProp
         <DialogHeader>
           <DialogTitle>New Project</DialogTitle>
         </DialogHeader>
-        <div className="space-y-2">
+        <div className="space-y-2 px-6 py-4">
           <Label htmlFor="new-project-name">Project name</Label>
           <Input
             id="new-project-name"

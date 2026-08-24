@@ -2,6 +2,8 @@ import { GripVertical, Plus, Search, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import { Button } from "@/app/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/app/components/ui/dialog";
+import { cn } from "@/app/components/ui/utils";
+import { LUXIA_DIALOG_CLOSE_ON_DARK_CLASS } from "@/app/features/shared/structuredModalChrome";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -168,14 +170,22 @@ export function ActiveDataTablesManager({
     const shell = (
                 <>
                     {showHeaderChrome ? (
-                    <DialogHeader className="flex-shrink-0 border-b px-6 py-5 text-left" style={{ borderColor: LX.border }}>
+                    <DialogHeader className="flex-shrink-0">
                         <div className="flex items-start gap-3">
                             <div className="min-w-0 flex-1">
-                                <DialogTitle className="luxia-type-title-modal" style={{ color: LX.primary }}>Active Data Tables</DialogTitle>
+                                <DialogTitle className="luxia-type-title-modal">Active Data Tables</DialogTitle>
                                 <DialogDescription className="sr-only">Manage which data tables are available to this constellation.</DialogDescription>
-                                <p className="mt-1 luxia-type-metadata" style={{ color: LX.textMuted }}>Manage tables available to this constellation.</p>
+                                <p className="mt-1 luxia-type-metadata text-[var(--luxia-purple-10)]">Manage tables available to this constellation.</p>
                             </div>
-                            <button type="button" onClick={requestLeave} className="flex h-9 w-9 items-center justify-center rounded-full border transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2" style={{ borderColor: LX.border, color: LX.textMuted }} aria-label="Close active data tables manager">
+                            <button
+                                type="button"
+                                onClick={requestLeave}
+                                className={cn(
+                                    "flex h-9 w-9 items-center justify-center rounded-full outline-none transition-opacity focus-visible:ring-2 focus-visible:ring-offset-2",
+                                    LUXIA_DIALOG_CLOSE_ON_DARK_CLASS,
+                                )}
+                                aria-label="Close active data tables manager"
+                            >
                                 <X size={15} />
                             </button>
                         </div>

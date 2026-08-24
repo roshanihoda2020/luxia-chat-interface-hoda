@@ -3,6 +3,8 @@ import { useState } from "react";
 import { Button } from "@/app/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/app/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/app/components/ui/tabs";
+import { cn } from "@/app/components/ui/utils";
+import { LUXIA_DIALOG_CLOSE_ON_DARK_CLASS } from "@/app/features/shared/structuredModalChrome";
 import { DatasourceFileSelector } from "./DatasourceFileSelector";
 import { UploadExtraContextFilePanel } from "./UploadExtraContextFilePanel";
 import { LX } from "./tokens";
@@ -33,14 +35,21 @@ export function AddExtraContextFilesDialog({
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent hideCloseButton className="overflow-hidden p-0" style={{ width: "min(92vw, 560px)", maxWidth: "min(92vw, 560px)" }}>
-                <DialogHeader className="border-b px-6 py-5 text-left" style={{ borderColor: LX.border }}>
+                <DialogHeader>
                     <div className="flex items-start gap-3">
                         <div className="min-w-0 flex-1">
-                            <DialogTitle className="luxia-type-title-modal" style={{ color: LX.primary }}>Add files</DialogTitle>
+                            <DialogTitle className="luxia-type-title-modal">Add files</DialogTitle>
                             <DialogDescription className="sr-only">Upload a file or add from datasource.</DialogDescription>
                         </div>
-                        <Button type="button" variant="outline" size="icon" className="h-9 w-9 " aria-label="Close add files" onClick={() => onOpenChange(false)}>
-                            <X size={15} style={{ color: LX.textMuted }} />
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className={cn("h-9 w-9", LUXIA_DIALOG_CLOSE_ON_DARK_CLASS)}
+                            aria-label="Close add files"
+                            onClick={() => onOpenChange(false)}
+                        >
+                            <X size={15} />
                         </Button>
                     </div>
                 </DialogHeader>

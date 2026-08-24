@@ -31,6 +31,10 @@ export const ORGANIZATION_USERS: OrganizationUser[] = [
     email: "user01@luxia.example",
     orgRole: "Member",
     status: "active",
+    jobTitle: "Analyst",
+    mobile: "+1 555 0101",
+    mfaEnabled: false,
+    mfaMethod: null,
   },
   {
     id: "user-02",
@@ -38,6 +42,10 @@ export const ORGANIZATION_USERS: OrganizationUser[] = [
     email: "user02@luxia.example",
     orgRole: "Member",
     status: "active",
+    jobTitle: "Product designer",
+    mobile: "+1 555 0102",
+    mfaEnabled: false,
+    mfaMethod: null,
   },
   {
     id: "user-03",
@@ -45,6 +53,10 @@ export const ORGANIZATION_USERS: OrganizationUser[] = [
     email: "user03@luxia.example",
     orgRole: "Member",
     status: "active",
+    jobTitle: "Data engineer",
+    mobile: "+1 555 0103",
+    mfaEnabled: false,
+    mfaMethod: null,
   },
   {
     id: "user-04",
@@ -52,6 +64,10 @@ export const ORGANIZATION_USERS: OrganizationUser[] = [
     email: "user04@luxia.example",
     orgRole: "Member",
     status: "active",
+    jobTitle: "Operations lead",
+    mobile: "+1 555 0104",
+    mfaEnabled: false,
+    mfaMethod: null,
   },
   {
     id: "user-05",
@@ -59,6 +75,10 @@ export const ORGANIZATION_USERS: OrganizationUser[] = [
     email: "user05@luxia.example",
     orgRole: "Admin",
     status: "active",
+    jobTitle: "Organization admin",
+    mobile: "+1 555 0105",
+    mfaEnabled: false,
+    mfaMethod: null,
   },
   {
     id: "user-06",
@@ -66,6 +86,10 @@ export const ORGANIZATION_USERS: OrganizationUser[] = [
     email: "user06@luxia.example",
     orgRole: "Member",
     status: "pending",
+    jobTitle: "",
+    mobile: "",
+    mfaEnabled: false,
+    mfaMethod: null,
   },
 ];
 

@@ -17,6 +17,9 @@ export type DataSourceConnector =
   | "csv"
   | "file";
 
+/** Local Settings Profile MFA UI only — not real authentication enrollment. */
+export type PrototypeMfaMethod = "email-otp" | "authenticator";
+
 export interface OrganizationUser {
   id: string;
   name: string;
@@ -24,6 +27,15 @@ export interface OrganizationUser {
   orgRole: "Admin" | "Member";
   /** Organization invitation/account status — not a Project membership status. */
   status: "active" | "pending";
+  /** Profile personal fields (prototype-editable in Settings). */
+  jobTitle: string;
+  mobile: string;
+  /**
+   * Per-demo-user MFA UI state for Settings → Profile → Security.
+   * Local prototype only — not wired to auth APIs.
+   */
+  mfaEnabled: boolean;
+  mfaMethod: PrototypeMfaMethod | null;
 }
 
 export interface AccessLevelSourceGrant {

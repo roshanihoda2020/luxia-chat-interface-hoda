@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/app/components/ui/dialog";
+import { cn } from "@/app/components/ui/utils";
+import { LUXIA_DIALOG_CLOSE_ON_DARK_CLASS } from "@/app/features/shared/structuredModalChrome";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -58,14 +60,22 @@ export function EditTableDetailsDialog({
             <Dialog open={open} onOpenChange={(next) => { if (!next) requestClose(); }}>
                 <DialogContent hideCloseButton className="overflow-hidden p-0" style={{ width: "min(92vw, 720px)", maxWidth: "min(92vw, 720px)" }}>
                     <div className="flex flex-col">
-                        <DialogHeader className="border-b px-6 py-5 text-left" style={{ borderColor: LX.border }}>
+                        <DialogHeader>
                             <div className="flex items-start gap-3">
                                 <div className="min-w-0 flex-1">
-                                    <DialogTitle className="luxia-type-title-modal" style={{ color: LX.primary }}>Edit table details</DialogTitle>
+                                    <DialogTitle className="luxia-type-title-modal">Edit table details</DialogTitle>
                                     <DialogDescription className="sr-only">Change the display name and description for this active data table.</DialogDescription>
-                                    <p className="mt-1 luxia-type-metadata" style={{ color: LX.textMuted }}>Change the display name and description.</p>
+                                    <p className="mt-1 luxia-type-metadata text-[var(--luxia-purple-10)]">Change the display name and description.</p>
                                 </div>
-                                <button type="button" onClick={requestClose} className="flex h-9 w-9 items-center justify-center rounded-full border transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2" style={{ borderColor: LX.border, color: LX.textMuted }} aria-label="Close edit table details">
+                                <button
+                                    type="button"
+                                    onClick={requestClose}
+                                    className={cn(
+                                        "flex h-9 w-9 items-center justify-center rounded-full outline-none transition-opacity focus-visible:ring-2 focus-visible:ring-offset-2",
+                                        LUXIA_DIALOG_CLOSE_ON_DARK_CLASS,
+                                    )}
+                                    aria-label="Close edit table details"
+                                >
                                     <X size={15} />
                                 </button>
                             </div>

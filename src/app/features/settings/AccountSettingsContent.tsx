@@ -1,8 +1,13 @@
+import { useEffect, useState } from "react";
 import { Users } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
+import { Input } from "@/app/components/ui/input";
 import { DemoUserAvatar } from "@/app/features/permissions/demoUserAvatar";
 import { formatOrganizationRoleLabel } from "@/app/features/permissions/currentUser";
-import type { OrganizationUser } from "@/app/features/permissions/types";
+import type {
+  OrganizationUser,
+  PrototypeMfaMethod,
+} from "@/app/features/permissions/types";
 import {
   LuxiaArrowRightIcon,
   LuxiaChatIcon,
@@ -25,11 +30,27 @@ import {
   SettingsDialogSectionHeader,
   SettingsDialogSurface,
 } from "./SettingsDialogBlocks";
+import {
+  formatPrototypeMfaMethodLabel,
+  ProfileSecurityMfaDialogs,
+  type ProfileMfaDialogView,
+} from "./ProfileSecurityMfaDialogs";
 
 interface OrganizationMemberSummary {
   total: number;
   active: number;
   invited: number;
+}
+
+export interface ProfilePersonalDraft {
+  name: string;
+  jobTitle: string;
+  mobile: string;
+}
+
+export interface ProfileMfaState {
+  mfaEnabled: boolean;
+  mfaMethod: PrototypeMfaMethod | null;
 }
 
 export interface AccountSettingsContentProps {
@@ -43,6 +64,8 @@ export interface AccountSettingsContentProps {
   onOpenDataSources: () => void;
   onOpenUsers: () => void;
   onOpenAccessLevels: () => void;
+  onUpdateProfile?: (userId: string, draft: ProfilePersonalDraft) => void;
+  onUpdateProfileMfa?: (userId: string, next: ProfileMfaState) => void;
 }
 
 export function AccountSettingsContent({
@@ -56,8 +79,69 @@ export function AccountSettingsContent({
   onOpenDataSources,
   onOpenUsers,
   onOpenAccessLevels,
+  onUpdateProfile,
+  onUpdateProfileMfa,
 }: AccountSettingsContentProps) {
   const orgRoleLabel = formatOrganizationRoleLabel(user.orgRole);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [draftName, setDraftName] = useState(user.name);
+  const [draftJobTitle, setDraftJobTitle] = useState(user.jobTitle);
+  const [draftMobile, setDraftMobile] = useState(user.mobile);
+  const [mfaDialogView, setMfaDialogView] = useState<ProfileMfaDialogView>("closed");
+  const trimmedDraftName = draftName.trim();
+  const canEditProfile = typeof onUpdateProfile === "function";
+  const canManageMfa = typeof onUpdateProfileMfa === "function";
+  const mfaEnabled = Boolean(user.mfaEnabled && user.mfaMethod);
+  const mfaMethod = mfaEnabled ? user.mfaMethod : null;
+
+  useEffect(() => {
+    setDraftName(user.name);
+    setDraftJobTitle(user.jobTitle);
+    setDraftMobile(user.mobile);
+    setIsEditingProfile(false);
+    setMfaDialogView("closed");
+  }, [user.id, user.name, user.jobTitle, user.mobile]);
+
+  const profileDirty =
+    trimmedDraftName !== user.name ||
+    draftJobTitle.trim() !== user.jobTitle ||
+    draftMobile.trim() !== user.mobile;
+
+  function handleCancelProfileEdit() {
+    setDraftName(user.name);
+    setDraftJobTitle(user.jobTitle);
+    setDraftMobile(user.mobile);
+    setIsEditingProfile(false);
+  }
+
+  function handleSaveProfile() {
+    if (!canEditProfile || trimmedDraftName.length === 0) {
+      handleCancelProfileEdit();
+      return;
+    }
+    if (!profileDirty) {
+      setIsEditingProfile(false);
+      return;
+    }
+    onUpdateProfile(user.id, {
+      name: trimmedDraftName,
+      jobTitle: draftJobTitle.trim(),
+      mobile: draftMobile.trim(),
+    });
+    setIsEditingProfile(false);
+  }
+
+  function handleConfirmEnableMfa(method: PrototypeMfaMethod) {
+    if (!canManageMfa) return;
+    onUpdateProfileMfa(user.id, { mfaEnabled: true, mfaMethod: method });
+    setMfaDialogView("closed");
+  }
+
+  function handleConfirmDisableMfa() {
+    if (!canManageMfa) return;
+    onUpdateProfileMfa(user.id, { mfaEnabled: false, mfaMethod: null });
+    setMfaDialogView("closed");
+  }
 
   switch (activeSection) {
     case "profile":
@@ -67,39 +151,189 @@ export function AccountSettingsContent({
             title="Profile"
             description="Your personal Luxia information."
           />
-          <SettingsDialogSurface className="px-4 py-4">
-            <div className="flex min-w-0 items-center gap-4">
-              <DemoUserAvatar userId={user.id} size="lg" aria-hidden={false} />
-              <div className="min-w-0 flex-1">
-                <p
-                  className="luxia-type-body-default-strong"
-                  style={{ color: "var(--luxia-text-primary)" }}
-                >
-                  {user.name}
-                </p>
-                <p
-                  className="luxia-type-body-dense"
-                  style={{ color: "var(--luxia-text-secondary)" }}
-                >
-                  {user.email}
-                </p>
+          <div className="flex min-w-0 flex-col gap-4">
+            <SettingsDialogSurface className="px-4 py-4">
+              <div className="flex min-w-0 items-start justify-between gap-4">
+                <div className="flex min-w-0 items-center gap-4">
+                  <DemoUserAvatar userId={user.id} size="lg" aria-hidden={false} />
+                  <div className="min-w-0 flex-1">
+                    <p
+                      className="luxia-type-body-default-strong"
+                      style={{ color: "var(--luxia-text-primary)" }}
+                    >
+                      {user.name}
+                    </p>
+                    <p
+                      className="luxia-type-body-dense"
+                      style={{ color: "var(--luxia-text-secondary)" }}
+                    >
+                      {user.email}
+                    </p>
+                  </div>
+                </div>
+                {canEditProfile && !isEditingProfile ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="compact"
+                    className="shrink-0"
+                    onClick={() => setIsEditingProfile(true)}
+                  >
+                    Edit profile
+                  </Button>
+                ) : null}
               </div>
-            </div>
-            <div
-              className="mt-4 flex min-w-0 items-baseline justify-between gap-6 border-t pt-4"
-              style={{ borderColor: "var(--luxia-border-default)" }}
-            >
-              <p className="luxia-type-body-dense" style={{ color: "var(--luxia-text-muted)" }}>
-                Organization role
-              </p>
-              <p
-                className="luxia-type-body-dense-strong"
-                style={{ color: "var(--luxia-text-primary)" }}
-              >
-                {orgRoleLabel}
-              </p>
-            </div>
-          </SettingsDialogSurface>
+            </SettingsDialogSurface>
+
+            <SettingsDialogSurface className="px-4 py-4">
+              <ProfileSectionIntro title="Personal information" />
+              {isEditingProfile ? (
+                <div className="space-y-4">
+                  <div className="grid gap-4 @min-[720px]:grid-cols-2">
+                    <ProfileEditableField
+                      label="Full name"
+                      htmlFor="settings-profile-full-name"
+                      value={draftName}
+                      onChange={setDraftName}
+                    />
+                    <ProfileReadOnlyField label="Email" value={user.email} />
+                    <ProfileEditableField
+                      label="Job title"
+                      htmlFor="settings-profile-job-title"
+                      value={draftJobTitle}
+                      onChange={setDraftJobTitle}
+                    />
+                    <ProfileEditableField
+                      label="Mobile number"
+                      htmlFor="settings-profile-mobile"
+                      value={draftMobile}
+                      onChange={setDraftMobile}
+                    />
+                  </div>
+                  <div
+                    className="flex flex-wrap justify-end gap-2 border-t pt-4"
+                    style={{ borderColor: "var(--luxia-border-default)" }}
+                  >
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="compact"
+                      onClick={handleCancelProfileEdit}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="button"
+                      size="compact"
+                      onClick={handleSaveProfile}
+                      disabled={trimmedDraftName.length === 0 || !profileDirty}
+                    >
+                      Save changes
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <dl className="grid gap-4 @min-[720px]:grid-cols-2">
+                  <ProfileReadOnlyField label="Full name" value={user.name} />
+                  <ProfileReadOnlyField label="Email" value={user.email} />
+                  <ProfileReadOnlyField
+                    label="Job title"
+                    value={user.jobTitle || "—"}
+                  />
+                  <ProfileReadOnlyField
+                    label="Mobile number"
+                    value={user.mobile || "—"}
+                  />
+                </dl>
+              )}
+            </SettingsDialogSurface>
+
+            <SettingsDialogSurface className="px-4 py-4">
+              <ProfileSectionIntro title="Organization" />
+              <dl className="grid gap-4 @min-[720px]:grid-cols-2">
+                <ProfileReadOnlyField
+                  label="Organization"
+                  value={ORGANIZATION_SETTINGS_GUIDANCE.organizationDisplayName}
+                />
+                <ProfileReadOnlyField label="Organization role" value={orgRoleLabel} />
+              </dl>
+            </SettingsDialogSurface>
+
+            <SettingsDialogSurface className="px-4 py-4">
+              <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0 flex-1">
+                  <h3
+                    className="luxia-type-body-dense-strong mb-1"
+                    style={{ color: "var(--luxia-text-primary)" }}
+                  >
+                    Security
+                  </h3>
+                  <p
+                    className="luxia-type-body-dense-strong"
+                    style={{ color: "var(--luxia-text-primary)" }}
+                  >
+                    Multi-factor authentication
+                  </p>
+                  <p
+                    className="mt-1 luxia-type-body-dense"
+                    style={{ color: "var(--luxia-text-secondary)" }}
+                  >
+                    Add an extra verification step when signing in.
+                  </p>
+                  <dl className="mt-4 grid gap-4 @min-[520px]:grid-cols-2">
+                    <ProfileReadOnlyField
+                      label="Status"
+                      value={mfaEnabled ? "On" : "Off"}
+                    />
+                    {mfaEnabled && mfaMethod ? (
+                      <ProfileReadOnlyField
+                        label="Verification method"
+                        value={formatPrototypeMfaMethodLabel(mfaMethod)}
+                      />
+                    ) : null}
+                  </dl>
+                </div>
+                {canManageMfa ? (
+                  mfaEnabled ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="compact"
+                      className="shrink-0 self-start"
+                      onClick={() => setMfaDialogView("manage")}
+                    >
+                      Manage MFA
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="compact"
+                      className="shrink-0 self-start"
+                      onClick={() => setMfaDialogView("choose-method")}
+                    >
+                      Enable MFA
+                    </Button>
+                  )
+                ) : null}
+              </div>
+            </SettingsDialogSurface>
+          </div>
+
+          <ProfileSecurityMfaDialogs
+            view={mfaDialogView}
+            email={user.email}
+            currentMethod={mfaMethod}
+            onClose={() => setMfaDialogView("closed")}
+            onSelectMethod={(method) =>
+              setMfaDialogView(method === "email-otp" ? "email-otp" : "authenticator")
+            }
+            onConfirmEnable={handleConfirmEnableMfa}
+            onRequestDisable={() => setMfaDialogView("disable-confirm")}
+            onConfirmDisable={handleConfirmDisableMfa}
+            onCancelDisable={() => setMfaDialogView("manage")}
+            onSwitchMethod={() => setMfaDialogView("choose-method")}
+          />
         </>
       );
 
@@ -280,5 +514,78 @@ function MemberMetric({
         {value}
       </p>
     </div>
+  );
+}
+
+function ProfileSectionIntro({
+  title,
+  description,
+}: {
+  title: string;
+  description?: string;
+}) {
+  return (
+    <div className="mb-4 min-w-0">
+      <h3
+        className="luxia-type-body-dense-strong mb-1"
+        style={{ color: "var(--luxia-text-primary)" }}
+      >
+        {title}
+      </h3>
+      {description ? (
+        <p className="luxia-type-body-dense" style={{ color: "var(--luxia-text-secondary)" }}>
+          {description}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function ProfileReadOnlyField({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="min-w-0">
+      <dt
+        className="mb-1 luxia-type-label-small"
+        style={{ color: "var(--luxia-text-muted)" }}
+      >
+        {label}
+      </dt>
+      <dd
+        className="break-words luxia-type-body-dense-strong"
+        style={{ color: "var(--luxia-text-primary)" }}
+      >
+        {value}
+      </dd>
+    </div>
+  );
+}
+
+function ProfileEditableField({
+  label,
+  htmlFor,
+  value,
+  onChange,
+}: {
+  label: string;
+  htmlFor: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="block min-w-0" htmlFor={htmlFor}>
+      <span
+        className="mb-1 block luxia-type-label-small"
+        style={{ color: "var(--luxia-text-muted)" }}
+      >
+        {label}
+      </span>
+      <Input id={htmlFor} value={value} onChange={(event) => onChange(event.target.value)} />
+    </label>
   );
 }

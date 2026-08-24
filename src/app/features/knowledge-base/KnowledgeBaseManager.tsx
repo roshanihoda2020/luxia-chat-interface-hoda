@@ -15,6 +15,8 @@ import { Button } from "@/app/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/app/components/ui/dialog";
 import { Input } from "@/app/components/ui/input";
 import { Textarea } from "@/app/components/ui/textarea";
+import { cn } from "@/app/components/ui/utils";
+import { LUXIA_DIALOG_CLOSE_ON_DARK_CLASS } from "@/app/features/shared/structuredModalChrome";
 import { KB_RESPONSE_TYPES, type KnowledgeBaseEntry } from "./data";
 import { LX } from "@/app/features/active-data-tables/tokens";
 
@@ -74,10 +76,10 @@ function KBEntryFormAlert({
     return (
         <AlertDialog open={open} onOpenChange={onOpenChange}>
             <AlertDialogContent className="max-w-[min(92vw,560px)] gap-0 overflow-hidden p-0">
-                <AlertDialogHeader className="border-b px-6 py-5 text-left" style={{ borderColor: LX.border }}>
-                    <AlertDialogTitle className="luxia-type-title-modal" style={{ color: LX.primary }}>{title}</AlertDialogTitle>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>{title}</AlertDialogTitle>
                     {!isView ? (
-                        <AlertDialogDescription className="luxia-type-metadata" style={{ color: LX.textMuted }}>
+                        <AlertDialogDescription>
                             Question and answer are required.
                         </AlertDialogDescription>
                     ) : null}
@@ -136,7 +138,7 @@ function KBEntryFormAlert({
                     </div>
                 </div>
 
-                <AlertDialogFooter className="border-t px-6 py-4" style={{ borderColor: LX.border }}>
+                <AlertDialogFooter>
                     {isView ? (
                         <AlertDialogCancel className="px-4">Close</AlertDialogCancel>
                     ) : (
@@ -270,17 +272,24 @@ export function KnowledgeBaseManager({
     const shell = (
         <div className={isPage ? "flex min-h-0 flex-1 flex-col" : "flex max-h-[88vh] flex-col"}>
             {showHeaderChrome ? (
-                <DialogHeader className="flex-shrink-0 border-b px-6 py-5 text-left" style={{ borderColor: LX.border }}>
+                <DialogHeader className="flex-shrink-0">
                     <div className="flex items-start gap-3">
                         <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-[12px]" style={{ background: LX.blueT10 }}>
                             <BookOpen size={18} color={LX.secondary} />
                         </div>
                         <div className="min-w-0 flex-1">
-                            <DialogTitle className="luxia-type-title-modal" style={{ color: LX.primary }}>Knowledge Base</DialogTitle>
-                            <DialogDescription className="mt-1 luxia-type-metadata" style={{ color: LX.textMuted }}>Changes are local until saved.</DialogDescription>
+                            <DialogTitle className="luxia-type-title-modal">Knowledge Base</DialogTitle>
+                            <DialogDescription className="mt-1 luxia-type-metadata">Changes are local until saved.</DialogDescription>
                         </div>
-                        <Button type="button" variant="outline" size="icon" className="h-9 w-9 " aria-label="Close knowledge base manager" onClick={requestLeave}>
-                            <X size={15} style={{ color: LX.textMuted }} />
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className={cn("h-9 w-9", LUXIA_DIALOG_CLOSE_ON_DARK_CLASS)}
+                            aria-label="Close knowledge base manager"
+                            onClick={requestLeave}
+                        >
+                            <X size={15} />
                         </Button>
                     </div>
                 </DialogHeader>

@@ -10,6 +10,11 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/app/components/ui/dialog";
+import {
+  LUXIA_DIALOG_CLOSE_ON_DARK_CLASS,
+  STRUCTURED_MODAL_DARK_CHROME_STYLE,
+} from "@/app/features/shared/structuredModalChrome";
+import { cn } from "@/app/components/ui/utils";
 
 function GuideRow({
   label,
@@ -80,15 +85,15 @@ export function LuxiaUsersGuide({
         className="flex max-h-[min(90vh,36rem)] w-[min(100%,28rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-md"
         hideCloseButton
       >
-        <div
+        <header
           className="flex items-start justify-between gap-3 px-5 py-4"
-          style={{ borderBottom: "1px solid var(--luxia-border-subtle)" }}
+          style={STRUCTURED_MODAL_DARK_CHROME_STYLE}
         >
           <div className="min-w-0 space-y-1">
-            <DialogTitle className="luxia-type-title-section">
+            <DialogTitle className="luxia-type-title-section text-[var(--luxia-text-inverse)]">
               Users guide
             </DialogTitle>
-            <DialogDescription className="luxia-type-body-dense">
+            <DialogDescription className="luxia-type-body-dense text-[var(--luxia-purple-10)]">
               How organization access concepts relate.
             </DialogDescription>
           </div>
@@ -97,13 +102,13 @@ export function LuxiaUsersGuide({
               type="button"
               variant="ghost"
               size="icon"
-              className="shrink-0"
+              className={cn("shrink-0", LUXIA_DIALOG_CLOSE_ON_DARK_CLASS)}
               aria-label="Close"
             >
               <XIcon size={16} strokeWidth={2} aria-hidden />
             </Button>
           </DialogClose>
-        </div>
+        </header>
 
         <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-4">
           <GuideSection title="Access concepts">

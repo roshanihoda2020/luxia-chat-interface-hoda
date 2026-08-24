@@ -756,7 +756,7 @@ export function ProjectDashboardPage({
             </AlertDialogDescription>
           </AlertDialogHeader>
           {viewOutput ? (
-            <div className="mt-1">
+            <div className="mt-1 px-6 py-4">
               <DashboardOutputPreviewGraphic variant={viewOutput.outputType} size="full" />
             </div>
           ) : null}
@@ -784,7 +784,7 @@ export function ProjectDashboardPage({
                 Add a saved output to this Project Dashboard. It will be owned by you.
               </DialogDescription>
             </DialogHeader>
-            <div className="mt-4 space-y-2">
+            <div className="space-y-2 px-6 py-4">
               <Label htmlFor="dashboard-output-create">Output name</Label>
               <Input
                 ref={createInputRef}
@@ -809,7 +809,7 @@ export function ProjectDashboardPage({
                 </p>
               ) : null}
             </div>
-            <DialogFooter className="mt-6">
+            <DialogFooter>
               <Button
                 type="button"
                 variant="secondary"
@@ -848,7 +848,7 @@ export function ProjectDashboardPage({
                 Update the name for this Dashboard output only.
               </DialogDescription>
             </DialogHeader>
-            <div className="mt-4 space-y-2">
+            <div className="space-y-2 px-6 py-4">
               <Label htmlFor="dashboard-output-rename">Output name</Label>
               <Input
                 ref={renameInputRef}
@@ -873,7 +873,7 @@ export function ProjectDashboardPage({
                 </p>
               ) : null}
             </div>
-            <DialogFooter className="mt-6">
+            <DialogFooter>
               <Button
                 type="button"
                 variant="secondary"

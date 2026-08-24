@@ -3,6 +3,11 @@ import ReactDOM from "react-dom";
 import { X } from "lucide-react";
 import { LX } from "@/app/features/active-data-tables/luxiaTokens";
 import { RadioGroupItem } from "@/app/components/ui/radio-group";
+import {
+  LUXIA_DIALOG_CLOSE_ON_DARK_CLASS,
+  STRUCTURED_MODAL_DARK_CHROME_STYLE,
+} from "@/app/features/shared/structuredModalChrome";
+import { cn } from "@/app/components/ui/utils";
 
 export function CreateLuxiaModalShell({
   open,
@@ -60,16 +65,18 @@ export function CreateLuxiaModalShell({
         aria-modal="true"
         aria-labelledby={titleId}
       >
-        <div className="flex flex-shrink-0 items-start justify-between px-7 pt-6 pb-4">
+        <div
+          className="flex flex-shrink-0 items-start justify-between px-7 py-4"
+          style={STRUCTURED_MODAL_DARK_CHROME_STYLE}
+        >
           <div className="min-w-0 pr-4">
             <h2
               id={titleId}
-              className="luxia-type-title-modal mb-1"
-              style={{ color: LX.primary }}
+              className="luxia-type-title-modal mb-1 text-[var(--luxia-text-inverse)]"
             >
               {title}
             </h2>
-            <div className="luxia-type-body-dense" style={{ color: LX.textMuted }}>
+            <div className="luxia-type-body-dense text-[var(--luxia-purple-10)]">
               {description}
             </div>
           </div>
@@ -101,17 +108,13 @@ export function CreateLuxiaModalCloseButton({
     <button
       type="button"
       onClick={onClose}
-      className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full transition-colors outline-none"
-      style={{ border: `1px solid ${LX.border}` }}
+      className={cn(
+        "mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full transition-opacity outline-none",
+        LUXIA_DIALOG_CLOSE_ON_DARK_CLASS,
+      )}
       aria-label={ariaLabel}
-      onMouseEnter={(event) => {
-        (event.currentTarget as HTMLElement).style.background = LX.borderSubtle;
-      }}
-      onMouseLeave={(event) => {
-        (event.currentTarget as HTMLElement).style.background = "transparent";
-      }}
     >
-      <X size={13} style={{ color: LX.textMuted }} />
+      <X size={13} />
     </button>
   );
 }

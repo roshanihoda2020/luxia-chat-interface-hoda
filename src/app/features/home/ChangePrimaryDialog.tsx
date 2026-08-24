@@ -74,6 +74,7 @@ export function ChangePrimaryDialog({
           <DialogTitle>Choose Home focus</DialogTitle>
         </DialogHeader>
 
+        <div className="px-6 py-4">
         <div className="relative mb-3">
           <Search
             size={16}
@@ -206,10 +207,11 @@ export function ChangePrimaryDialog({
           ) : null}
         </div>
 
-        <div className="flex justify-end">
+        <div className="mt-4 flex justify-end">
           <Button type="button" variant="outline" onClick={handleClose}>
             Cancel
           </Button>
+        </div>
         </div>
       </DialogContent>
     </Dialog>

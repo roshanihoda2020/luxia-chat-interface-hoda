@@ -31,6 +31,7 @@ export type {
   OrganizationUser,
   ProjectMembership,
   ProjectRole,
+  PrototypeMfaMethod,
 } from "./types";
 
 export type {

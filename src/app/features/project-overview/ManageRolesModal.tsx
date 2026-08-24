@@ -1,4 +1,5 @@
 import { Button } from "@/app/components/ui/button";
+import { STRUCTURED_MODAL_DARK_CHROME_STYLE } from "@/app/features/shared/structuredModalChrome";
 import type { ProjectMemberItem } from "./types";
 
 interface ManageRolesModalProps {
@@ -32,24 +33,27 @@ export function ManageRolesModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="manage-roles-title"
-        className="relative z-10 w-full max-w-md rounded-[var(--luxia-radius-12)] border border-[var(--luxia-border-default)] bg-[var(--luxia-surface)] p-6 shadow-[var(--luxia-shadow-md)]"
+        className="relative z-10 flex w-full max-w-md flex-col overflow-hidden rounded-[var(--luxia-radius-16)] border border-[var(--luxia-border-default)] bg-[var(--luxia-surface)] p-0 shadow-[var(--luxia-shadow-lg)]"
         onClick={(event) => event.stopPropagation()}
       >
-        <h2
-          id="manage-roles-title"
-          className="luxia-type-title-section"
-          style={{ color: "var(--luxia-purple-70)" }}
-        >
-          Members & Roles
-        </h2>
-        <p
-          className="mt-2 luxia-type-body-dense"
-          style={{ color: "var(--luxia-text-secondary)" }}
-        >
-          Manage Project membership and Project roles for {projectName} on the
-          dedicated Members & Roles page. This dialog no longer edits roles.
-        </p>
-        <div className="mt-5 flex flex-wrap justify-end gap-2">
+        <div className="px-6 py-4" style={STRUCTURED_MODAL_DARK_CHROME_STYLE}>
+          <h2
+            id="manage-roles-title"
+            className="luxia-type-title-section text-[var(--luxia-text-inverse)]"
+          >
+            Members & Roles
+          </h2>
+        </div>
+        <div className="px-6 py-5">
+          <p
+            className="luxia-type-body-dense"
+            style={{ color: "var(--luxia-text-secondary)" }}
+          >
+            Manage Project membership and Project roles for {projectName} on the
+            dedicated Members & Roles page. This dialog no longer edits roles.
+          </p>
+        </div>
+        <div className="flex flex-wrap justify-end gap-2 border-t border-[var(--luxia-border-default)] px-6 py-4">
           <Button type="button" variant="secondary" size="compact" onClick={onClose}>
             Close
           </Button>

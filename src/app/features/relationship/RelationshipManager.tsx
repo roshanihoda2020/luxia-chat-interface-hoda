@@ -10,6 +10,8 @@ import type { RelationshipFormValues } from "./RelationshipForm";
 import { Button } from "@/app/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/app/components/ui/dialog";
 import { Input } from "@/app/components/ui/input";
+import { cn } from "@/app/components/ui/utils";
+import { LUXIA_DIALOG_CLOSE_ON_DARK_CLASS } from "@/app/features/shared/structuredModalChrome";
 import { LX } from "./tokens";
 import type { RelationshipRecord } from "./types";
 import { activeRelationshipCount, cloneRelationships, relationshipName, relationshipsSignature } from "./utils";
@@ -161,17 +163,24 @@ export function RelationshipManager({
     const shell = (
                     <div className={isPage ? "flex min-h-0 flex-1 flex-col" : "flex max-h-[88vh] flex-col"}>
                         {showHeaderChrome ? (
-                        <DialogHeader className="flex-shrink-0 border-b px-6 py-5 text-left" style={{ borderColor: LX.border }}>
+                        <DialogHeader className="flex-shrink-0">
                             <div className="flex items-start gap-3">
                                 <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-[12px]" style={{ background: LX.blueT10 }}>
                                     <GitBranch size={18} color={LX.secondary} />
                                 </div>
                                 <div className="min-w-0 flex-1">
-                                    <DialogTitle className="luxia-type-title-modal" style={{ color: LX.primary }}>Relationship</DialogTitle>
-                                    <DialogDescription className="mt-1 luxia-type-metadata" style={{ color: LX.textMuted }}>Changes are local until saved.</DialogDescription>
+                                    <DialogTitle className="luxia-type-title-modal">Relationship</DialogTitle>
+                                    <DialogDescription className="mt-1 luxia-type-metadata">Changes are local until saved.</DialogDescription>
                                 </div>
-                                <Button type="button" variant="outline" size="icon" className="h-9 w-9 " aria-label="Close relationship manager" onClick={requestLeave}>
-                                    <X size={15} style={{ color: LX.textMuted }} />
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className={cn("h-9 w-9", LUXIA_DIALOG_CLOSE_ON_DARK_CLASS)}
+                                    aria-label="Close relationship manager"
+                                    onClick={requestLeave}
+                                >
+                                    <X size={15} />
                                 </Button>
                             </div>
                         </DialogHeader>

@@ -60,7 +60,7 @@ export function ManagePDFFilesDialog({
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="flex max-h-[min(88vh,640px)] flex-col overflow-hidden p-0" style={{ width: "min(92vw, 560px)", maxWidth: "min(92vw, 560px)" }}>
-                <DialogHeader className="border-b px-6 py-4 text-left" style={{ borderColor: LX.border }}>
+                <DialogHeader>
                     <DialogTitle className="luxia-type-title-panel">Manage Files</DialogTitle>
                 </DialogHeader>
 
@@ -99,7 +99,7 @@ export function ManagePDFFilesDialog({
                     </div>
                 </div>
 
-                <DialogFooter className="border-t px-6 py-4" style={{ borderColor: LX.border }}>
+                <DialogFooter>
                     <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>Cancel</Button>
                     <Button type="button" variant="primary" disabled={!dirty} onClick={() => { onSave(selected); onOpenChange(false); }}>Save</Button>
                 </DialogFooter>

@@ -12,6 +12,7 @@ import {
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
 import { Textarea } from "@/app/components/ui/textarea";
+import { STRUCTURED_MODAL_DARK_CHROME_STYLE } from "@/app/features/shared/structuredModalChrome";
 import type { CsvColumnDraft, CsvValidationSummary } from "./types";
 
 const STEPS = [
@@ -291,19 +292,27 @@ export function CsvImportFlow({
         className="flex h-[min(92vh,52rem)] max-w-5xl flex-col gap-0 overflow-hidden p-0 sm:max-w-5xl"
       >
         <DialogHeader
-          className="shrink-0 space-y-1 border-b px-6 py-4 text-left"
-          style={{ borderColor: "var(--luxia-border-subtle)" }}
+          className="shrink-0 space-y-1 px-6 py-4 text-left"
+          style={STRUCTURED_MODAL_DARK_CHROME_STYLE}
         >
-          <DialogTitle>Import CSV</DialogTitle>
-          <DialogDescription>
+          <DialogTitle
+            className="text-left"
+            style={{ color: "var(--luxia-text-inverse)" }}
+          >
+            Import CSV
+          </DialogTitle>
+          <DialogDescription
+            className="mt-1 text-left"
+            style={{ color: "var(--luxia-purple-10)" }}
+          >
             {sourceName} · {ownershipLabel}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row md:items-stretch">
           <nav
-            className="shrink-0 border-b px-4 py-4 md:w-52 md:border-r md:border-b-0"
-            style={{ borderColor: "var(--luxia-border-subtle)" }}
+            className="luxia-scrollbar luxia-scrollbar-dark luxia-scrollbar-vertical shrink-0 px-4 py-4 md:flex md:w-52 md:min-h-0 md:flex-col md:self-stretch md:overflow-y-auto"
+            style={STRUCTURED_MODAL_DARK_CHROME_STYLE}
             aria-label="CSV import steps"
           >
             <ol className="flex gap-2 overflow-x-auto md:flex-col md:gap-1">
@@ -311,17 +320,17 @@ export function CsvImportFlow({
                 const active = item.id === step;
                 const done = item.id < step || (item.id === 6 && importDone);
                 return (
-                  <li key={item.id}>
+                  <li key={item.id} className="shrink-0 md:shrink">
                     <div
-                      className={`rounded-[6px] px-2.5 py-2 luxia-type-caption ${
+                      className={`rounded-[6px] px-2.5 py-2 luxia-type-caption whitespace-nowrap md:whitespace-normal ${
                         active ? "luxia-type-body-dense-strong" : ""
                       }`}
                       style={{
                         color: active
-                          ? "var(--luxia-text-primary)"
-                          : "var(--luxia-text-secondary)",
+                          ? "var(--luxia-text-inverse)"
+                          : "var(--luxia-opacity-white-80)",
                         background: active
-                          ? "var(--luxia-surface-muted)"
+                          ? "var(--luxia-opacity-white-16)"
                           : "transparent",
                       }}
                       aria-current={active ? "step" : undefined}
@@ -338,7 +347,8 @@ export function CsvImportFlow({
             </ol>
           </nav>
 
-          <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-[var(--luxia-surface)] md:shadow-[inset_4px_4px_6px_-3px_var(--luxia-opacity-black-08)]">
+          <div className="luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical min-h-0 flex-1 overflow-y-auto px-6 py-5">
             {step === 1 ? (
               <div className="space-y-4">
                 <div>
@@ -978,7 +988,6 @@ export function CsvImportFlow({
               </div>
             ) : null}
           </div>
-        </div>
 
         <DialogFooter
           className="shrink-0 justify-between border-t px-6 py-4"
@@ -1003,6 +1012,8 @@ export function CsvImportFlow({
             {primaryLabel()}
           </Button>
         </DialogFooter>
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   );

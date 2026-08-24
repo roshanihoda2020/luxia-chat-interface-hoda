@@ -467,7 +467,7 @@ export function OrganizationUsersPage({
               roles or Access Levels.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-2 py-2">
+          <div className="space-y-2 px-6 py-4">
             <label className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
               Organization role
             </label>

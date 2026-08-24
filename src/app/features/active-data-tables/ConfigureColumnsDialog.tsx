@@ -2,6 +2,8 @@ import { Columns3, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/app/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/app/components/ui/dialog";
+import { cn } from "@/app/components/ui/utils";
+import { LUXIA_DIALOG_CLOSE_ON_DARK_CLASS } from "@/app/features/shared/structuredModalChrome";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -87,14 +89,22 @@ export function ConfigureColumnsDialog({
             <Dialog open={open} onOpenChange={(next) => { if (!next) requestClose(); }}>
                 <DialogContent hideCloseButton className="overflow-hidden p-0" style={{ width: "min(92vw, 1280px)", maxWidth: "min(92vw, 1280px)" }}>
                     <div className="flex flex-col">
-                        <DialogHeader className="border-b px-6 py-5 text-left" style={{ borderColor: LX.border }}>
+                        <DialogHeader>
                             <div className="flex items-start gap-3">
                                 <div className="min-w-0 flex-1">
-                                    <DialogTitle className="luxia-type-title-modal" style={{ color: LX.primary }}>Configure columns</DialogTitle>
+                                    <DialogTitle className="luxia-type-title-modal">Configure columns</DialogTitle>
                                     <DialogDescription className="sr-only">Control visibility, display names, types, descriptions, and value context for columns.</DialogDescription>
-                                    <p className="mt-1 luxia-type-metadata" style={{ color: LX.textMuted }}>Control visibility, display names, types, descriptions, and value context.</p>
+                                    <p className="mt-1 luxia-type-metadata text-[var(--luxia-purple-10)]">Control visibility, display names, types, descriptions, and value context.</p>
                                 </div>
-                                <button type="button" onClick={requestClose} className="flex h-9 w-9 items-center justify-center rounded-full border transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2" style={{ borderColor: LX.border, color: LX.textMuted }} aria-label="Close configure columns">
+                                <button
+                                    type="button"
+                                    onClick={requestClose}
+                                    className={cn(
+                                        "flex h-9 w-9 items-center justify-center rounded-full outline-none transition-opacity focus-visible:ring-2 focus-visible:ring-offset-2",
+                                        LUXIA_DIALOG_CLOSE_ON_DARK_CLASS,
+                                    )}
+                                    aria-label="Close configure columns"
+                                >
                                     <X size={15} />
                                 </button>
                             </div>

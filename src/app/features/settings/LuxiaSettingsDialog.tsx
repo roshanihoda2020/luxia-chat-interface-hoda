@@ -20,6 +20,7 @@ import {
   ACCOUNT_SETTINGS_NAV_GROUPS,
   type AccountSettingsSectionId,
 } from "./ia";
+import { STRUCTURED_MODAL_DARK_CHROME_STYLE } from "@/app/features/shared/structuredModalChrome";
 import {
   AccountSettingsContent,
   type AccountSettingsContentProps,
@@ -33,9 +34,6 @@ const SECTION_ICONS: Record<AccountSettingsSectionId, typeof User> = {
   "access-data": Shield,
   usage: BarChart3,
 };
-
-/** Same surface as Project Overview Galaxy hero body (`ProjectGalaxyCard`). */
-const SETTINGS_DARK_SURFACE = "var(--luxia-galaxy-hero-surface)";
 
 interface LuxiaSettingsDialogProps extends Omit<AccountSettingsContentProps, "activeSection"> {
   open: boolean;
@@ -64,10 +62,7 @@ export function LuxiaSettingsDialog({
       >
         <div
           className="flex shrink-0 items-start justify-between gap-4 px-7 py-4"
-          style={{
-            backgroundColor: "var(--luxia-brand-primary-dark)",
-            backgroundImage: SETTINGS_DARK_SURFACE,
-          }}
+          style={STRUCTURED_MODAL_DARK_CHROME_STYLE}
         >
           <div className="min-w-0 pr-2">
             <DialogTitle
@@ -95,8 +90,7 @@ export function LuxiaSettingsDialog({
             className="luxia-scrollbar luxia-scrollbar-dark luxia-scrollbar-vertical w-full shrink-0 max-lg:relative max-lg:z-[1] max-lg:shadow-[0_2px_6px_var(--luxia-opacity-black-08)] lg:flex lg:min-h-0 lg:w-[var(--luxia-account-settings-nav-width)] lg:min-w-[var(--luxia-account-settings-nav-width)] lg:max-w-[var(--luxia-account-settings-nav-width)] lg:flex-col lg:self-stretch lg:overflow-y-auto lg:shadow-none"
             aria-label="Settings sections"
             style={{
-              backgroundColor: "var(--luxia-brand-primary-dark)",
-              backgroundImage: SETTINGS_DARK_SURFACE,
+              ...STRUCTURED_MODAL_DARK_CHROME_STYLE,
               ["--luxia-account-settings-nav-width" as string]: LUXIA_PAGE_LAYOUT.settingsNavWidth,
             }}
           >

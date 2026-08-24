@@ -104,7 +104,7 @@ export function EditProjectDialog({
           <DialogTitle>Edit Project</DialogTitle>
         </DialogHeader>
 
-        <div className="flex min-w-0 w-full flex-col gap-4 overflow-x-hidden">
+        <div className="flex min-w-0 w-full flex-col gap-4 overflow-x-hidden px-6 py-4">
           <div className="flex min-w-0 w-full flex-col gap-2">
             <Label htmlFor={nameId}>Project name</Label>
             <Input
