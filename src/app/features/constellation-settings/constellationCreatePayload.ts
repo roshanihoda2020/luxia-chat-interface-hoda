@@ -39,6 +39,15 @@ function catalogTypeForConstellation(
   return "Database";
 }
 
+export function constellationTypeFromCatalogItem(
+  source: Pick<DataSourceCatalogItem, "type" | "connector">,
+): CapsuleConstellationType {
+  const haystack = `${source.connector ?? ""} ${source.type}`.toLowerCase();
+  if (haystack.includes("csv")) return "csv";
+  if (haystack.includes("pdf") || haystack.includes("file")) return "pdf";
+  return "database";
+}
+
 function connectorForConstellation(
   type: CapsuleConstellationType,
 ): DataSourceConnector {

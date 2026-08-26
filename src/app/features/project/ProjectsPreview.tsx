@@ -149,6 +149,44 @@ export function ProjectDestinationActions({
   );
 }
 
+export function ProjectListTitleLink({
+  projectId,
+  projectName,
+  titleColor,
+  onOpenProject,
+}: {
+  projectId: string;
+  projectName: string;
+  titleColor: string;
+  onOpenProject: (projectId: string) => void;
+}) {
+  return (
+    <a
+      href={getProjectPath(projectId)}
+      onClick={(event) => {
+        event.preventDefault();
+        onOpenProject(projectId);
+      }}
+      className="flex min-w-0 items-center gap-1.5 rounded-[4px] outline-none hover:opacity-90 focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]"
+      title={projectName}
+      aria-label={`Open Project ${projectName}`}
+    >
+      <LuxiaProjectsIcon
+        size={16}
+        color={HS.projectIcon}
+        className="shrink-0"
+        aria-hidden
+      />
+      <span
+        className="min-w-0 truncate luxia-type-body-dense-strong"
+        style={{ color: titleColor }}
+      >
+        {projectName}
+      </span>
+    </a>
+  );
+}
+
 function ProjectCardDescription({
   description,
   color,
@@ -489,19 +527,12 @@ export function ProjectsPreview({
                 style={{ borderColor: "var(--luxia-border-default)" }}
               >
                 <div className="min-w-0 flex-1">
-                  <a
-                    href={getProjectPath(project.id)}
-                    onClick={(event) => {
-                      event.preventDefault();
-                      onOpenProject(project.id);
-                    }}
-                    className="block truncate rounded-[4px] luxia-type-body-dense-strong outline-none hover:opacity-90 focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]"
-                    style={{ color: "var(--luxia-text-primary)" }}
-                    title={project.name}
-                    aria-label={`Open Project ${project.name}`}
-                  >
-                    {project.name}
-                  </a>
+                  <ProjectListTitleLink
+                    projectId={project.id}
+                    projectName={project.name}
+                    titleColor={HS.projectTitle}
+                    onOpenProject={onOpenProject}
+                  />
                   {description ? (
                     <p
                       className="mt-0.5 line-clamp-1 luxia-type-caption"

@@ -102,6 +102,7 @@ export {
   evaluateConstellationUseAccess,
   getAccessibleConstellationIds,
   getActiveProjectMembership,
+  canViewOrganizationAnalytics,
   isOrganizationAdmin,
   isWorkingChatAccessible,
 } from "./accessGuards";
@@ -162,3 +163,15 @@ export type { ProjectMembersPageProps } from "./ProjectMembersPage";
 
 export { DataSourceSettingsPage } from "./DataSourceSettingsPage";
 export type { DataSourceSettingsPageProps } from "./DataSourceSettingsPage";
+
+export {
+  getDataSourceSettingsContentKind,
+  getDataSourceSettingsNavItems,
+  parseDataSourceNameInput,
+  resolveDataSourceSettingsSection,
+} from "./dataSourceSettingsIa";
+export type {
+  DataSourceSettingsSectionId,
+  DataSourceSettingsFocusSection,
+  DataSourceSettingsContentKind,
+} from "./dataSourceSettingsIa";

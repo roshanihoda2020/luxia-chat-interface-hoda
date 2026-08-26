@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,6 +21,7 @@ import { FileUploadDialog } from "./FileUploadDialog";
 import { NewDataSourceChooserDialog } from "./NewDataSourceChooserDialog";
 import type {
   CreationPhase,
+  CsvImportCompletePayload,
   DatabaseConnectionFields,
   DataSourceCreationReturnContext,
   DataSourceOwnershipChoice,
@@ -30,6 +31,7 @@ import {
   nextPrototypeDataSourceId,
   nextPrototypeDataSourceName,
 } from "./types";
+import type { DataSourceHandoffProject } from "../constellationHandoff";
 
 export interface NewDataSourceFlowProps {
   open: boolean;
@@ -43,6 +45,8 @@ export interface NewDataSourceFlowProps {
     returnContext: DataSourceCreationReturnContext,
     options?: { openSettings?: boolean },
   ) => void;
+  eligibleProjects?: DataSourceHandoffProject[];
+  onCreateConstellationFromSource?: (sourceId: string, projectId?: string) => void;
 }
 
 function defaultOwnership(allowOrganizational: boolean): DataSourceOwnershipChoice {
@@ -57,6 +61,8 @@ export function NewDataSourceFlow({
   returnContext = { kind: "library" },
   onOpenChange,
   onCreated,
+  eligibleProjects = [],
+  onCreateConstellationFromSource,
 }: NewDataSourceFlowProps) {
   const [phase, setPhase] = useState<CreationPhase>("chooser");
   const [connector, setConnector] = useState<DataSourceConnector | null>(null);
@@ -69,6 +75,7 @@ export function NewDataSourceFlow({
   >({});
   const [discardOpen, setDiscardOpen] = useState(false);
   const [sessionKey, setSessionKey] = useState(0);
+  const createdSourceRef = useRef<DataSourceCatalogItem | null>(null);
 
   const suggestedName = useMemo(
     () => nextPrototypeDataSourceName(existingSources),
@@ -77,6 +84,7 @@ export function NewDataSourceFlow({
 
   useEffect(() => {
     if (!open) return;
+    createdSourceRef.current = null;
     setPhase("chooser");
     setConnector(null);
     setName(suggestedName);
@@ -84,7 +92,9 @@ export function NewDataSourceFlow({
     setDbFieldsByConnector({});
     setDiscardOpen(false);
     setSessionKey((value) => value + 1);
-  }, [open, allowOrganizational, suggestedName]);
+    // Reset only when the dialog opens. Do not reset after catalog create while the CSV Summary is still showing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- suggestedName/existingSources change after create
+  }, [open]);
 
   useEffect(() => {
     if (!allowOrganizational && ownership === "organizational") {
@@ -109,6 +119,10 @@ export function NewDataSourceFlow({
   ]);
 
   function requestClose() {
+    if (createdSourceRef.current) {
+      onOpenChange(false);
+      return;
+    }
     if (dirty) {
       setDiscardOpen(true);
       return;
@@ -196,6 +210,55 @@ export function NewDataSourceFlow({
     setPhase("file");
   }
 
+  function finishCsv(payload: CsvImportCompletePayload) {
+    const tables = payload.tables;
+    const first = tables[0];
+    const importedRows = tables.reduce((sum, table) => sum + table.importedRows, 0);
+    const skippedRows = tables.reduce((sum, table) => sum + table.skippedRows, 0);
+    const source = buildSource({
+      connector: "csv",
+      type: "CSV",
+      status: "active",
+      contentSummary: {
+        kind: "csv",
+        fileName: first?.fileName,
+        tableName: first?.tableName,
+        tableDescription: first?.tableDescription || undefined,
+        delimiter: first?.delimiter,
+        encoding: first?.encoding,
+        importedRows,
+        skippedRows,
+        csvTables: tables.map((table) => ({
+          id: table.id,
+          fileName: table.fileName,
+          tableName: table.tableName,
+          tableDescription: table.tableDescription || undefined,
+          delimiter: table.delimiter,
+          encoding: table.encoding,
+          importedRows: table.importedRows,
+          skippedRows: table.skippedRows,
+        })),
+      },
+    });
+    createdSourceRef.current = source;
+    onCreated(source, returnContext);
+  }
+
+  function finishAfterCsvCreate(options?: { openSettings?: boolean }) {
+    const source = createdSourceRef.current;
+    if (options?.openSettings && source) {
+      onCreated(source, returnContext, { openSettings: true });
+    }
+    onOpenChange(false);
+  }
+
+  function finishCsvWithCreate(projectId: string) {
+    const source = createdSourceRef.current;
+    onOpenChange(false);
+    if (!source) return;
+    onCreateConstellationFromSource?.(source.id, projectId);
+  }
+
   const ownershipLabel = ownership === "private" ? "Private" : "Organizational";
   const activeDbFields =
     connector && isDatabaseConnector(connector)
@@ -250,25 +313,14 @@ export function NewDataSourceFlow({
         ownershipLabel={ownershipLabel}
         onBackToChooser={() => setPhase("chooser")}
         onCancel={requestClose}
-        onComplete={(payload) => {
-          finish(
-            buildSource({
-              connector: "csv",
-              type: "CSV",
-              status: "active",
-              contentSummary: {
-                kind: "csv",
-                fileName: payload.fileName,
-                tableName: payload.tableName,
-                tableDescription: payload.tableDescription || undefined,
-                delimiter: payload.delimiter,
-                importedRows: payload.importedRows,
-                skippedRows: payload.skippedRows,
-              },
-            }),
-            { openSettings: payload.openSettings },
-          );
-        }}
+        onComplete={finishCsv}
+        onFinish={finishAfterCsvCreate}
+        eligibleProjects={eligibleProjects}
+        onCreateConstellation={
+          onCreateConstellationFromSource
+            ? (projectId) => finishCsvWithCreate(projectId)
+            : undefined
+        }
       />
 
       <FileUploadDialog

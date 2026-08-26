@@ -79,6 +79,9 @@ const DialogContent = React.forwardRef<
       children,
       hideCloseButton,
       overlayClassName,
+      onInteractOutside,
+      onPointerDownOutside,
+      onFocusOutside,
       ...props
     },
     ref,
@@ -95,6 +98,27 @@ const DialogContent = React.forwardRef<
           "rounded-[var(--luxia-radius-16)] border p-0 gap-0 overflow-hidden shadow-[var(--luxia-shadow-lg)] duration-200 sm:max-w-lg",
           className,
         )}
+        onInteractOutside={(event) => {
+          const target = event.target;
+          if (target instanceof Element && target.closest("[data-slot=popover-content]")) {
+            event.preventDefault();
+          }
+          onInteractOutside?.(event);
+        }}
+        onPointerDownOutside={(event) => {
+          const target = event.target;
+          if (target instanceof Element && target.closest("[data-slot=popover-content]")) {
+            event.preventDefault();
+          }
+          onPointerDownOutside?.(event);
+        }}
+        onFocusOutside={(event) => {
+          const target = event.target;
+          if (target instanceof Element && target.closest("[data-slot=popover-content]")) {
+            event.preventDefault();
+          }
+          onFocusOutside?.(event);
+        }}
         {...props}
       >
         {children}

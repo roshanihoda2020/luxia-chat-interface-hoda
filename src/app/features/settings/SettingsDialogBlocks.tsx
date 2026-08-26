@@ -5,24 +5,36 @@ import { LuxiaArrowRightIcon } from "@/assets/icons";
 const SURFACE_CLASS =
   "rounded-[var(--luxia-radius-12)] border border-[var(--luxia-settings-section-border,var(--luxia-border-default))] bg-[var(--luxia-settings-section-bg,var(--luxia-neutral-50))]";
 
+/** Floating menus inside Settings must sit above the dialog (z-70). */
+export const SETTINGS_FLOATING_Z_CLASS = "!z-[80]";
+
 export function SettingsDialogSectionHeader({
   title,
   description,
+  compact = false,
+  action,
 }: {
   title: string;
   description: string;
+  compact?: boolean;
+  action?: ReactNode;
 }) {
   return (
-    <header className="mb-4 min-w-0">
-      <h2
-        className="luxia-type-title-card mb-1"
-        style={{ color: "var(--luxia-purple-70)" }}
-      >
-        {title}
-      </h2>
-      <p className="luxia-type-body-dense" style={{ color: "var(--luxia-text-secondary)" }}>
-        {description}
-      </p>
+    <header
+      className={`min-w-0 ${compact ? "mb-4" : "mb-6"} ${action ? "flex items-center justify-between gap-3" : ""}`}
+    >
+      <div className="min-w-0">
+        <h2
+          className="luxia-type-title-card mb-1"
+          style={{ color: "var(--luxia-purple-70)" }}
+        >
+          {title}
+        </h2>
+        <p className="luxia-type-body-dense" style={{ color: "var(--luxia-text-secondary)" }}>
+          {description}
+        </p>
+      </div>
+      {action ? <div className="shrink-0">{action}</div> : null}
     </header>
   );
 }
@@ -66,23 +78,27 @@ export function CompactMetricTile({
   label,
   value,
   icon,
+  swatchColor,
 }: {
   label: string;
   value: string | number;
   icon?: ReactNode;
+  swatchColor?: string;
 }) {
   return (
-    <div className={`${SURFACE_CLASS} flex min-w-0 flex-col gap-2 px-3.5 py-3.5`}>
-      {icon ? (
-        <span className="inline-flex shrink-0 text-[var(--luxia-text-muted)]" aria-hidden>
-          {icon}
-        </span>
-      ) : null}
+    <div className={`${SURFACE_CLASS} flex min-w-0 flex-col gap-1.5 px-3 py-3`}>
       <p
-        className="min-w-0 truncate luxia-type-body-dense"
+        className="flex min-w-0 items-center gap-1.5 luxia-type-caption"
         style={{ color: "var(--luxia-text-secondary)" }}
       >
-        {label}
+        {swatchColor ? (
+          <span className="size-1.5 shrink-0 rounded-full" style={{ background: swatchColor }} aria-hidden />
+        ) : icon ? (
+          <span className="inline-flex shrink-0 text-[var(--luxia-text-muted)]" aria-hidden>
+            {icon}
+          </span>
+        ) : null}
+        <span className="min-w-0 truncate">{label}</span>
       </p>
       <p
         className="luxia-type-title-card tabular-nums leading-none"

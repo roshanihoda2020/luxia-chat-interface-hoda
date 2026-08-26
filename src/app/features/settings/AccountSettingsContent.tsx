@@ -8,6 +8,7 @@ import type {
   OrganizationUser,
   PrototypeMfaMethod,
 } from "@/app/features/permissions/types";
+import type { VidgetRecord } from "@/app/features/vidgets/types";
 import {
   LuxiaArrowRightIcon,
   LuxiaChatIcon,
@@ -23,6 +24,8 @@ import {
   type AccountSettingsSectionId,
   type OrganizationUsageMetrics,
 } from "./ia";
+import { OrganizationAnalyticsSection } from "./analytics";
+import type { AnalyticsSessionState } from "./analytics/sessionState";
 import {
   CompactInfoRow,
   CompactManagerCard,
@@ -66,6 +69,10 @@ export interface AccountSettingsContentProps {
   onOpenAccessLevels: () => void;
   onUpdateProfile?: (userId: string, draft: ProfilePersonalDraft) => void;
   onUpdateProfileMfa?: (userId: string, next: ProfileMfaState) => void;
+  analyticsSession: AnalyticsSessionState;
+  onAnalyticsSessionChange: (next: AnalyticsSessionState) => void;
+  directoryUsers?: OrganizationUser[];
+  vidgets?: VidgetRecord[];
 }
 
 export function AccountSettingsContent({
@@ -81,6 +88,10 @@ export function AccountSettingsContent({
   onOpenAccessLevels,
   onUpdateProfile,
   onUpdateProfileMfa,
+  analyticsSession,
+  onAnalyticsSessionChange,
+  directoryUsers,
+  vidgets,
 }: AccountSettingsContentProps) {
   const orgRoleLabel = formatOrganizationRoleLabel(user.orgRole);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -174,7 +185,7 @@ export function AccountSettingsContent({
                 {canEditProfile && !isEditingProfile ? (
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant="outline"
                     size="compact"
                     className="shrink-0"
                     onClick={() => setIsEditingProfile(true)}
@@ -341,10 +352,11 @@ export function AccountSettingsContent({
       return (
         <>
           <SettingsDialogSectionHeader
+            compact
             title="My Data"
             description="Private Data Sources owned by you."
           />
-          <SettingsDialogSurface className="flex flex-col gap-3 px-4 py-3.5 sm:flex-row sm:items-center sm:gap-4">
+          <SettingsDialogSurface className="flex max-w-[32rem] flex-col gap-3 px-4 py-3.5 sm:flex-row sm:items-center sm:gap-4">
             <div className="flex min-w-0 flex-1 items-center gap-3">
               <span
                 className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--luxia-radius-8)] text-[var(--luxia-text-muted)]"
@@ -384,10 +396,11 @@ export function AccountSettingsContent({
       return (
         <>
           <SettingsDialogSectionHeader
+            compact
             title="General"
             description="Organization information and your access."
           />
-          <SettingsDialogSurface className="px-4">
+          <SettingsDialogSurface className="max-w-[32rem] px-4">
             <dl className="divide-y divide-[var(--luxia-border-default)]">
               <CompactInfoRow
                 label="Organization"
@@ -403,10 +416,11 @@ export function AccountSettingsContent({
       return (
         <>
           <SettingsDialogSectionHeader
+            compact
             title="Members"
             description="Organization members and invitations."
           />
-          <SettingsDialogSurface className="overflow-hidden">
+          <SettingsDialogSurface className="max-w-[40rem] overflow-hidden">
             <div className="grid min-w-0 grid-cols-3 divide-x divide-[var(--luxia-border-default)]">
               <MemberMetric label="Total members" value={memberSummary.total} />
               <MemberMetric label="Active" value={memberSummary.active} />
@@ -446,10 +460,11 @@ export function AccountSettingsContent({
       return (
         <>
           <SettingsDialogSectionHeader
+            compact
             title="Access & Data"
             description="Organization Data Sources and access rules."
           />
-          <div className="grid min-w-0 items-stretch gap-4 @min-[700px]:grid-cols-2">
+          <div className="grid min-w-0 max-w-[40rem] items-stretch gap-4 @min-[700px]:grid-cols-2">
             <CompactManagerCard
               title="Access Levels"
               metric={accessLevelCount}
@@ -470,14 +485,25 @@ export function AccountSettingsContent({
         </>
       );
 
+    case "analytics":
+      return (
+        <OrganizationAnalyticsSection
+          session={analyticsSession}
+          onSessionChange={onAnalyticsSessionChange}
+          directoryUsers={directoryUsers}
+          vidgets={vidgets}
+        />
+      );
+
     case "usage":
       return (
         <>
           <SettingsDialogSectionHeader
+            compact
             title="Usage"
             description="Current organization activity and resource counts."
           />
-          <div className="grid min-w-0 grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid min-w-0 max-w-[40rem] grid-cols-2 gap-3 @min-[560px]:grid-cols-3">
             <CompactMetricTile label="Projects" value={usageMetrics.projects} icon={<LuxiaProjectsIcon size={15} color="currentColor" />} />
             <CompactMetricTile label="Users" value={usageMetrics.users} icon={<Users size={15} />} />
             <CompactMetricTile label="Data Sources" value={usageMetrics.dataSources} icon={<LuxiaDatasourceIcon size={15} color="currentColor" />} />

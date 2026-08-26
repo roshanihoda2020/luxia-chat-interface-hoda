@@ -103,19 +103,22 @@
 /* Stronger form control borders inside settings panels */
 .luxia-settings-content-surface [data-slot="input"],
 .luxia-settings-content-surface [data-slot="textarea"],
-.luxia-settings-content-surface [data-slot="select-trigger"] {
+.luxia-settings-content-surface [data-slot="select-trigger"],
+.luxia-settings-content-surface [data-slot="combobox-field"] {
   border-color: var(--luxia-border-strong);
 }
 
 .luxia-settings-content-surface [data-slot="input"]:hover,
 .luxia-settings-content-surface [data-slot="textarea"]:hover,
-.luxia-settings-content-surface [data-slot="select-trigger"]:hover {
+.luxia-settings-content-surface [data-slot="select-trigger"]:hover,
+.luxia-settings-content-surface [data-slot="combobox-field"]:hover {
   border-color: color-mix(in srgb, var(--luxia-brand-primary) 28%, var(--luxia-border-strong));
 }
 
 .luxia-settings-content-surface [data-slot="input"]:focus-visible,
 .luxia-settings-content-surface [data-slot="textarea"]:focus-visible,
-.luxia-settings-content-surface [data-slot="select-trigger"]:focus-visible {
+.luxia-settings-content-surface [data-slot="select-trigger"]:focus-visible,
+.luxia-settings-content-surface [data-slot="combobox-field"]:focus-within {
   border-color: var(--luxia-purple-60);
   box-shadow: 0 0 0 3px var(--luxia-opacity-brand-secondary-24);
 }
@@ -179,4 +182,38 @@
 .luxia-settings-tablist [data-slot="tabs-trigger"][disabled] {
   color: var(--luxia-text-secondary);
   opacity: 0.72;
+}
+
+/* CSV import dropzone — white card on the settings canvas, hover/drag tint only */
+.luxia-csv-dropzone {
+  box-sizing: border-box;
+  cursor: pointer;
+  border: 1.5px dashed var(--luxia-border-strong);
+  border-radius: var(--luxia-radius-12);
+  background: var(--luxia-surface);
+  text-align: center;
+  outline: none;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease;
+}
+
+.luxia-csv-dropzone:hover {
+  border-color: var(--luxia-purple-50);
+  background: var(--luxia-opacity-brand-secondary-08);
+}
+
+.luxia-csv-dropzone.is-active {
+  border-style: solid;
+  border-color: var(--luxia-purple-50);
+  background: var(--luxia-opacity-brand-secondary-12);
+}
+
+.luxia-csv-dropzone-icon {
+  color: var(--luxia-purple-60);
+}
+
+.luxia-csv-dropzone:hover .luxia-csv-dropzone-icon,
+.luxia-csv-dropzone.is-active .luxia-csv-dropzone-icon {
+  color: var(--luxia-purple-70);
 }

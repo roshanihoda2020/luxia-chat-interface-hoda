@@ -69,6 +69,17 @@ export interface ProjectMembership {
   joinedOrInvitedAt: string;
 }
 
+export interface CsvImportedTableSummary {
+  id: string;
+  fileName: string;
+  tableName: string;
+  tableDescription?: string;
+  delimiter?: string;
+  encoding?: string;
+  importedRows?: number;
+  skippedRows?: number;
+}
+
 export interface DataSourceContentSummary {
   /** Non-secret connection/content snapshot for Settings (no passwords). */
   kind: "database" | "csv" | "file";
@@ -86,9 +97,12 @@ export interface DataSourceContentSummary {
   tableName?: string;
   tableDescription?: string;
   delimiter?: string;
+  encoding?: string;
   importedRows?: number;
   skippedRows?: number;
   fileNames?: string[];
+  /** Multi-table CSV snapshot. Legacy sources may only have the singular fields above. */
+  csvTables?: CsvImportedTableSummary[];
 }
 
 export interface DataSourceCatalogItem {

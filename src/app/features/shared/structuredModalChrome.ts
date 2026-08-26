@@ -30,8 +30,8 @@ export const LUXIA_DIALOG_HEADER_CLASS =
   "[&_[data-slot=dialog-description]]:text-[var(--luxia-purple-10)] " +
   "[&_[data-slot=alert-dialog-description]]:text-[var(--luxia-purple-10)]";
 
-/** Close control sitting on a dark header. */
+/** Close control sitting on a dark header. Ghost-button color must not win over inverse text. */
 export const LUXIA_DIALOG_CLOSE_ON_DARK_CLASS =
-  "text-[var(--luxia-text-inverse)] opacity-80 transition-opacity " +
-  "hover:opacity-100 hover:bg-[rgba(255,255,255,0.12)] " +
-  "focus-visible:ring-[var(--luxia-border-focus)]";
+  "!text-[var(--luxia-text-inverse)] opacity-100 " +
+  "hover:!opacity-100 hover:!bg-[var(--luxia-opacity-white-12)] hover:!text-[var(--luxia-text-inverse)] " +
+  "focus-visible:ring-2 focus-visible:ring-[var(--luxia-opacity-white-32)]";

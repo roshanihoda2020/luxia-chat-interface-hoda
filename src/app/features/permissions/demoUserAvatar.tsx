@@ -46,7 +46,7 @@ export function DemoUserAvatar({
   const spec = getDemoUserAvatarSpec(userId);
   return (
     <span
-      className={`inline-flex shrink-0 items-center justify-center font-medium text-white ${SIZE_CLASS[size]} ${className}`}
+      className={`inline-flex shrink-0 items-center justify-center text-white ${SIZE_CLASS[size]} ${className}`}
       style={{ background: spec.background }}
       aria-hidden={ariaHidden}
     >

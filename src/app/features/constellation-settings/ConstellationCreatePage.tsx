@@ -88,6 +88,7 @@ import {
 } from "./constellationCreateDraft";
 import {
   buildReviewAddedDataSummary,
+  constellationTypeFromCatalogItem,
 } from "./constellationCreatePayload";
 import {
   CREATION_DATABASE_TABLES,
@@ -124,6 +125,24 @@ const TYPE_OPTIONS: {
     icon: FileSpreadsheet,
   },
 ];
+
+function draftWithPreselectedSource(
+  projectId: string,
+  sourceId: string | null | undefined,
+  dataSources: DataSourceCatalogItem[],
+): ConstellationCreationDraft {
+  const empty = createEmptyConstellationCreationDraft(projectId);
+  if (!sourceId) return empty;
+  const source = dataSources.find((item) => item.id === sourceId);
+  if (!source || !isDataSourceUsable(source.status)) return empty;
+  const type = constellationTypeFromCatalogItem(source);
+  return {
+    ...applyTypeDefaults(empty, type),
+    type,
+    dataSourceMode: "existing",
+    existingDataSourceId: source.id,
+  };
+}
 
 function sourcesForType(
   type: CapsuleConstellationType,
@@ -617,6 +636,7 @@ export interface ConstellationCreatePageProps {
   accessLevels?: AccessLevelRecord[];
   dataSources?: DataSourceCatalogItem[];
   currentUserId?: string;
+  initialExistingDataSourceId?: string | null;
   navigationGuardRef?: MutableRefObject<ConstellationCreateNavigationGuard | null>;
   onNavigateHome: () => void;
   onOpenProject: (projectId: string) => void;
@@ -632,19 +652,20 @@ export function ConstellationCreatePage({
   accessLevels = ACCESS_LEVELS,
   dataSources = DATA_SOURCE_CATALOG,
   currentUserId = CURRENT_USER_ID,
+  initialExistingDataSourceId = null,
   navigationGuardRef,
   onNavigateHome,
   onOpenProject,
   onCancel,
   onCreate,
 }: ConstellationCreatePageProps) {
-  const baselineRef = useRef(createEmptyConstellationCreationDraft(projectId));
-  const draftRef = useRef<ConstellationCreationDraft>(
-    createEmptyConstellationCreationDraft(projectId),
-  );
   const [draft, setDraft] = useState<ConstellationCreationDraft>(() =>
-    createEmptyConstellationCreationDraft(projectId),
+    draftWithPreselectedSource(projectId, initialExistingDataSourceId, dataSources),
   );
+  const baselineRef = useRef(
+    draftWithPreselectedSource(projectId, initialExistingDataSourceId, dataSources),
+  );
+  const draftRef = useRef<ConstellationCreationDraft>(baselineRef.current);
   const [basicsAttempted, setBasicsAttempted] = useState(false);
   const [dataAttempted, setDataAttempted] = useState(false);
   const [showDiscardDialog, setShowDiscardDialog] = useState(false);
@@ -662,16 +683,25 @@ export function ConstellationCreatePage({
   );
   const pendingNavigationRef = useRef<(() => void) | null>(null);
   const projectIdRef = useRef(projectId);
+  const appliedSourceRef = useRef(initialExistingDataSourceId ?? "");
 
   draftRef.current = draft;
 
   useEffect(() => {
-    if (projectIdRef.current === projectId) return;
+    const sourceKey = initialExistingDataSourceId ?? "";
+    if (projectIdRef.current === projectId && appliedSourceRef.current === sourceKey) {
+      return;
+    }
     projectIdRef.current = projectId;
-    const empty = createEmptyConstellationCreationDraft(projectId);
-    baselineRef.current = empty;
-    draftRef.current = empty;
-    setDraft(empty);
+    appliedSourceRef.current = sourceKey;
+    const next = draftWithPreselectedSource(
+      projectId,
+      initialExistingDataSourceId,
+      dataSources,
+    );
+    baselineRef.current = next;
+    draftRef.current = next;
+    setDraft(next);
     setBasicsAttempted(false);
     setDataAttempted(false);
     setShowDiscardDialog(false);
@@ -683,7 +713,7 @@ export function ConstellationCreatePage({
     newSourceSnapshotRef.current = createEmptyNewSourceModeSnapshot();
     existingSourceSnapshotRef.current = createEmptyExistingSourceModeSnapshot();
     pendingNavigationRef.current = null;
-  }, [projectId]);
+  }, [projectId, initialExistingDataSourceId, dataSources]);
 
   useEffect(() => {
     if (!navigationGuardRef) return;

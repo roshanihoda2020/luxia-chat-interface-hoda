@@ -36,6 +36,7 @@ import { getProjectPath } from "./projectPaths";
 import {
   buildProjectCardOptions,
   ProjectDestinationActions,
+  ProjectListTitleLink,
 } from "./ProjectsPreview";
 import type {
   HomeProjectCard,
@@ -545,19 +546,12 @@ export function ProjectsBrowser({
                 }}
               >
                 <div className="min-w-0 flex-1">
-                  <a
-                    href={getProjectPath(project.id)}
-                    onClick={(event) => {
-                      event.preventDefault();
-                      onOpenProject(project.id);
-                    }}
-                    className="block truncate rounded-[4px] luxia-type-body-dense-strong outline-none hover:opacity-90 focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]"
-                    style={{ color: "var(--luxia-text-primary)" }}
-                    title={project.name}
-                    aria-label={`Open Project ${project.name}`}
-                  >
-                    {project.name}
-                  </a>
+                  <ProjectListTitleLink
+                    projectId={project.id}
+                    projectName={project.name}
+                    titleColor={text.title}
+                    onOpenProject={onOpenProject}
+                  />
                   {description ? (
                     <p
                       className="mt-0.5 line-clamp-1 luxia-type-caption"

@@ -444,6 +444,20 @@
   color: var(--luxia-brand-primary);
 }
 
+/* Secondary AI actions — sparkles + “AI” label, not primary and not plain secondary. */
+.luxia-button--ai {
+  color: var(--luxia-purple-60);
+  background: var(--luxia-opacity-brand-secondary-08);
+  border-color: color-mix(in srgb, var(--luxia-brand-secondary) 42%, var(--luxia-border-default));
+  box-shadow: none;
+}
+
+.luxia-button--ai:hover:not(:disabled):not([aria-disabled="true"]) {
+  color: var(--luxia-brand-primary);
+  background: var(--luxia-opacity-brand-secondary-12);
+  border-color: color-mix(in srgb, var(--luxia-brand-secondary) 58%, var(--luxia-border-default));
+}
+
 .luxia-button--outline {
   color: var(--luxia-brand-primary);
   background: transparent;

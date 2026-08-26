@@ -47,24 +47,55 @@ export interface SchemaDiscoverySummary {
 export interface CsvColumnDraft {
   id: string;
   name: string;
+  /** Original CSV header. Working `name` may be renamed later. */
+  originalName?: string;
   normalizedName?: string;
   detectedType: string;
   type: string;
-  confidence: number;
   examples: string[];
   dateFormat?: string;
+  status?: "inferred" | "needs-review" | "modified" | "confirmed";
   warning?: string;
   role?: string;
   suggestedUsage?: string;
   notes?: string;
 }
 
+export interface CsvValidationIssue {
+  rowNumber: number;
+  rowIndex: number;
+  columnId: string;
+  columnName: string;
+  value: string;
+  expected: string;
+}
+
 export interface CsvValidationSummary {
+  totalRows: number;
   validRows: number;
-  warningRows: number;
+  invalidRows: number;
   skippedRows: number;
+  resolvedRows: number;
+  readyRows: number;
   columnIssues: number;
+  issues: CsvValidationIssue[];
   clean: boolean;
+}
+
+export interface CsvImportedTablePayload {
+  id: string;
+  fileName: string;
+  tableName: string;
+  tableDescription: string;
+  delimiter: string;
+  encoding: string;
+  importedRows: number;
+  skippedRows: number;
+}
+
+export interface CsvImportCompletePayload {
+  tables: CsvImportedTablePayload[];
+  openSettings?: boolean;
 }
 
 export interface CreatedDataSourceResult {

@@ -15,6 +15,16 @@ import {
   LUXIA_PAGE_HEADER_ACTION,
 } from "@/app/components/LuxiaPageHeader";
 import { Button } from "@/app/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/app/components/ui/alert-dialog";
 import { Input } from "@/app/components/ui/input";
 import {
   BrowserFilterSelect,
@@ -25,23 +35,182 @@ import {
   ResultsCount,
 } from "@/app/features/home/browserShared";
 import { HS } from "@/app/features/home/homeSurfaces";
-import type { AccessLevelRecord, DataSourceCatalogItem } from "@/app/features/permissions";
-import { formatConnectedConstellationCount } from "@/app/features/permissions/dataSourceVisibility";
-import { LUXIA_SETTINGS_CONTENT_SURFACE_CLASS } from "@/app/features/shared/luxiaSettingsUx";
+import {
+  formatConnectedConstellationCount,
+  parseDataSourceNameInput,
+  type AccessLevelRecord,
+  type DataSourceCatalogItem,
+  type DataSourceSettingsFocusSection,
+} from "@/app/features/permissions";
+import {
+  LUXIA_DIRTY_STATE_COPY,
+  LUXIA_SETTINGS_CONTENT_SURFACE_CLASS,
+} from "@/app/features/shared/luxiaSettingsUx";
+import { toast } from "sonner";
 import { buildDataSourceLibraryRows } from "./buildLibraryRows";
+import type { LuxiaEntityOptionsItem } from "@/app/components/LuxiaEntityOptionsMenu";
+import {
+  dataSourceCanJoinConstellation,
+  listConstellationsEligibleToConnectSource,
+  type DataSourceHandoffConstellation,
+  type DataSourceHandoffProject,
+} from "./constellationHandoff";
+import { DataSourceRenameDialog } from "./DataSourceRenameDialog";
 import { DATA_SOURCES_GUIDANCE, DATA_SOURCES_PAGE_VARIANT } from "./ia";
 import { LuxiaDataSourcesGuide } from "./LuxiaDataSourcesGuide";
 import type {
   DataSourceLibraryAccessFilter,
   DataSourceLibraryOwnershipFilter,
+  DataSourceLibraryRow,
   DataSourceLibraryStatusFilter,
   DataSourceLibraryTypeFilter,
 } from "./types";
 
 const PARENT_SURFACE_CLASS = `${LUXIA_SETTINGS_CONTENT_SURFACE_CLASS} is-flush`;
 
+const TABLE_HEADER_CELL =
+  "px-4 py-2.5 align-middle whitespace-nowrap luxia-type-label-small";
+const TABLE_BODY_CELL = "px-4 py-3.5 align-middle luxia-type-body-dense";
+
+function sourceById(
+  dataSources: DataSourceCatalogItem[],
+  id: string,
+): DataSourceCatalogItem | undefined {
+  return dataSources.find((item) => item.id === id);
+}
+
+function buildLibraryMenuItems(input: {
+  row: DataSourceLibraryRow;
+  source: DataSourceCatalogItem | undefined;
+  handoff?: DataSourcesPageProps["constellationHandoff"];
+  canSave: boolean;
+  onOpenSource: DataSourcesPageProps["onOpenSource"];
+  onRename: () => void;
+  onArchive: () => void;
+  onRestore: () => void;
+  onCreateConstellation: () => void;
+  onAddToExisting: () => void;
+}): LuxiaEntityOptionsItem[] {
+  const { row, source, handoff, canSave } = input;
+  const items: LuxiaEntityOptionsItem[] = [
+    {
+      id: "open",
+      label: row.canManage ? "Manage" : "Open",
+      onSelect: () => input.onOpenSource(row.id),
+    },
+  ];
+
+  if (row.canManage && canSave) {
+    items.push({
+      id: "rename",
+      label: "Rename",
+      onSelect: input.onRename,
+    });
+  }
+
+  if (row.canManage) {
+    items.push({
+      id: "access",
+      label: "Access",
+      onSelect: () => input.onOpenSource(row.id, { focus: "access" }),
+    });
+  }
+
+  items.push({
+    id: "usage",
+    label: "Usage",
+    onSelect: () => input.onOpenSource(row.id, { focus: "usage" }),
+  });
+
+  const canJoin = Boolean(
+    row.canManage
+    && source
+    && dataSourceCanJoinConstellation(source),
+  );
+  const showCreate = Boolean(canJoin && handoff && handoff.projects.length > 0);
+  const showConnect = Boolean(
+    canJoin
+    && handoff
+    && listConstellationsEligibleToConnectSource(row.id, handoff.constellations).length > 0,
+  );
+
+  if (showCreate) {
+    items.push({
+      id: "create-constellation",
+      label: "Create new Constellation",
+      separatorBefore: true,
+      onSelect: input.onCreateConstellation,
+    });
+  }
+  if (showConnect) {
+    items.push({
+      id: "add-to-constellation",
+      label: "Add to existing Constellation",
+      separatorBefore: !showCreate,
+      onSelect: input.onAddToExisting,
+    });
+  }
+
+  if (row.canManage && canSave && source) {
+    if (source.status === "archived") {
+      items.push({
+        id: "restore",
+        label: "Restore",
+        separatorBefore: true,
+        onSelect: input.onRestore,
+      });
+    } else {
+      items.push({
+        id: "archive",
+        label: "Archive",
+        separatorBefore: true,
+        destructive: true,
+        onSelect: input.onArchive,
+      });
+    }
+  }
+
+  return items;
+}
+
+function libraryStatusTone(statusKey: DataSourceLibraryStatusFilter): {
+  color: string;
+  dot: string;
+} {
+  if (statusKey === "connected" || statusKey === "ready") {
+    return { color: "var(--luxia-success-70)", dot: "var(--luxia-success)" };
+  }
+  if (statusKey === "failed") {
+    return { color: "var(--luxia-error-70)", dot: "var(--luxia-error)" };
+  }
+  if (statusKey === "needs-attention") {
+    return { color: "var(--luxia-warning-90)", dot: "var(--luxia-warning-50)" };
+  }
+  return { color: "var(--luxia-text-muted)", dot: "var(--luxia-text-muted)" };
+}
+
+function LibraryStatusLabel({
+  statusKey,
+  statusLabel,
+}: {
+  statusKey: DataSourceLibraryStatusFilter;
+  statusLabel: string;
+}) {
+  const tone = libraryStatusTone(statusKey);
+  return (
+    <span className="inline-flex items-center gap-1.5" style={{ color: tone.color }}>
+      <span
+        className="size-1.5 shrink-0 rounded-full"
+        style={{ background: tone.dot }}
+        aria-hidden
+      />
+      {statusLabel}
+    </span>
+  );
+}
+
 export type DataSourceLibraryOpenOptions = {
-  focus?: "usage";
+  focus?: DataSourceSettingsFocusSection;
 };
 
 export interface DataSourcesPageProps {
@@ -49,7 +218,14 @@ export interface DataSourcesPageProps {
   accessLevels: AccessLevelRecord[];
   currentUserId: string;
   constellationConnections?: Array<{ id: string; dataSourceIds: string[] }>;
+  constellationHandoff?: {
+    projects: DataSourceHandoffProject[];
+    constellations: DataSourceHandoffConstellation[];
+  };
   onOpenSource: (dataSourceId: string, options?: DataSourceLibraryOpenOptions) => void;
+  onSaveSource?: (source: DataSourceCatalogItem) => void;
+  onCreateConstellationFromSource?: (dataSourceId: string) => void;
+  onAddToExistingConstellation?: (dataSourceId: string) => void;
   onNavigateHome: () => void;
   onNewDataSource?: () => void;
 }
@@ -59,7 +235,11 @@ export function DataSourcesPage({
   accessLevels,
   currentUserId,
   constellationConnections,
+  constellationHandoff,
   onOpenSource,
+  onSaveSource,
+  onCreateConstellationFromSource,
+  onAddToExistingConstellation,
   onNavigateHome,
   onNewDataSource,
 }: DataSourcesPageProps) {
@@ -71,6 +251,8 @@ export function DataSourcesPage({
     useState<DataSourceLibraryAccessFilter>("all");
   const [statusFilter, setStatusFilter] =
     useState<DataSourceLibraryStatusFilter>("all");
+  const [renameSourceId, setRenameSourceId] = useState<string | null>(null);
+  const [archiveSourceId, setArchiveSourceId] = useState<string | null>(null);
 
   useEffect(() => {
     setQuery("");
@@ -79,6 +261,15 @@ export function DataSourcesPage({
     setAccessFilter("all");
     setStatusFilter("all");
   }, [currentUserId]);
+
+  function patchSource(id: string, patch: Partial<DataSourceCatalogItem>) {
+    const source = sourceById(dataSources, id);
+    if (!source || !onSaveSource) return;
+    onSaveSource({ ...source, ...patch });
+  }
+
+  const renameSource = renameSourceId ? sourceById(dataSources, renameSourceId) : undefined;
+  const archiveSource = archiveSourceId ? sourceById(dataSources, archiveSourceId) : undefined;
 
   const breadcrumbItems: LuxiaBreadcrumbItem[] = [
     { id: "home", label: "Home", destination: { kind: "home" } },
@@ -164,7 +355,7 @@ export function DataSourcesPage({
         }
       />
 
-      <LuxiaPageBody>
+      <LuxiaPageBody className="flex flex-col gap-4">
         <FilterToolbar>
           <label className="block w-full max-w-full">
             <span className="sr-only">Search Data Sources</span>
@@ -288,37 +479,43 @@ export function DataSourcesPage({
             onClear={hasActiveFilters ? clearFilters : undefined}
           />
         ) : (
-          <div className={`overflow-x-auto ${PARENT_SURFACE_CLASS}`}>
+          <div className={`overflow-x-auto overflow-hidden ${PARENT_SURFACE_CLASS}`}>
             <table className="w-full min-w-[44rem] border-collapse text-left">
               <caption className="sr-only">Accessible Data Sources</caption>
               <thead>
                 <tr
-                  className="luxia-type-caption"
-                  style={{ color: "var(--luxia-text-secondary)" }}
+                  style={{
+                    background: "var(--luxia-settings-section-bg)",
+                    color: "var(--luxia-text-primary)",
+                    borderBottom: "1px solid var(--luxia-settings-row-divider)",
+                  }}
                 >
-                  <th scope="col" className="px-4 py-3 luxia-type-caption">Name</th>
-                  <th scope="col" className="px-4 py-3 luxia-type-caption">Type</th>
-                  <th scope="col" className="px-4 py-3 luxia-type-caption">Ownership</th>
-                  <th scope="col" className="px-4 py-3 luxia-type-caption">My access</th>
+                  <th scope="col" className={TABLE_HEADER_CELL}>Name</th>
+                  <th scope="col" className={TABLE_HEADER_CELL}>Type</th>
+                  <th scope="col" className={TABLE_HEADER_CELL}>Ownership</th>
+                  <th scope="col" className={TABLE_HEADER_CELL}>My access</th>
                   <th
                     scope="col"
-                    className="hidden px-4 py-3 luxia-type-caption md:table-cell"
+                    className={`hidden md:table-cell ${TABLE_HEADER_CELL}`}
                   >
                     Status
                   </th>
                   <th
                     scope="col"
-                    className="hidden px-4 py-3 luxia-type-caption lg:table-cell"
+                    className={`hidden lg:table-cell ${TABLE_HEADER_CELL}`}
                   >
                     Connected Constellations
                   </th>
                   <th
                     scope="col"
-                    className="hidden px-4 py-3 luxia-type-caption xl:table-cell"
+                    className={`hidden xl:table-cell ${TABLE_HEADER_CELL}`}
                   >
                     Owner
                   </th>
-                  <th scope="col" className="w-12 px-4 py-3 luxia-type-caption text-right">
+                  <th
+                    scope="col"
+                    className={`${TABLE_HEADER_CELL} w-12 text-right`}
+                  >
                     <span className="sr-only">Actions</span>
                   </th>
                 </tr>
@@ -327,51 +524,53 @@ export function DataSourcesPage({
                 {filtered.map((row) => (
                   <tr
                     key={row.id}
-                    className="luxia-settings-row border-t"
+                    className="luxia-settings-row is-interactive"
                     style={{ borderColor: "var(--luxia-settings-row-divider)" }}
                   >
-                    <td className="max-w-[14rem] px-4 py-4 align-middle">
+                    <td className={`${TABLE_BODY_CELL} max-w-[14rem]`}>
                       <button
                         type="button"
-                        className="luxia-type-body-dense-strong min-w-0 truncate text-left outline-none hover:underline focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)] rounded-[4px]"
+                        className="luxia-type-body-dense-strong min-w-0 max-w-full cursor-pointer truncate text-left outline-none hover:underline focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)] rounded-[4px]"
                         style={{ color: "var(--luxia-text-primary)" }}
+                        title={row.name}
                         onClick={() => onOpenSource(row.id)}
                       >
                         {row.name}
                       </button>
                     </td>
                     <td
-                      className="px-4 py-4 align-middle luxia-type-body-dense"
+                      className={TABLE_BODY_CELL}
                       style={{ color: "var(--luxia-text-secondary)" }}
                     >
                       {row.typeLabel}
                     </td>
                     <td
-                      className="px-4 py-4 align-middle luxia-type-caption"
+                      className={TABLE_BODY_CELL}
                       style={{ color: "var(--luxia-text-secondary)" }}
                     >
                       {row.ownershipLabel}
                     </td>
                     <td
-                      className="px-4 py-4 align-middle luxia-type-caption"
+                      className={TABLE_BODY_CELL}
                       style={{ color: "var(--luxia-text-secondary)" }}
                     >
                       {row.myAccess}
                     </td>
-                    <td
-                      className="hidden px-4 py-4 align-middle luxia-type-caption md:table-cell"
-                      style={{ color: "var(--luxia-text-secondary)" }}
-                    >
-                      {row.statusLabel}
+                    <td className={`hidden md:table-cell ${TABLE_BODY_CELL}`}>
+                      <LibraryStatusLabel
+                        statusKey={row.statusKey}
+                        statusLabel={row.statusLabel}
+                      />
                     </td>
                     <td
-                      className="hidden px-4 py-4 align-middle luxia-type-caption lg:table-cell"
+                      className={`hidden lg:table-cell ${TABLE_BODY_CELL}`}
                       style={{ color: "var(--luxia-text-secondary)" }}
                     >
                       {row.connectedConstellationCount > 0 ? (
                         <button
                           type="button"
-                          className="outline-none hover:underline focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)] rounded-[4px]"
+                          className="tabular-nums cursor-pointer rounded-[4px] px-1 -mx-1 outline-none hover:bg-[var(--luxia-opacity-brand-primary-08)] focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]"
+                          style={{ color: "var(--luxia-brand-primary)" }}
                           aria-label={`${row.connectedConstellationCount} connected Constellations. Open usage in Data Source Settings.`}
                           onClick={() => onOpenSource(row.id, { focus: "usage" })}
                         >
@@ -380,27 +579,40 @@ export function DataSourcesPage({
                           )}
                         </button>
                       ) : (
-                        formatConnectedConstellationCount(0)
+                        <span className="tabular-nums">
+                          {formatConnectedConstellationCount(0)}
+                        </span>
                       )}
                     </td>
                     <td
-                      className="hidden px-4 py-4 align-middle luxia-type-caption xl:table-cell"
-                      style={{ color: "var(--luxia-text-muted)" }}
+                      className={`hidden xl:table-cell ${TABLE_BODY_CELL}`}
+                      style={{ color: "var(--luxia-text-secondary)" }}
                     >
                       {row.ownerLabel}
                     </td>
-                    <td className="px-4 py-4 align-middle text-right">
+                    <td className={`${TABLE_BODY_CELL} text-right`}>
                       <LuxiaEntityOptionsMenu
                         entityLabel={row.name}
                         entityType="Data Source"
                         triggerVariant={LUXIA_PAGE_HEADER_ACTION.menuTrigger}
-                        items={[
-                          {
-                            id: "open",
-                            label: row.canManage ? "Manage" : "Open",
-                            onSelect: () => onOpenSource(row.id),
+                        className="cursor-pointer"
+                        items={buildLibraryMenuItems({
+                          row,
+                          source: sourceById(dataSources, row.id),
+                          handoff: constellationHandoff,
+                          canSave: Boolean(onSaveSource),
+                          onOpenSource,
+                          onRename: () => setRenameSourceId(row.id),
+                          onArchive: () => setArchiveSourceId(row.id),
+                          onRestore: () => {
+                            patchSource(row.id, { status: "active" });
+                            toast.success("Data Source restored to Active.");
                           },
-                        ]}
+                          onCreateConstellation: () =>
+                            onCreateConstellationFromSource?.(row.id),
+                          onAddToExisting: () =>
+                            onAddToExistingConstellation?.(row.id),
+                        })}
                       />
                     </td>
                   </tr>
@@ -410,6 +622,53 @@ export function DataSourcesPage({
           </div>
         )}
       </LuxiaPageBody>
+
+      <DataSourceRenameDialog
+        open={Boolean(renameSource)}
+        currentName={renameSource?.name ?? ""}
+        onOpenChange={(open) => {
+          if (!open) setRenameSourceId(null);
+        }}
+        onSave={(name) => {
+          if (!renameSource) return;
+          const nextName = parseDataSourceNameInput(name);
+          if (!nextName) return;
+          onSaveSource?.({ ...renameSource, name: nextName });
+          toast.success(LUXIA_DIRTY_STATE_COPY.saveSuccess);
+        }}
+      />
+
+      <AlertDialog
+        open={Boolean(archiveSource)}
+        onOpenChange={(open) => {
+          if (!open) setArchiveSourceId(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archive {archiveSource?.name ?? "Data Source"}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This Data Source will be removed from active use and can be restored
+              later. Connected Projects and Constellations are not deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="text-white hover:opacity-90"
+              style={{ background: "var(--luxia-error)" }}
+              onClick={() => {
+                if (!archiveSource) return;
+                onSaveSource?.({ ...archiveSource, status: "archived" });
+                toast.success("Data Source archived.");
+                setArchiveSourceId(null);
+              }}
+            >
+              Archive Data Source
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </LuxiaPageFrame>
   );
 }

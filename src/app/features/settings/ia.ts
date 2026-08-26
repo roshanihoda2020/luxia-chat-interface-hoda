@@ -4,6 +4,7 @@ export type OrganizationSettingsSectionId =
   | "general"
   | "members"
   | "access-data"
+  | "analytics"
   | "usage";
 
 /** Unified account Settings dialog sections (Personal + Organization). */
@@ -40,6 +41,7 @@ export const ORGANIZATION_SETTINGS_SECTIONS: readonly {
   { id: "members", label: "Members" },
   { id: "access-data", label: "Access & Data" },
   { id: "usage", label: "Usage" },
+  { id: "analytics", label: "Analytics" },
 ];
 
 export const ACCOUNT_SETTINGS_NAV_GROUPS: readonly {
@@ -61,7 +63,30 @@ export const ORGANIZATION_SETTINGS_GUIDANCE = {
 } as const;
 
 const PERSONAL_TAB_SET = new Set<string>(["profile", "my-data"]);
-const ORGANIZATION_TAB_SET = new Set<string>(["general", "members", "access-data", "usage"]);
+const ORGANIZATION_TAB_SET = new Set<string>([
+  "general",
+  "members",
+  "access-data",
+  "usage",
+  "analytics",
+]);
+
+export function getAccountSettingsNavGroups(input: {
+  canViewOrganizationAnalytics: boolean;
+}): Array<{
+  label: string;
+  items: readonly { id: AccountSettingsSectionId; label: string }[];
+}> {
+  return ACCOUNT_SETTINGS_NAV_GROUPS.map((group) => {
+    if (group.label !== "Organization") return group;
+    return {
+      ...group,
+      items: group.items.filter(
+        (item) => item.id !== "analytics" || input.canViewOrganizationAnalytics,
+      ),
+    };
+  });
+}
 
 export function parsePersonalSettingsTabParam(
   raw: string | null | undefined,

@@ -21,6 +21,7 @@ export {
   buildCapabilityBundleFromCreationDraft,
   buildConnectedSourceFromCreationDraft,
   buildReviewAddedDataSummary,
+  constellationTypeFromCatalogItem,
 } from "./constellationCreatePayload";
 
 export {

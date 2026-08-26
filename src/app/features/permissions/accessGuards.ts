@@ -23,6 +23,15 @@ export function isOrganizationAdmin(userId: string = CURRENT_USER_ID): boolean {
   return getOrganizationUserById(userId)?.orgRole === "Admin";
 }
 
+/** Organization Settings → Analytics nav visibility.
+ * Prototype only: the internal/admin demo identity (current Org Admin user).
+ * Members do not see Analytics. This is not a product rule that Org Admin
+ * has cross-tenant visibility — swap this mapping when the model is confirmed.
+ */
+export function canViewOrganizationAnalytics(userId: string = CURRENT_USER_ID): boolean {
+  return isOrganizationAdmin(userId);
+}
+
 export function canAdministerAccessLevels(userId: string = CURRENT_USER_ID): boolean {
   return isOrganizationAdmin(userId);
 }

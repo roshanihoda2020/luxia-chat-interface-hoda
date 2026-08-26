@@ -122,6 +122,10 @@ import {
 import {
   DataSourcesPage,
   NewDataSourceFlow,
+  CreateConstellationFromDataSourceDialog,
+  ConnectDataSourceToConstellationDialog,
+  listProjectsWhereUserCanCreateConstellation,
+  listConstellationsUserCanConfigure,
 } from "@/app/features/data-sources";
 import {
   LuxiaSettingsDialog,
@@ -184,6 +188,7 @@ import {
   canCreateProject,
   canDeleteConstellation,
   canDeleteProject,
+  canViewOrganizationAnalytics,
   countProjectMembers,
   evaluateConstellationUseAccess,
   getAccessibleConstellationIds,
@@ -194,6 +199,7 @@ import {
 } from "@/app/features/permissions";
 import type {
   AccessLevelRecord,
+  DataSourceSettingsFocusSection,
   InviteOrganizationUserPayload,
   OrganizationUser,
   PrototypeMfaMethod,
@@ -254,6 +260,7 @@ import { ResponseActionsFooter } from "@/app/features/chat/ResponseActionsFooter
 import { LX } from "@/app/features/active-data-tables/tokens";
 import { IC, IC_BTN_ICON, IC_BTN_OPEN, IC_CARD_HEADER, IC_INPUT_TEXT, IC_SEARCH_SHELL, IC_SEARCH_SHELL_STYLE, icCardStyle, icHoverOff, icHoverOn, icInspectorAccentStyle, icInspectorDescriptionColor, icInspectorTitleColor, icOpenActiveOn, icSearchShellBlur, icSearchShellFocus, icSearchShellHoverOff, icSearchShellHoverOn, icTextareaStyle } from "@/app/features/active-data-tables/inspectorTheme";
 import { Button } from "@/app/components/ui/button";
+import { LuxiaAiButton } from "@/app/components/LuxiaAiButton";
 import { cn } from "@/app/components/ui/utils";
 import {
   LUXIA_DIALOG_CLOSE_ON_DARK_CLASS,
@@ -2723,12 +2730,12 @@ function KBEntryModal({ mode: initialMode, entry, onSave, onAdd, onClose }: {
                 {!isView && (
                   <div>
                     <label className="luxia-type-overline-form mb-2.5 block" style={{ color: LX.textMuted }}>Generate SQL</label>
-                    <button onClick={handleGenerateSQL}
+                    <LuxiaAiButton
+                      onClick={handleGenerateSQL}
                       disabled={!question.trim() || generating || sqlDisabled}
-                      className="flex items-center gap-2 px-4 h-[34px] rounded-[10px] luxia-type-metadata transition-opacity disabled:opacity-35"
-                      style={{ background: sqlDisabled ? LX.borderStrong : LX.primary, color: LX.surface }}>
-                      <LuxiaAiIcon size={12} />{generating ? "Generating…" : "Generate SQL"}
-                    </button>
+                    >
+                      {generating ? "Generating…" : "Generate SQL with AI"}
+                    </LuxiaAiButton>
                     {sqlDisabled && (
                       <p className="luxia-type-caption mt-1.5" style={{ color: LX.textMuted }}>Available for Table, Chart, KPI, and List types only.</p>
                     )}
@@ -2855,10 +2862,9 @@ function AutoKBModal({ constellationLabel, onAdd, onClose }: {
             </select>
           </div>
           <div className="flex-1" />
-          <Button type="button" variant="primary" size="compact" onClick={handleGenerate} disabled={generating}>
-            <LuxiaAiIcon size={14} aria-hidden />
-            {generating ? "Generating…" : "Generate"}
-          </Button>
+          <LuxiaAiButton onClick={handleGenerate} disabled={generating}>
+            {generating ? "Generating…" : "Generate with AI"}
+          </LuxiaAiButton>
         </div>
         <div className="flex-1 overflow-y-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical px-7 py-5">
           {generating && (
@@ -3003,10 +3009,9 @@ function KBWorkspaceModal({ entries, constellationLabel, onSave, onClose }: {
               className="h-[38px] rounded-[12px] px-3.5 luxia-type-metadata" style={{ color: LX.textMuted }}>
               <Upload size={12} />Import CSV
             </Button>
-            <Button type="button" variant="outline" onClick={() => setAutoOpen(true)}
-              className="h-[38px] rounded-[12px] px-3.5 luxia-type-metadata" style={{ color: LX.secondary }}>
-              <LuxiaAiIcon size={12} />Auto-generate
-            </Button>
+            <LuxiaAiButton size="default" onClick={() => setAutoOpen(true)}>
+              Generate with AI
+            </LuxiaAiButton>
             <Button type="button" onClick={() => setAddOpen(true)}
               className="h-[38px] rounded-[12px] px-4 luxia-type-metadata text-white hover:opacity-90"
               style={{ background: LX.gradient.button, boxShadow: LX.shadow.sm }}>
@@ -4275,7 +4280,7 @@ export default function App() {
     INITIAL_SHELL.dataSourceSettingsId,
   );
   const [dataSourceSettingsFocus, setDataSourceSettingsFocus] = useState<
-    "usage" | null
+    DataSourceSettingsFocusSection | null
   >(null);
   const [constellationSettingsById, setConstellationSettingsById] = useState<
     Record<string, ConstellationSettingsRecord>
@@ -4293,6 +4298,12 @@ export default function App() {
     DATA_SOURCE_CATALOG.map((source) => ({ ...source })),
   );
   const [dataSourceCreationOpen, setDataSourceCreationOpen] = useState(false);
+  const [constellationCreateExistingSourceId, setConstellationCreateExistingSourceId] =
+    useState<string | null>(null);
+  const [dataSourceHandoff, setDataSourceHandoff] = useState<{
+    sourceId: string;
+    kind: "create" | "connect";
+  } | null>(null);
   const [projectMembershipsState, setProjectMembershipsState] = useState(() =>
     PROJECT_MEMBERSHIPS.map((membership) => ({ ...membership })),
   );
@@ -4343,6 +4354,37 @@ export default function App() {
   const [homeBrowseMode, setHomeBrowseMode] = useState<HomeBrowseMode>("overview");
   const [homeScrollRequest, setHomeScrollRequest] = useState(0);
   const [homeProjects, setHomeProjects] = useState<HomeProjectCard[]>(HOME_PROJECTS);
+  const dataSourceConstellationHandoff = useMemo(() => {
+    const projects = listProjectsWhereUserCanCreateConstellation({
+      projects: homeProjects,
+      memberships: projectMembershipsState,
+      userId: prototypeUserId,
+    });
+    const constellations = listConstellationsUserCanConfigure({
+      constellations: allConstellations.map((item) => {
+        const record = constellationSettingsById[item.id]
+          ?? getConstellationSettingsRecord(item.id);
+        return {
+          id: item.id,
+          name: item.label,
+          projectId: item.projectId,
+          dataSourceIds: record?.connectedSources.map((source) => source.id)
+            ?? getCanonicalConstellationById(item.id)?.dataSourceIds
+            ?? [],
+        };
+      }),
+      projects: homeProjects,
+      memberships: projectMembershipsState,
+      userId: prototypeUserId,
+    });
+    return { projects, constellations };
+  }, [
+    homeProjects,
+    projectMembershipsState,
+    prototypeUserId,
+    allConstellations,
+    constellationSettingsById,
+  ]);
   const [pinnedProjectIds, setPinnedProjectIds] = useState<string[]>(readPinnedProjectIds);
   const [pinnedEntityOrder, setPinnedEntityOrder] = useState(readPinnedEntityOrder);
   const [primaryPreference, setPrimaryPreference] = useState(readHomePrimaryPreference);
@@ -4644,8 +4686,11 @@ export default function App() {
       }
 
       if (resolved.kind === "organization-settings") {
+        const requested = parseOrganizationSettingsTabFromSearch(search);
         setAccountSettingsSection(
-          organizationSettingsSectionToAccountSection(parseOrganizationSettingsTabFromSearch(search)),
+          requested === "analytics" && !canViewOrganizationAnalytics(prototypeUserId)
+            ? "general"
+            : organizationSettingsSectionToAccountSection(requested),
         );
         setAccountSettingsOpen(true);
         setMobileNavOpen(false);
@@ -5466,13 +5511,18 @@ export default function App() {
   }
 
   function handleOpenAccountSettings(section: AccountSettingsSectionId = accountSettingsSection) {
+    const next =
+      section === "analytics" && !canViewOrganizationAnalytics(prototypeUserId)
+        ? "general"
+        : section;
     setProjectAssistantOpen(false);
-    setAccountSettingsSection(section);
+    setAccountSettingsSection(next);
     setAccountSettingsOpen(true);
     setMobileNavOpen(false);
   }
 
   function handleAccountSettingsSectionChange(section: AccountSettingsSectionId) {
+    if (section === "analytics" && !canViewOrganizationAnalytics(prototypeUserId)) return;
     setAccountSettingsSection(section);
   }
 
@@ -5563,7 +5613,7 @@ export default function App() {
 
   function handleOpenDataSourceSettings(
     dataSourceId: string,
-    options?: { focus?: "usage" },
+    options?: { focus?: DataSourceSettingsFocusSection },
   ) {
     const allowed = canUserAccessDataSource(
       dataSourceId,
@@ -7010,8 +7060,12 @@ export default function App() {
     setAppView("chat");
   }
 
-  function handleOpenConstellationCreate(projectId: string) {
+  function handleOpenConstellationCreate(
+    projectId: string,
+    options?: { existingDataSourceId?: string },
+  ) {
     if (!guardConstellationConfigure(projectId)) return;
+    setConstellationCreateExistingSourceId(options?.existingDataSourceId ?? null);
     setActiveProjectId(projectId);
     setProjectBrowseMode("constellations");
     setSettingsConstellationId(null);
@@ -7027,6 +7081,23 @@ export default function App() {
         );
       }
     }
+  }
+
+  function handleRequestCreateConstellationFromSource(sourceId: string, projectId?: string) {
+    if (!dataSourcesState.some((source) => source.id === sourceId)) return;
+    if (projectId) {
+      if (!dataSourceConstellationHandoff.projects.some((project) => project.id === projectId)) {
+        return;
+      }
+      handleOpenConstellationCreate(projectId, { existingDataSourceId: sourceId });
+      return;
+    }
+    setDataSourceHandoff({ sourceId, kind: "create" });
+  }
+
+  function handleRequestConnectConstellationFromSource(sourceId: string) {
+    if (!dataSourcesState.some((source) => source.id === sourceId)) return;
+    setDataSourceHandoff({ sourceId, kind: "connect" });
   }
 
   function handleAddConstellationToProject(
@@ -7953,6 +8024,10 @@ export default function App() {
     ),
   );
 
+  const dataSourceHandoffSource = dataSourceHandoff
+    ? dataSourcesState.find((source) => source.id === dataSourceHandoff.sourceId)
+    : undefined;
+
   const contextProjectMembership = useMemo(() => {
     if (!contextProjectId) return null;
     return getActiveProjectMembership(
@@ -8641,6 +8716,7 @@ export default function App() {
               accessLevels={accessLevelsState}
               dataSources={dataSourcesState}
               currentUserId={prototypeUserId}
+              initialExistingDataSourceId={constellationCreateExistingSourceId}
               navigationGuardRef={constellationCreateGuardRef}
               onNavigateHome={handleNavigateHome}
               onOpenProject={(projectId) => handleOpenProjectOverview(projectId, "overview")}
@@ -9408,7 +9484,15 @@ export default function App() {
                     ?? [],
                 };
               })}
+              constellationHandoff={dataSourceConstellationHandoff}
               onOpenSource={handleOpenDataSourceSettings}
+              onSaveSource={(nextSource) => {
+                setDataSourcesState((prev) =>
+                  prev.map((item) => (item.id === nextSource.id ? nextSource : item)),
+                );
+              }}
+              onCreateConstellationFromSource={handleRequestCreateConstellationFromSource}
+              onAddToExistingConstellation={handleRequestConnectConstellationFromSource}
               onNavigateHome={handleNavigateHome}
               onNewDataSource={() => setDataSourceCreationOpen(true)}
             />
@@ -9873,8 +9957,13 @@ export default function App() {
         returnContext={{ kind: "library" }}
         onOpenChange={setDataSourceCreationOpen}
         onCreated={(source, _returnContext, options) => {
-          setDataSourcesState((prev) => [...prev, source]);
-          toast.success(`Created ${source.name}`);
+          setDataSourcesState((prev) => {
+            if (prev.some((item) => item.id === source.id)) return prev;
+            return [...prev, source];
+          });
+          if (!options?.openSettings) {
+            toast.success(`Created ${source.name}`);
+          }
           if (options?.openSettings) {
             handleOpenDataSourceSettings(source.id);
             return;
@@ -9882,6 +9971,36 @@ export default function App() {
           if (appView !== "data-sources") {
             handleOpenDataSources();
           }
+        }}
+        eligibleProjects={dataSourceConstellationHandoff.projects}
+        onCreateConstellationFromSource={handleRequestCreateConstellationFromSource}
+      />
+      <CreateConstellationFromDataSourceDialog
+        open={dataSourceHandoff?.kind === "create"}
+        sourceName={dataSourceHandoffSource?.name ?? "this Data Source"}
+        projects={dataSourceConstellationHandoff.projects}
+        onOpenChange={(open) => {
+          if (!open) setDataSourceHandoff(null);
+        }}
+        onConfirm={(projectId) => {
+          if (!dataSourceHandoff) return;
+          const sourceId = dataSourceHandoff.sourceId;
+          setDataSourceHandoff(null);
+          handleOpenConstellationCreate(projectId, { existingDataSourceId: sourceId });
+        }}
+      />
+      <ConnectDataSourceToConstellationDialog
+        open={dataSourceHandoff?.kind === "connect"}
+        sourceId={dataSourceHandoff?.sourceId ?? ""}
+        sourceName={dataSourceHandoffSource?.name ?? "this Data Source"}
+        constellations={dataSourceConstellationHandoff.constellations}
+        onOpenChange={(open) => {
+          if (!open) setDataSourceHandoff(null);
+        }}
+        onConfirm={(constellationId) => {
+          if (!dataSourceHandoff) return;
+          handleAddConstellationDataSource(constellationId, dataSourceHandoff.sourceId);
+          setDataSourceHandoff(null);
         }}
       />
       <InviteOrganizationUserDialog
@@ -9976,11 +10095,14 @@ export default function App() {
           user={prototypeUser}
           activeSection={accountSettingsSection}
           onSectionChange={handleAccountSettingsSectionChange}
+          canViewOrganizationAnalytics={canViewOrganizationAnalytics(prototypeUserId)}
           privateDataSourceCount={privateDataSourceCountForUser}
           memberSummary={organizationMemberSummary}
           accessLevelCount={accessLevelsState.length}
           organizationalDataSourceCount={organizationalDataSourceCount}
           usageMetrics={organizationUsageMetrics}
+          directoryUsers={organizationUsersState}
+          vidgets={vidgetsState}
           onOpenDataSources={handleSettingsOpenDataSources}
           onOpenUsers={handleSettingsOpenUsers}
           onOpenAccessLevels={handleSettingsOpenAccessLevels}
