@@ -1,10 +1,4 @@
-/**
- * Prototype catalog for Settings → Analytics filters.
- *
- * This is a Luxia internal/platform-admin UX preview, not a product claim
- * that Organization Admin has cross-tenant visibility. Replace with
- * production tenant/org grants when the permission model is confirmed.
- */
+/** Prototype Analytics filter catalog. Not a claim that Org Admin has cross-tenant visibility. */
 
 export const ANALYTICS_ALL_SCOPE_ID = "all";
 
@@ -90,4 +84,8 @@ export function analyticsScopeScale(tenantId: string, organizationId: string): n
 
 export function tenantLabel(tenantId: string): string {
   return ANALYTICS_TENANTS.find((item) => item.id === tenantId)?.name ?? tenantId;
+}
+
+export function organizationLabel(organizationId: string): string {
+  return ANALYTICS_ORGANIZATIONS.find((item) => item.id === organizationId)?.name ?? organizationId;
 }

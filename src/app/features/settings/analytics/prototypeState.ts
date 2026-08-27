@@ -1,22 +1,25 @@
-/**
- * Organization Analytics prototype adapter.
- *
- * There is no analytics backend, telemetry API, heartbeat service, or
- * session tracker in this repository. `getOrganizationAnalyticsSnapshot`
- * is a deterministic UX preview for the internal Analytics filters.
- * Do not treat these values as production metrics or as a client API.
- */
+/** Prototype-only deterministic analytics preview; no backend, telemetry, or production metrics. */
 import { format, subDays } from "date-fns";
+import { getCanonicalConstellationById } from "@/app/features/constellation/catalog";
+import { HOME_RECENT_WORK } from "@/app/features/home/data";
 import { ORGANIZATION_USERS } from "@/app/features/permissions/data";
 import type { OrganizationUser } from "@/app/features/permissions/types";
+import { getProjectById } from "@/app/features/project/data";
 import { SEED_VIDGETS } from "@/app/features/vidgets/data";
 import type { VidgetRecord } from "@/app/features/vidgets/types";
-import { VIDGET_AVATARS, VIDGET_EXPERIENCE_MODE_LABELS } from "@/app/features/vidgets/types";
+import {
+  VIDGET_AVATARS,
+  VIDGET_CHANNEL_LABELS,
+  VIDGET_EXPERIENCE_MODE_LABELS,
+  VIDGET_WEB_PRESENTATION_LABELS,
+} from "@/app/features/vidgets/types";
 import {
   ANALYTICS_ALL_SCOPE_ID,
   ANALYTICS_ORGANIZATIONS,
   analyticsScopeMatches,
   analyticsScopeScale,
+  organizationLabel,
+  tenantLabel,
 } from "./scope";
 import type {
   ActiveSessionRow,
@@ -83,8 +86,103 @@ function buildDailyAvatarMinutes(today: Date): DailyAvatarMinutesPoint[] {
   return points;
 }
 
-function avatarLabel(avatarId: string | undefined): string {
-  return VIDGET_AVATARS.find((item) => item.id === avatarId)?.name ?? "Avatar";
+function avatarName(avatarId: string | undefined): string | null {
+  return VIDGET_AVATARS.find((item) => item.id === avatarId)?.name ?? null;
+}
+
+function existingGalaxyName(galaxyId: string | null): string | null {
+  if (!galaxyId) return null;
+  const match = HOME_RECENT_WORK.find(
+    (item) => item.kind === "galaxySession" && item.chatId === galaxyId,
+  );
+  return match?.title ?? null;
+}
+
+function sessionChannelLabel(vidget: VidgetRecord): string | null {
+  if (vidget.channel === "web" && vidget.webPresentation === "totem") {
+    return VIDGET_WEB_PRESENTATION_LABELS.totem;
+  }
+  return VIDGET_CHANNEL_LABELS[vidget.channel] ?? null;
+}
+
+function sessionAvatarFields(vidget: VidgetRecord): {
+  avatarName: string | null;
+  avatarType: string | null;
+} {
+  const type = VIDGET_EXPERIENCE_MODE_LABELS[vidget.experienceMode] ?? null;
+  if (vidget.experienceMode === "no-avatar") {
+    return { avatarName: null, avatarType: type };
+  }
+  return { avatarName: avatarName(vidget.avatarId), avatarType: type };
+}
+
+function knowledgeScopeFromVidget(vidget: VidgetRecord): {
+  label: string | null;
+  names: string[];
+  constellationIds: string[];
+} {
+  if (vidget.sourceType === "constellation") {
+    const id = vidget.constellationId?.trim() || null;
+    if (!id) return { label: null, names: [], constellationIds: [] };
+    const name = getCanonicalConstellationById(id)?.name?.trim() || null;
+    return {
+      label: name,
+      names: name ? [name] : [],
+      constellationIds: [id],
+    };
+  }
+  const ids = vidget.galaxyConstellationIds.filter((id) => id.trim());
+  const names = ids
+    .map((id) => getCanonicalConstellationById(id)?.name?.trim() || null)
+    .filter((name): name is string => Boolean(name));
+  if (ids.length === 0) {
+    return { label: null, names: [], constellationIds: [] };
+  }
+  if (ids.length === 1) {
+    return { label: names[0] ?? null, names, constellationIds: ids };
+  }
+  return {
+    label: `${ids.length} Constellations`,
+    names,
+    constellationIds: ids,
+  };
+}
+
+function statusFromHeartbeat(iso: string): "online" | "idle" {
+  const minutesAgo = (Date.now() - new Date(iso).getTime()) / 60_000;
+  return minutesAgo < 10 ? "online" : "idle";
+}
+
+function buildLiveAvatarSession(
+  vidget: VidgetRecord,
+  index: number,
+): LiveAvatarSessionRow {
+  const scope = vidgetScope(vidget.id, index);
+  const project = getProjectById(vidget.projectId);
+  const knowledge = knowledgeScopeFromVidget(vidget);
+  const lastHeartbeat = isoMinutesAgo([2, 11, 17, 8, 25][index] ?? 14);
+  const galaxyId = vidget.sourceType === "galaxy" ? vidget.galaxyId : null;
+  const avatar = sessionAvatarFields(vidget);
+  return {
+    vidgetId: vidget.id,
+    vidgetName: vidget.name,
+    projectName: project?.name ?? null,
+    sourceType: vidget.sourceType,
+    knowledgeScopeLabel: knowledge.label,
+    knowledgeScopeNames: knowledge.names,
+    avatarName: avatar.avatarName,
+    avatarType: avatar.avatarType,
+    channelLabel: sessionChannelLabel(vidget),
+    status: statusFromHeartbeat(lastHeartbeat),
+    lastHeartbeat,
+    tenantId: scope.tenantId,
+    organizationId: scope.organizationId,
+    tenantName: tenantLabel(scope.tenantId),
+    organizationName: organizationLabel(scope.organizationId),
+    galaxyId,
+    galaxyName: existingGalaxyName(galaxyId),
+    constellationIds: knowledge.constellationIds,
+  };
 }
 
 function resolveUserName(roster: OrganizationUser[], userId: string, fallback: string): string {
@@ -177,24 +275,21 @@ export function getOrganizationAnalyticsSnapshot(
   const sessions = allSessions.filter((row) => analyticsScopeMatches(row, tenantId, organizationId));
 
   const liveAvatarSessions: LiveAvatarSessionRow[] = catalog
-    .map((vidget, index) => ({
-      vidgetId: vidget.id,
-      vidgetName: vidget.name,
-      avatarType: VIDGET_EXPERIENCE_MODE_LABELS[vidget.experienceMode],
-      lastHeartbeat: isoMinutesAgo([2, 11, 17, 8, 25][index] ?? 14),
-      ...vidgetScope(vidget.id, index),
-    }))
+    .map((vidget, index) => buildLiveAvatarSession(vidget, index))
     .filter((row) => analyticsScopeMatches(row, tenantId, organizationId));
 
   const vidgetBreakdown: VidgetAvatarBreakdownRow[] = catalog
-    .map((vidget, index) => ({
-      vidgetId: vidget.id,
-      vidgetName: vidget.name,
-      avatarName: avatarLabel(vidget.avatarId),
-      avatarType: VIDGET_EXPERIENCE_MODE_LABELS[vidget.experienceMode],
-      totalMinutes: [4820, 2104, 1688, 3901, 1240][index] ?? 1200,
-      ...vidgetScope(vidget.id, index),
-    }))
+    .map((vidget, index) => {
+      const avatar = sessionAvatarFields(vidget);
+      return {
+        vidgetId: vidget.id,
+        vidgetName: vidget.name,
+        avatarName: avatar.avatarName ?? avatar.avatarType ?? "Avatar",
+        avatarType: avatar.avatarType ?? "Avatar",
+        totalMinutes: [4820, 2104, 1688, 3901, 1240][index] ?? 1200,
+        ...vidgetScope(vidget.id, index),
+      };
+    })
     .filter((row) => analyticsScopeMatches(row, tenantId, organizationId));
 
   const online = sessions.filter((row) => row.status === "online").length;

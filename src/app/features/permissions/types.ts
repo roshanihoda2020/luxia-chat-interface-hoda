@@ -30,10 +30,6 @@ export interface OrganizationUser {
   /** Profile personal fields (prototype-editable in Settings). */
   jobTitle: string;
   mobile: string;
-  /**
-   * Per-demo-user MFA UI state for Settings → Profile → Security.
-   * Local prototype only — not wired to auth APIs.
-   */
   mfaEnabled: boolean;
   mfaMethod: PrototypeMfaMethod | null;
 }
@@ -69,6 +65,17 @@ export interface ProjectMembership {
   joinedOrInvitedAt: string;
 }
 
+export interface CsvImportedColumnValueContext {
+  columnId: string;
+  columnName: string;
+  retrievalMethod: "distinct" | "frequency" | "sum";
+  order: "asc" | "desc";
+  limit: 10 | 25 | 50;
+  aggregateColumnId: string | null;
+  values: string[];
+  origin: "retrieved" | "edited";
+}
+
 export interface CsvImportedTableSummary {
   id: string;
   fileName: string;
@@ -78,6 +85,7 @@ export interface CsvImportedTableSummary {
   encoding?: string;
   importedRows?: number;
   skippedRows?: number;
+  valueContext?: CsvImportedColumnValueContext[];
 }
 
 export interface DataSourceContentSummary {
@@ -109,7 +117,6 @@ export interface DataSourceCatalogItem {
   id: string;
   name: string;
   type: DataSourceTypeLabel | string;
-  /** Optional connector subtype (e.g. postgres). */
   connector?: DataSourceConnector;
   ownership: "organizational" | "private";
   ownerUserId: string;

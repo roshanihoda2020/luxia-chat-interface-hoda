@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import {
@@ -13,10 +13,12 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/app/components/ui/tooltip";
+import { cn } from "@/app/components/ui/utils";
 import { LuxiaAiButton } from "@/app/components/LuxiaAiButton";
 import {
   CSV_COLUMN_TYPES,
   selectedColumnType,
+  valueMatchesType,
   type CsvImportFileDraft,
 } from "./csv";
 import type { CsvColumnDraft, CsvValidationIssue, CsvValidationSummary } from "./types";
@@ -81,7 +83,7 @@ export function ExcludeRowButton({
           onClick={onExclude}
           aria-label={`Exclude row. ${EXCLUDE_ROW_HINT}`}
         >
-          Exclude row
+          Exclude
         </Button>
       </TooltipTrigger>
       <TooltipContent>{EXCLUDE_ROW_HINT}</TooltipContent>
@@ -89,13 +91,44 @@ export function ExcludeRowButton({
   );
 }
 
-function SchemaValueEditor({
+function SchemaExcludeAction({
+  onExclude,
+  quiet = false,
+}: {
+  onExclude: () => void;
+  quiet?: boolean;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          className={cn(
+            "luxia-type-caption rounded-[4px] px-1 py-0.5 underline-offset-2 outline-none hover:underline",
+            "focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]",
+            quiet && "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100",
+          )}
+          style={{ color: "var(--luxia-text-secondary)" }}
+          aria-label={`Exclude row. ${EXCLUDE_ROW_HINT}`}
+          onClick={onExclude}
+        >
+          Exclude
+        </button>
+      </TooltipTrigger>
+      <TooltipContent className="!z-[80]">{EXCLUDE_ROW_HINT}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+function SchemaRowEditorStrip({
+  expected,
   value,
   error,
   onChange,
   onSave,
   onCancel,
 }: {
+  expected: string;
   value: string;
   error: string | null;
   onChange: (value: string) => void;
@@ -103,28 +136,41 @@ function SchemaValueEditor({
   onCancel: () => void;
 }) {
   return (
-    <div className="min-w-0">
-      <Input
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter") {
-            event.preventDefault();
-            onSave();
-          }
-          if (event.key === "Escape") {
-            event.preventDefault();
-            onCancel();
-          }
-        }}
-        autoComplete="off"
-        aria-label="Corrected value"
-        aria-invalid={Boolean(error)}
-        className="h-7 min-h-7 w-full min-w-0"
-        autoFocus
-      />
+    <div className="flex min-w-0 w-full flex-col gap-1.5 px-3 py-2">
+      <p className="luxia-type-caption" style={{ color: "var(--luxia-text-muted)" }}>
+        Expected: {expected || "value"}
+      </p>
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
+        <Input
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              onSave();
+            }
+            if (event.key === "Escape") {
+              event.preventDefault();
+              onCancel();
+            }
+          }}
+          autoComplete="off"
+          aria-label="Edit value"
+          aria-invalid={Boolean(error)}
+          className="h-9 min-h-9 min-w-[12rem] flex-1"
+          autoFocus
+        />
+        <div className="flex shrink-0 items-center gap-2">
+          <Button type="button" variant="outline" size="compact" onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button type="button" variant="primary" size="compact" onClick={onSave}>
+            Save & validate
+          </Button>
+        </div>
+      </div>
       {error ? (
-        <p className="mt-1 luxia-type-caption" style={{ color: "var(--luxia-error-70)" }} role="alert">
+        <p className="luxia-type-caption" style={{ color: "var(--luxia-error-70)" }} role="alert">
           {error}
         </p>
       ) : null}
@@ -186,14 +232,51 @@ export function schemaPreviewRows(
   return records.slice(0, limit);
 }
 
-function schemaColumnWidth(column: CsvColumnDraft, index: number, total: number): string {
+export function schemaIssueAttentionCopy(count: number): string {
+  if (count === 1) return "1 issue needs attention";
+  return `${count.toLocaleString()} issues need attention`;
+}
+
+export function schemaIssueViewActionLabel(count: number, issuesOnly: boolean): string {
+  if (issuesOnly) return "Show all rows";
+  if (count === 1) return "Show issue";
+  return `View ${count.toLocaleString()} issues`;
+}
+
+function schemaDataColumnTrack(column: CsvColumnDraft, index: number, total: number): string {
   const type = selectedColumnType(column);
   const name = column.name.trim().toLowerCase();
-  if (type === "Date" || /date|time|timestamp/.test(name)) return "12.5rem";
-  if (/service/.test(name)) return "7.5rem";
-  if (/host|server|machine/.test(name)) return "10rem";
-  if (index === total - 1 || /content|message|log|text/.test(name)) return "14rem";
-  return "9rem";
+  if (type === "Date" || /date|time|timestamp/.test(name)) return "minmax(180px, 1.15fr)";
+  if (/host|server|machine/.test(name)) return "minmax(180px, 1.1fr)";
+  if (/service/.test(name)) return "minmax(110px, 0.7fr)";
+  if (index === total - 1 || /content|message|log|text/.test(name)) return "minmax(220px, 1.6fr)";
+  return "minmax(140px, 1fr)";
+}
+
+function schemaGridTemplate(columns: CsvColumnDraft[]): string {
+  const tracks = columns.map((column, index) => schemaDataColumnTrack(column, index, columns.length));
+  return `56px ${tracks.join(" ")} 96px`;
+}
+
+function validExamplesForColumn(file: CsvImportFileDraft, columnId: string): string[] {
+  const index = file.columns.findIndex((column) => column.id === columnId);
+  const column = file.columns[index];
+  if (index < 0 || !column) return [];
+  const expected = selectedColumnType(column);
+  const skipped = new Set(file.skipped);
+  const examples: string[] = [];
+  const seen = new Set<string>();
+  for (const record of file.parsed?.records ?? []) {
+    if (skipped.has(record.rowNumber)) continue;
+    const value = (file.overrides[record.rowNumber]?.[column.id] ?? record.fields[index] ?? "")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!value || seen.has(value) || !valueMatchesType(value, expected)) continue;
+    seen.add(value);
+    examples.push(value);
+    if (examples.length >= 5) break;
+  }
+  return examples;
 }
 
 export function ColumnNameEditor({
@@ -253,7 +336,7 @@ export function ColumnNameEditor({
   }
 
   return (
-    <div className="min-w-[10rem] space-y-2">
+    <div className="min-w-0 space-y-2">
       <Input
         value={draft}
         onChange={(event) => {
@@ -324,6 +407,7 @@ export function SchemaDataPreview({
   const [editingDraft, setEditingDraft] = useState("");
   const [editingError, setEditingError] = useState<string | null>(null);
   const [issuesOnly, setIssuesOnly] = useState(false);
+  const firstIssueCellRef = useRef<HTMLButtonElement | null>(null);
   const [similarBusy, setSimilarBusy] = useState<string | null>(null);
   const [aiOutcome, setAiOutcome] = useState<string | null>(null);
   const [aiFixedRows, setAiFixedRows] = useState<Set<number>>(() => new Set());
@@ -368,9 +452,14 @@ export function SchemaDataPreview({
   );
   const records = file.parsed?.records ?? [];
   const issueCount = live.issues.length;
+  const viewingIssues = issuesOnly && issueCount > 0;
   const rows = schemaPreviewRows(records, invalidRowNumbers, {
-    issuesOnly: issuesOnly && issueCount > 0,
+    issuesOnly: viewingIssues,
   });
+  const previewCount = Math.min(SCHEMA_PREVIEW_ROW_LIMIT, records.length);
+  const firstIssueKey = live.issues[0]
+    ? `${live.issues[0].rowNumber}:${live.issues[0].columnId}`
+    : null;
   const issueByCell = useMemo(
     () => new Map(live.issues.map((issue) => [`${issue.rowNumber}:${issue.columnId}`, issue])),
     [live.issues],
@@ -383,50 +472,58 @@ export function SchemaDataPreview({
     return counts;
   }, [live.issues]);
   const similarGroups = useMemo(() => similarIssueGroups(openIssues), [openIssues]);
-  const blockingColumnId = focusedColumnId ?? primaryIssueColumn(live.issues)?.columnId ?? file.columns.find((column) => column.status === "needs-review")?.id ?? null;
-  const showingCount = rows.length;
 
   useEffect(() => {
     if (issueCount === 0) setIssuesOnly(false);
   }, [issueCount]);
 
+  useLayoutEffect(() => {
+    if (!viewingIssues) return;
+    firstIssueCellRef.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [viewingIssues, file.id, firstIssueKey]);
+
   async function requestSimilar(group: ReturnType<typeof similarIssueGroups>[number]) {
+    if (similarBusy) return;
     setSimilarBusy(group.columnId);
     setAiOutcome(null);
-    const result = await proposeCsvSimilarRepairs({
-      fileId: file.id,
-      fileName: file.fileName,
-      columnId: group.columnId,
-      columnName: group.columnName,
-      selectedType: group.expected,
-      issues: group.issues.map((issue) => ({
-        rowNumber: issue.rowNumber,
-        currentValue: issue.value,
-      })),
-    });
-    setSimilarBusy(null);
     const reviewed = group.issues.length;
-    const changes = result.status === "ok" ? result.data.changes : [];
-    const fixes: Array<{ issue: CsvValidationIssue; value: string }> = [];
-    for (const change of changes) {
-      const issue = group.issues.find((item) => item.rowNumber === change.rowNumber);
-      if (!issue) continue;
-      fixes.push({ issue, value: change.suggestedValue });
-    }
-    if (fixes.length > 0) {
-      onSaveFixes(fixes);
-      setAiFixedRows((current) => {
-        const next = new Set(current);
-        for (const fix of fixes) next.add(fix.issue.rowNumber);
-        return next;
+    const column = file.columns.find((item) => item.id === group.columnId);
+    const expectedType = column ? selectedColumnType(column) : "Text";
+    try {
+      const result = await proposeCsvSimilarRepairs({
+        fileId: file.id,
+        fileName: file.fileName,
+        columnId: group.columnId,
+        columnName: group.columnName,
+        selectedType: expectedType,
+        validExamples: validExamplesForColumn(file, group.columnId),
+        issues: group.issues.map((issue) => ({
+          rowNumber: issue.rowNumber,
+          currentValue: issue.value,
+        })),
       });
+      const changes = result.status === "ok" ? result.data.changes : [];
+      const accepted: Array<{ issue: CsvValidationIssue; value: string }> = [];
+      for (const change of changes) {
+        const issue = group.issues.find((item) => item.rowNumber === change.rowNumber);
+        if (!issue || !valueMatchesType(change.suggestedValue, expectedType)) continue;
+        accepted.push({ issue, value: change.suggestedValue });
+      }
+      if (accepted.length > 0) {
+        onSaveFixes(accepted);
+        setAiFixedRows((current) => {
+          const next = new Set(current);
+          for (const fix of accepted) next.add(fix.issue.rowNumber);
+          return next;
+        });
+      }
+      const remaining = Math.max(0, reviewed - accepted.length);
+      setAiOutcome(
+        `${reviewed.toLocaleString()} values reviewed · ${accepted.length.toLocaleString()} corrected · ${remaining.toLocaleString()} remaining`,
+      );
+    } finally {
+      setSimilarBusy(null);
     }
-    const remaining = Math.max(0, reviewed - fixes.length);
-    setAiOutcome(
-      remaining === 0
-        ? `${fixes.length.toLocaleString()} value${fixes.length === 1 ? "" : "s"} corrected`
-        : `${reviewed.toLocaleString()} value${reviewed === 1 ? "" : "s"} reviewed · ${fixes.length.toLocaleString()} corrected · ${remaining.toLocaleString()} still need attention`,
-    );
   }
 
   const editingIssue = editingKey ? issueByCell.get(editingKey) : undefined;
@@ -463,43 +560,45 @@ export function SchemaDataPreview({
 
   return (
     <div className="min-w-0 space-y-2">
-      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+      {similarGroups.length > 0 ? (
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           {similarGroups.map((group) => (
             <LuxiaAiButton
               key={group.columnId}
-              disabled={similarBusy === group.columnId}
+              disabled={similarBusy !== null}
+              aria-busy={similarBusy === group.columnId}
               onClick={() => void requestSimilar(group)}
             >
               {similarBusy === group.columnId
-                ? "Reviewing…"
+                ? `Fixing ${group.issues.length.toLocaleString()} issues…`
                 : `Fix ${group.issues.length.toLocaleString()} similar issues with AI`}
             </LuxiaAiButton>
           ))}
         </div>
-        <div className="ml-auto flex flex-wrap items-center gap-2">
-          <p className="luxia-type-caption" style={{ color: "var(--luxia-text-muted)" }}>
-            {issuesOnly && issueCount > 0
-              ? `Showing ${showingCount.toLocaleString()} issue row${showingCount === 1 ? "" : "s"}`
-              : `Previewing ${showingCount.toLocaleString()} sample row${showingCount === 1 ? "" : "s"} of ${records.length.toLocaleString()} total rows${
-                  issueCount > 0
-                    ? ` · ${issueCount.toLocaleString()} issue${issueCount === 1 ? "" : "s"}`
-                    : ""
-                }`}
+      ) : null}
+      <p className="luxia-type-caption" style={{ color: "var(--luxia-text-muted)" }}>
+        {`Previewing ${previewCount.toLocaleString()} sample row${previewCount === 1 ? "" : "s"} of ${records.length.toLocaleString()} total rows`}
+      </p>
+      {issueCount > 0 ? (
+        <div className="luxia-csv-schema-issue-bar">
+          <p
+            className="luxia-type-caption"
+            style={{ color: "var(--luxia-warning-90)" }}
+            role="status"
+          >
+            ⚠ {schemaIssueAttentionCopy(issueCount)}
           </p>
-          {issueCount > 0 ? (
-            <Button
-              type="button"
-              variant={issuesOnly ? "secondary" : "outline"}
-              size="compact"
-              aria-pressed={issuesOnly}
-              onClick={() => setIssuesOnly((current) => !current)}
-            >
-              {issuesOnly ? "Show all rows" : "View issues only"}
-            </Button>
-          ) : null}
+          <Button
+            type="button"
+            variant={viewingIssues ? "outline" : "secondary"}
+            size="compact"
+            aria-pressed={viewingIssues}
+            onClick={() => setIssuesOnly((current) => !current)}
+          >
+            {schemaIssueViewActionLabel(issueCount, viewingIssues)}
+          </Button>
         </div>
-      </div>
+      ) : null}
       {aiOutcome ? (
         <p className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }} role="status">
           {aiOutcome}
@@ -512,163 +611,146 @@ export function SchemaDataPreview({
           </p>
         </div>
       ) : (
-        <div className="luxia-settings-table-surface luxia-scrollbar luxia-scrollbar-light min-w-0 overflow-x-auto">
-          <table className="w-full min-w-[54rem] table-fixed border-collapse text-left">
-            <colgroup>
-              <col style={{ width: "5rem" }} />
-              {file.columns.map((col, colIndex) => (
-                <col
-                  key={col.id}
-                  style={{ width: schemaColumnWidth(col, colIndex, file.columns.length) }}
-                />
-              ))}
-              <col style={{ width: "8.5rem" }} />
-            </colgroup>
-            <thead>
-              <tr
-                className="luxia-type-caption"
-                style={{ color: "var(--luxia-text-secondary)" }}
-              >
-                <th
-                  className="sticky top-0 left-0 z-[3] border-b-2 px-2 py-2 text-left align-bottom font-normal"
-                  style={{
-                    background: "var(--luxia-settings-section-bg)",
-                    borderColor: "var(--luxia-settings-panel-border)",
-                  }}
-                >
-                  Row
-                </th>
-                {file.columns.map((col) => {
-                  const issueCountForColumn = issueCountByColumn.get(col.id) ?? 0;
-                  const needsConfirm = col.status === "needs-review";
-                  const showValueWarning = !needsConfirm && issueCountForColumn > 0;
-                  const focused = blockingColumnId === col.id && (needsConfirm || issueCountForColumn > 0);
-                  return (
-                    <th
-                      key={col.id}
-                      className="sticky top-0 z-[2] min-w-0 overflow-hidden border-b-2 px-2 py-2 align-top font-normal"
-                      style={{
-                        background: focused ? "var(--luxia-warning-10)" : "var(--luxia-settings-section-bg)",
-                        borderColor: "var(--luxia-settings-panel-border)",
-                      }}
-                    >
-                      <div className="min-w-0 space-y-1 overflow-hidden">
-                        <ColumnNameEditor
-                          name={col.name}
-                          originalName={col.originalName}
-                          onSave={(nextName) => onRenameColumn(col.id, nextName)}
-                        />
-                        <Select
-                          key={`${file.id}:${col.id}:type:${col.type}`}
-                          value={selectedColumnType(col)}
-                          onValueChange={(value) => {
-                            if (value === col.type) return;
-                            onTypeChange(col.id, value);
-                          }}
-                        >
-                          <SelectTrigger
-                            size="sm"
-                            aria-label={`Type for ${col.name}`}
-                            className="h-7 min-h-7 w-full min-w-0 max-w-full"
+        <div className="luxia-settings-table-surface luxia-csv-schema-scroll luxia-scrollbar luxia-scrollbar-light min-w-0">
+          <div
+            role="table"
+            className="luxia-csv-schema-grid"
+            style={{ gridTemplateColumns: schemaGridTemplate(file.columns) }}
+          >
+            <div
+              role="row"
+              className="luxia-csv-schema-grid-row is-header luxia-type-caption"
+              style={{ color: "var(--luxia-text-secondary)" }}
+            >
+              <div role="columnheader" className="luxia-csv-schema-grid-cell px-2 py-2 font-normal">
+                Row
+              </div>
+              {file.columns.map((col) => {
+                const issueCountForColumn = issueCountByColumn.get(col.id) ?? 0;
+                const needsConfirm = col.status === "needs-review";
+                return (
+                  <div
+                    key={col.id}
+                    role="columnheader"
+                    className="luxia-csv-schema-grid-cell px-2 py-2 font-normal"
+                    style={{
+                      background: needsConfirm ? "var(--luxia-warning-10)" : undefined,
+                    }}
+                  >
+                    <div className="flex min-w-0 flex-col gap-1">
+                      <div className="flex min-w-0 items-center gap-1.5">
+                        <div className="min-w-0 flex-1">
+                          <ColumnNameEditor
+                            name={col.name}
+                            originalName={col.originalName}
+                            onSave={(nextName) => onRenameColumn(col.id, nextName)}
+                          />
+                        </div>
+                        {issueCountForColumn > 0 ? (
+                          <span
+                            className="shrink-0 luxia-type-caption"
+                            style={{ color: "var(--luxia-warning-90)" }}
+                            title={`${issueCountForColumn.toLocaleString()} values need attention`}
                           >
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="!z-[80]">
-                            {CSV_COLUMN_TYPES.map((type) => (
-                              <SelectItem key={type} value={type}>
-                                {type}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        {needsConfirm ? (
-                          <p className="truncate luxia-type-caption" style={{ color: "var(--luxia-warning-90)" }}>
-                            Type needs confirmation
-                          </p>
+                            ⚠ {issueCountForColumn.toLocaleString()}
+                          </span>
                         ) : null}
+                      </div>
+                      <div className="flex min-w-0 items-center gap-1">
+                        <div className="min-w-0 flex-1">
+                          <Select
+                            key={`${file.id}:${col.id}:type:${col.type}`}
+                            value={selectedColumnType(col)}
+                            onValueChange={(value) => {
+                              if (value === col.type) return;
+                              onTypeChange(col.id, value);
+                            }}
+                          >
+                            <SelectTrigger
+                              size="sm"
+                              aria-label={`Type for ${col.name}`}
+                              className="h-7 min-h-7 w-full min-w-0 max-w-full"
+                            >
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="!z-[80]">
+                              {CSV_COLUMN_TYPES.map((type) => (
+                                <SelectItem key={type} value={type}>
+                                  {type}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
                         {needsConfirm ? (
                           <Button
                             type="button"
                             variant="secondary"
                             size="compact"
+                            className="h-7 min-h-7 shrink-0 px-2"
                             onClick={() => onConfirmType(col.id)}
                           >
                             Confirm
                           </Button>
                         ) : null}
-                        {showValueWarning ? (
-                          <p
-                            className="truncate luxia-type-caption"
-                            style={{ color: "var(--luxia-warning-90)" }}
-                            title={`${issueCountForColumn.toLocaleString()} values need attention`}
-                          >
-                            ⚠ {issueCountForColumn.toLocaleString()} value{issueCountForColumn === 1 ? "" : "s"}
-                          </p>
-                        ) : null}
                       </div>
-                    </th>
-                  );
-                })}
-                <th
-                  className="sticky top-0 right-0 z-[3] border-b-2 px-2 py-2 text-left align-bottom font-normal"
-                  style={{
-                    background: "var(--luxia-settings-section-bg)",
-                    borderColor: "var(--luxia-settings-panel-border)",
-                  }}
+                      {needsConfirm && issueCountForColumn === 0 ? (
+                        <p className="truncate luxia-type-caption" style={{ color: "var(--luxia-warning-90)" }}>
+                          Type needs confirmation
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+                );
+              })}
+              <div role="columnheader" className="luxia-csv-schema-grid-cell is-actions px-2 py-2 font-normal">
+                Actions
+              </div>
+            </div>
+            {rows.length === 0 ? (
+              <div role="row" className="luxia-csv-schema-grid-span">
+                <div
+                  role="cell"
+                  className="px-2 py-3 luxia-type-caption"
+                  style={{ color: "var(--luxia-text-secondary)" }}
                 >
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={file.columns.length + 2}
-                    className="px-2 py-3 luxia-type-caption"
-                    style={{ color: "var(--luxia-text-secondary)" }}
-                  >
-                    {issuesOnly ? "No unresolved issues." : "No data rows in this file."}
-                  </td>
-                </tr>
-              ) : (
-                rows.map((row) => {
-                  const excluded = skipped.has(row.rowNumber);
-                  const rowIssues = live.issues.filter((issue) => issue.rowNumber === row.rowNumber);
-                  const invalid = !excluded && rowIssues.length > 0;
-                  const aiFixed = !excluded && !invalid && aiFixedRows.has(row.rowNumber);
-                  const edited = !excluded && !invalid && !aiFixed && editedRows.has(row.rowNumber);
-                  const rowEditing = editingIssue?.rowNumber === row.rowNumber;
-                  const statusLabel = excluded
-                    ? "Excluded"
-                    : invalid
-                      ? "Error"
-                      : edited
-                        ? "Edited"
-                        : null;
-                  const statusColor = excluded
-                    ? "var(--luxia-warning-90)"
-                    : invalid
-                      ? "var(--luxia-error-70)"
-                      : "var(--luxia-text-muted)";
-                  const rowBg = excluded
-                    ? "var(--luxia-warning-10)"
-                    : invalid
-                      ? "var(--luxia-opacity-error-08)"
-                      : "var(--luxia-settings-panel-bg)";
-                  return (
-                    <tr
-                      key={row.rowNumber}
-                      className="border-t luxia-type-caption"
-                      style={{
-                        borderColor: "var(--luxia-settings-row-divider)",
-                        background: rowBg,
-                        color: "var(--luxia-text-secondary)",
-                      }}
+                  {viewingIssues ? "No unresolved issues." : "No data rows in this file."}
+                </div>
+              </div>
+            ) : (
+              rows.map((row) => {
+                const excluded = skipped.has(row.rowNumber);
+                const rowIssues = live.issues.filter((issue) => issue.rowNumber === row.rowNumber);
+                const invalid = !excluded && rowIssues.length > 0;
+                const aiFixed = !excluded && !invalid && aiFixedRows.has(row.rowNumber);
+                const edited = !excluded && !invalid && !aiFixed && editedRows.has(row.rowNumber);
+                const rowEditing = Boolean(editingIssue && editingIssue.rowNumber === row.rowNumber);
+                const statusLabel = excluded
+                  ? "Excluded"
+                  : invalid
+                    ? "Error"
+                    : edited
+                      ? "Edited"
+                      : null;
+                const statusColor = excluded
+                  ? "var(--luxia-warning-90)"
+                  : invalid
+                    ? "var(--luxia-error-70)"
+                    : "var(--luxia-text-muted)";
+                return (
+                  <Fragment key={row.rowNumber}>
+                    <div
+                      role="row"
+                      className={cn(
+                        "luxia-csv-schema-grid-row is-body group luxia-type-caption",
+                        excluded && "is-excluded",
+                        invalid && "is-error",
+                      )}
+                      style={{ color: "var(--luxia-text-secondary)" }}
                     >
-                      <td
-                        className="sticky left-0 z-[1] min-w-0 px-2 py-1.5 align-middle tabular-nums"
-                        style={{ background: rowBg }}
+                      <div
+                        role="cell"
+                        className="luxia-csv-schema-grid-cell whitespace-nowrap px-2 py-1.5 tabular-nums"
                       >
                         <span className="inline-flex min-w-0 items-baseline gap-1 truncate">
                           <span style={{ color: "var(--luxia-text-primary)" }}>{row.rowNumber}</span>
@@ -678,34 +760,28 @@ export function SchemaDataPreview({
                             </span>
                           ) : null}
                         </span>
-                      </td>
+                      </div>
                       {file.columns.map((column, cellIndex) => {
                         const value = file.overrides[row.rowNumber]?.[column.id] ?? row.fields[cellIndex] ?? "";
                         const issue = excluded ? undefined : issueByCell.get(`${row.rowNumber}:${column.id}`);
                         const cellKey = `${row.rowNumber}:${column.id}`;
-                        const editing = Boolean(issue && editingKey === cellKey);
+                        const isFirstIssue = viewingIssues && cellKey === firstIssueKey;
                         return (
-                          <td
+                          <div
                             key={cellKey}
-                            className="min-w-0 overflow-hidden px-2 py-1.5 align-middle"
-                            title={editing ? undefined : value || undefined}
+                            role="cell"
+                            className={cn(
+                              "luxia-csv-schema-grid-cell whitespace-nowrap px-2 py-1.5",
+                              issue ? "is-invalid" : null,
+                            )}
+                            title={value || undefined}
                           >
-                            {editing ? (
-                              <SchemaValueEditor
-                                value={editingDraft}
-                                error={editingError}
-                                onChange={(next) => {
-                                  setEditingDraft(next);
-                                  setEditingError(null);
-                                }}
-                                onSave={saveEdit}
-                                onCancel={cancelEdit}
-                              />
-                            ) : issue ? (
+                            {issue ? (
                               <button
                                 type="button"
-                                className="block max-w-full truncate rounded-[4px] text-left underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]"
-                                style={{ color: "var(--luxia-error-70)" }}
+                                ref={isFirstIssue ? firstIssueCellRef : undefined}
+                                className="luxia-csv-schema-invalid-value"
+                                aria-invalid
                                 title={`${value || "Empty"}. Click to edit.`}
                                 onClick={() => startEdit(cellKey, value)}
                               >
@@ -716,39 +792,52 @@ export function SchemaDataPreview({
                                 {value === "" ? "—" : value}
                               </span>
                             )}
-                          </td>
+                          </div>
                         );
                       })}
-                      <td
-                        className="sticky right-0 z-[1] px-2 py-1.5 align-middle"
-                        style={{ background: rowBg }}
-                      >
-                        {rowEditing ? (
-                          <div className="flex flex-wrap items-center gap-1">
-                            <Button type="button" variant="primary" size="compact" onClick={saveEdit}>
-                              Save
-                            </Button>
-                            <Button type="button" variant="outline" size="compact" onClick={cancelEdit}>
-                              Cancel
-                            </Button>
-                          </div>
-                        ) : excluded ? (
-                          <Button type="button" variant="secondary" size="compact" onClick={() => onUndo(row.rowNumber)}>
+                      <div role="cell" className="luxia-csv-schema-grid-cell is-actions whitespace-nowrap px-2 py-1.5">
+                        {excluded ? (
+                          <Button type="button" variant="secondary" size="compact" className="h-7 min-h-7 px-2" onClick={() => onUndo(row.rowNumber)}>
                             Undo
                           </Button>
+                        ) : invalid ? (
+                          <SchemaExcludeAction onExclude={() => {
+                            if (rowEditing) cancelEdit();
+                            onExclude(row.rowNumber);
+                          }} />
                         ) : (
-                          <ExcludeRowButton
-                            variant={invalid ? "secondary" : "outline"}
-                            onExclude={() => onExclude(row.rowNumber)}
-                          />
+                          <SchemaExcludeAction quiet onExclude={() => onExclude(row.rowNumber)} />
                         )}
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+                      </div>
+                    </div>
+                    {rowEditing && editingIssue ? (
+                      <div
+                        role="row"
+                        className="luxia-csv-schema-grid-row luxia-csv-schema-editor is-error luxia-type-caption"
+                        style={{ gridColumn: "1 / -1", color: "var(--luxia-text-secondary)" }}
+                      >
+                        <div role="cell" className="luxia-csv-schema-editor-cell" style={{ gridColumn: "1 / -1" }}>
+                          <div className="luxia-csv-schema-editor-inner">
+                            <SchemaRowEditorStrip
+                              expected={editingIssue.expected}
+                              value={editingDraft}
+                              error={editingError}
+                              onChange={(next) => {
+                                setEditingDraft(next);
+                                setEditingError(null);
+                              }}
+                              onSave={saveEdit}
+                              onCancel={cancelEdit}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+                  </Fragment>
+                );
+              })
+            )}
+          </div>
         </div>
       )}
     </div>

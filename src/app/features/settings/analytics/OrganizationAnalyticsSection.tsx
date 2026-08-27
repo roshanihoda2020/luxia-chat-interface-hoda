@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { formatDistanceToNow } from "date-fns";
-import { RefreshCw } from "lucide-react";
+import { ChevronDown, RefreshCw } from "lucide-react";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { Button } from "@/app/components/ui/button";
 import {
@@ -48,11 +48,11 @@ import {
   ANALYTICS_ALL_SCOPE_ID,
   ANALYTICS_TENANTS,
   organizationsForTenant,
-  tenantLabel,
 } from "./scope";
 import type { AnalyticsSessionState } from "./sessionState";
 import type {
   AnalyticsDatePreset,
+  LiveAvatarSessionRow,
   PresenceStatus,
   SessionStatusFilter,
 } from "./types";
@@ -93,6 +93,121 @@ function formatMinutes(value: number): string {
 
 function formatLastSeen(iso: string): string {
   return formatDistanceToNow(new Date(iso), { addSuffix: true });
+}
+
+function displayValue(value: string | null | undefined): string {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : "—";
+}
+
+function sourceTypeLabel(sourceType: LiveAvatarSessionRow["sourceType"]): string {
+  if (sourceType === "galaxy") return "Galaxy";
+  if (sourceType === "constellation") return "Constellation";
+  return "—";
+}
+
+function StackedCell({
+  primary,
+  secondary,
+  title,
+}: {
+  primary: string;
+  secondary?: string | null;
+  title?: string;
+}) {
+  return (
+    <td className="min-w-0 px-3 py-2.5 align-top">
+      <span
+        className="block min-w-0 truncate luxia-type-body-dense"
+        style={{ color: "var(--luxia-text-primary)" }}
+        title={title ?? (primary === "—" ? undefined : primary)}
+      >
+        {primary}
+      </span>
+      {secondary ? (
+        <span
+          className="block min-w-0 truncate luxia-type-caption"
+          style={{ color: "var(--luxia-text-muted)" }}
+          title={secondary}
+        >
+          {secondary}
+        </span>
+      ) : null}
+    </td>
+  );
+}
+
+function TruncateCell({
+  value,
+  title,
+  nowrap,
+}: {
+  value: string;
+  title?: string;
+  nowrap?: boolean;
+}) {
+  const tip = title ?? (value === "—" ? undefined : value);
+  return (
+    <td className={`min-w-0 px-3 py-2.5 align-top ${nowrap ? "whitespace-nowrap" : ""}`}>
+      <span
+        className="block min-w-0 truncate luxia-type-caption"
+        style={{ color: "var(--luxia-text-secondary)" }}
+        title={tip}
+      >
+        {value}
+      </span>
+    </td>
+  );
+}
+
+function avatarSessionPrimary(row: LiveAvatarSessionRow): string {
+  if (row.avatarName?.trim()) return row.avatarName.trim();
+  return displayValue(row.avatarType ?? "No avatar");
+}
+
+function avatarSessionSecondary(row: LiveAvatarSessionRow): string | null {
+  return row.avatarName?.trim() ? row.avatarType : null;
+}
+
+function SessionDetailField({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0">
+      <p className="luxia-type-caption" style={{ color: "var(--luxia-text-muted)" }}>
+        {label}
+      </p>
+      <p
+        className="truncate luxia-type-caption"
+        style={{ color: "var(--luxia-text-secondary)" }}
+        title={value === "—" ? undefined : value}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function LiveAvatarSessionDetails({ row }: { row: LiveAvatarSessionRow }) {
+  return (
+    <div className="grid grid-cols-2 gap-x-4 gap-y-2 px-3 py-2.5 @min-[640px]:grid-cols-3">
+      <SessionDetailField label="Tenant" value={displayValue(row.tenantName)} />
+      <SessionDetailField label="Organization" value={displayValue(row.organizationName)} />
+      <SessionDetailField label="Last heartbeat" value={formatLastSeen(row.lastHeartbeat)} />
+      <SessionDetailField label="Tenant ID" value={displayValue(row.tenantId)} />
+      <SessionDetailField label="Vidget ID" value={displayValue(row.vidgetId)} />
+      {row.sourceType === "galaxy" ? (
+        <SessionDetailField label="Galaxy ID" value={displayValue(row.galaxyId)} />
+      ) : null}
+      {row.sourceType === "galaxy" && row.galaxyName ? (
+        <SessionDetailField label="Galaxy" value={row.galaxyName} />
+      ) : null}
+      {row.constellationIds.length > 0 ? (
+        <SessionDetailField
+          label={row.constellationIds.length > 1 ? "Constellation IDs" : "Constellation ID"}
+          value={row.constellationIds.join(" · ")}
+        />
+      ) : null}
+    </div>
+  );
 }
 
 function DateRangeControls({
@@ -202,56 +317,62 @@ function AnalyticsScopeFilters({
   const filtersActive =
     tenantId !== ANALYTICS_ALL_SCOPE_ID || organizationId !== ANALYTICS_ALL_SCOPE_ID;
   return (
-    <SettingsDialogSurface className="mb-3 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 px-3 pt-3 pb-2">
-      <span
-        className="shrink-0 luxia-type-label-small uppercase tracking-[0.06em]"
-        style={{ color: "var(--luxia-text-muted)" }}
-      >
-        FILTERS:
-      </span>
-      <SearchableCombobox
-        id="analytics-filter-tenant"
-        label="Tenant"
-        value={tenantId}
-        onValueChange={onTenantChange}
-        clearValue={ANALYTICS_ALL_SCOPE_ID}
-        emptyText="No tenants found"
-        className="w-[min(100%,14.5rem)] shrink-0"
-        options={[
-          { value: ANALYTICS_ALL_SCOPE_ID, label: "All Tenants" },
-          ...ANALYTICS_TENANTS.map((tenant) => ({
-            value: tenant.id,
-            label: tenant.name,
-          })),
-        ]}
-      />
-      <SearchableCombobox
-        id="analytics-filter-organization"
-        label="Organization"
-        value={organizationId}
-        onValueChange={onOrganizationChange}
-        clearValue={ANALYTICS_ALL_SCOPE_ID}
-        emptyText="No organizations found"
-        className="w-[min(100%,18rem)] shrink-0"
-        options={[
-          { value: ANALYTICS_ALL_SCOPE_ID, label: "All Organizations" },
-          ...organizationOptions.map((organization) => ({
-            value: organization.id,
-            label: organization.name,
-          })),
-        ]}
-      />
-      {filtersActive ? (
-        <Button
-          type="button"
-          variant="secondary"
-          size="compact"
-          className="shrink-0"
-          onClick={onResetFilters}
-        >
-          Reset filters
-        </Button>
-      ) : null}
+    <SettingsDialogSurface className="mb-3 min-w-0 px-3 pt-3 pb-2">
+      <div className="flex min-w-0 flex-col gap-3 @min-[720px]:flex-row @min-[720px]:items-end">
+        <div className="flex min-w-0 flex-1 flex-col gap-3 @min-[560px]:flex-row @min-[560px]:items-end">
+          <span
+            className="shrink-0 luxia-type-label-small uppercase tracking-[0.06em] @min-[560px]:mb-2.5"
+            style={{ color: "var(--luxia-text-muted)" }}
+          >
+            FILTERS:
+          </span>
+          <div className="grid min-w-0 flex-1 grid-cols-1 gap-3 @min-[560px]:grid-cols-2">
+            <SearchableCombobox
+              id="analytics-filter-tenant"
+              label="Tenant"
+              value={tenantId}
+              onValueChange={onTenantChange}
+              clearValue={ANALYTICS_ALL_SCOPE_ID}
+              emptyText="No tenants found"
+              className="w-full min-w-0"
+              options={[
+                { value: ANALYTICS_ALL_SCOPE_ID, label: "All Tenants" },
+                ...ANALYTICS_TENANTS.map((tenant) => ({
+                  value: tenant.id,
+                  label: tenant.name,
+                })),
+              ]}
+            />
+            <SearchableCombobox
+              id="analytics-filter-organization"
+              label="Organization"
+              value={organizationId}
+              onValueChange={onOrganizationChange}
+              clearValue={ANALYTICS_ALL_SCOPE_ID}
+              emptyText="No organizations found"
+              className="w-full min-w-0"
+              options={[
+                { value: ANALYTICS_ALL_SCOPE_ID, label: "All Organizations" },
+                ...organizationOptions.map((organization) => ({
+                  value: organization.id,
+                  label: organization.name,
+                })),
+              ]}
+            />
+          </div>
+        </div>
+        {filtersActive ? (
+          <Button
+            type="button"
+            variant="secondary"
+            size="compact"
+            className="shrink-0"
+            onClick={onResetFilters}
+          >
+            Reset filters
+          </Button>
+        ) : null}
+      </div>
     </SettingsDialogSurface>
   );
 }
@@ -268,6 +389,7 @@ export function OrganizationAnalyticsSection({
   vidgets?: VidgetRecord[];
 }) {
   const [refreshEpoch, setRefreshEpoch] = useState(0);
+  const [expandedSessionId, setExpandedSessionId] = useState<string | null>(null);
   const snapshot = useMemo(
     () =>
       getOrganizationAnalyticsSnapshot({
@@ -655,54 +777,123 @@ export function OrganizationAnalyticsSection({
             <h3 className="luxia-type-body-dense-strong" style={{ color: "var(--luxia-text-primary)" }}>
               Live Active Sessions
             </h3>
-            <div className="luxia-settings-table-surface overflow-x-auto">
-              <table className="w-full min-w-[40rem] border-collapse text-left">
+            <div className="luxia-settings-table-surface min-w-0 overflow-x-auto">
+              <table className="w-full min-w-0 table-fixed border-collapse text-left">
+                <colgroup>
+                  <col />
+                  <col />
+                  <col className="w-[6.25rem]" />
+                  <col />
+                  <col />
+                  <col />
+                  <col className="w-[5rem]" />
+                  <col className="w-[5.75rem]" />
+                </colgroup>
                 <thead>
                   <tr className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
-                    <th className="px-3 py-2 font-normal">Tenant ID</th>
-                    <th className="px-3 py-2 font-normal">Vidget ID</th>
-                    <th className="px-3 py-2 font-normal">Avatar Type</th>
-                    <th className="px-3 py-2 font-normal">Last Heartbeat</th>
+                    <th className="px-3 py-2 font-normal">Vidget</th>
+                    <th className="px-3 py-2 font-normal">Project</th>
+                    <th className="px-3 py-2 font-normal">Source</th>
+                    <th className="px-3 py-2 font-normal">Knowledge scope</th>
+                    <th className="px-3 py-2 font-normal">Avatar</th>
+                    <th className="px-3 py-2 font-normal">Channel</th>
+                    <th className="px-3 py-2 font-normal">Status</th>
+                    <th className="px-3 py-2 font-normal">
+                      <span className="sr-only">Details</span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {snapshot.liveAvatarSessions.length === 0 ? (
                     <tr>
-                      <td colSpan={4}>
+                      <td colSpan={8}>
                         <TableEmpty message="No avatar usage data found" />
                       </td>
                     </tr>
                   ) : (
-                    snapshot.liveAvatarSessions.map((row) => (
-                      <tr
-                        key={row.vidgetId}
-                        className="border-t"
-                        style={{ borderColor: "var(--luxia-settings-row-divider)" }}
-                      >
-                        <td className="px-3 py-2.5">
-                          <span className="block truncate luxia-type-body-dense" style={{ color: "var(--luxia-text-primary)" }}>
-                            {row.tenantId}
-                          </span>
-                          <span className="block truncate luxia-type-caption" style={{ color: "var(--luxia-text-muted)" }}>
-                            {tenantLabel(row.tenantId)}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2.5">
-                          <span className="block truncate luxia-type-body-dense" style={{ color: "var(--luxia-text-primary)" }}>
-                            {row.vidgetId}
-                          </span>
-                          <span className="block truncate luxia-type-caption" style={{ color: "var(--luxia-text-muted)" }}>
-                            {row.vidgetName}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2.5 luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
-                          {row.avatarType}
-                        </td>
-                        <td className="px-3 py-2.5 luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
-                          {formatLastSeen(row.lastHeartbeat)}
-                        </td>
-                      </tr>
-                    ))
+                    snapshot.liveAvatarSessions.map((row) => {
+                      const expanded = expandedSessionId === row.vidgetId;
+                      const status = row.status ? statusTone(row.status) : null;
+                      const scopeLabel = displayValue(row.knowledgeScopeLabel);
+                      const showScopeTooltip = row.knowledgeScopeNames.length > 1;
+                      return (
+                        <Fragment key={row.vidgetId}>
+                          <tr
+                            className="border-t"
+                            style={{ borderColor: "var(--luxia-settings-row-divider)" }}
+                          >
+                            <StackedCell primary={displayValue(row.vidgetName)} />
+                            <StackedCell primary={displayValue(row.projectName)} />
+                            <TruncateCell value={sourceTypeLabel(row.sourceType)} nowrap />
+                            <td className="min-w-0 px-3 py-2.5 align-top">
+                              {showScopeTooltip ? (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <button
+                                      type="button"
+                                      className="block min-w-0 max-w-full truncate text-left luxia-type-caption outline-none hover:underline focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]"
+                                      style={{ color: "var(--luxia-text-secondary)" }}
+                                    >
+                                      {scopeLabel}
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent className={`${SETTINGS_FLOATING_Z_CLASS} max-w-[16rem]`}>
+                                    <ul className="space-y-1">
+                                      {row.knowledgeScopeNames.map((name) => (
+                                        <li key={name}>{name}</li>
+                                      ))}
+                                    </ul>
+                                  </TooltipContent>
+                                </Tooltip>
+                              ) : (
+                                <span
+                                  className="block min-w-0 truncate luxia-type-caption"
+                                  style={{ color: "var(--luxia-text-secondary)" }}
+                                  title={scopeLabel === "—" ? undefined : scopeLabel}
+                                >
+                                  {scopeLabel}
+                                </span>
+                              )}
+                            </td>
+                            <StackedCell
+                              primary={avatarSessionPrimary(row)}
+                              secondary={avatarSessionSecondary(row)}
+                            />
+                            <TruncateCell value={displayValue(row.channelLabel)} title={row.channelLabel || undefined} />
+                            <td className="whitespace-nowrap px-2 py-2.5 align-top luxia-type-caption" style={{ color: status?.color ?? "var(--luxia-text-muted)" }}>
+                              {status?.label ?? "—"}
+                            </td>
+                            <td className="px-3 py-2.5 align-top">
+                              <button
+                                type="button"
+                                className="inline-flex max-w-full items-center gap-1 luxia-type-caption outline-none hover:underline focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]"
+                                style={{ color: "var(--luxia-text-secondary)" }}
+                                aria-expanded={expanded}
+                                aria-label={expanded ? "Hide details" : "View details"}
+                                onClick={() =>
+                                  setExpandedSessionId((current) => (current === row.vidgetId ? null : row.vidgetId))
+                                }
+                              >
+                                <ChevronDown
+                                  size={14}
+                                  strokeWidth={1.75}
+                                  className={`shrink-0 ${expanded ? "rotate-180" : ""}`}
+                                  aria-hidden
+                                />
+                                <span className="min-w-0 truncate">{expanded ? "Hide" : "Details"}</span>
+                              </button>
+                            </td>
+                          </tr>
+                          {expanded ? (
+                            <tr style={{ background: "var(--luxia-settings-section-bg)" }}>
+                              <td colSpan={8} className="border-t px-0 py-0" style={{ borderColor: "var(--luxia-settings-row-divider)" }}>
+                                <LiveAvatarSessionDetails row={row} />
+                              </td>
+                            </tr>
+                          ) : null}
+                        </Fragment>
+                      );
+                    })
                   )}
                 </tbody>
               </table>

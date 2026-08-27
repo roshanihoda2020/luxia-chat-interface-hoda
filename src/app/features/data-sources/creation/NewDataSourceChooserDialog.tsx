@@ -10,6 +10,7 @@ import {
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
 import type { DataSourceConnector } from "@/app/features/permissions/types";
+import { DataSourceTypeIcon } from "./DataSourceTypeIcon";
 import {
   CONNECTOR_GROUPS,
   DATA_SOURCE_CONNECTORS,
@@ -80,7 +81,6 @@ export function NewDataSourceChooserDialog({
                 >
                   {options.map((option) => {
                     const selected = connector === option.id;
-                    const Icon = option.Icon;
                     return (
                       <button
                         key={option.id}
@@ -95,22 +95,13 @@ export function NewDataSourceChooserDialog({
                             onConnectorChange(option.id);
                           }
                         }}
-                        className={`flex items-center gap-3 rounded-[var(--luxia-radius-control)] border px-3 py-2.5 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)] ${
+                        className={`group flex items-start gap-2.5 rounded-[var(--luxia-radius-control)] border px-3 py-2.5 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)] ${
                           selected
                             ? "border-[var(--luxia-border-focus)] bg-[var(--luxia-surface-selected,var(--luxia-surface-muted))]"
                             : "border-[var(--luxia-border-subtle)] bg-[var(--luxia-surface-elevated)] hover:border-[var(--luxia-border-strong)]"
                         }`}
                       >
-                        <span
-                          className="flex size-8 shrink-0 items-center justify-center rounded-[6px]"
-                          style={{
-                            background: "var(--luxia-surface-muted)",
-                            color: "var(--luxia-text-secondary)",
-                          }}
-                          aria-hidden
-                        >
-                          <Icon size={16} strokeWidth={1.75} />
-                        </span>
+                        <DataSourceTypeIcon id={option.id} selected={selected} />
                         <span className="min-w-0">
                           <span className="block luxia-type-body-dense-strong text-[var(--luxia-text-primary)]">
                             {option.label}
@@ -125,7 +116,6 @@ export function NewDataSourceChooserDialog({
                     );
                   })}
                   {placeholders.map((option) => {
-                    const Icon = option.Icon;
                     return (
                       <button
                         key={option.id}
@@ -133,22 +123,13 @@ export function NewDataSourceChooserDialog({
                         disabled
                         aria-disabled="true"
                         title={option.unavailableReason}
-                        className="flex cursor-not-allowed items-center gap-3 rounded-[var(--luxia-radius-control)] border px-3 py-2.5 text-left opacity-55"
+                        className="flex cursor-not-allowed items-start gap-2.5 rounded-[var(--luxia-radius-control)] border px-3 py-2.5 text-left opacity-55"
                         style={{
                           borderColor: "var(--luxia-border-subtle)",
                           background: "var(--luxia-surface-elevated)",
                         }}
                       >
-                        <span
-                          className="flex size-8 shrink-0 items-center justify-center rounded-[6px]"
-                          style={{
-                            background: "var(--luxia-surface-muted)",
-                            color: "var(--luxia-text-secondary)",
-                          }}
-                          aria-hidden
-                        >
-                          <Icon size={16} strokeWidth={1.75} />
-                        </span>
+                        <DataSourceTypeIcon id={option.id} disabled />
                         <span className="min-w-0">
                           <span className="block luxia-type-body-dense-strong text-[var(--luxia-text-primary)]">
                             {option.label}

@@ -237,6 +237,7 @@ export function NewDataSourceFlow({
           encoding: table.encoding,
           importedRows: table.importedRows,
           skippedRows: table.skippedRows,
+          valueContext: table.valueContext,
         })),
       },
     });

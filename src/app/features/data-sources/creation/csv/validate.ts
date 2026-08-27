@@ -12,20 +12,21 @@ export function validateCsvRows(input: {
   const issues: CsvValidationIssue[] = [];
   const resolvedRows = new Set<number>();
 
-  for (const record of input.parsed.records) {
+  for (let index = 0; index < input.parsed.records.length; index += 1) {
+    const record = input.parsed.records[index]!;
     if (input.skipped.has(record.rowNumber)) continue;
     const rowOverrides = input.overrides[record.rowNumber] ?? {};
     let rowInvalid = false;
-    input.columns.forEach((column, index) => {
+    input.columns.forEach((column, columnIndex) => {
       const expected = selectedColumnType(column);
-      const raw = rowOverrides[column.id] ?? record.fields[index] ?? "";
+      const raw = rowOverrides[column.id] ?? record.fields[columnIndex] ?? "";
       if (valueMatchesType(raw, expected)) {
         return;
       }
       rowInvalid = true;
       issues.push({
         rowNumber: record.rowNumber,
-        rowIndex: record.rowNumber - 2,
+        rowIndex: index,
         columnId: column.id,
         columnName: column.name,
         value: raw,

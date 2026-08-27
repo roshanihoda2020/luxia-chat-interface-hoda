@@ -1,16 +1,4 @@
-/**
- * CSV importer AI integration boundary.
- *
- * UI components depend on this interface, not on a specific provider.
- * The current adapter is a prototype suggestion provider — replace these
- * function bodies with a production AI service when an endpoint exists.
- *
- * Wire a real backend by replacing the bodies of:
- * - `proposeCsvValueRepair`
- * - `proposeCsvSimilarRepairs`
- * - `proposeCsvColumnType`
- * - `proposeCsvTableMetadata`
- */
+/** Prototype-only AI adapter; no backend endpoint. UI should import this module, not csvAiSuggestions.ts. */
 
 export {
   CSV_AI_NO_RELIABLE_CORRECTION,
@@ -24,6 +12,7 @@ import {
   prototypeSuggestColumnType,
   prototypeSuggestSimilarFixes,
   prototypeSuggestTableMetadata,
+  prototypeSuggestRowDescriptions,
 } from "./csvAiSuggestions";
 
 export const CSV_AI_INTEGRATION = {
@@ -61,6 +50,7 @@ export interface CsvAiSimilarRepairRequest {
   columnId: string;
   columnName: string;
   selectedType: string;
+  validExamples?: string[];
   issues: Array<{
     rowNumber: number;
     currentValue: string;
@@ -105,36 +95,62 @@ export interface CsvAiTableMetadataSuccess {
   tableDescription: string;
 }
 
+export interface CsvAiRowDescriptionRequest {
+  fileId: string;
+  fileName: string;
+  tableName: string;
+  columns: Array<{ name: string; type: string }>;
+  rows: Array<{
+    rowNumber: number;
+    fields: string[];
+  }>;
+}
+
+export interface CsvAiRowDescriptionChange {
+  rowNumber: number;
+  description: string;
+}
+
+export interface CsvAiRowDescriptionSuccess {
+  proposedCount: number;
+  changes: CsvAiRowDescriptionChange[];
+}
+
 export type CsvAiResult<T> =
   | { status: "unavailable"; message: string }
   | { status: "error"; message: string }
   | { status: "no-suggestion"; message: string }
   | { status: "ok"; data: T };
 
-/** Capability A — single invalid value. Must not mutate the cell until Apply. */
+/** Must not mutate the cell until Apply. */
 export async function proposeCsvValueRepair(
   request: CsvAiValueRepairRequest,
 ): Promise<CsvAiResult<CsvAiValueRepairSuccess>> {
   return prototypeSuggestCellFix(request);
 }
 
-/** Capability B — same-pattern repairs. Must not auto-apply. */
+/** Accepted values are applied through cell overrides, not by mutating parsed records. */
 export async function proposeCsvSimilarRepairs(
   request: CsvAiSimilarRepairRequest,
 ): Promise<CsvAiResult<CsvAiSimilarRepairSuccess>> {
   return prototypeSuggestSimilarFixes(request);
 }
 
-/** Capability C — recommended column type from current values. */
 export async function proposeCsvColumnType(
   request: CsvAiColumnTypeRequest,
 ): Promise<CsvAiResult<CsvAiColumnTypeSuccess>> {
   return prototypeSuggestColumnType(request);
 }
 
-/** Table name + description from schema and sample values. */
 export async function proposeCsvTableMetadata(
   request: CsvAiTableMetadataRequest,
 ): Promise<CsvAiResult<CsvAiTableMetadataSuccess>> {
   return prototypeSuggestTableMetadata(request);
+}
+
+/** Must not mutate CSV cells. */
+export async function proposeCsvRowDescriptions(
+  request: CsvAiRowDescriptionRequest,
+): Promise<CsvAiResult<CsvAiRowDescriptionSuccess>> {
+  return prototypeSuggestRowDescriptions(request);
 }

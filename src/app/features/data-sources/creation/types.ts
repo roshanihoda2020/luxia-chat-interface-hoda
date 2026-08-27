@@ -1,4 +1,5 @@
 import type {
+  CsvImportedColumnValueContext,
   DataSourceCatalogItem,
   DataSourceConnector,
 } from "@/app/features/permissions/types";
@@ -91,6 +92,7 @@ export interface CsvImportedTablePayload {
   encoding: string;
   importedRows: number;
   skippedRows: number;
+  valueContext?: CsvImportedColumnValueContext[];
 }
 
 export interface CsvImportCompletePayload {

@@ -2,6 +2,7 @@ import type { CsvColumnDraft, CsvValidationIssue } from "../types";
 import {
   CSV_DELIMITER_CHARS,
   CSV_DELIMITER_IDS,
+  DEFAULT_CSV_HEADER_CONFIG,
   decodeCsvBytes,
   defaultTableNameFromFile,
   detectCsvDelimiter,
@@ -9,13 +10,35 @@ import {
   parseCsvTable,
   type CsvDelimiterId,
   type CsvEncodingId,
+  type CsvHeaderConfig,
+  type CsvHeaderMode,
   type CsvParseResult,
   type CsvStructuralIssue,
 } from "./parse";
 import { inferCsvSchema } from "./schema";
 
+export type { CsvHeaderMode };
 export type CsvFileUiStatus = "ready" | "needs-review" | "parsing-needs-review" | "error" | "excluded";
-export type CsvHeaderMode = "first-row";
+export type CsvRowDescriptionOrigin = "ai" | "edited";
+export type CsvTableMetaOrigin = "unset" | "ai" | "edited";
+export type CsvValueContextMethod = "distinct" | "frequency" | "sum";
+export type CsvValueContextOrder = "asc" | "desc";
+export type CsvValueContextLimit = 10 | 25 | 50;
+export type CsvValueContextOrigin = "retrieved" | "edited";
+
+export interface CsvRowDescriptionEntry {
+  text: string;
+  origin: CsvRowDescriptionOrigin;
+}
+
+export interface CsvColumnValueContext {
+  retrievalMethod: CsvValueContextMethod;
+  order: CsvValueContextOrder;
+  limit: CsvValueContextLimit;
+  aggregateColumnId: string | null;
+  values: string[];
+  origin: CsvValueContextOrigin;
+}
 
 export interface CsvImportFileDraft {
   id: string;
@@ -31,6 +54,7 @@ export interface CsvImportFileDraft {
   delimiter: CsvDelimiterId;
   detectedDelimiter: CsvDelimiterId;
   headerMode: CsvHeaderMode;
+  headerRow: number | null;
   decodedText: string;
   decodeIssues: CsvStructuralIssue[];
   parsed: CsvParseResult | null;
@@ -46,6 +70,14 @@ export interface CsvImportFileDraft {
   tableDescription: string;
   descriptionDrafted: boolean;
   tableMetaAiGenerated: boolean;
+  tableNameOrigin: CsvTableMetaOrigin;
+  tableDescriptionOrigin: CsvTableMetaOrigin;
+  /** Keyed by source rowNumber. Does not mutate CSV cells. */
+  rowDescriptions: Record<number, CsvRowDescriptionEntry>;
+  /** Does not mutate CSV cells. */
+  valueContext: Record<string, CsvColumnValueContext>;
+  /** Unsaved; omitted from create payload until saved. */
+  valueContextDraft: Record<string, CsvColumnValueContext>;
 }
 
 function nextFileId(fileName: string): string {
@@ -109,7 +141,10 @@ export function csvFileHasSuspiciousDelimiter(file: CsvImportFileDraft): boolean
   if (!file.decodedText) return false;
   const detected = detectCsvDelimiter(file.decodedText);
   if (detected === file.delimiter) return false;
-  const alternative = parseCsvTable(file.decodedText, detected);
+  const alternative = parseCsvTable(file.decodedText, detected, {
+    mode: file.headerMode,
+    row: file.headerRow,
+  });
   return alternative.headers.length > 1;
 }
 
@@ -148,11 +183,18 @@ export function csvFileNotices(file: CsvImportFileDraft): CsvStructuralIssue[] {
   return [...file.decodeIssues, ...(file.parsed?.issues ?? [])];
 }
 
+export function csvHeaderConfigFor(file: Pick<CsvImportFileDraft, "headerMode" | "headerRow">): CsvHeaderConfig {
+  if (file.headerMode === "none") return { mode: "none", row: null };
+  return { mode: "row", row: file.headerRow && file.headerRow > 0 ? file.headerRow : 1 };
+}
+
 export function reparseCsvImportFile(
   file: CsvImportFileDraft,
   options: {
     encoding?: CsvEncodingId;
     delimiter?: CsvDelimiterId;
+    headerMode?: CsvHeaderMode;
+    headerRow?: number | null;
     invalidateDownstream?: boolean;
   } = {},
 ): CsvImportFileDraft {
@@ -163,7 +205,18 @@ export function reparseCsvImportFile(
   );
   const detectedDelimiter = detectCsvDelimiter(decoded.text);
   const delimiter = options.delimiter ?? detectedDelimiter;
-  const parsed = parseCsvTable(decoded.text, delimiter);
+  const headerMode = options.headerMode ?? file.headerMode ?? DEFAULT_CSV_HEADER_CONFIG.mode;
+  const headerRow =
+    headerMode === "none"
+      ? null
+      : options.headerRow !== undefined
+        ? options.headerRow && options.headerRow > 0
+          ? options.headerRow
+          : 1
+        : file.headerRow && file.headerRow > 0
+          ? file.headerRow
+          : 1;
+  const parsed = parseCsvTable(decoded.text, delimiter, { mode: headerMode, row: headerRow });
   const structuralIssues = [...parsed.issues];
   if (parsed.headers.length === 0) {
     structuralIssues.push({
@@ -180,6 +233,8 @@ export function reparseCsvImportFile(
     bomLength,
     delimiter,
     detectedDelimiter,
+    headerMode,
+    headerRow,
     decodedText: decoded.text,
     decodeIssues: issues,
     parsed: parsedWithIssues,
@@ -191,6 +246,9 @@ export function reparseCsvImportFile(
     validationRan: false,
     validationStale: Boolean(options.invalidateDownstream),
     issueSnapshot: [],
+    rowDescriptions: {},
+    valueContext: {},
+    valueContextDraft: {},
   };
 }
 
@@ -216,7 +274,8 @@ export function buildCsvImportFile(
       bomLength: detected.bomLength,
       delimiter: "comma",
       detectedDelimiter: "comma",
-      headerMode: "first-row",
+      headerMode: "row",
+      headerRow: 1,
       decodedText: "",
       decodeIssues: [],
       parsed: null,
@@ -232,6 +291,11 @@ export function buildCsvImportFile(
       tableDescription: "",
       descriptionDrafted: false,
       tableMetaAiGenerated: false,
+      tableNameOrigin: "unset",
+      tableDescriptionOrigin: "unset",
+      rowDescriptions: {},
+      valueContext: {},
+      valueContextDraft: {},
     },
     { encoding: detected.encoding },
   );

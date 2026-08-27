@@ -107,7 +107,7 @@ export function SearchableCombobox({
 
   return (
     <Popover open={open} onOpenChange={handleOpenChange} modal>
-      <Command shouldFilter={false} className="overflow-visible bg-transparent">
+      <Command shouldFilter={false} className="h-auto min-w-0 w-full overflow-visible bg-transparent">
         <PopoverAnchor asChild>
           <div ref={fieldRef} className={cn("relative min-w-0", className)}>
             <label

@@ -45,7 +45,7 @@ export interface CsvStructuralIssue {
 }
 
 export interface CsvRecord {
-  /** 1-based spreadsheet-style row number (header is 1). */
+  /** 1-based original source row number in the file. */
   rowNumber: number;
   fields: string[];
 }
@@ -55,6 +55,63 @@ export interface CsvParseResult {
   originalHeaders: string[];
   records: CsvRecord[];
   issues: CsvStructuralIssue[];
+}
+
+export type CsvHeaderMode = "row" | "none";
+
+export interface CsvHeaderConfig {
+  mode: CsvHeaderMode;
+  /** 1-based source row used as the header when mode is "row". */
+  row: number | null;
+}
+
+export const DEFAULT_CSV_HEADER_CONFIG: CsvHeaderConfig = { mode: "row", row: 1 };
+
+export type CsvPhysicalRowRole = "ignored" | "header" | "data";
+
+export function csvHeaderSummaryLabel(config: CsvHeaderConfig): string {
+  if (config.mode === "none") return "No header";
+  const row = config.row && config.row > 0 ? config.row : 1;
+  if (row === 1) return "First row";
+  return `Row ${row}`;
+}
+
+export function csvPhysicalRowRole(
+  sourceRow: number,
+  header: CsvHeaderConfig,
+): CsvPhysicalRowRole {
+  if (header.mode === "none") return "data";
+  if (!header.row || header.row < 1) return "data";
+  if (sourceRow < header.row) return "ignored";
+  if (sourceRow === header.row) return "header";
+  return "data";
+}
+
+export function csvPhysicalRowRoleLabel(role: CsvPhysicalRowRole): string {
+  if (role === "ignored") return "Ignored";
+  if (role === "header") return "Header";
+  return "Data";
+}
+
+export function csvPhysicalRows(text: string, delimiterId: CsvDelimiterId): string[][] {
+  return parseCsvRecords(text, CSV_DELIMITER_CHARS[delimiterId]).rows;
+}
+
+export function csvPhysicalRowCount(text: string, delimiterId: CsvDelimiterId): number {
+  return csvPhysicalRows(text, delimiterId).length;
+}
+
+export function validateCsvHeaderRowNumber(raw: string, maxRows: number): string | null {
+  const trimmed = raw.trim();
+  if (trimmed === "") return "Enter a header row number.";
+  if (!/^[0-9]+$/.test(trimmed)) return "Enter a whole number.";
+  const value = Number(trimmed);
+  if (value < 1) return "Header row must be at least 1.";
+  if (maxRows <= 0) return "This file has no rows.";
+  if (value > maxRows) {
+    return `This file has ${maxRows.toLocaleString()} row${maxRows === 1 ? "" : "s"}.`;
+  }
+  return null;
 }
 
 export interface CsvDecodeResult {
@@ -234,23 +291,15 @@ function normalizeHeader(raw: string, index: number, used: Set<string>): {
   return { name, renamed, empty };
 }
 
-export function parseCsvTable(text: string, delimiterId: CsvDelimiterId): CsvParseResult {
-  const delimiter = CSV_DELIMITER_CHARS[delimiterId];
-  const { rows, unclosedQuote } = parseCsvRecords(text, delimiter);
-  const issues: CsvStructuralIssue[] = [];
+function syntheticColumnName(index: number): string {
+  return `Column ${index + 1}`;
+}
 
-  if (unclosedQuote) {
-    issues.push({
-      severity: "error",
-      message: "A quoted field was not closed. Later rows may be unreliable.",
-    });
-  }
-
-  if (rows.length === 0) {
-    return { headers: [], originalHeaders: [], records: [], issues };
-  }
-
-  const originalHeaders = rows[0]!.map((cell) => cell);
+function headersFromCells(
+  cells: string[],
+  issues: CsvStructuralIssue[],
+): { headers: string[]; originalHeaders: string[] } {
+  const originalHeaders = cells.map((cell) => cell);
   const used = new Set<string>();
   const headers = originalHeaders.map((header, index) => {
     const next = normalizeHeader(header, index, used);
@@ -267,30 +316,100 @@ export function parseCsvTable(text: string, delimiterId: CsvDelimiterId): CsvPar
     }
     return next.name;
   });
+  return { headers, originalHeaders };
+}
 
-  const width = headers.length;
+function alignRecordFields(fields: string[], width: number): { fields: string[]; mismatched: boolean } {
+  if (fields.length === width) return { fields, mismatched: false };
+  if (fields.length < width) {
+    while (fields.length < width) fields.push("");
+  } else {
+    fields.length = width;
+  }
+  return { fields, mismatched: true };
+}
+
+function recordsFromRows(
+  rows: string[][],
+  startIndex: number,
+  width: number,
+): { records: CsvRecord[]; widthMismatches: number } {
   const records: CsvRecord[] = [];
   let widthMismatches = 0;
-
-  for (let index = 1; index < rows.length; index += 1) {
+  for (let index = startIndex; index < rows.length; index += 1) {
     const fields = [...rows[index]!];
     if (fields.length === 1 && fields[0] === "" && index === rows.length - 1) {
       continue;
     }
-    if (fields.length !== width) {
-      widthMismatches += 1;
-      if (fields.length < width) {
-        while (fields.length < width) fields.push("");
-      } else {
-        fields.length = width;
-      }
-    }
+    const aligned = alignRecordFields(fields, width);
+    if (aligned.mismatched) widthMismatches += 1;
     records.push({
       rowNumber: index + 1,
-      fields,
+      fields: aligned.fields,
+    });
+  }
+  return { records, widthMismatches };
+}
+
+export function parseCsvTable(
+  text: string,
+  delimiterId: CsvDelimiterId,
+  header: CsvHeaderConfig = DEFAULT_CSV_HEADER_CONFIG,
+): CsvParseResult {
+  const delimiter = CSV_DELIMITER_CHARS[delimiterId];
+  const { rows, unclosedQuote } = parseCsvRecords(text, delimiter);
+  const issues: CsvStructuralIssue[] = [];
+
+  if (unclosedQuote) {
+    issues.push({
+      severity: "error",
+      message: "A quoted field was not closed. Later rows may be unreliable.",
     });
   }
 
+  if (rows.length === 0) {
+    return { headers: [], originalHeaders: [], records: [], issues };
+  }
+
+  if (header.mode === "none") {
+    const width = rows[0]!.length;
+    const originalHeaders = Array.from({ length: width }, (_, index) => syntheticColumnName(index));
+    const { records, widthMismatches } = recordsFromRows(rows, 0, width);
+    if (widthMismatches > 0) {
+      issues.push({
+        severity: "warning",
+        message: `${widthMismatches} row${widthMismatches === 1 ? "" : "s"} had a different column count and ${widthMismatches === 1 ? "was" : "were"} aligned to the generated columns.`,
+      });
+    }
+    return { headers: originalHeaders, originalHeaders, records, issues };
+  }
+
+  const headerRow = header.row && header.row > 0 ? header.row : 1;
+  if (headerRow > rows.length) {
+    issues.push({
+      severity: "error",
+      message: "The selected header row is beyond the file length.",
+    });
+    return { headers: [], originalHeaders: [], records: [], issues };
+  }
+
+  const headerIndex = headerRow - 1;
+  const headerCells = [...rows[headerIndex]!];
+  const headerEmpty = headerCells.length === 0 || headerCells.every((cell) => cell.trim() === "");
+  if (headerEmpty) {
+    issues.push({
+      severity: "warning",
+      message: "The selected header row is empty. Column names were generated.",
+    });
+  }
+  const { headers, originalHeaders } = headerEmpty
+    ? (() => {
+        const width = Math.max(1, headerCells.length);
+        const names = Array.from({ length: width }, (_, index) => syntheticColumnName(index));
+        return { headers: names, originalHeaders: names };
+      })()
+    : headersFromCells(headerCells, issues);
+  const { records, widthMismatches } = recordsFromRows(rows, headerIndex + 1, headers.length);
   if (widthMismatches > 0) {
     issues.push({
       severity: "warning",

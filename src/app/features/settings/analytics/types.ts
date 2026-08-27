@@ -23,10 +23,22 @@ export interface ActiveSessionRow {
 export interface LiveAvatarSessionRow {
   vidgetId: string;
   vidgetName: string;
-  avatarType: string;
+  projectName: string | null;
+  sourceType: "galaxy" | "constellation" | null;
+  knowledgeScopeLabel: string | null;
+  knowledgeScopeNames: string[];
+  avatarName: string | null;
+  avatarType: string | null;
+  channelLabel: string | null;
+  status: Exclude<PresenceStatus, "offline"> | null;
   lastHeartbeat: string;
   tenantId: string;
   organizationId: string;
+  tenantName: string;
+  organizationName: string;
+  galaxyId: string | null;
+  galaxyName: string | null;
+  constellationIds: string[];
 }
 
 export interface VidgetAvatarBreakdownRow {
