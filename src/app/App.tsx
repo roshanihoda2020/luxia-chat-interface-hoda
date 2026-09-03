@@ -127,6 +127,7 @@ import {
   listProjectsWhereUserCanCreateConstellation,
   listConstellationsUserCanConfigure,
 } from "@/app/features/data-sources";
+import { commitDataSourceTagBucket, type DataSourceTagBucket } from "@/app/features/document-tags";
 import {
   LuxiaSettingsDialog,
   organizationSettingsSectionToAccountSection,
@@ -169,8 +170,7 @@ import {
   getProjectRequiredDataSourceIds,
   buildSourceAccessSummaryRow,
   buildDataSourceAccessSummary,
-  resolveUserDataSourceAccess,
-  permissionRank,
+  hasConstellationConnectAccess,
   ACCESS_LEVEL_DENIED_MESSAGE,
   ACCESS_LEVEL_CREATE_DENIED_MESSAGE,
   CONSTELLATION_CONFIGURE_DENIED_MESSAGE,
@@ -6115,15 +6115,13 @@ export default function App() {
       toast.error("Data Source not found.");
       return;
     }
-    const resolved = resolveUserDataSourceAccess(
-      prototypeUserId,
-      sourceId,
-      accessLevelsState,
-      dataSourcesState,
-    );
     if (
-      !resolved.permission
-      || permissionRank(resolved.permission) < permissionRank("Use")
+      !hasConstellationConnectAccess(
+        prototypeUserId,
+        sourceId,
+        accessLevelsState,
+        dataSourcesState,
+      )
     ) {
       toast.error("You need Use or Manage access to connect this Data Source.");
       return;
@@ -7120,7 +7118,10 @@ export default function App() {
     });
   }
 
-  function handleCreateConstellationDraft(draft: ConstellationCreationDraft) {
+  function handleCreateConstellationDraft(
+    draft: ConstellationCreationDraft,
+    tagBucket?: DataSourceTagBucket,
+  ) {
     const projectId = draft.projectId;
     if (!projectId || !draft.type) return;
     if (!guardConstellationConfigure(projectId)) return;
@@ -7163,6 +7164,10 @@ export default function App() {
 
     if (nextDataSources !== dataSourcesState) {
       setDataSourcesState(nextDataSources);
+    }
+
+    if (creationSource?.catalogItem && tagBucket) {
+      commitDataSourceTagBucket(creationSource.catalogItem.id, tagBucket);
     }
 
     const seeded: ConstellationSettingsRecord = {
@@ -8859,6 +8864,7 @@ export default function App() {
                     }}
                     capabilityId={settingsCapabilityId ?? "instr"}
                     bundle={capabilityBundle}
+                    connectedSourceIds={settingsPageRecord.connectedSources.map((source) => source.id)}
                     onUpdateBundle={(next) => {
                       if (!constellationId || settingsUnavailable) return;
                       const capId = settingsCapabilityId ?? "instr";

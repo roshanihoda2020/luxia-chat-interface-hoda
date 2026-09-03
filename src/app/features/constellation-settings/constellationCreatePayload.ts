@@ -31,6 +31,11 @@ import {
   type CsvParseConfig,
 } from "./capabilityState";
 
+function tableNameFromUpload(fileName: string): string {
+  const base = fileName.replace(/\.[^.]+$/, "").trim();
+  return base || fileName.trim() || "imported_table";
+}
+
 function catalogTypeForConstellation(
   type: CapsuleConstellationType,
 ): DataSourceCatalogItem["type"] {
@@ -134,9 +139,18 @@ export function buildConnectedSourceFromCreationDraft(
         ? {
             kind: "csv",
             fileName: draft.uploadedFiles[0]?.name,
-            tableName: name,
+            tableName: draft.uploadedFiles.length === 1
+              ? name
+              : tableNameFromUpload(draft.uploadedFiles[0]?.name ?? name),
             importedRows: undefined,
             skippedRows: 0,
+            csvTables: draft.uploadedFiles.map((file) => ({
+              id: file.id,
+              fileName: file.name,
+              tableName: draft.uploadedFiles.length === 1
+                ? name
+                : tableNameFromUpload(file.name),
+            })),
           }
         : draft.type === "pdf"
           ? {

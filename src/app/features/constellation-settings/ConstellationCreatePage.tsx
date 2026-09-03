@@ -52,7 +52,7 @@ import {
   DATA_SOURCE_CATALOG,
   formatDataSourceType,
   getDataSourceOwnerDisplay,
-  listAccessibleDataSources,
+  listConstellationConnectableDataSources,
   ORGANIZATIONAL_MANAGED_LABEL,
   isDataSourceUsable,
   type AccessLevelRecord,
@@ -61,6 +61,16 @@ import {
 import { CURRENT_USER_ID } from "@/app/features/permissions/currentUser";
 import { formatFileSize } from "@/app/features/pdf-files/utils";
 import { LUXIA_SETTINGS_CONTENT_SURFACE_CLASS } from "@/app/features/shared/luxiaSettingsUx";
+import {
+  DataSourceLibraryDocumentTags,
+  DataSourcePickerSearchRow,
+  DraftDataSourceTagsField,
+  DraftFileTagRow,
+  DraftTableTagRow,
+  useAccessibleDataSourceTagFilter,
+  useDraftDataSourceTags,
+  type DataSourceTagBucket,
+} from "@/app/features/document-tags";
 import { constellationTypeLabel } from "./types";
 import {
   CONSTELLATION_CREATION_STEPS,
@@ -150,12 +160,12 @@ function sourcesForType(
   userId: string,
   dataSources: DataSourceCatalogItem[],
 ): DataSourceCatalogItem[] {
-  const accessible = listAccessibleDataSources(
+  const connectable = listConstellationConnectableDataSources(
     accessLevels,
     dataSources,
     userId,
   );
-  return accessible.filter((source) => {
+  return connectable.filter((source) => {
     const normalized = source.type.toLowerCase();
     if (type === "database") return normalized.includes("database");
     if (type === "csv") return normalized.includes("csv");
@@ -195,6 +205,11 @@ function FieldError({ id, message }: { id?: string; message?: string }) {
   );
 }
 
+function csvTableLabelFromUpload(fileName: string): string {
+  const base = fileName.replace(/\.[^.]+$/, "").trim();
+  return base || fileName.trim() || "imported_table";
+}
+
 function CreationFileUpload({
   accept,
   acceptLabel,
@@ -202,6 +217,7 @@ function CreationFileUpload({
   onAdd,
   onRemove,
   error,
+  fileTags,
 }: {
   accept: string;
   acceptLabel: string;
@@ -209,6 +225,7 @@ function CreationFileUpload({
   onAdd: (file: File) => "added" | "duplicate" | "invalid";
   onRemove: (fileId: string) => void;
   error?: string;
+  fileTags?: (file: { id: string; name: string }) => ReactNode;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const inputId = useId();
@@ -302,6 +319,7 @@ function CreationFileUpload({
                   <p className="luxia-type-caption text-[var(--luxia-text-muted)]">
                     {file.sizeLabel}
                   </p>
+                  {fileTags?.(file)}
                 </div>
                 <Button
                   type="button"
@@ -319,6 +337,26 @@ function CreationFileUpload({
         </div>
       ) : null}
     </div>
+  );
+}
+
+function CreationFieldGroup({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
+  const headingId = useId();
+  return (
+    <section className="luxia-creation-field-group" aria-labelledby={headingId}>
+      <div className="luxia-creation-field-group-header">
+        <h3 id={headingId} className="luxia-creation-field-group-title">
+          {title}
+        </h3>
+      </div>
+      <div className="luxia-creation-field-group-body">{children}</div>
+    </section>
   );
 }
 
@@ -641,7 +679,7 @@ export interface ConstellationCreatePageProps {
   onNavigateHome: () => void;
   onOpenProject: (projectId: string) => void;
   onCancel: (projectId: string) => void;
-  onCreate: (draft: ConstellationCreationDraft) => void;
+  onCreate: (draft: ConstellationCreationDraft, tagBucket?: DataSourceTagBucket) => void;
 }
 
 export function ConstellationCreatePage({
@@ -672,6 +710,7 @@ export function ConstellationCreatePage({
   const [pendingType, setPendingType] = useState<CapsuleConstellationType | null>(null);
   const [editingInstruction, setEditingInstruction] = useState(false);
   const [tableSearch, setTableSearch] = useState("");
+  const [sourceQuery, setSourceQuery] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const stepHeadingRef = useRef<HTMLHeadingElement>(null);
   const instructionIsCustomRef = useRef(false);
@@ -684,6 +723,7 @@ export function ConstellationCreatePage({
   const pendingNavigationRef = useRef<(() => void) | null>(null);
   const projectIdRef = useRef(projectId);
   const appliedSourceRef = useRef(initialExistingDataSourceId ?? "");
+  const tagDraft = useDraftDataSourceTags();
 
   draftRef.current = draft;
 
@@ -708,7 +748,9 @@ export function ConstellationCreatePage({
     setPendingType(null);
     setEditingInstruction(false);
     setTableSearch("");
+    setSourceQuery("");
     setIsCreating(false);
+    tagDraft.reset();
     instructionIsCustomRef.current = false;
     newSourceSnapshotRef.current = createEmptyNewSourceModeSnapshot();
     existingSourceSnapshotRef.current = createEmptyExistingSourceModeSnapshot();
@@ -828,11 +870,22 @@ export function ConstellationCreatePage({
     if (!readinessNow.ready) return;
     if (!current.projectId || !current.type) return;
     setIsCreating(true);
-    onCreate(ensureInstructionDefault(
+    const nextDraft = ensureInstructionDefault(
       { ...current, name: current.name.trim() },
       instructionIsCustomRef.current,
-    ));
-  }, [existingConstellationNames, isCreating, onCreate]);
+    );
+    const tagBucket = current.dataSourceMode === "new"
+      ? tagDraft.snapshot({
+        retainFileNames: current.type === "pdf"
+          ? current.uploadedFiles.map((file) => file.name)
+          : [],
+        retainTableIds: current.type === "csv"
+          ? current.uploadedFiles.map((file) => file.id)
+          : [],
+      })
+      : undefined;
+    onCreate(nextDraft, tagBucket);
+  }, [existingConstellationNames, isCreating, onCreate, tagDraft]);
 
   const resetModeSnapshots = useCallback(() => {
     newSourceSnapshotRef.current = createEmptyNewSourceModeSnapshot();
@@ -852,8 +905,10 @@ export function ConstellationCreatePage({
       resetModeSnapshots();
       setBasicsAttempted(false);
       setDataAttempted(false);
+      setSourceQuery("");
+      tagDraft.reset();
     },
-    [resetModeSnapshots],
+    [resetModeSnapshots, tagDraft],
   );
 
   const handleTypeSelect = useCallback(
@@ -913,11 +968,16 @@ export function ConstellationCreatePage({
   }, []);
 
   const removeUploadedFile = useCallback((fileId: string) => {
-    setDraft((prev) => ({
-      ...prev,
-      uploadedFiles: prev.uploadedFiles.filter((file) => file.id !== fileId),
-    }));
-  }, []);
+    setDraft((prev) => {
+      const removed = prev.uploadedFiles.find((file) => file.id === fileId);
+      const uploadedFiles = prev.uploadedFiles.filter((file) => file.id !== fileId);
+      if (removed && !uploadedFiles.some((file) => file.name === removed.name)) {
+        tagDraft.clearFileAssignments(removed.name);
+      }
+      if (removed) tagDraft.clearTableAssignments(removed.id);
+      return { ...prev, uploadedFiles };
+    });
+  }, [tagDraft]);
 
   const toggleTable = useCallback((tableId: string) => {
     setDraft((prev) => {
@@ -968,9 +1028,38 @@ export function ConstellationCreatePage({
     onCancel(projectId);
   }
 
-  const availableSources = draft.type
-    ? sourcesForType(draft.type, accessLevels, currentUserId, dataSources)
-    : [];
+  const availableSources = useMemo(
+    () =>
+      draft.type
+        ? sourcesForType(draft.type, accessLevels, currentUserId, dataSources)
+        : [],
+    [draft.type, accessLevels, currentUserId, dataSources],
+  );
+  const availableSourceIds = useMemo(
+    () => availableSources.map((source) => source.id),
+    [availableSources],
+  );
+  const sourceTagFilter = useAccessibleDataSourceTagFilter(availableSourceIds);
+  const visibleExistingSources = useMemo(() => {
+    const q = sourceQuery.trim().toLowerCase();
+    return availableSources.filter((source) => {
+      if (!sourceTagFilter.matches(source.id)) return false;
+      if (!q) return true;
+      const typeLabel = formatDataSourceType(source.type).toLowerCase();
+      const ownershipLabel = source.ownership === "private" ? "private" : "organizational";
+      return (
+        source.name.toLowerCase().includes(q)
+        || typeLabel.includes(q)
+        || ownershipLabel.includes(q)
+      );
+    });
+  }, [
+    availableSources,
+    sourceQuery,
+    sourceTagFilter.matches,
+    sourceTagFilter.selectedTagIds,
+    sourceTagFilter.untaggedSelected,
+  ]);
   const schemaOptions = getCreationDatabaseSchemas();
   const tables = filteredTables(draft.databaseSchema, tableSearch);
   const views = filteredViews(draft.databaseSchema);
@@ -1085,8 +1174,39 @@ export function ConstellationCreatePage({
         <p className="luxia-type-body-small text-[var(--luxia-text-secondary)]">
           Only compatible {draft.type ? constellationTypeLabel(draft.type) : ""} sources are shown.
         </p>
+        {availableSources.length > 0 ? (
+          <DataSourcePickerSearchRow
+            query={sourceQuery}
+            onQueryChange={setSourceQuery}
+            placeholder="Search Data Sources..."
+            tagOptions={sourceTagFilter.tagOptions}
+            hasUntagged={sourceTagFilter.hasUntagged}
+            selectedTagIds={sourceTagFilter.selectedTagIds}
+            untaggedSelected={sourceTagFilter.untaggedSelected}
+            onToggleTag={sourceTagFilter.toggleTag}
+            onToggleUntagged={sourceTagFilter.toggleUntagged}
+            onClearTags={sourceTagFilter.clear}
+          />
+        ) : null}
+        {availableSources.length > 0 && visibleExistingSources.length === 0 ? (
+          <div className="space-y-2" role="status">
+            <p className="luxia-type-body-dense text-[var(--luxia-text-secondary)]">
+              No matching Data Sources.
+            </p>
+            {sourceTagFilter.hasActiveTagFilters ? (
+              <Button
+                type="button"
+                variant="tertiary"
+                size="compact"
+                onClick={() => sourceTagFilter.clear()}
+              >
+                Clear filters
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
         <ul className="space-y-2" role="radiogroup" aria-label="Existing Data Source">
-          {availableSources.map((source) => {
+          {visibleExistingSources.map((source) => {
             const usable = isDataSourceUsable(source.status);
             const selected = draft.existingDataSourceId === source.id;
             const ownershipLabel = source.ownership === "private" ? "Private" : "Organizational";
@@ -1128,6 +1248,10 @@ export function ConstellationCreatePage({
                     <p className="luxia-type-caption luxia-creation-data-meta">
                       {metaParts.join(" · ")}
                     </p>
+                    <DataSourceLibraryDocumentTags
+                      dataSourceId={source.id}
+                      className="mt-1.5 block"
+                    />
                   </div>
                 </label>
               </li>
@@ -1296,6 +1420,28 @@ export function ConstellationCreatePage({
     );
   }
 
+  function renderNewSourceDetails(nameFieldId: string) {
+    return (
+      <CreationFieldGroup title="Data Source details">
+        <div className="luxia-creation-ds-details">
+          <div className="luxia-creation-ds-details-grid">
+            {renderNewSourceNameField({
+              id: nameFieldId,
+              value: draft.dataSourceName,
+              error: visibleDataErrors.dataSourceName,
+              onChange: (dataSourceName) => updateDraft({ dataSourceName }),
+            })}
+            <OwnershipRadioList
+              value={draft.ownership}
+              onChange={(ownership) => updateDraft({ ownership })}
+            />
+            <DraftDataSourceTagsField draft={tagDraft} />
+          </div>
+        </div>
+      </CreationFieldGroup>
+    );
+  }
+
   function renderDatabaseDataStep() {
     return (
       <div className={CONTENT_CLASS}>
@@ -1309,21 +1455,18 @@ export function ConstellationCreatePage({
           {draft.dataSourceMode === "existing" ? (
             <>
               {renderExistingSourcePicker()}
-              {draft.existingDataSourceId ? renderDatabaseTablesViews() : null}
+              {draft.existingDataSourceId ? (
+                <CreationFieldGroup title="Data selection">
+                  {renderDatabaseTablesViews()}
+                </CreationFieldGroup>
+              ) : null}
             </>
           ) : (
             <>
-              {renderNewSourceNameField({
-                id: "ds-name-db",
-                value: draft.dataSourceName,
-                error: visibleDataErrors.dataSourceName,
-                onChange: (dataSourceName) => updateDraft({ dataSourceName }),
-              })}
-              <OwnershipRadioList
-                value={draft.ownership}
-                onChange={(ownership) => updateDraft({ ownership })}
-              />
-              {renderDatabaseTablesViews()}
+              {renderNewSourceDetails("ds-name-db")}
+              <CreationFieldGroup title="Data selection">
+                {renderDatabaseTablesViews()}
+              </CreationFieldGroup>
             </>
           )}
         </div>
@@ -1345,24 +1488,20 @@ export function ConstellationCreatePage({
             renderExistingSourcePicker()
           ) : (
             <>
-              {renderNewSourceNameField({
-                id: "ds-name-pdf",
-                value: draft.dataSourceName,
-                error: visibleDataErrors.dataSourceName,
-                onChange: (dataSourceName) => updateDraft({ dataSourceName }),
-              })}
-              <OwnershipRadioList
-                value={draft.ownership}
-                onChange={(ownership) => updateDraft({ ownership })}
-              />
-              <CreationFileUpload
-                accept=".pdf,application/pdf"
-                acceptLabel="PDF"
-                files={draft.uploadedFiles}
-                onAdd={addUploadedFile}
-                onRemove={removeUploadedFile}
-                error={visibleDataErrors.files}
-              />
+              {renderNewSourceDetails("ds-name-pdf")}
+              <CreationFieldGroup title="Data selection">
+                <CreationFileUpload
+                  accept=".pdf,application/pdf"
+                  acceptLabel="PDF"
+                  files={draft.uploadedFiles}
+                  onAdd={addUploadedFile}
+                  onRemove={removeUploadedFile}
+                  error={visibleDataErrors.files}
+                  fileTags={(file) => (
+                    <DraftFileTagRow fileName={file.name} draft={tagDraft} />
+                  )}
+                />
+              </CreationFieldGroup>
             </>
           )}
         </div>
@@ -1384,48 +1523,48 @@ export function ConstellationCreatePage({
             renderExistingSourcePicker()
           ) : (
             <>
-              {renderNewSourceNameField({
-                id: "ds-name-csv",
-                value: draft.dataSourceName,
-                error: visibleDataErrors.dataSourceName,
-                onChange: (dataSourceName) => updateDraft({ dataSourceName }),
-              })}
-              <OwnershipRadioList
-                value={draft.ownership}
-                onChange={(ownership) => updateDraft({ ownership })}
-              />
-              <CreationFileUpload
-                accept=".csv,text/csv"
-                acceptLabel="CSV"
-                files={draft.uploadedFiles}
-                onAdd={addUploadedFile}
-                onRemove={removeUploadedFile}
-                error={visibleDataErrors.files}
-              />
-              {draft.uploadedFiles.length > 0 ? (
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="luxia-creation-stack-tight">
-                    <Label htmlFor="csv-delimiter">Delimiter</Label>
-                    <Input
-                      id="csv-delimiter"
-                      value={draft.csvDelimiter}
-                      onChange={(event) => updateDraft({ csvDelimiter: event.target.value })}
-                      placeholder=","
-                      maxLength={3}
+              {renderNewSourceDetails("ds-name-csv")}
+              <CreationFieldGroup title="Data selection">
+                <CreationFileUpload
+                  accept=".csv,text/csv"
+                  acceptLabel="CSV"
+                  files={draft.uploadedFiles}
+                  onAdd={addUploadedFile}
+                  onRemove={removeUploadedFile}
+                  error={visibleDataErrors.files}
+                  fileTags={(file) => (
+                    <DraftTableTagRow
+                      tableId={file.id}
+                      tableLabel={csvTableLabelFromUpload(file.name)}
+                      draft={tagDraft}
                     />
+                  )}
+                />
+                {draft.uploadedFiles.length > 0 ? (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="luxia-creation-stack-tight">
+                      <Label htmlFor="csv-delimiter">Delimiter</Label>
+                      <Input
+                        id="csv-delimiter"
+                        value={draft.csvDelimiter}
+                        onChange={(event) => updateDraft({ csvDelimiter: event.target.value })}
+                        placeholder=","
+                        maxLength={3}
+                      />
+                    </div>
+                    <div className="flex items-end gap-2 pb-0.5">
+                      <Checkbox
+                        id="csv-has-header"
+                        checked={draft.csvHasHeader}
+                        onCheckedChange={(checked) => updateDraft({ csvHasHeader: checked === true })}
+                      />
+                      <Label htmlFor="csv-has-header" className="cursor-pointer">
+                        First row contains column headers
+                      </Label>
+                    </div>
                   </div>
-                  <div className="flex items-end gap-2 pb-0.5">
-                    <Checkbox
-                      id="csv-has-header"
-                      checked={draft.csvHasHeader}
-                      onCheckedChange={(checked) => updateDraft({ csvHasHeader: checked === true })}
-                    />
-                    <Label htmlFor="csv-has-header" className="cursor-pointer">
-                      First row contains column headers
-                    </Label>
-                  </div>
-                </div>
-              ) : null}
+                ) : null}
+              </CreationFieldGroup>
             </>
           )}
         </div>

@@ -121,7 +121,13 @@ export const DATA_SOURCE_CATALOG: DataSourceCatalogItem[] = [
     status: "active",
     contentSummary: {
       kind: "file",
-      fileNames: ["handbook.pdf", "policy.docx"],
+      fileNames: [
+        "handbook.pdf",
+        "policy.docx",
+        "regulation.pdf",
+        "board-minutes.pdf",
+        "notes.docx",
+      ],
     },
   },
   {

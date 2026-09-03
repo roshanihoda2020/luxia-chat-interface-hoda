@@ -4,6 +4,7 @@ import { Button } from "@/app/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/app/components/ui/dialog";
 import { Input } from "@/app/components/ui/input";
 import { cn } from "@/app/components/ui/utils";
+import { TagMultiSelectFilter, useFileTagFilter } from "@/app/features/document-tags";
 import { LUXIA_DIALOG_CLOSE_ON_DARK_CLASS } from "@/app/features/shared/structuredModalChrome";
 import { DiscardPDFChangesDialog } from "./DiscardPDFChangesDialog";
 import { ManagePDFFilesDialog } from "./ManagePDFFilesDialog";
@@ -25,6 +26,7 @@ export function PDFFilesManager({
     closeRef,
     hideChrome,
     fileKind = "pdf",
+    fileTagSourceIds = [],
 }: {
     open: boolean;
     files: PDFFileRecord[];
@@ -35,6 +37,8 @@ export function PDFFilesManager({
     hideChrome?: boolean;
     /** Settings label override for CSV Constellations reusing this manager. */
     fileKind?: "pdf" | "csv";
+    /** Connected Data Source IDs used to resolve File Tags access-safely. */
+    fileTagSourceIds?: readonly string[];
 }) {
     const isPage = presentation === "page";
     const effectiveOpen = isPage ? true : open;
@@ -68,11 +72,38 @@ export function PDFFilesManager({
 
     const dirty = pdfFilesSignature(draft) !== pdfFilesSignature(initialRef.current);
     const visibleDraft = useMemo(() => draft.filter((f) => !f.markedForRemoval), [draft]);
+    const visibleFileNames = useMemo(() => visibleDraft.map((file) => file.name), [visibleDraft]);
+    const resolvedSourceIds = useMemo(() => {
+        const ids = new Set(fileTagSourceIds);
+        for (const file of visibleDraft) {
+            if (file.catalogId) ids.add(file.catalogId);
+        }
+        return [...ids];
+    }, [visibleDraft, fileTagSourceIds]);
+    const fileTagFilter = useFileTagFilter(visibleFileNames, resolvedSourceIds);
+    const showFileTagFilter = fileTagSourceIds.length > 0;
+
+    useEffect(() => {
+        if (!effectiveOpen) return;
+        fileTagFilter.clear();
+        // Reset with the file list, not on every filter identity change.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [effectiveOpen, files]);
+
     const filtered = useMemo(() => {
         const lowered = search.trim().toLowerCase();
-        if (!lowered) return visibleDraft;
-        return visibleDraft.filter((f) => f.name.toLowerCase().includes(lowered));
-    }, [visibleDraft, search]);
+        return visibleDraft.filter((file) => {
+            if (!fileTagFilter.matches(file.name)) return false;
+            if (lowered && !file.name.toLowerCase().includes(lowered)) return false;
+            return true;
+        });
+    }, [
+        visibleDraft,
+        search,
+        fileTagFilter.matches,
+        fileTagFilter.selectedTagIds,
+        fileTagFilter.untaggedSelected,
+    ]);
 
     const viewFile = visibleDraft.find((f) => f.id === viewId) ?? null;
     const count = activePdfCount(draft);
@@ -180,7 +211,7 @@ export function PDFFilesManager({
                         ) : null}
 
                         <div className="flex-shrink-0 border-b px-6 py-3" style={{ borderColor: LX.border }}>
-                            <div className="flex flex-wrap items-center gap-2">
+                            <div className="flex flex-wrap items-end gap-2">
                                 <div className="flex min-w-0 flex-1 items-center gap-2 rounded-[14px] border px-3 py-2" style={{ borderColor: LX.border, background: LX.subtle }}>
                                     <Search size={14} style={{ color: LX.textMuted }} />
                                     <Input
@@ -192,6 +223,17 @@ export function PDFFilesManager({
                                     />
                                     {search ? <Button type="button" variant="ghost" size="icon" className="h-7 w-7 " aria-label="Clear search" onClick={() => setSearch("")}><X size={12} style={{ color: LX.textMuted }} /></Button> : null}
                                 </div>
+                                {showFileTagFilter ? (
+                                    <TagMultiSelectFilter
+                                        options={fileTagFilter.tagOptions}
+                                        hasUntagged={fileTagFilter.hasUntagged}
+                                        selectedTagIds={fileTagFilter.selectedTagIds}
+                                        untaggedSelected={fileTagFilter.untaggedSelected}
+                                        onToggleTag={fileTagFilter.toggleTag}
+                                        onToggleUntagged={fileTagFilter.toggleUntagged}
+                                        onClear={fileTagFilter.clear}
+                                    />
+                                ) : null}
                                 <Button type="button" variant="primary" size="compact" onClick={() => setManageOpen(true)}>
                                     <Plus size={14} />{addLabel}
                                 </Button>
@@ -201,10 +243,17 @@ export function PDFFilesManager({
                         <div className="overflow-y-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical px-6 py-5">
                             {filtered.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center py-8 text-center">
-                                    {search ? (
+                                    {visibleDraft.length > 0 ? (
                                         <>
-                                            <p className="luxia-type-body-small-strong" style={{ color: LX.primary }}>No {filesLabel.toLowerCase()} match your search.</p>
-                                            <p className="mt-1 luxia-type-body-dense" style={{ color: LX.textMuted }}>Try another file name.</p>
+                                            <p className="luxia-type-body-small-strong" style={{ color: LX.primary }}>No {filesLabel.toLowerCase()} match these filters.</p>
+                                            <p className="mt-1 luxia-type-body-dense" style={{ color: LX.textMuted }}>
+                                                {search ? "Try another file name." : "Try adjusting the tag filter."}
+                                            </p>
+                                            {fileTagFilter.hasActiveTagFilters ? (
+                                                <Button type="button" variant="tertiary" size="compact" className="mt-3" onClick={fileTagFilter.clear}>
+                                                    Clear filters
+                                                </Button>
+                                            ) : null}
                                         </>
                                     ) : (
                                         <>
@@ -215,7 +264,13 @@ export function PDFFilesManager({
                                 </div>
                             ) : (
                                 <div className="space-y-2">{filtered.map((item) => (
-                                    <PDFFileRow key={item.id} item={item} onView={() => setViewId(item.id)} onRemove={() => setConfirmRemoveId(item.id)} />
+                                    <PDFFileRow
+                                        key={item.id}
+                                        item={item}
+                                        fileTagSourceIds={fileTagSourceIds}
+                                        onView={() => setViewId(item.id)}
+                                        onRemove={() => setConfirmRemoveId(item.id)}
+                                    />
                                 ))}</div>
                             )}
                         </div>

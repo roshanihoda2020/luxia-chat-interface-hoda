@@ -64,6 +64,7 @@ import {
   LUXIA_SETTINGS_TABLIST_CLASS,
 } from "@/app/features/shared/luxiaSettingsUx";
 import { AddConstellationDataSourceDialog } from "./AddConstellationDataSourceDialog";
+import { DataSourceLibraryDocumentTags } from "@/app/features/document-tags";
 import {
   CONSTELLATION_SETTINGS_GUIDANCE,
   CONSTELLATION_SETTINGS_PAGE_VARIANT,
@@ -785,6 +786,10 @@ export function ConstellationSettingsPage({
                             ? ` · ${source.accessSummary}`
                             : ""}
                         </p>
+                        <DataSourceLibraryDocumentTags
+                          dataSourceId={source.id}
+                          className="mt-2 block"
+                        />
                       </div>
                       <LuxiaEntityOptionsMenu
                         entityLabel={source.name}

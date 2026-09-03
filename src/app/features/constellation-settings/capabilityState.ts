@@ -108,10 +108,7 @@ function slicePdfs(count: number): PDFFileRecord[] {
   const source = INITIAL_PDF_FILES;
   if (source.length === 0) return [];
   const take = Math.max(1, Math.min(count, source.length));
-  return clonePdfFiles(source.slice(0, take)).map((item, index) => ({
-    ...item,
-    name: `File name ${String(index + 1).padStart(2, "0")}.pdf`,
-  }));
+  return clonePdfFiles(source.slice(0, take));
 }
 
 function sliceCrawler(count: number): CrawlerState {

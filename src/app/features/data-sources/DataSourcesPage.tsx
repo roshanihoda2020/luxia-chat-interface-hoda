@@ -34,6 +34,7 @@ import {
   FilterToolbarRow,
   ResultsCount,
 } from "@/app/features/home/browserShared";
+import { DataSourceLibraryDocumentTags, TagMultiSelectFilter, useAccessibleDataSourceTagFilter, useDataSourceTagStore } from "@/app/features/document-tags";
 import { HS } from "@/app/features/home/homeSurfaces";
 import {
   formatConnectedConstellationCount,
@@ -56,6 +57,7 @@ import {
   type DataSourceHandoffProject,
 } from "./constellationHandoff";
 import { DataSourceRenameDialog } from "./DataSourceRenameDialog";
+import { DataSourceTypeIcon } from "./creation/DataSourceTypeIcon";
 import { DATA_SOURCES_GUIDANCE, DATA_SOURCES_PAGE_VARIANT } from "./ia";
 import { LuxiaDataSourcesGuide } from "./LuxiaDataSourcesGuide";
 import type {
@@ -69,8 +71,20 @@ import type {
 const PARENT_SURFACE_CLASS = `${LUXIA_SETTINGS_CONTENT_SURFACE_CLASS} is-flush`;
 
 const TABLE_HEADER_CELL =
-  "px-4 py-2.5 align-middle whitespace-nowrap luxia-type-label-small";
-const TABLE_BODY_CELL = "px-4 py-3.5 align-middle luxia-type-body-dense";
+  "px-2.5 py-2.5 first:pl-4 last:px-2 align-middle luxia-type-label-small";
+const TABLE_BODY_CELL =
+  "px-2.5 py-3.5 first:pl-4 last:px-2 align-middle luxia-type-body-dense";
+
+/** Proportional widths so leftover space is shared, not dumped into Name. */
+const COL_NAME = "w-[19%] min-w-[10.75rem]";
+const COL_TYPE = "w-[14%] min-w-[10.5rem]";
+const COL_TAGS = "w-[18%] min-w-[12.25rem]";
+const COL_OWNERSHIP = "w-[11%] min-w-[6.75rem]";
+const COL_STATUS = "w-[10%] min-w-[6.25rem]";
+const COL_ACCESS = "w-[7%] min-w-[3.75rem]";
+const COL_CONNECTED = "w-[7%] min-w-[4.5rem]";
+const COL_OWNER = "w-[10%] min-w-[6.25rem]";
+const COL_ACTIONS = "w-11 max-w-11";
 
 function sourceById(
   dataSources: DataSourceCatalogItem[],
@@ -121,6 +135,15 @@ function buildLibraryMenuItems(input: {
     label: "Usage",
     onSelect: () => input.onOpenSource(row.id, { focus: "usage" }),
   });
+
+  if (row.canManage) {
+    items.push({
+      id: "manage-tags",
+      label: "Manage tags",
+      separatorBefore: true,
+      onSelect: () => input.onOpenSource(row.id, { focus: "general" }),
+    });
+  }
 
   const canJoin = Boolean(
     row.canManage
@@ -284,6 +307,8 @@ export function DataSourcesPage({
     onHome: onNavigateHome,
   };
 
+  const tagStore = useDataSourceTagStore();
+
   const rows = useMemo(
     () =>
       buildDataSourceLibraryRows(
@@ -295,6 +320,15 @@ export function DataSourcesPage({
     [accessLevels, dataSources, currentUserId, constellationConnections],
   );
 
+  const accessibleSourceIds = useMemo(() => rows.map((row) => row.id), [rows]);
+  const tagFilter = useAccessibleDataSourceTagFilter(accessibleSourceIds);
+
+  useEffect(() => {
+    tagFilter.clear();
+    // Reset Tag filters with the rest of the library filters when the user changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUserId]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return rows.filter((row) => {
@@ -302,6 +336,7 @@ export function DataSourcesPage({
       if (ownershipFilter !== "all" && row.ownership !== ownershipFilter) return false;
       if (accessFilter !== "all" && row.myAccess !== accessFilter) return false;
       if (statusFilter !== "all" && row.statusKey !== statusFilter) return false;
+      if (!tagFilter.matches(row.id)) return false;
       if (!q) return true;
       return (
         row.name.toLowerCase().includes(q)
@@ -309,22 +344,22 @@ export function DataSourcesPage({
         || row.ownerLabel.toLowerCase().includes(q)
       );
     });
-  }, [rows, query, typeFilter, ownershipFilter, accessFilter, statusFilter]);
+  }, [rows, query, typeFilter, ownershipFilter, accessFilter, statusFilter, tagFilter, tagStore]);
 
-  function clearFilters() {
-    setQuery("");
+  function clearStructuredFilters() {
     setTypeFilter("all");
     setOwnershipFilter("all");
     setAccessFilter("all");
     setStatusFilter("all");
+    tagFilter.clear();
   }
 
-  const hasActiveFilters =
-    Boolean(query.trim())
-    || typeFilter !== "all"
+  const hasActiveStructuredFilters =
+    typeFilter !== "all"
     || ownershipFilter !== "all"
     || accessFilter !== "all"
-    || statusFilter !== "all";
+    || statusFilter !== "all"
+    || tagFilter.hasActiveTagFilters;
 
   return (
     <LuxiaPageFrame variant={DATA_SOURCES_PAGE_VARIANT}>
@@ -438,12 +473,29 @@ export function DataSourcesPage({
                 <option value="failed">Failed</option>
                 <option value="archived">Archived</option>
               </BrowserFilterSelect>
+
+              <TagMultiSelectFilter
+                options={tagFilter.tagOptions}
+                hasUntagged={tagFilter.hasUntagged}
+                selectedTagIds={tagFilter.selectedTagIds}
+                untaggedSelected={tagFilter.untaggedSelected}
+                onToggleTag={tagFilter.toggleTag}
+                onToggleUntagged={tagFilter.toggleUntagged}
+                onClear={tagFilter.clear}
+              />
             </CollectionFilterBar>
           </FilterToolbarRow>
 
-          <ResultsCount>
-            {filtered.length} Data Source{filtered.length === 1 ? "" : "s"}
-          </ResultsCount>
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+            <ResultsCount>
+              {filtered.length} Data Source{filtered.length === 1 ? "" : "s"}
+            </ResultsCount>
+            {hasActiveStructuredFilters ? (
+              <Button type="button" variant="tertiary" size="compact" onClick={clearStructuredFilters}>
+                Clear filters
+              </Button>
+            ) : null}
+          </div>
         </FilterToolbar>
 
         {rows.length === 0 ? (
@@ -476,11 +528,12 @@ export function DataSourcesPage({
         ) : filtered.length === 0 ? (
           <FilteredEmptyState
             title={DATA_SOURCES_GUIDANCE.filteredEmptyTitle}
-            onClear={hasActiveFilters ? clearFilters : undefined}
+            description="Try adjusting your filters or clear them."
+            onClear={hasActiveStructuredFilters ? clearStructuredFilters : undefined}
           />
         ) : (
           <div className={`overflow-x-auto overflow-hidden ${PARENT_SURFACE_CLASS}`}>
-            <table className="w-full min-w-[44rem] border-collapse text-left">
+            <table className="w-full min-w-[56rem] table-fixed border-collapse text-left">
               <caption className="sr-only">Accessible Data Sources</caption>
               <thead>
                 <tr
@@ -490,47 +543,73 @@ export function DataSourcesPage({
                     borderBottom: "1px solid var(--luxia-settings-row-divider)",
                   }}
                 >
-                  <th scope="col" className={TABLE_HEADER_CELL}>Name</th>
-                  <th scope="col" className={TABLE_HEADER_CELL}>Type</th>
-                  <th scope="col" className={TABLE_HEADER_CELL}>Ownership</th>
-                  <th scope="col" className={TABLE_HEADER_CELL}>My access</th>
+                  <th scope="col" className={`${TABLE_HEADER_CELL} ${COL_NAME}`}>
+                    Name
+                  </th>
                   <th
                     scope="col"
-                    className={`hidden md:table-cell ${TABLE_HEADER_CELL}`}
+                    className={`${TABLE_HEADER_CELL} ${COL_TYPE} whitespace-nowrap`}
+                  >
+                    Type
+                  </th>
+                  <th
+                    scope="col"
+                    className={`${TABLE_HEADER_CELL} ${COL_TAGS} whitespace-nowrap`}
+                  >
+                    Tags
+                  </th>
+                  <th
+                    scope="col"
+                    className={`${TABLE_HEADER_CELL} ${COL_OWNERSHIP} whitespace-nowrap`}
+                  >
+                    Ownership
+                  </th>
+                  <th
+                    scope="col"
+                    className={`hidden md:table-cell ${TABLE_HEADER_CELL} ${COL_STATUS} whitespace-nowrap`}
                   >
                     Status
                   </th>
                   <th
                     scope="col"
-                    className={`hidden lg:table-cell ${TABLE_HEADER_CELL}`}
+                    className={`${TABLE_HEADER_CELL} ${COL_ACCESS} whitespace-nowrap`}
                   >
-                    Connected Constellations
+                    Access
                   </th>
                   <th
                     scope="col"
-                    className={`hidden xl:table-cell ${TABLE_HEADER_CELL}`}
+                    className={`hidden lg:table-cell ${TABLE_HEADER_CELL} ${COL_CONNECTED} whitespace-nowrap text-right`}
+                    title="Connected Constellations"
+                  >
+                    Connected
+                  </th>
+                  <th
+                    scope="col"
+                    className={`hidden lg:table-cell ${TABLE_HEADER_CELL} ${COL_OWNER} whitespace-nowrap`}
                   >
                     Owner
                   </th>
                   <th
                     scope="col"
-                    className={`${TABLE_HEADER_CELL} w-12 text-right`}
+                    className={`${TABLE_HEADER_CELL} ${COL_ACTIONS} text-right`}
                   >
                     <span className="sr-only">Actions</span>
                   </th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((row) => (
+                {filtered.map((row) => {
+                  const source = sourceById(dataSources, row.id);
+                  return (
                   <tr
                     key={row.id}
                     className="luxia-settings-row is-interactive"
                     style={{ borderColor: "var(--luxia-settings-row-divider)" }}
                   >
-                    <td className={`${TABLE_BODY_CELL} max-w-[14rem]`}>
+                    <td className={`${TABLE_BODY_CELL} ${COL_NAME}`}>
                       <button
                         type="button"
-                        className="luxia-type-body-dense-strong min-w-0 max-w-full cursor-pointer truncate text-left outline-none hover:underline focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)] rounded-[4px]"
+                        className="luxia-type-body-dense-strong block min-w-0 max-w-full cursor-pointer truncate whitespace-nowrap text-left outline-none hover:underline focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)] rounded-[4px]"
                         style={{ color: "var(--luxia-text-primary)" }}
                         title={row.name}
                         onClick={() => onOpenSource(row.id)}
@@ -539,32 +618,48 @@ export function DataSourcesPage({
                       </button>
                     </td>
                     <td
-                      className={TABLE_BODY_CELL}
+                      className={`${TABLE_BODY_CELL} ${COL_TYPE}`}
                       style={{ color: "var(--luxia-text-secondary)" }}
                     >
-                      {row.typeLabel}
+                      <span className="inline-flex min-w-0 max-w-full items-center gap-1.5">
+                        <DataSourceTypeIcon
+                          source={source}
+                          size={16}
+                          align="center"
+                        />
+                        <span className="min-w-0 truncate whitespace-nowrap" title={row.typeLabel}>
+                          {row.typeLabel}
+                        </span>
+                      </span>
+                    </td>
+                    <td className={`${TABLE_BODY_CELL} ${COL_TAGS}`}>
+                      <div className="flex min-w-0 items-center">
+                        <DataSourceLibraryDocumentTags dataSourceId={row.id} />
+                      </div>
                     </td>
                     <td
-                      className={TABLE_BODY_CELL}
+                      className={`${TABLE_BODY_CELL} ${COL_OWNERSHIP} truncate whitespace-nowrap`}
                       style={{ color: "var(--luxia-text-secondary)" }}
+                      title={row.ownershipLabel}
                     >
                       {row.ownershipLabel}
                     </td>
-                    <td
-                      className={TABLE_BODY_CELL}
-                      style={{ color: "var(--luxia-text-secondary)" }}
-                    >
-                      {row.myAccess}
-                    </td>
-                    <td className={`hidden md:table-cell ${TABLE_BODY_CELL}`}>
+                    <td className={`hidden md:table-cell ${TABLE_BODY_CELL} ${COL_STATUS} whitespace-nowrap`}>
                       <LibraryStatusLabel
                         statusKey={row.statusKey}
                         statusLabel={row.statusLabel}
                       />
                     </td>
                     <td
-                      className={`hidden lg:table-cell ${TABLE_BODY_CELL}`}
+                      className={`${TABLE_BODY_CELL} ${COL_ACCESS} whitespace-nowrap`}
                       style={{ color: "var(--luxia-text-secondary)" }}
+                    >
+                      {row.myAccess}
+                    </td>
+                    <td
+                      className={`hidden lg:table-cell ${TABLE_BODY_CELL} ${COL_CONNECTED} whitespace-nowrap text-right tabular-nums`}
+                      style={{ color: "var(--luxia-text-secondary)" }}
+                      title="Connected Constellations"
                     >
                       {row.connectedConstellationCount > 0 ? (
                         <button
@@ -572,6 +667,7 @@ export function DataSourcesPage({
                           className="tabular-nums cursor-pointer rounded-[4px] px-1 -mx-1 outline-none hover:bg-[var(--luxia-opacity-brand-primary-08)] focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]"
                           style={{ color: "var(--luxia-brand-primary)" }}
                           aria-label={`${row.connectedConstellationCount} connected Constellations. Open usage in Data Source Settings.`}
+                          title="Connected Constellations"
                           onClick={() => onOpenSource(row.id, { focus: "usage" })}
                         >
                           {formatConnectedConstellationCount(
@@ -585,12 +681,13 @@ export function DataSourcesPage({
                       )}
                     </td>
                     <td
-                      className={`hidden xl:table-cell ${TABLE_BODY_CELL}`}
+                      className={`hidden lg:table-cell ${TABLE_BODY_CELL} ${COL_OWNER} truncate whitespace-nowrap`}
                       style={{ color: "var(--luxia-text-secondary)" }}
+                      title={row.ownerLabel}
                     >
                       {row.ownerLabel}
                     </td>
-                    <td className={`${TABLE_BODY_CELL} text-right`}>
+                    <td className={`${TABLE_BODY_CELL} ${COL_ACTIONS} text-right`}>
                       <LuxiaEntityOptionsMenu
                         entityLabel={row.name}
                         entityType="Data Source"
@@ -598,7 +695,7 @@ export function DataSourcesPage({
                         className="cursor-pointer"
                         items={buildLibraryMenuItems({
                           row,
-                          source: sourceById(dataSources, row.id),
+                          source,
                           handoff: constellationHandoff,
                           canSave: Boolean(onSaveSource),
                           onOpenSource,
@@ -616,7 +713,8 @@ export function DataSourcesPage({
                       />
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

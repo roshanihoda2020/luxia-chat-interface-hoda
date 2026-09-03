@@ -36,6 +36,16 @@ export function canAdministerAccessLevels(userId: string = CURRENT_USER_ID): boo
   return isOrganizationAdmin(userId);
 }
 
+/** Prototype: Organization Tag definition rename/recolor.
+ * Isolated so it can later be replaced with a dedicated Organization Tag capability.
+ * Assignment remains Data Source Manage. Org Admin is the closest existing org-level pattern.
+ */
+export function canManageOrganizationTagDefinitions(
+  userId: string = CURRENT_USER_ID,
+): boolean {
+  return isOrganizationAdmin(userId);
+}
+
 /** Prototype rule: Organizational Data Sources may be created by Org Admins only. */
 export function canCreateOrganizationalDataSource(
   userId: string = CURRENT_USER_ID,

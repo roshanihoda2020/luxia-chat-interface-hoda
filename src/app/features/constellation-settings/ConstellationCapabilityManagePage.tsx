@@ -69,6 +69,7 @@ export interface ConstellationCapabilityManagePageProps {
   onOpenProject: (id: string) => void;
   onOpenConstellations: (id: string) => void;
   onOpenConstellation: (projectId: string, constellationId: string) => void;
+  connectedSourceIds?: readonly string[];
 }
 
 export function ConstellationCapabilityManagePage({
@@ -85,6 +86,7 @@ export function ConstellationCapabilityManagePage({
   onOpenProject,
   onOpenConstellations,
   onOpenConstellation,
+  connectedSourceIds = [],
 }: ConstellationCapabilityManagePageProps) {
   const capabilityMeta = capabilityMetaForType(capabilityId, constellation.type);
   const CapabilityIcon = capabilityMeta.icon;
@@ -304,6 +306,7 @@ export function ConstellationCapabilityManagePage({
               presentation="page"
               files={bundle.pdfFiles}
               fileKind={constellation.type === "csv" ? "csv" : "pdf"}
+              fileTagSourceIds={connectedSourceIds}
               closeRef={closeRef}
               onCommit={(pdfFiles: PDFFileRecord[]) => {
                 commitBundle({ ...bundle, pdfFiles });
@@ -333,6 +336,7 @@ export function ConstellationCapabilityManagePage({
     bundle,
     capabilityId,
     constellation.type,
+    connectedSourceIds,
     onBackToSettings,
     onUpdateBundle,
     readOnly,

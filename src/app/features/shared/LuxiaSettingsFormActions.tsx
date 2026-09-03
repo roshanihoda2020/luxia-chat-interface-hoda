@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Button } from "@/app/components/ui/button";
+import { cn } from "@/app/components/ui/utils";
 import { LUXIA_PAGE_HEADER_ACTION } from "@/app/components/LuxiaPageHeader";
 import {
   LUXIA_DIRTY_STATE_COPY,
@@ -21,6 +22,8 @@ export function LuxiaSettingsFormActions({
   saveLabel = LUXIA_DIRTY_STATE_COPY.save,
   cancelLabel = LUXIA_DIRTY_STATE_COPY.cancel,
   leading,
+  className,
+  divided = true,
 }: {
   dirty: boolean;
   canSave: boolean;
@@ -30,13 +33,15 @@ export function LuxiaSettingsFormActions({
   saveLabel?: string;
   cancelLabel?: string;
   leading?: ReactNode;
+  className?: string;
+  divided?: boolean;
 }) {
   if (!visible || !canSave) return null;
 
   return (
     <div
-      className={LUXIA_SETTINGS_FORM_ACTIONS_CLASS}
-      style={LUXIA_SETTINGS_ROW_DIVIDER}
+      className={cn(LUXIA_SETTINGS_FORM_ACTIONS_CLASS, className)}
+      style={divided ? LUXIA_SETTINGS_ROW_DIVIDER : undefined}
       role="group"
       aria-label="Settings form actions"
     >

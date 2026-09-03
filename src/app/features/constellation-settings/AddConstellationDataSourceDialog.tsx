@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react";
-import { Search } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import {
   Dialog,
@@ -9,14 +8,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/app/components/ui/dialog";
-import { Input } from "@/app/components/ui/input";
+import {
+  DataSourceLibraryDocumentTags,
+  DataSourcePickerSearchRow,
+  useAccessibleDataSourceTagFilter,
+} from "@/app/features/document-tags";
 import {
   getLibraryMyAccessLabel,
   getLibraryTypeLabel,
   getOwnershipLabel,
-  listAccessibleDataSources,
-  permissionRank,
-  resolveUserDataSourceAccess,
+  listConstellationConnectableDataSources,
   type AccessLevelRecord,
   type DataSourceCatalogItem,
 } from "@/app/features/permissions";
@@ -31,29 +32,21 @@ export interface AddConstellationDataSourceDialogProps {
   onConfirm: (sourceId: string) => void;
 }
 
-/** Eligible: accessible + Use/Manage + not already connected + active/usable. */
+/** Eligible: Use/Manage + not already connected + active. */
 function listEligibleSources(input: {
   dataSources: DataSourceCatalogItem[];
   accessLevels: AccessLevelRecord[];
   currentUserId: string;
   connectedSourceIds: Set<string>;
 }): DataSourceCatalogItem[] {
-  const accessible = listAccessibleDataSources(
+  return listConstellationConnectableDataSources(
     input.accessLevels,
     input.dataSources,
     input.currentUserId,
-  );
-  return accessible.filter((source) => {
+  ).filter((source) => {
     if (input.connectedSourceIds.has(source.id)) return false;
     if (source.status !== "active") return false;
-    const resolved = resolveUserDataSourceAccess(
-      input.currentUserId,
-      source.id,
-      input.accessLevels,
-      input.dataSources,
-    );
-    if (!resolved.permission) return false;
-    return permissionRank(resolved.permission) >= permissionRank("Use");
+    return true;
   });
 }
 
@@ -85,10 +78,14 @@ export function AddConstellationDataSourceDialog({
     [dataSources, accessLevels, currentUserId, connectedSet],
   );
 
+  const eligibleIds = useMemo(() => eligible.map((source) => source.id), [eligible]);
+  const tagFilter = useAccessibleDataSourceTagFilter(eligibleIds);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return eligible;
     return eligible.filter((source) => {
+      if (!tagFilter.matches(source.id)) return false;
+      if (!q) return true;
       const typeLabel = getLibraryTypeLabel(source).toLowerCase();
       const ownership = getOwnershipLabel(source.ownership).toLowerCase();
       return (
@@ -97,12 +94,13 @@ export function AddConstellationDataSourceDialog({
         || ownership.includes(q)
       );
     });
-  }, [eligible, query]);
+  }, [eligible, query, tagFilter.matches, tagFilter.selectedTagIds, tagFilter.untaggedSelected]);
 
   function handleOpenChange(next: boolean) {
     if (!next) {
       setQuery("");
       setSelectedId(null);
+      tagFilter.clear();
     }
     onOpenChange(next);
   }
@@ -126,25 +124,19 @@ export function AddConstellationDataSourceDialog({
 
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-5">
           {eligible.length > 0 ? (
-            <label className="block w-full">
-              <span className="sr-only">Search Data Sources</span>
-              <div className="relative">
-                <Search
-                  size={16}
-                  strokeWidth={1.75}
-                  aria-hidden
-                  className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2"
-                  style={{ color: "var(--luxia-text-muted)" }}
-                />
-                <Input
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Search by name or type"
-                  aria-label="Search eligible Data Sources"
-                  className="h-10 w-full pl-9"
-                />
-              </div>
-            </label>
+            <DataSourcePickerSearchRow
+              query={query}
+              onQueryChange={setQuery}
+              placeholder="Search Data Sources..."
+              searchAriaLabel="Search eligible Data Sources"
+              tagOptions={tagFilter.tagOptions}
+              hasUntagged={tagFilter.hasUntagged}
+              selectedTagIds={tagFilter.selectedTagIds}
+              untaggedSelected={tagFilter.untaggedSelected}
+              onToggleTag={tagFilter.toggleTag}
+              onToggleUntagged={tagFilter.toggleUntagged}
+              onClearTags={tagFilter.clear}
+            />
           ) : null}
 
           {eligible.length === 0 ? (
@@ -159,9 +151,21 @@ export function AddConstellationDataSourceDialog({
               </p>
             </div>
           ) : filtered.length === 0 ? (
-            <p className="py-6 luxia-type-body-dense text-[var(--luxia-text-secondary)]" role="status">
-              No matching Data Sources.
-            </p>
+            <div className="space-y-2 py-6" role="status">
+              <p className="luxia-type-body-dense text-[var(--luxia-text-secondary)]">
+                No matching Data Sources.
+              </p>
+              {tagFilter.hasActiveTagFilters ? (
+                <Button
+                  type="button"
+                  variant="tertiary"
+                  size="compact"
+                  onClick={() => tagFilter.clear()}
+                >
+                  Clear filters
+                </Button>
+              ) : null}
+            </div>
           ) : (
             <ul
               role="listbox"
@@ -202,6 +206,10 @@ export function AddConstellationDataSourceDialog({
                             My access: {myAccess}
                           </span>
                         ) : null}
+                        <DataSourceLibraryDocumentTags
+                          dataSourceId={source.id}
+                          className="mt-1.5 block"
+                        />
                       </span>
                     </button>
                   </li>

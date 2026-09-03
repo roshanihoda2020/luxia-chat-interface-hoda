@@ -19,10 +19,12 @@ import {
 } from "@/app/components/ui/select";
 import type { DataSourceConnector } from "@/app/features/permissions/types";
 import { getConnectorOption } from "./connectors";
+import { DataSourceCreationSection, DataSourceDetailsSection, DataSourceDetailsSummary } from "./DataSourceDetailsSection";
 import type {
   DatabaseConnectionFields,
   SchemaDiscoverySummary,
 } from "./types";
+import type { DraftDataSourceTagsApi } from "@/app/features/document-tags";
 
 type FieldErrors = Partial<Record<keyof DatabaseConnectionFields, string>>;
 type TestState = "idle" | "testing" | "success" | "auth-failed" | "failed";
@@ -95,6 +97,7 @@ export interface DatabaseConnectionDialogProps {
   onBack: () => void;
   onCancel: () => void;
   onConnect: (schema: SchemaDiscoverySummary) => void;
+  tagDraft: DraftDataSourceTagsApi;
 }
 
 export function DatabaseConnectionDialog({
@@ -107,6 +110,7 @@ export function DatabaseConnectionDialog({
   onBack,
   onCancel,
   onConnect,
+  tagDraft,
 }: DatabaseConnectionDialogProps) {
   const [errors, setErrors] = useState<FieldErrors>({});
   const [testState, setTestState] = useState<TestState>("idle");
@@ -177,15 +181,15 @@ export function DatabaseConnectionDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-5">
-          <div>
-            <h3 className="luxia-type-body-dense-strong text-[var(--luxia-text-primary)]">
-              Connection details
-            </h3>
-            <p className="mt-1 luxia-type-caption text-[var(--luxia-text-secondary)]">
+        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5">
+          <DataSourceDetailsSection tagDraft={tagDraft}>
+            <DataSourceDetailsSummary name={sourceName} ownershipLabel={ownershipLabel ?? "—"} />
+          </DataSourceDetailsSection>
+
+          <DataSourceCreationSection title="Connection">
+            <p className="luxia-type-caption text-[var(--luxia-text-secondary)]">
               Enter connection settings for this connector. Passwords are masked and are not shown after creation.
             </p>
-          </div>
 
           {connector === "snowflake" ? (
             <>
@@ -471,6 +475,7 @@ export function DatabaseConnectionDialog({
               ) : null}
             </div>
           ) : null}
+          </DataSourceCreationSection>
         </div>
 
         <DialogFooter className="shrink-0 flex-col gap-2 sm:flex-row sm:justify-between">

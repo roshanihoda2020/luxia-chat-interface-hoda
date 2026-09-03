@@ -33,6 +33,7 @@ import {
   TabsTrigger,
 } from "@/app/components/ui/tabs";
 import { CANONICAL_CONSTELLATIONS } from "@/app/features/constellation/catalog";
+import { FileDataSourceDocumentsPanel, DataSourceTagsSection, CsvTableTagRow, csvTableIdentity } from "@/app/features/document-tags";
 import { FilterField } from "@/app/features/home/browserShared";
 import { HS } from "@/app/features/home/homeSurfaces";
 import { getProjectNameById } from "@/app/features/project/data";
@@ -78,6 +79,7 @@ import {
 } from "./index";
 import type {
   AccessLevelRecord,
+  CsvImportedTableSummary,
   DataSourceCatalogItem,
   DataSourceContentSummary,
   ProjectMembership,
@@ -241,10 +243,16 @@ function ContentSummaryPanel({
   summary,
   typeLabel,
   statusLabel,
+  dataSourceId,
+  canEdit,
+  currentUserId,
 }: {
   summary: DataSourceContentSummary;
   typeLabel: string;
   statusLabel: string;
+  dataSourceId?: string;
+  canEdit?: boolean;
+  currentUserId?: string;
 }) {
   if (summary.kind === "database") {
     const rows: Array<{ label: string; value: string }> = [
@@ -294,9 +302,24 @@ function ContentSummaryPanel({
     const hasExactImported = tables.some((table) => typeof table.importedRows === "number");
     const hasExactSkipped = tables.some((table) => typeof table.skippedRows === "number");
 
+    function tableTags(table: CsvImportedTableSummary) {
+      if (!dataSourceId) return null;
+      const label = table.tableName || table.fileName || "Untitled table";
+      return (
+        <CsvTableTagRow
+          dataSourceId={dataSourceId}
+          tableId={csvTableIdentity(table)}
+          tableLabel={label}
+          canEdit={Boolean(canEdit)}
+          currentUserId={currentUserId}
+        />
+      );
+    }
+
     if (tables.length <= 1) {
       const table = tables[0];
       return (
+        <div className="space-y-3">
         <dl className="grid gap-x-6 gap-y-0 sm:grid-cols-2 lg:grid-cols-3">
           <MetaCell label="File" value={table?.fileName || summary.fileName || "—"} />
           <MetaCell label="Table name" value={table?.tableName || summary.tableName || "—"} />
@@ -332,6 +355,8 @@ function ContentSummaryPanel({
             </div>
           ) : null}
         </dl>
+        {table ? tableTags(table) : null}
+        </div>
       );
     }
 
@@ -355,9 +380,12 @@ function ContentSummaryPanel({
         >
           {tables.map((table) => (
             <li key={table.id} className="space-y-2 py-3">
-              <p className="luxia-type-body-dense-strong" style={{ color: "var(--luxia-text-primary)" }}>
-                {table.tableName || "Untitled table"}
-              </p>
+              <div className="min-w-0">
+                <p className="luxia-type-body-dense-strong" style={{ color: "var(--luxia-text-primary)" }}>
+                  {table.tableName || "Untitled table"}
+                </p>
+                {tableTags(table)}
+              </div>
               <dl className="grid gap-x-6 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
                 <MetaCell label="Source file" value={table.fileName || "—"} />
                 <MetaCell
@@ -667,11 +695,11 @@ export function DataSourceSettingsPage({
           <div>
             <SectionHeading
               title="General"
-              helper="Identity and ownership."
+              helper="Identity, ownership, and tags."
             />
 
             {canManage ? (
-              <div className="max-w-xl space-y-4">
+              <div className="max-w-xl">
                 <FilterField label="Data Source name" htmlFor="ds-settings-name">
                   <Input
                     id="ds-settings-name"
@@ -680,6 +708,15 @@ export function DataSourceSettingsPage({
                     autoComplete="off"
                   />
                 </FilterField>
+                <LuxiaSettingsFormActions
+                  dirty={nameDirty}
+                  canSave={Boolean(onSaveSource)}
+                  onSave={handleSaveName}
+                  onCancel={handleCancelName}
+                  saveLabel="Save name"
+                  divided={false}
+                  className="mt-2 pt-0"
+                />
               </div>
             ) : (
               <div className="flex min-w-0 flex-col gap-0.5">
@@ -717,11 +754,10 @@ export function DataSourceSettingsPage({
               Ownership cannot be changed after creation.
             </p>
 
-            <LuxiaSettingsFormActions
-              dirty={nameDirty}
-              canSave={canManage && Boolean(onSaveSource)}
-              onSave={handleSaveName}
-              onCancel={handleCancelName}
+            <DataSourceTagsSection
+              dataSourceId={source.id}
+              canEdit={canManage}
+              currentUserId={currentUserId}
             />
           </div>
         );
@@ -771,6 +807,23 @@ export function DataSourceSettingsPage({
         ) : null;
 
       case "content":
+        if (source.contentSummary?.kind === "file") {
+          return (
+            <div>
+              <SectionHeading
+                title="Documents"
+                helper="Contents of this File Data Source."
+              />
+              <FileDataSourceDocumentsPanel
+                key={source.id}
+                dataSourceId={source.id}
+                fileNames={source.contentSummary.fileNames ?? []}
+                canEdit={canManage}
+                currentUserId={currentUserId}
+              />
+            </div>
+          );
+        }
         return source.contentSummary && source.contentSummary.kind !== "database" ? (
           <div>
             <SectionHeading
@@ -781,6 +834,9 @@ export function DataSourceSettingsPage({
               summary={source.contentSummary}
               typeLabel={typeDisplay ?? "—"}
               statusLabel={statusDisplay ?? "—"}
+              dataSourceId={source.id}
+              canEdit={canManage}
+              currentUserId={currentUserId}
             />
           </div>
         ) : null;

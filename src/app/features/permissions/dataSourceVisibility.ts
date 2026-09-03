@@ -7,6 +7,7 @@ import type {
 import {
   DATA_SOURCE_CATALOG,
   CURRENT_USER_ID,
+  permissionRank,
   resolveUserDataSourceAccess,
 } from "./data";
 
@@ -26,6 +27,26 @@ export function canUserAccessDataSource(
   return Boolean(resolved.permission);
 }
 
+/**
+ * Connecting a Data Source to a Constellation requires effective Use or Manage.
+ * View-only is not sufficient. Uses effective access, not creator identity.
+ */
+export function hasConstellationConnectAccess(
+  userId: string,
+  dataSourceId: string,
+  accessLevels: AccessLevelRecord[],
+  dataSources: DataSourceCatalogItem[] = DATA_SOURCE_CATALOG,
+): boolean {
+  const resolved = resolveUserDataSourceAccess(
+    userId,
+    dataSourceId,
+    accessLevels,
+    dataSources,
+  );
+  if (!resolved.permission) return false;
+  return permissionRank(resolved.permission) >= permissionRank("Use");
+}
+
 /** Access-aware catalog — never includes inaccessible Private or ungranted Organizational sources. */
 export function listAccessibleDataSources(
   accessLevels: AccessLevelRecord[],
@@ -34,6 +55,17 @@ export function listAccessibleDataSources(
 ): DataSourceCatalogItem[] {
   return dataSources.filter((source) =>
     canUserAccessDataSource(source.id, accessLevels, dataSources, userId),
+  );
+}
+
+/** Data Sources the user may connect to a Constellation (effective Use or Manage). */
+export function listConstellationConnectableDataSources(
+  accessLevels: AccessLevelRecord[],
+  dataSources: DataSourceCatalogItem[] = DATA_SOURCE_CATALOG,
+  userId: string = CURRENT_USER_ID,
+): DataSourceCatalogItem[] {
+  return dataSources.filter((source) =>
+    hasConstellationConnectAccess(userId, source.id, accessLevels, dataSources),
   );
 }
 

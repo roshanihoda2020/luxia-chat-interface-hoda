@@ -4,6 +4,13 @@ export type {
   DataSourceLibraryOpenOptions,
 } from "./DataSourcesPage";
 
+export { DataSourceTypeIcon } from "./creation/DataSourceTypeIcon";
+export {
+  getDataSourceTypeIcon,
+  resolveDataSourceTypeIconId,
+} from "./creation/connectors";
+export type { DataSourceTypeIconId } from "./creation/connectors";
+
 export { NewDataSourceFlow } from "./creation";
 export type {
   NewDataSourceFlowProps,

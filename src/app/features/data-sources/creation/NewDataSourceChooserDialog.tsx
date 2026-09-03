@@ -18,7 +18,9 @@ import {
   getConnectorOption,
 } from "./connectors";
 import { DataSourceOwnershipField } from "./DataSourceOwnershipField";
+import { DataSourceDetailsSection } from "./DataSourceDetailsSection";
 import type { DataSourceOwnershipChoice } from "./types";
+import type { DraftDataSourceTagsApi } from "@/app/features/document-tags";
 
 export interface NewDataSourceChooserDialogProps {
   open: boolean;
@@ -31,6 +33,7 @@ export interface NewDataSourceChooserDialogProps {
   onOwnershipChange: (ownership: DataSourceOwnershipChoice) => void;
   onCancel: () => void;
   onNext: () => void;
+  tagDraft: DraftDataSourceTagsApi;
 }
 
 export function NewDataSourceChooserDialog({
@@ -44,6 +47,7 @@ export function NewDataSourceChooserDialog({
   onOwnershipChange,
   onCancel,
   onNext,
+  tagDraft,
 }: NewDataSourceChooserDialogProps) {
   const nameTrimmed = name.trim();
   const canContinue = Boolean(connector && nameTrimmed);
@@ -146,22 +150,24 @@ export function NewDataSourceChooserDialog({
             );
           })}
 
-          <div className="space-y-2">
-            <Label htmlFor="ds-create-name">Data Source name</Label>
-            <Input
-              id="ds-create-name"
-              value={name}
-              onChange={(event) => onNameChange(event.target.value)}
-              placeholder="Data source name 01"
-              autoComplete="off"
-            />
-          </div>
+          <DataSourceDetailsSection tagDraft={tagDraft}>
+            <div className="space-y-2">
+              <Label htmlFor="ds-create-name">Data Source name</Label>
+              <Input
+                id="ds-create-name"
+                value={name}
+                onChange={(event) => onNameChange(event.target.value)}
+                placeholder="Data source name 01"
+                autoComplete="off"
+              />
+            </div>
 
-          <DataSourceOwnershipField
-            value={ownership}
-            onChange={onOwnershipChange}
-            allowOrganizational={allowOrganizational}
-          />
+            <DataSourceOwnershipField
+              value={ownership}
+              onChange={onOwnershipChange}
+              allowOrganizational={allowOrganizational}
+            />
+          </DataSourceDetailsSection>
 
           {connector ? (
             <p className="luxia-type-caption text-[var(--luxia-text-muted)]">

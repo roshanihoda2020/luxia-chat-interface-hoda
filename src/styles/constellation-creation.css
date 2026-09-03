@@ -19,6 +19,58 @@
   gap: 0.5rem;
 }
 
+.luxia-creation-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.luxia-creation-field-group-header {
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--luxia-border-default);
+}
+
+.luxia-creation-field-group-title {
+  margin: 0;
+  font-size: inherit;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--luxia-text-primary);
+}
+
+.luxia-creation-field-group-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.luxia-creation-ds-details {
+  container-type: inline-size;
+  container-name: luxia-ds-details;
+  min-width: 0;
+}
+
+.luxia-creation-ds-details-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  column-gap: 1.5rem;
+  row-gap: 0.75rem;
+  min-width: 0;
+  align-items: start;
+}
+
+@container luxia-ds-details (min-width: 36rem) {
+  .luxia-creation-ds-details-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .luxia-creation-ds-details-grid--two {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 /* —— Compact stage header —— */
 
 .luxia-creation-stage-header {

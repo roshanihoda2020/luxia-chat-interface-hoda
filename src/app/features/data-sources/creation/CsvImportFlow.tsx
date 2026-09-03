@@ -118,6 +118,8 @@ import {
 } from "./CsvImportRowActions";
 import { CsvRowDescriptionsSection } from "./CsvRowDescriptions";
 import { CsvValueContextSection } from "./CsvValueContextSection";
+import { DataSourceCreationSection, DataSourceDetailsSection, DataSourceDetailsSummary } from "./DataSourceDetailsSection";
+import { DocumentTagSummary, DraftTableTagRow, type DraftDataSourceTagsApi } from "@/app/features/document-tags";
 import { LuxiaAiButton } from "@/app/components/LuxiaAiButton";
 import { proposeCsvTableMetadata } from "./csvAi";
 import type { DataSourceHandoffProject } from "../constellationHandoff";
@@ -550,6 +552,7 @@ export interface CsvImportFlowProps {
   open: boolean;
   sourceName: string;
   ownershipLabel: string;
+  tagDraft: DraftDataSourceTagsApi;
   onBackToChooser: () => void;
   onCancel: () => void;
   onComplete: (payload: CsvImportCompletePayload) => void;
@@ -562,6 +565,7 @@ export function CsvImportFlow({
   open,
   sourceName,
   ownershipLabel,
+  tagDraft,
   onBackToChooser,
   onCancel,
   onComplete,
@@ -1024,6 +1028,7 @@ export function CsvImportFlow({
     if (removingActive) setFocusedColumnId(null);
 
     setFiles(next);
+    tagDraft.clearTableAssignments(fileId);
 
     if (unsavedValueContextColumnCount(includedAfter) === 0) {
       setSampleValuesLeaveStep(null);
@@ -1768,30 +1773,37 @@ export function CsvImportFlow({
               className="luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical min-h-0 flex-1 overflow-y-auto px-6 py-5"
             >
               {step === 1 ? (
-                <UploadStep
-                  files={files}
-                  dragActive={dragActive}
-                  reading={reading}
-                  acceptNotice={acceptNotice}
-                  editingFileId={editingFileId}
-                  parseDraft={parseDraft}
-                  onBrowse={() => openCsvFilePicker(false)}
-                  onDrop={handleDrop}
-                  onDropzoneKey={handleDropzoneKey}
-                  onDragEnter={() => setDragActive(true)}
-                  onDragLeave={() => setDragActive(false)}
-                  onPreview={openFilePreview}
-                  onStartParseEdit={startParseEdit}
-                  onReparseFile={reparseEditedFile}
-                  onCancelParseEdit={cancelParseEdit}
-                  onRemove={removeFile}
-                  onToggleIncluded={toggleIncluded}
-                  onEncoding={updateParseDraftEncoding}
-                  onDelimiter={updateParseDraftDelimiter}
-                  onHeaderChoice={updateParseDraftHeaderChoice}
-                  onCustomHeaderRow={updateParseDraftCustomHeaderRow}
-                  warnParseReset={maxReachedStep >= 2}
-                />
+                <div className="space-y-6">
+                  <DataSourceDetailsSection includeTags={false}>
+                    <DataSourceDetailsSummary name={sourceName} ownershipLabel={ownershipLabel} />
+                  </DataSourceDetailsSection>
+                  <DataSourceCreationSection title="CSV import">
+                    <UploadStep
+                      files={files}
+                      dragActive={dragActive}
+                      reading={reading}
+                      acceptNotice={acceptNotice}
+                      editingFileId={editingFileId}
+                      parseDraft={parseDraft}
+                      onBrowse={() => openCsvFilePicker(false)}
+                      onDrop={handleDrop}
+                      onDropzoneKey={handleDropzoneKey}
+                      onDragEnter={() => setDragActive(true)}
+                      onDragLeave={() => setDragActive(false)}
+                      onPreview={openFilePreview}
+                      onStartParseEdit={startParseEdit}
+                      onReparseFile={reparseEditedFile}
+                      onCancelParseEdit={cancelParseEdit}
+                      onRemove={removeFile}
+                      onToggleIncluded={toggleIncluded}
+                      onEncoding={updateParseDraftEncoding}
+                      onDelimiter={updateParseDraftDelimiter}
+                      onHeaderChoice={updateParseDraftHeaderChoice}
+                      onCustomHeaderRow={updateParseDraftCustomHeaderRow}
+                      warnParseReset={maxReachedStep >= 2}
+                    />
+                  </DataSourceCreationSection>
+                </div>
               ) : null}
 
               {step === 2 && activeFile ? (
@@ -1923,6 +1935,7 @@ export function CsvImportFlow({
                   />
                   <TableMetadataEditor
                     file={activeFile}
+                    tagDraft={tagDraft}
                     aiLocked={bulkTableAiBusy}
                     conflict={Boolean(activeFile.tableName.trim()) && duplicateNames.has(tableNameConflictKey(activeFile.tableName))}
                     onNameChange={(value) => patchTableName(activeFile.id, value)}
@@ -1946,6 +1959,16 @@ export function CsvImportFlow({
                       </p>
                       <dl className="grid gap-3 sm:grid-cols-2">
                         <ReviewCell label="Ownership" value={ownershipLabel} />
+                        {tagDraft.tags.length > 0 ? (
+                          <div className="sm:col-span-2">
+                            <dt className="luxia-type-caption" style={{ color: "var(--luxia-text-muted)" }}>
+                              Data Source tags
+                            </dt>
+                            <dd className="mt-1.5">
+                              <DocumentTagSummary tags={tagDraft.tags} />
+                            </dd>
+                          </div>
+                        ) : null}
                         <ReviewCell
                           label="Files"
                           value={`${included.length} file${included.length === 1 ? "" : "s"}`}
@@ -1995,7 +2018,14 @@ export function CsvImportFlow({
                               style={{ borderColor: "var(--luxia-settings-row-divider)" }}
                             >
                               <td className="px-3 py-2" style={{ color: "var(--luxia-text-primary)" }}>
-                                {file.tableName.trim() || file.fileName}
+                                <div className="min-w-0">
+                                  <p>{file.tableName.trim() || file.fileName}</p>
+                                  <DraftTableTagRow
+                                    tableId={file.id}
+                                    tableLabel={file.tableName.trim() || file.fileName}
+                                    draft={tagDraft}
+                                  />
+                                </div>
                               </td>
                               <td className="px-3 py-2" style={{ color: "var(--luxia-text-secondary)" }}>
                                 {file.fileName}
@@ -3436,6 +3466,7 @@ function ValidationPanel({
 
 function TableMetadataEditor({
   file,
+  tagDraft,
   conflict,
   embedded,
   aiLocked,
@@ -3446,6 +3477,7 @@ function TableMetadataEditor({
   onApplyRowDescriptions,
 }: {
   file: CsvImportFileDraft;
+  tagDraft: DraftDataSourceTagsApi;
   conflict: boolean;
   embedded?: boolean;
   aiLocked?: boolean;
@@ -3546,6 +3578,11 @@ function TableMetadataEditor({
               Enter a table name.
             </p>
           ) : null}
+          <DraftTableTagRow
+            tableId={file.id}
+            tableLabel={file.tableName.trim() || file.fileName}
+            draft={tagDraft}
+          />
         </div>
         <div className="max-w-xl space-y-2">
           <Label htmlFor={`csv-table-desc-${file.id}`}>Table description</Label>

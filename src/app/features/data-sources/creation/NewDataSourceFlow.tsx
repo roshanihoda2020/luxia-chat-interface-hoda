@@ -19,6 +19,7 @@ import { CsvImportFlow } from "./CsvImportFlow";
 import { DatabaseConnectionDialog } from "./DatabaseConnectionDialog";
 import { FileUploadDialog } from "./FileUploadDialog";
 import { NewDataSourceChooserDialog } from "./NewDataSourceChooserDialog";
+import { useDraftDataSourceTags } from "@/app/features/document-tags";
 import type {
   CreationPhase,
   CsvImportCompletePayload,
@@ -76,6 +77,7 @@ export function NewDataSourceFlow({
   const [discardOpen, setDiscardOpen] = useState(false);
   const [sessionKey, setSessionKey] = useState(0);
   const createdSourceRef = useRef<DataSourceCatalogItem | null>(null);
+  const tagDraft = useDraftDataSourceTags();
 
   const suggestedName = useMemo(
     () => nextPrototypeDataSourceName(existingSources),
@@ -92,6 +94,7 @@ export function NewDataSourceFlow({
     setDbFieldsByConnector({});
     setDiscardOpen(false);
     setSessionKey((value) => value + 1);
+    tagDraft.reset();
     // Reset only when the dialog opens. Do not reset after catalog create while the CSV Summary is still showing.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- suggestedName/existingSources change after create
   }, [open]);
@@ -107,6 +110,7 @@ export function NewDataSourceFlow({
     if (name.trim() && name.trim() !== suggestedName.trim()) return true;
     if (ownership !== defaultOwnership(allowOrganizational)) return true;
     if (Object.keys(dbFieldsByConnector).length > 0) return true;
+    if (!tagDraft.isEmpty) return true;
     return phase !== "chooser";
   }, [
     connector,
@@ -116,6 +120,7 @@ export function NewDataSourceFlow({
     suggestedName,
     dbFieldsByConnector,
     phase,
+    tagDraft.isEmpty,
   ]);
 
   function requestClose() {
@@ -187,9 +192,21 @@ export function NewDataSourceFlow({
 
   function finish(
     source: DataSourceCatalogItem,
-    options?: { openSettings?: boolean },
+    options?: {
+      openSettings?: boolean;
+      retainFileNames?: readonly string[];
+      retainTableIds?: readonly string[];
+    },
   ) {
-    onCreated(source, returnContext, options);
+    tagDraft.commitTo(source.id, {
+      retainFileNames: options?.retainFileNames,
+      retainTableIds: options?.retainTableIds,
+    });
+    onCreated(
+      source,
+      returnContext,
+      options?.openSettings ? { openSettings: true } : undefined,
+    );
     onOpenChange(false);
   }
 
@@ -242,6 +259,10 @@ export function NewDataSourceFlow({
       },
     });
     createdSourceRef.current = source;
+    tagDraft.commitTo(source.id, {
+      retainFileNames: [],
+      retainTableIds: tables.map((table) => table.id),
+    });
     onCreated(source, returnContext);
   }
 
@@ -279,6 +300,7 @@ export function NewDataSourceFlow({
         onOwnershipChange={setOwnership}
         onCancel={requestClose}
         onNext={handleChooserNext}
+        tagDraft={tagDraft}
       />
 
       {connector && activeDbFields && isDatabaseConnector(connector) ? (
@@ -302,8 +324,10 @@ export function NewDataSourceFlow({
                 status: "active",
                 contentSummary: databaseContentSummary(activeDbFields, connector),
               }),
+              { retainFileNames: [], retainTableIds: [] },
             );
           }}
+          tagDraft={tagDraft}
         />
       ) : null}
 
@@ -312,6 +336,7 @@ export function NewDataSourceFlow({
         open={open && phase === "csv"}
         sourceName={name.trim() || suggestedName}
         ownershipLabel={ownershipLabel}
+        tagDraft={tagDraft}
         onBackToChooser={() => setPhase("chooser")}
         onCancel={requestClose}
         onComplete={finishCsv}
@@ -342,8 +367,10 @@ export function NewDataSourceFlow({
                 fileNames: files.map((file) => file.name),
               },
             }),
+            { retainFileNames: files.map((file) => file.name), retainTableIds: [] },
           );
         }}
+        tagDraft={tagDraft}
       />
 
       <AlertDialog open={discardOpen} onOpenChange={setDiscardOpen}>

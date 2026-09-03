@@ -1,10 +1,13 @@
-import type { DataSourceConnector } from "@/app/features/permissions/types";
+import type { DataSourceCatalogItem, DataSourceConnector } from "@/app/features/permissions/types";
 import {
-  Boxes,
-  FileSpreadsheet,
-  FileText,
-  Server,
-  Warehouse,
+  AppGenericRegular,
+  DocumentCsvRegular,
+  DocumentRegular,
+  type FluentIcon,
+} from "@fluentui/react-icons";
+import {
+  Cuboid,
+  Database,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -22,27 +25,45 @@ export type DataSourceTypeIconId = DataSourceConnector | "googlesheet" | "other"
 
 /**
  * Brand marks: Simple Icons official paths + brand hex, unmodified.
- * SQL Server and Redshift are not in that package — Lucide fallbacks.
+ * SQL Server and Redshift are not in that package — tinted Lucide marks
+ * using those products’ common brand colors.
+ * CSV / File / Other use Microsoft Fluent System Icons.
  */
 export type DataSourceTypeIconSpec =
   | { kind: "brand"; mark: SimpleIcon }
-  | { kind: "generic"; icon: LucideIcon };
+  | { kind: "generic"; icon: LucideIcon; color?: string }
+  | { kind: "fluent"; icon: FluentIcon };
 
 export const DATA_SOURCE_TYPE_ICONS: Record<DataSourceTypeIconId, DataSourceTypeIconSpec> = {
   postgres: { kind: "brand", mark: siPostgresql },
   mysql: { kind: "brand", mark: siMysql },
-  mssql: { kind: "generic", icon: Server },
+  mssql: { kind: "generic", icon: Database, color: "#CC2927" },
   snowflake: { kind: "brand", mark: siSnowflake },
-  redshift: { kind: "generic", icon: Warehouse },
+  redshift: { kind: "generic", icon: Cuboid, color: "#8C4FFF" },
   bigquery: { kind: "brand", mark: siGooglebigquery },
-  csv: { kind: "generic", icon: FileSpreadsheet },
-  file: { kind: "generic", icon: FileText },
+  csv: { kind: "fluent", icon: DocumentCsvRegular },
+  file: { kind: "fluent", icon: DocumentRegular },
   googlesheet: { kind: "brand", mark: siGooglesheets },
-  other: { kind: "generic", icon: Boxes },
+  other: { kind: "fluent", icon: AppGenericRegular },
 };
 
 export function getDataSourceTypeIcon(id: DataSourceTypeIconId): DataSourceTypeIconSpec {
-  return DATA_SOURCE_TYPE_ICONS[id];
+  return DATA_SOURCE_TYPE_ICONS[id] ?? DATA_SOURCE_TYPE_ICONS.other;
+}
+
+/** Resolve a catalog item to the shared type-icon mapping. Unknown types fall back to `other`. */
+export function resolveDataSourceTypeIconId(
+  source: Pick<DataSourceCatalogItem, "connector" | "type"> | null | undefined,
+): DataSourceTypeIconId {
+  const connector = source?.connector;
+  if (connector && Object.prototype.hasOwnProperty.call(DATA_SOURCE_TYPE_ICONS, connector)) {
+    return connector;
+  }
+  if (!source) return "other";
+  const normalized = source.type.trim().toLowerCase();
+  if (normalized.includes("csv")) return "csv";
+  if (normalized.includes("pdf") || normalized.includes("file")) return "file";
+  return "other";
 }
 
 export interface DataSourceConnectorOption {

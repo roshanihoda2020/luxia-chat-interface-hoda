@@ -9,6 +9,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/app/components/ui/dialog";
+import { DraftFileTagRow, type DraftDataSourceTagsApi } from "@/app/features/document-tags";
+import { DataSourceCreationSection, DataSourceDetailsSection, DataSourceDetailsSummary } from "./DataSourceDetailsSection";
 
 const ACCEPTED_EXTENSIONS = [".pdf", ".docx", ".pptx", ".md", ".txt"];
 const ACCEPT_ATTR = ".pdf,.docx,.pptx,.md,.txt,application/pdf,text/plain,text/markdown";
@@ -20,6 +22,7 @@ export interface FileUploadDialogProps {
   onBack: () => void;
   onCancel: () => void;
   onCreate: (files: Array<{ name: string; status: "Ready" | "Processing" | "Failed" }>) => void;
+  tagDraft: DraftDataSourceTagsApi;
 }
 
 function isAcceptedFile(name: string): boolean {
@@ -34,6 +37,7 @@ export function FileUploadDialog({
   onBack,
   onCancel,
   onCreate,
+  tagDraft,
 }: FileUploadDialogProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [files, setFiles] = useState<Array<{ id: string; name: string; status: "Ready" | "Processing" | "Failed" }>>([]);
@@ -99,7 +103,12 @@ export function FileUploadDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-5">
+        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5">
+          <DataSourceDetailsSection tagDraft={tagDraft}>
+            <DataSourceDetailsSummary name={sourceName} ownershipLabel={ownershipLabel} />
+          </DataSourceDetailsSection>
+
+          <DataSourceCreationSection title="Files">
           <p className="luxia-type-caption text-[var(--luxia-text-secondary)]">
             Ownership stays {ownershipLabel.toLowerCase()}. Access Levels control sharing.
             Organization Admins do not automatically Manage another user's private source.
@@ -176,16 +185,17 @@ export function FileUploadDialog({
               {files.map((file) => (
                 <li
                   key={file.id}
-                  className="flex items-center justify-between gap-3 rounded-[var(--luxia-radius-control)] border px-3 py-2"
+                  className="flex items-start justify-between gap-3 rounded-[var(--luxia-radius-control)] border px-3 py-2"
                   style={{ borderColor: "var(--luxia-border-subtle)" }}
                 >
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <p className="truncate luxia-type-body-dense text-[var(--luxia-text-primary)]">
                       {file.name}
                     </p>
                     <p className="luxia-type-caption text-[var(--luxia-text-secondary)]">
                       {file.status}
                     </p>
+                    <DraftFileTagRow fileName={file.name} draft={tagDraft} />
                   </div>
                   <Button
                     type="button"
@@ -193,9 +203,13 @@ export function FileUploadDialog({
                     size="compact"
                     aria-label={`Remove ${file.name}`}
                     disabled={creating}
-                    onClick={() =>
-                      setFiles((prev) => prev.filter((item) => item.id !== file.id))
-                    }
+                    onClick={() => {
+                      const remaining = files.filter((item) => item.id !== file.id);
+                      setFiles(remaining);
+                      if (!remaining.some((item) => item.name === file.name)) {
+                        tagDraft.clearFileAssignments(file.name);
+                      }
+                    }}
                   >
                     <X size={16} aria-hidden />
                   </Button>
@@ -203,6 +217,7 @@ export function FileUploadDialog({
               ))}
             </ul>
           ) : null}
+          </DataSourceCreationSection>
         </div>
 
         <DialogFooter className="shrink-0 justify-between">

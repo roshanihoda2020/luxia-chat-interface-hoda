@@ -88,6 +88,7 @@ export {
   canEditGalaxySettings,
   canEditConstellationKnowledge,
   canCreateOrganizationalDataSource,
+  canManageOrganizationTagDefinitions,
   canCreateProject,
   canDeleteConstellation,
   canDeleteProject,
@@ -122,7 +123,9 @@ export { buildSourceAccessSummaryRow } from "./sourceAccessRows";
 
 export {
   canUserAccessDataSource,
+  hasConstellationConnectAccess,
   listAccessibleDataSources,
+  listConstellationConnectableDataSources,
   getLibraryMyAccessLabel,
   getLibraryTypeCategory,
   getLibraryTypeLabel,
