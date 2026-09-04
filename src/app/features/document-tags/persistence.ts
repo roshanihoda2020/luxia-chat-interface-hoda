@@ -51,13 +51,18 @@ const DEMO_TAG_NAME_SET = new Set(
 
 /**
  * Semantic Data Source assignments for catalog sources.
- * Direct assignments only. ds-pdf-02 has no direct Tags but has content Tags.
+ * Direct assignments only. File/Table Tags are seeded separately and
+ * contribute to effective discovery Tags.
  * Untagged (effective empty): ds-db-02, ds-csv-02.
  */
 const DEMO_SOURCE_ASSIGNMENTS: Record<string, readonly string[]> = {
   "ds-db-01": ["Analytics", "Production"],
-  "ds-pdf-01": ["Legal", "Policy"],
-  "ds-csv-01": ["Finance", "Operations"],
+  "ds-pdf-01": ["Legal", "Production"],
+  "ds-pdf-02": ["HR", "Production"],
+  "ds-pdf-03": ["Policy"],
+  "ds-csv-01": ["Finance"],
+  "ds-csv-03": ["Operations"],
+  "ds-csv-04": ["Customer Data"],
   "ds-db-03": ["Operations", "Production"],
   "ds-db-04": ["Customer Data", "Production"],
   "ds-db-05": ["Analytics", "Reporting"],
@@ -66,60 +71,55 @@ const DEMO_SOURCE_ASSIGNMENTS: Record<string, readonly string[]> = {
 
 /**
  * Direct assignments only. These IDs have no Data Source-level Tags.
- * ds-pdf-02 still has content Tags, so it is not effectively untagged.
+ * ds-csv-02 is private to another user and stays effectively untagged.
  */
-const DEMO_UNTAGGED_SOURCE_IDS = ["ds-db-02", "ds-pdf-02", "ds-csv-02"] as const;
+const DEMO_UNTAGGED_SOURCE_IDS = ["ds-db-02", "ds-csv-02"] as const;
 
 /**
  * File Tags are independent assignments. They contribute to effective Data Source Tags.
  * Keys must match catalog contentSummary.fileNames for that Data Source.
+ * Compliance / Internal / Operations are File-only on their parent sources.
  */
 const DEMO_FILE_ASSIGNMENTS: Record<string, Record<string, readonly string[]>> = {
   "ds-pdf-01": {
-    "handbook.pdf": ["HR", "Internal"],
-    "policy.docx": ["Legal", "Policy"],
-    "regulation.pdf": ["Legal", "Compliance"],
-    "board-minutes.pdf": ["Internal", "Operations"],
-    "notes.docx": ["Contracts"],
+    "master-services-agreement.pdf": ["Compliance"],
   },
   "ds-pdf-02": {
-    "archive-notes.txt": ["Policy", "Internal"],
+    "employee-handbook.pdf": ["Internal"],
+  },
+  "ds-pdf-03": {
+    "runbook.pdf": ["Operations"],
   },
 };
 
 const DEMO_FILE_CATALOG: Record<string, readonly string[]> = {
-  "ds-pdf-01": [
-    "handbook.pdf",
-    "policy.docx",
-    "regulation.pdf",
-    "board-minutes.pdf",
-    "notes.docx",
-  ],
-  "ds-pdf-02": ["archive-notes.txt"],
+  "ds-pdf-01": ["master-services-agreement.pdf"],
+  "ds-pdf-02": ["employee-handbook.pdf"],
+  "ds-pdf-03": ["runbook.pdf"],
 };
 
 /** Move stale demo File keys onto the real catalog file, then drop orphans. */
-const DEMO_FILE_ORPHAN_REMAP: Record<string, Record<string, string>> = {
-  "ds-pdf-01": {
-    "Report A.pdf": "notes.docx",
-    "Guide B.pdf": "notes.docx",
-  },
-  "ds-pdf-02": {
-    "Policy Handbook.pdf": "archive-notes.txt",
-  },
-};
+const DEMO_FILE_ORPHAN_REMAP: Record<string, Record<string, string>> = {};
 
 /**
  * CSV imported-table Tags. Keys are csvTableIdentity values.
+ * Reporting and Analytics are Table-only on their parent sources.
  * ds-csv-02 stays empty so it remains effectively untagged.
  */
 const DEMO_TABLE_ASSIGNMENTS: Record<string, Record<string, readonly string[]>> = {
   "ds-csv-01": {
     [csvTableIdentity({
-      id: "legacy",
-      fileName: "sample_data.csv",
-      tableName: "Table name 01",
+      id: "tbl-finance-orders",
+      fileName: "orders.csv",
+      tableName: "finance_orders",
     })]: ["Reporting"],
+  },
+  "ds-csv-04": {
+    [csvTableIdentity({
+      id: "tbl-customer-metrics",
+      fileName: "customers.csv",
+      tableName: "customer_metrics",
+    })]: ["Analytics"],
   },
 };
 

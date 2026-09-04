@@ -19,37 +19,57 @@ export const DATA_SOURCE_FILE_CATALOG: Record<string, DataSourceFileCatalogEntry
   "ds-pdf-01": [
     {
       id: "ds-pdf-01-f1",
-      name: "Report A.pdf",
-      sizeLabel: "38.79 KB",
-      sizeBytes: 39721,
-    },
-    {
-      id: "ds-pdf-01-f2",
-      name: "Guide B.pdf",
-      sizeLabel: "890 KB",
-      sizeBytes: 911360,
+      name: "master-services-agreement.pdf",
+      sizeLabel: "420 KB",
+      sizeBytes: 430080,
     },
   ],
   "ds-pdf-02": [
     {
       id: "ds-pdf-02-f1",
-      name: "Policy Handbook.pdf",
+      name: "employee-handbook.pdf",
       sizeLabel: "1.1 MB",
       sizeBytes: 1153434,
+    },
+  ],
+  "ds-pdf-03": [
+    {
+      id: "ds-pdf-03-f1",
+      name: "runbook.pdf",
+      sizeLabel: "280 KB",
+      sizeBytes: 286720,
     },
   ],
   "ds-csv-01": [
     {
       id: "ds-csv-01-f1",
-      name: "Sales export.csv",
+      name: "orders.csv",
       sizeLabel: "245 KB",
       sizeBytes: 250880,
+    },
+  ],
+  "ds-csv-03": [
+    {
+      id: "ds-csv-03-f1",
+      name: "operations.csv",
+      sizeLabel: "180 KB",
+      sizeBytes: 184320,
+    },
+  ],
+  "ds-csv-04": [
+    {
+      id: "ds-csv-04-f1",
+      name: "customers.csv",
+      sizeLabel: "310 KB",
+      sizeBytes: 317440,
     },
   ],
 };
 
 export const DATA_SOURCE_CSV_PARSE_CONFIG: Record<string, DataSourceCsvParseConfig> = {
   "ds-csv-01": { delimiter: ",", hasHeader: true },
+  "ds-csv-03": { delimiter: ",", hasHeader: true },
+  "ds-csv-04": { delimiter: ",", hasHeader: true },
 };
 
 export function getDataSourceFileInventory(
