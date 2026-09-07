@@ -65,6 +65,7 @@ import {
 } from "@/app/features/shared/luxiaSettingsUx";
 import { AddConstellationDataSourceDialog } from "./AddConstellationDataSourceDialog";
 import { DataSourceLibraryDocumentTags } from "@/app/features/document-tags";
+import { ResponseConfidenceSection } from "./responseConfidence";
 import {
   CONSTELLATION_SETTINGS_GUIDANCE,
   CONSTELLATION_SETTINGS_PAGE_VARIANT,
@@ -519,6 +520,7 @@ export function ConstellationSettingsPage({
             if (
               value !== "general"
               && value !== "configuration"
+              && value !== "response"
               && value !== "sources"
               && value !== "access"
               && value !== "lifecycle"
@@ -535,8 +537,9 @@ export function ConstellationSettingsPage({
               className={LUXIA_SETTINGS_TABLIST_CLASS}
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
+                gridTemplateColumns: `repeat(${CONSTELLATION_SETTINGS_SECTIONS.length}, minmax(0, 1fr))`,
                 width: "100%",
+                minWidth: `${CONSTELLATION_SETTINGS_SECTIONS.length * 8.8}rem`,
                 boxSizing: "border-box",
               }}
             >
@@ -720,6 +723,17 @@ export function ConstellationSettingsPage({
                   );
                 })}
               </ul>
+            </TabsContent>
+
+            <TabsContent
+              value="response"
+              className={SETTINGS_TAB_PANEL_CLASS}
+            >
+              <ResponseConfidenceSection
+                constellationId={record.id}
+                canEdit={canConfigureConstellation}
+                roleHint={showConfigureRoleHint ? configureRoleHint : null}
+              />
             </TabsContent>
 
             <TabsContent

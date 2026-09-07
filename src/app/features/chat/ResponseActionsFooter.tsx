@@ -118,7 +118,13 @@ function ResponseActionButton({
   );
 }
 
-export function ResponseActionsFooter({ content }: { content: string }) {
+export function ResponseActionsFooter({
+  content,
+  variant = "full",
+}: {
+  content: string;
+  variant?: "full" | "copy-only";
+}) {
   const barRef = useRef<HTMLDivElement>(null);
   const [barWidth, setBarWidth] = useState(680);
   const [feedback, setFeedback] = useState<Feedback>("none");
@@ -219,6 +225,8 @@ export function ResponseActionsFooter({ content }: { content: string }) {
           showLabel={showLabels}
           onClick={copyAction.onSelect}
         />
+        {variant === "full" ? (
+          <>
         <ResponseActionButton
           icon={likeAction.icon}
           label={likeAction.label}
@@ -252,11 +260,14 @@ export function ResponseActionsFooter({ content }: { content: string }) {
             showLabel={showLabels}
             active={dashboardAction.active}
             pressed={addedToDashboard}
-            onClick={dashboardAction.onSelect}
-          />
+          onClick={dashboardAction.onSelect}
+        />
+        ) : null}
+          </>
         ) : null}
       </div>
 
+      {variant === "full" ? (
       <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
           <button
@@ -311,6 +322,7 @@ export function ResponseActionsFooter({ content }: { content: string }) {
           ))}
         </DropdownMenuContent>
       </DropdownMenu>
+      ) : null}
     </div>
   );
 }

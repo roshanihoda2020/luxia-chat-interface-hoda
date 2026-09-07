@@ -1,6 +1,5 @@
 /**
- * Constellation Settings information architecture.
- * Overview sections only — no duplicate Instruction / Relationships / Data Configuration nav.
+ * Constellation Settings tabs. Instruction lives in Configuration, not as its own overview tab.
  */
 
 import type { LucideIcon } from "lucide-react";
@@ -14,6 +13,7 @@ import {
 export type ConstellationSettingsSectionId =
   | "general"
   | "configuration"
+  | "response"
   | "sources"
   | "access"
   | "lifecycle";
@@ -22,6 +22,7 @@ export type ConstellationSettingsSectionId =
 export type ConstellationSettingsTabParam =
   | "general"
   | "configuration"
+  | "response"
   | "connected-data-sources"
   | "access"
   | "lifecycle";
@@ -32,6 +33,7 @@ export const CONSTELLATION_SETTINGS_SECTIONS: {
 }[] = [
   { id: "general", label: "General" },
   { id: "configuration", label: "Configuration" },
+  { id: "response", label: "Response" },
   { id: "sources", label: "Connected Data Sources" },
   { id: "access", label: "Access" },
   { id: "lifecycle", label: "Lifecycle" },
@@ -43,6 +45,7 @@ const SECTION_TO_TAB: Record<
 > = {
   general: "general",
   configuration: "configuration",
+  response: "response",
   sources: "connected-data-sources",
   access: "access",
   lifecycle: "lifecycle",
@@ -54,12 +57,13 @@ const TAB_TO_SECTION: Record<
 > = {
   general: "general",
   configuration: "configuration",
+  response: "response",
   "connected-data-sources": "sources",
   access: "access",
   lifecycle: "lifecycle",
 };
 
-/** Legacy tab params / section ids — map to Lifecycle during prototype. */
+/** Legacy tab params — map to Lifecycle. */
 const LEGACY_TAB_ALIASES: Record<string, ConstellationSettingsSectionId> = {
   "danger-zone": "lifecycle",
   danger: "lifecycle",
@@ -92,6 +96,10 @@ export function parseConstellationSettingsTabFromSearch(
 }
 
 export const CONSTELLATION_SETTINGS_GUIDANCE = {
+  responseDescription:
+    "Control how Lucia handles answers when confidence is low.",
+  responsePreviewDescription:
+    "Preview how this response policy appears in Luxia chat.",
   sourcesDescription:
     "Associate Data Sources with this Constellation. Access Levels stay on Data Sources.",
   accessDescription:

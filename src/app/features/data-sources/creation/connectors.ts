@@ -106,13 +106,13 @@ export const PROTOTYPE_PLACEHOLDER_CONNECTORS: PrototypePlaceholderConnector[] =
     id: "googlesheet",
     label: "Google Sheet",
     group: "files",
-    unavailableReason: "Google Sheet import is not available in this prototype.",
+    unavailableReason: "Google Sheet import is not available yet.",
   },
   {
     id: "other",
     label: "Other",
     group: "files",
-    unavailableReason: "Custom connectors are not available in this prototype.",
+    unavailableReason: "Custom connectors are not available yet.",
   },
 ];
 

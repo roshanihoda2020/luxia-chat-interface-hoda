@@ -152,9 +152,8 @@ export function canConfigureConstellation(
 }
 
 /**
- * Galaxy Settings edit permission — follows Project role only.
- * No separate Galaxy roles. No Org Admin bypass.
- * Owner / Manager → edit; Analyst / Member → read-only.
+ * Galaxy Settings edit: Owner / Manager. Analyst / Member are read-only.
+ * Project role only — Org Admin does not bypass.
  */
 export function canEditGalaxySettings(
   projectRole: ProjectRole | null | undefined,

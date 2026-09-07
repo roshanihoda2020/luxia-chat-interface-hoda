@@ -81,7 +81,7 @@ const CHANNEL_OPTIONS: {
   {
     id: "whatsapp",
     title: VIDGET_CHANNEL_LABELS.whatsapp,
-    description: "Messaging channel configuration (prototype)",
+    description: "WhatsApp messaging channel",
   },
 ];
 

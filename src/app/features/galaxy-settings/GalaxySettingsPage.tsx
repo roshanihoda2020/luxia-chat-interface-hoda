@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, Check } from "lucide-react";
+import { ChevronDown, ChevronRight, Check } from "lucide-react";
 import { toast } from "sonner";
 import {
   LuxiaBreadcrumb,
@@ -41,6 +41,10 @@ import {
   LUXIA_SETTINGS_TAB_TRIGGER_CLASS,
   LUXIA_SETTINGS_TABLIST_CLASS,
 } from "@/app/features/shared/luxiaSettingsUx";
+import {
+  formatResponseConfidenceRangeSummary,
+  loadResponseConfidencePolicy,
+} from "@/app/features/constellation-settings/responseConfidence";
 import { LuxiaConstellationIcon } from "@/assets/icons";
 import { GALAXY_HELIOS_CAPABILITIES } from "./data";
 import { detectGalaxyInstructionConflicts } from "./instructionConflicts";
@@ -90,6 +94,7 @@ export interface GalaxySettingsPageProps {
   onNavigateHome: () => void;
   onOpenProject: (projectId: string) => void;
   onOpenConstellations?: (projectId: string) => void;
+  onOpenConstellationResponse?: (constellationId: string) => void;
   onOpenAccessLevels?: () => void;
   onOpenDataSources?: () => void;
   currentProjectRole?: ProjectRole | null;
@@ -267,6 +272,55 @@ function ConstellationRoutingRow({
   );
 }
 
+function ConstellationResponsePolicyRow({
+  item,
+  summary,
+  onViewSettings,
+}: {
+  item: GalaxyConstellationRoutingItem;
+  summary: string;
+  onViewSettings?: () => void;
+}) {
+  return (
+    <li className="luxia-settings-row flex min-w-0 flex-col gap-2 py-3.5 sm:flex-row sm:items-center sm:gap-4">
+      <LuxiaConstellationIcon
+        size={18}
+        aria-hidden
+        color="var(--luxia-text-secondary)"
+      />
+      <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 items-center gap-2">
+          <p
+            className="luxia-type-body-dense truncate"
+            style={{ color: "var(--luxia-text-primary)" }}
+          >
+            {item.name}
+          </p>
+          <ConstellationTypeBadge type={item.type} label={item.typeLabel} />
+        </div>
+        <p
+          className="mt-1 luxia-type-caption"
+          style={{ color: "var(--luxia-text-secondary)" }}
+        >
+          {summary}
+        </p>
+      </div>
+      {onViewSettings ? (
+        <Button
+          type="button"
+          variant="link"
+          size="compact"
+          className="h-auto shrink-0 justify-start gap-1 p-0 luxia-type-caption"
+          onClick={onViewSettings}
+        >
+          {GALAXY_SETTINGS_GUIDANCE.responseViewSettings}
+          <ChevronRight size={14} aria-hidden />
+        </Button>
+      ) : null}
+    </li>
+  );
+}
+
 function InstructionConflictRow({ conflict }: { conflict: GalaxyInstructionConflict }) {
   return (
     <Collapsible>
@@ -340,6 +394,7 @@ export function GalaxySettingsPage({
   onNavigateHome,
   onOpenProject,
   onOpenConstellations,
+  onOpenConstellationResponse,
   onOpenAccessLevels,
   onOpenDataSources,
   currentProjectRole = null,
@@ -550,6 +605,7 @@ export function GalaxySettingsPage({
               value !== "general"
               && value !== "instruction"
               && value !== "routing"
+              && value !== "response"
               && value !== "tools"
               && value !== "access"
             ) {
@@ -565,7 +621,7 @@ export function GalaxySettingsPage({
               className={LUXIA_SETTINGS_TABLIST_CLASS}
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
+                gridTemplateColumns: "repeat(6, minmax(0, 1fr))",
                 width: "100%",
                 boxSizing: "border-box",
               }}
@@ -900,6 +956,55 @@ export function GalaxySettingsPage({
                   onSave={handleSaveRouting}
                   onCancel={handleCancelRouting}
                 />
+              </div>
+            </TabsContent>
+
+            <TabsContent value="response" className={SETTINGS_TAB_PANEL_CLASS}>
+              <div className={GS_LIST_TAB_WIDTH}>
+                <SectionBlock title="RESPONSE CONFIDENCE">
+                  <p
+                    className="luxia-type-body-dense-strong"
+                    style={{ color: "var(--luxia-text-primary)" }}
+                  >
+                    {GALAXY_SETTINGS_GUIDANCE.responseLead}
+                  </p>
+                  <p
+                    className="mt-2 max-w-[42rem] luxia-type-body-dense"
+                    style={{ color: "var(--luxia-text-secondary)" }}
+                  >
+                    {GALAXY_SETTINGS_GUIDANCE.responseBody}
+                  </p>
+                </SectionBlock>
+
+                <SettingsDivider />
+
+                <SectionBlock title="CONSTELLATION RESPONSE POLICIES">
+                  {availableItems.length === 0 ? (
+                    <p
+                      className="luxia-type-body-dense"
+                      style={{ color: "var(--luxia-text-secondary)" }}
+                    >
+                      {GALAXY_SETTINGS_GUIDANCE.responseEmpty}
+                    </p>
+                  ) : (
+                    <SettingsListSurface>
+                      {availableItems.map((item) => (
+                        <ConstellationResponsePolicyRow
+                          key={item.id}
+                          item={item}
+                          summary={formatResponseConfidenceRangeSummary(
+                            loadResponseConfidencePolicy(item.id),
+                          )}
+                          onViewSettings={
+                            onOpenConstellationResponse
+                              ? () => onOpenConstellationResponse(item.id)
+                              : undefined
+                          }
+                        />
+                      ))}
+                    </SettingsListSurface>
+                  )}
+                </SectionBlock>
               </div>
             </TabsContent>
 

@@ -1,6 +1,6 @@
 import type { GalaxyInstructionConflict } from "./types";
 
-/** Prototype-only constellation instruction overrides for conflict demos. */
+/** Seeded instruction excerpts for the conflict UI. Not a live resolver. */
 const PROTOTYPE_CONSTELLATION_INSTRUCTION_OVERRIDES: Record<
   string,
   { instruction: string; conflictKind: GalaxyInstructionConflict["conflictKind"] }
@@ -56,9 +56,7 @@ function triggersConflict(
   return /official|formal|approved documentation|financial policy/.test(normalized);
 }
 
-/**
- * Prototype conflict detection — isolated from UI; replace with backend API later.
- */
+/** UI conflict detection until a backend API exists. */
 export function detectGalaxyInstructionConflicts(input: {
   galaxyInstruction: string;
   constellations: Array<{ id: string; name: string }>;

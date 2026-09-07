@@ -144,7 +144,7 @@ function buildConstellationAnswer(
   const query = userMessage.trim();
   const sourceLine = constellation.connectedSourceNames.length > 0
     ? `Sources considered: ${constellation.connectedSourceNames.join(", ")}.`
-    : "No connected Data Source labels are available in this prototype response.";
+    : "No connected Data Source labels are available.";
 
   return [
     `I searched ${constellation.name} for your question.`,
@@ -164,7 +164,7 @@ function buildGalaxyScopedAnswer(
   const scopeLabels = scoped.map((item) => item.name).join(", ");
   const sourceLine = matched.connectedSourceNames.length > 0
     ? `Sources considered: ${matched.connectedSourceNames.join(", ")}.`
-    : "No connected Data Source labels are available in this prototype response.";
+    : "No connected Data Source labels are available.";
 
   return [
     `Searching ${galaxyName} within this Vidget's configured scope (${scopeLabels}).`,

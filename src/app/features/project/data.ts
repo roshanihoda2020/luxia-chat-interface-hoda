@@ -9,7 +9,7 @@ const HOUR_MS = 3_600_000;
 const NOW = Date.now();
 
 export const PROJECT_DESCRIPTION_PLACEHOLDER =
-  "Short Project description for demos and layout.";
+  "Short Project description.";
 
 export interface ProjectConstellationSourceEntry {
   constellationId: string;
@@ -109,7 +109,7 @@ const HOME_PROJECT_BASE: Omit<HomeProjectCard, "constellationCount" | "sourceCou
     isFeatured: false,
     isEmpty: false,
     status: "active",
-    description: "Lightweight Project used for configuration and access demos.",
+    description: "Project for configuration and access settings.",
   },
   {
     id: "project-05",

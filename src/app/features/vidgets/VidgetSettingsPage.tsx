@@ -1312,7 +1312,7 @@ export function VidgetSettingsPage({
                                   QR code
                                 </p>
                                 <Note>
-                                  QR placeholder for mobile handoff (prototype).
+                                  QR code for mobile handoff will appear here.
                                 </Note>
                               </div>
                             </div>

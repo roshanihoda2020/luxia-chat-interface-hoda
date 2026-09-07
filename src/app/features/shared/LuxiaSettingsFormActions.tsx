@@ -24,6 +24,7 @@ export function LuxiaSettingsFormActions({
   leading,
   className,
   divided = true,
+  saveDisabled = false,
 }: {
   dirty: boolean;
   canSave: boolean;
@@ -35,6 +36,8 @@ export function LuxiaSettingsFormActions({
   leading?: ReactNode;
   className?: string;
   divided?: boolean;
+  /** Extra Save disable (e.g. invalid draft). Cancel still shows when dirty. */
+  saveDisabled?: boolean;
 }) {
   if (!visible || !canSave) return null;
 
@@ -59,7 +62,7 @@ export function LuxiaSettingsFormActions({
         <Button
           type="button"
           {...LUXIA_PAGE_HEADER_ACTION.primary}
-          disabled={!dirty}
+          disabled={!dirty || saveDisabled}
           onClick={onSave}
         >
           {saveLabel}

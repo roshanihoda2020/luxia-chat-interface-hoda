@@ -38,6 +38,10 @@ export type {
   ConstellationSettingsTabParam,
 } from "./ia";
 
+export {
+  DEFAULT_RESPONSE_CONFIDENCE_POLICY,
+} from "./responseConfidence";
+
 export { ConstellationSettingsPage } from "./ConstellationSettingsPage";
 export type { ConstellationSettingsPageProps } from "./ConstellationSettingsPage";
 

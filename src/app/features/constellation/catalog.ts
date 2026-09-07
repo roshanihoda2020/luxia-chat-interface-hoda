@@ -63,7 +63,7 @@ export const CANONICAL_CONSTELLATIONS: CanonicalConstellationRecord[] = [
     projectId: "project-01",
     name: "Constellation name 01",
     description:
-      "Primary database Constellation for Project name 01. Intentionally connects Private ds-db-02 so Use-on-all-sources gating can be demonstrated without Org Admin bypass.",
+      "Primary database Constellation for Project name 01.",
     type: "database",
     status: "active",
     dataSourceIds: [SAMPLE_DATA_SOURCE_IDS.ds01, SAMPLE_DATA_SOURCE_IDS.ds02],

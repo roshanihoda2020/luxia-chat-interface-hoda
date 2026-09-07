@@ -1,20 +1,21 @@
 /**
- * Galaxy Settings information architecture.
- * Matches Constellation Settings tab pattern — horizontal tabs, no Danger Zone.
+ * Galaxy Settings tabs. `instruction-response` is Instructions, not Response Confidence.
  */
 
 export type GalaxySettingsSectionId =
   | "general"
   | "instruction"
   | "routing"
+  | "response"
   | "tools"
   | "access";
 
-/** URL `?tab=` values for Galaxy Settings. */
+/** URL `?tab=` values — not always the same as section ids. */
 export type GalaxySettingsTabParam =
   | "general"
   | "instruction-response"
   | "constellation-routing"
+  | "response"
   | "helios-tools"
   | "access-availability";
 
@@ -25,6 +26,7 @@ export const GALAXY_SETTINGS_SECTIONS: {
   { id: "general", label: "General" },
   { id: "instruction", label: "Instructions" },
   { id: "routing", label: "Constellation Routing" },
+  { id: "response", label: "Response" },
   { id: "tools", label: "Helios & Tools" },
   { id: "access", label: "Access & Availability" },
 ];
@@ -33,6 +35,7 @@ const SECTION_TO_TAB: Record<GalaxySettingsSectionId, GalaxySettingsTabParam> = 
   general: "general",
   instruction: "instruction-response",
   routing: "constellation-routing",
+  response: "response",
   tools: "helios-tools",
   access: "access-availability",
 };
@@ -41,6 +44,7 @@ const TAB_TO_SECTION: Record<GalaxySettingsTabParam, GalaxySettingsSectionId> = 
   general: "general",
   "instruction-response": "instruction",
   "constellation-routing": "routing",
+  response: "response",
   "helios-tools": "tools",
   "access-availability": "access",
 };
@@ -91,6 +95,11 @@ export const GALAXY_SETTINGS_GUIDANCE = {
   routingEmptyBody:
     "Galaxy needs at least one usable Constellation before it can route Project questions.",
   routingSearchPlaceholder: "Search Constellations",
+  responseLead: "Response confidence follows the Constellation that answers.",
+  responseBody:
+    "Helios selects one Constellation for each request. That Constellation's saved Warning, Error, and Block policy is applied to the answer.",
+  responseEmpty: "No available Constellations.",
+  responseViewSettings: "View response settings",
   heliosTitle: "Helios",
   heliosStatus: "Active",
   heliosDescription:

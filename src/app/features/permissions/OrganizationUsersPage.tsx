@@ -407,8 +407,8 @@ export function OrganizationUsersPage({
             <AlertDialogTitle>Remove from organization?</AlertDialogTitle>
             <AlertDialogDescription>
               {pendingRemoveUser
-                ? `${pendingRemoveUser.name} will lose organization access, Project memberships, and Access Level assignments in this prototype.`
-                : "This user will lose organization access in this prototype."}
+                ? `${pendingRemoveUser.name} will lose organization access, Project memberships, and Access Level assignments.`
+                : "This user will lose organization access."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

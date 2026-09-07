@@ -1673,7 +1673,7 @@ export function VidgetLivePreview({
         <SoftChannelPlaceholder
           channelLabel="WhatsApp"
           title="Configure the WhatsApp connection to preview this channel."
-          detail="Connection is not configured in this prototype."
+          detail="This connection is not configured."
         />
       </div>
     );
@@ -1691,7 +1691,7 @@ export function VidgetLivePreview({
         <SoftChannelPlaceholder
           channelLabel="VoIP"
           title="Configure the voice connection to preview this channel."
-          detail="Voice channel is not configured in this prototype."
+          detail="Voice channel is not configured."
         />
       </div>
     );

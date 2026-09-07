@@ -1191,7 +1191,7 @@ export function AccessLevelEditorPage({
                       className="mt-1 luxia-type-caption"
                       style={{ color: "var(--luxia-text-secondary)" }}
                     >
-                      Impact preview based on the current prototype data
+                      Impact preview based on current Access Level data
                       {isDirty ? " (includes unsaved draft changes)" : ""}.
                     </p>
                   </div>

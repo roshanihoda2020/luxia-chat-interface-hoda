@@ -10,6 +10,7 @@ export type GalaxySettingsTabQuery =
   | "general"
   | "instruction-response"
   | "constellation-routing"
+  | "response"
   | "helios-tools"
   | "tools-helios"
   | "access-availability";
@@ -52,6 +53,7 @@ export function getConstellationCreatePath(projectId: string): string {
 export type ConstellationSettingsTabQuery =
   | "general"
   | "configuration"
+  | "response"
   | "connected-data-sources"
   | "access"
   | "lifecycle";

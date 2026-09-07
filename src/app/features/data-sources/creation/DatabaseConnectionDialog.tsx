@@ -206,7 +206,7 @@ export function DatabaseConnectionDialog({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="password">Username and password</SelectItem>
-                    <SelectItem value="key-pair">Key pair (prototype)</SelectItem>
+                    <SelectItem value="key-pair">Key pair</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -269,7 +269,7 @@ export function DatabaseConnectionDialog({
                   />
                   <FieldError message={errors.privateKey} />
                   <p className="luxia-type-caption text-[var(--luxia-text-muted)]">
-                    Key-pair auth is simulated in this prototype. Secrets are not persisted.
+                    Private key material is not stored.
                   </p>
                 </div>
               ) : null}

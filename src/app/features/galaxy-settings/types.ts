@@ -1,7 +1,7 @@
 import type { GalaxyRouteMode } from "@/app/features/galaxy";
 import type { HomeConstellationSource } from "@/app/features/home/types";
 
-/** Informational Helios capabilities — not independently toggled in this prototype. */
+/** Informational Helios capabilities — not independently toggled. */
 export type GalaxyCapabilityInfo = {
   id: string;
   name: string;

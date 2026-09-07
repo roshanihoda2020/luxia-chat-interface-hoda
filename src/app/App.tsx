@@ -20,7 +20,6 @@ import {
   GalaxyActivityPanel,
   GalaxyCollapsedRail,
   GalaxyEmptyState,
-  GalaxyProvenanceRow,
   GalaxyRouteSelector,
   GALAXY_COLLAPSED_WIDTH,
   GALAXY_DEFAULT_INSTRUCTION,
@@ -257,6 +256,12 @@ import {
 import { LuxiaPageHeader, LuxiaPageHeaderShell, LUXIA_PAGE_INTRO, LUXIA_PAGE_HEADER_ACTION } from "@/app/components/LuxiaPageHeader";
 import { LuxiaEntityOptionsMenu } from "@/app/components/LuxiaEntityOptionsMenu";
 import { ResponseActionsFooter } from "@/app/features/chat/ResponseActionsFooter";
+import { LuxiaResponseCard } from "@/app/features/chat/LuxiaResponseCard";
+import type { LuxiaResponsePresentation } from "@/app/features/chat/LuxiaResponseCard";
+import {
+  hydrateMessageResponsePresentation,
+  makeResponseConfidenceDemoMessages,
+} from "@/app/features/constellation-settings/responseConfidence";
 import { LX } from "@/app/features/active-data-tables/tokens";
 import { IC, IC_BTN_ICON, IC_BTN_OPEN, IC_CARD_HEADER, IC_INPUT_TEXT, IC_SEARCH_SHELL, IC_SEARCH_SHELL_STYLE, icCardStyle, icHoverOff, icHoverOn, icInspectorAccentStyle, icInspectorDescriptionColor, icInspectorTitleColor, icOpenActiveOn, icSearchShellBlur, icSearchShellFocus, icSearchShellHoverOff, icSearchShellHoverOn, icTextareaStyle } from "@/app/features/active-data-tables/inspectorTheme";
 import { Button } from "@/app/components/ui/button";
@@ -483,6 +488,10 @@ interface Message {
   id: string; role: "user" | "ai"; content: string; timestamp: string;
   sources?: Source[]; insights?: ResponseInsights;
   galaxy?: GalaxyRoutingMeta;
+  responsePresentation?: {
+    state: LuxiaResponsePresentation;
+    notice?: string;
+  };
 }
 interface Chat {
   id: string;
@@ -639,78 +648,6 @@ function resolveChatConstellation(
   return undefined;
 }
 
-const INSIGHTS_MIN_CONTENT_LENGTH = 220;
-
-function normalizeInsightText(value: string): string {
-  return value.toLowerCase().replace(/[^\w\s]/g, " ").replace(/\s+/g, " ").trim();
-}
-
-function shouldShowInsightsEligibleContent(content: string): boolean {
-  const normalized = content.trim();
-  if (!normalized) return false;
-
-  const paragraphs = normalized.split(/\n\s*\n/).filter((paragraph) => paragraph.trim());
-  const bulletLines = normalized.split("\n").filter((line) => line.trim().startsWith("- "));
-  const sentences = normalized.split(/(?<=[.!?])\s+/).filter(Boolean);
-
-  return (
-    normalized.length >= INSIGHTS_MIN_CONTENT_LENGTH ||
-    paragraphs.length >= 3 ||
-    bulletLines.length >= 2 ||
-    sentences.length >= 5
-  );
-}
-
-function insightsRepeatAnswer(content: string, items: string[]): boolean {
-  const normalizedContent = normalizeInsightText(content);
-  const redundant = items.filter((item) => {
-    const normalizedItem = normalizeInsightText(item);
-    if (!normalizedItem) return true;
-    if (normalizedContent.includes(normalizedItem)) return true;
-    const words = normalizedItem.split(" ").filter(Boolean);
-    if (words.length < 4) return normalizedContent.includes(normalizedItem);
-    return normalizedContent.includes(words.slice(0, 6).join(" "));
-  });
-  return redundant.length >= Math.ceil(items.length * 0.67);
-}
-
-function getResponseInsights(content: string, insights?: ResponseInsights): ResponseInsights | null {
-  if (!insights?.items?.length) return null;
-  const items = insights.items.map((item) => item.trim()).filter(Boolean).slice(0, 3);
-  if (items.length === 0) return null;
-  if (!shouldShowInsightsEligibleContent(content)) return null;
-  if (insightsRepeatAnswer(content, items)) return null;
-  return { format: insights.format, items };
-}
-
-function ResponseInsightsContent({ insights }: { insights: ResponseInsights }) {
-  if (insights.format === "paragraphs") {
-    return (
-      <div className="mt-3 space-y-2 pl-1 min-w-0">
-        {insights.items.map((item, i) => (
-          <p key={i} className="luxia-chat-text luxia-type-metadata" style={{ color: LX.textSecondary }}>
-            {item}
-          </p>
-        ))}
-      </div>
-    );
-  }
-
-  return (
-    <ul className="mt-3 space-y-1.5 pl-1 min-w-0">
-      {insights.items.map((item, i) => (
-        <li key={i} className="flex items-start gap-2 luxia-type-metadata min-w-0" style={{ color: LX.textSecondary }}>
-          <span
-            className="mt-[6px] w-[5px] h-[5px] rounded-full flex-shrink-0"
-            style={{ background: LX.accent }}
-          />
-          <span className="luxia-chat-text min-w-0">{item}</span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
 const CONSTELLATIONS: Constellation[] = CANONICAL_CONSTELLATIONS.map((item) => ({
   id: item.id,
   label: item.name,
@@ -752,21 +689,7 @@ const INITIAL_CHATS: Chat[] = [
 ];
 
 function makePrototypeMessages(chatId: string, chatLabel: string): Message[] {
-  return [
-    {
-      id: `${chatId}-u1`,
-      role: "user",
-      timestamp: "10:14 AM",
-      content: `Placeholder question for ${chatLabel}.`,
-    },
-    {
-      id: `${chatId}-a1`,
-      role: "ai",
-      timestamp: "10:14 AM",
-      content: `Placeholder response for ${chatLabel}. This message history belongs only to ${chatId}.`,
-      sources: [{ id: `${chatId}-s1`, label: "Source A" }, { id: `${chatId}-s2`, label: "Source B" }],
-    },
-  ];
+  return makeResponseConfidenceDemoMessages(chatId, chatLabel);
 }
 
 const INITIAL_MESSAGES: Record<string, Message[]> = Object.fromEntries(
@@ -857,35 +780,6 @@ const EMPTY_PROMPTS = [
   "What are the key topics?",
   "Walk me through the structure",
 ];
-
-function renderMd(text: string) {
-  return text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g).map((p, i) => {
-    if (p.startsWith("**") && p.endsWith("**"))
-      return <strong key={i} className="font-bold">{p.slice(2, -2)}</strong>;
-    if (p.startsWith("`") && p.endsWith("`"))
-      return <code key={i} className="luxia-chat-text px-1.5 py-0.5 rounded luxia-type-body-dense font-mono" style={{ background: LX.blueT10, color: LX.accent }}>{p.slice(1, -1)}</code>;
-    return <span key={i} className="luxia-chat-text">{p}</span>;
-  });
-}
-
-function renderContent(content: string) {
-  return content.split("\n\n").map((block, i) => {
-    const lines = block.split("\n");
-    if (lines.every(l => l.startsWith("- "))) {
-      return (
-        <ul key={i} className="space-y-1.5 my-2 min-w-0">
-          {lines.map((l, j) => (
-            <li key={j} className="flex items-start gap-2 luxia-type-body-small min-w-0">
-              <span className="mt-[7px] w-[5px] h-[5px] rounded-full flex-shrink-0" style={{ background: LX.accent }} />
-              <span className="luxia-chat-text min-w-0">{renderMd(l.slice(2))}</span>
-            </li>
-          ))}
-        </ul>
-      );
-    }
-    return <p key={i} className={`luxia-chat-text luxia-type-body-small ${i > 0 ? "mt-3" : ""}`}>{renderMd(block)}</p>;
-  });
-}
 
 const INSPECTOR_NARROW_BREAKPOINT = 1280;
 const INSPECTOR_WIDTH_DEFAULT = 288;
@@ -1763,113 +1657,44 @@ function DateSeparator({ label }: { label: string }) {
   );
 }
 
-function SourceFooter({
-  sources,
-  insights,
-}: {
-  sources?: Source[];
-  insights?: ResponseInsights;
-}) {
-  const [insightsOpen, setInsightsOpen] = useState(false);
-  const hasInsights = Boolean(insights?.items.length);
-  const hasSources = Boolean(sources && sources.length > 0);
-  const sectionOffset = hasSources ? "mt-3" : "";
-
-  return (
-    <div className="mt-4 pt-3.5 min-w-0" style={{ borderTop: `1px solid ${LX.borderSubtle}` }}>
-      {hasSources ? (
-        <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-          <span className="luxia-type-metadata flex-shrink-0" style={{ color: LX.textMuted }}>Sources:</span>
-          {sources!.map((s, i) => (
-            <button key={s.id} type="button"
-              className="luxia-chat-text luxia-type-metadata transition-colors outline-none text-left"
-              style={{ color: LX.purple60 }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = LX.primary; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = LX.purple60; }}>
-              {s.label}{i < sources!.length - 1 ? "," : ""}
-            </button>
-          ))}
-        </div>
-      ) : null}
-
-      {hasInsights && insights ? (
-        <div className={sectionOffset}>
-          <button
-            type="button"
-            onClick={() => setInsightsOpen((open) => !open)}
-            aria-expanded={insightsOpen}
-            className="flex items-center gap-1.5 luxia-type-caption hover:opacity-80 transition-opacity outline-none"
-            style={{ color: LX.textMuted }}
-          >
-            <ChevronDown
-              size={11}
-              style={{
-                transition: "transform 160ms ease",
-                transform: insightsOpen ? "rotate(180deg)" : "none",
-              }}
-            />
-            Insights
-          </button>
-          {insightsOpen ? <ResponseInsightsContent insights={insights} /> : null}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
 function AICard({
   message,
+  constellationId,
   onOpenGalaxyConstellation,
   onViewGalaxyActivity,
 }: {
   message: Message;
+  constellationId?: string;
   onOpenGalaxyConstellation?: () => void;
   onViewGalaxyActivity?: () => void;
 }) {
-  const insights = getResponseInsights(message.content, message.insights);
-  const galaxy = message.galaxy;
-  const showAnswerBody = !galaxy || galaxy.phase === "answering" || galaxy.phase === "complete";
-  const showStandardFooter = !galaxy && (message.sources || insights);
-  const showResponseActions = Boolean(showAnswerBody && message.content);
+  const hydrated = hydrateMessageResponsePresentation(message, constellationId);
+  const presentation = hydrated.presentation;
+  const notice = hydrated.notice;
+  const content = hydrated.content;
+  const showAnswerBody = !message.galaxy || message.galaxy.phase === "answering" || message.galaxy.phase === "complete";
+  const showResponseActions = Boolean(showAnswerBody && content);
 
   return (
-    <div className="flex items-start gap-3 mb-7 min-w-0 max-w-full">
-      <div className="flex-shrink-0 w-8 flex items-start justify-center rounded-[8px]"
-        style={{ background: "transparent" }}>
-        <LuxiaStarLogo size={24} />
-      </div>
-      <div className="flex-1 min-w-0 max-w-[680px]">
-        <div className="flex items-center gap-2 mb-2">
-          <span className="luxia-type-body-dense font-bold" style={{ color: LX.primary }}>Luxia</span>
-          <span className="luxia-type-caption" style={{ color: LX.borderStrong }}>{message.timestamp}</span>
-        </div>
-        <div className="rounded-[16px] min-w-0 overflow-hidden"
-          style={{ background: "white", border: "1px solid #EAF0F6", boxShadow: "0 6px 18px rgba(15,23,42,0.08)" }}>
-          <div className="px-5 py-4 min-w-0">
-            {galaxy && galaxy.phase !== "complete" ? (
-              <GalaxyProvenanceRow meta={galaxy} />
-            ) : null}
-            {showAnswerBody && message.content ? (
-              <div className="luxia-chat-text" style={{ color: LX.primary }}>{renderContent(message.content)}</div>
-            ) : null}
-            {galaxy && galaxy.phase === "complete" ? (
-              <GalaxyProvenanceRow
-                meta={galaxy}
-                onViewActivity={onViewGalaxyActivity}
-                onOpenConstellation={onOpenGalaxyConstellation}
-              />
-            ) : null}
-            {showStandardFooter ? (
-              <SourceFooter
-                sources={message.sources}
-                insights={insights ?? undefined}
-              />
-            ) : null}
-          </div>
-          {showResponseActions ? <ResponseActionsFooter content={message.content} /> : null}
-        </div>
-      </div>
-    </div>
+    <LuxiaResponseCard
+      content={content}
+      timestamp={message.timestamp}
+      presentation={presentation}
+      notice={notice}
+      sources={hydrated.sources}
+      insights={hydrated.hideInsights ? undefined : message.insights}
+      galaxy={message.galaxy}
+      onOpenGalaxyConstellation={onOpenGalaxyConstellation}
+      onViewGalaxyActivity={onViewGalaxyActivity}
+      footer={
+        showResponseActions ? (
+          <ResponseActionsFooter
+            content={content}
+            variant={hydrated.footerVariant}
+          />
+        ) : null
+      }
+    />
   );
 }
 
@@ -5465,7 +5290,7 @@ export default function App() {
         }),
       );
     }
-    toast.success("Invitation sent (prototype)");
+    toast.success("Invitation sent.");
     handleOpenOrganizationUser(id);
   }
 
@@ -7479,7 +7304,7 @@ export default function App() {
           id: aid, role: "ai", timestamp: now,
           content: chatSources.length > 0
             ? `I have searched the connected Constellation for your query.\n\nSources considered: ${chatSources.map((source) => source.label).join(", ")}.`
-            : "I have searched the connected Constellation for your query.\n\nNo connected Data Source labels are available in this prototype response.",
+            : "I have searched the connected Constellation for your query.\n\nNo connected Data Source labels are available.",
           sources: chatSources,
         },
         ],
@@ -7584,8 +7409,8 @@ export default function App() {
         }`,
     }));
     const answerContent = accessibleSources.length > 0
-      ? `Based on accessible Constellation ${matched.label}, here is a prototype answer using only Data Sources you can Use.\n\nSources considered: ${accessibleSources.map((source) => source.label).join(", ")}.`
-      : `Based on accessible Constellation ${matched.label}, no connected Data Source labels are available in this prototype response.`;
+      ? `Based on accessible Constellation ${matched.label}, here is an answer using only Data Sources you can Use.\n\nSources considered: ${accessibleSources.map((source) => source.label).join(", ")}.`
+      : `Based on accessible Constellation ${matched.label}, no connected Data Source labels are available.`;
     const candidates = accessibleConstellations.slice(0, 3).map((item, index) => ({
       id: item.id,
       label: item.label,
@@ -8798,6 +8623,10 @@ export default function App() {
                   onNavigateHome={handleNavigateHome}
                   onOpenProject={(pid) => handleOpenProjectOverview(pid, "overview")}
                   onOpenConstellations={handleOpenConstellationsList}
+                  onOpenConstellationResponse={(constellationId) => {
+                    if (!projectId) return;
+                    handleOpenConstellationSettings(projectId, constellationId, "response");
+                  }}
                   onOpenAccessLevels={handleOpenAccessLevels}
                   onOpenDataSources={handleOpenDataSources}
                   currentProjectRole={membership?.projectRole ?? null}
@@ -8815,6 +8644,11 @@ export default function App() {
             {(() => {
               const projectId = activeProjectId ?? "";
               const constellationId = settingsConstellationId ?? "";
+              const constellationProjectId =
+                settingsConstellation?.projectId
+                || settingsRecord?.projectId
+                || projectId;
+              const constellationProjectRole = projectRoleFor(constellationProjectId);
               const fallbackRecord = settingsRecord ?? buildSettingsForConstellation({
                 id: constellationId || "unavailable",
                 projectId: projectId || "unavailable",
@@ -8869,7 +8703,7 @@ export default function App() {
                       if (!constellationId || settingsUnavailable) return;
                       const capId = settingsCapabilityId ?? "instr";
                       const isKnowledgeCap = capId === "kb" || capId === "instr" || capId === "crawler";
-                      const role = projectRoleFor(projectId || "");
+                      const role = constellationProjectRole;
                       if (isKnowledgeCap) {
                         if (!canEditConstellationKnowledge(role)) return;
                         handleUpdateCapabilityBundle(constellationId, next, {
@@ -8885,7 +8719,7 @@ export default function App() {
                     readOnly={(() => {
                       const capId = settingsCapabilityId ?? "instr";
                       const isKnowledgeCap = capId === "kb" || capId === "instr" || capId === "crawler";
-                      const role = projectRoleFor(projectId || "");
+                      const role = constellationProjectRole;
                       if (isKnowledgeCap) return !canEditConstellationKnowledge(role);
                       return !canAdministerProjectConfiguration(prototypeUserId, role);
                     })()}
@@ -8970,7 +8804,7 @@ export default function App() {
                   onManageCapability={(capabilityId) => {
                     if (!projectId || !constellationId || settingsUnavailable) return;
                     const isKnowledgeCap = capabilityId === "kb" || capabilityId === "instr" || capabilityId === "crawler";
-                    const role = projectRoleFor(projectId);
+                    const role = constellationProjectRole;
                     if (isKnowledgeCap) {
                       if (!canEditConstellationKnowledge(role)) return;
                     } else if (!canAdministerProjectConfiguration(prototypeUserId, role)) {
@@ -9009,14 +8843,7 @@ export default function App() {
                   accessLevels={accessLevelsState}
                   dataSources={dataSourcesState}
                   currentUserId={prototypeUserId}
-                  currentProjectRole={
-                    projectMembershipsState.find(
-                      (membership) =>
-                        membership.projectId === projectId
-                        && membership.userId === prototypeUserId
-                        && membership.status === "active",
-                    )?.projectRole ?? null
-                  }
+                  currentProjectRole={constellationProjectRole}
                   onCreateVidget={
                     canManageVidgets(projectRoleFor(projectId))
                       ? (pid, constellationId) =>
@@ -9381,8 +9208,8 @@ export default function App() {
                 const user = organizationUsersState.find((entry) => entry.id === userId);
                 toast.success(
                   user
-                    ? `Invitation resent to ${user.email} (prototype)`
-                    : "Invitation resent (prototype)",
+                    ? `Invitation resent to ${user.email}`
+                    : "Invitation resent",
                 );
               }}
               onCancelInvitation={(userId) => {
@@ -9685,6 +9512,11 @@ export default function App() {
                       : <AICard
                           key={msg.id}
                           message={msg}
+                          constellationId={
+                            activeData?.chatType === "constellation"
+                              ? activeData.constellationId
+                              : msg.galaxy?.matched.id
+                          }
                           onOpenGalaxyConstellation={
                             activeData?.chatType === "galaxy" ? handleOpenGalaxyConstellation : undefined
                           }
@@ -9905,8 +9737,7 @@ export default function App() {
                 onClick={() => {
                   const { projectId, constellationId } = constellationAccessBlock;
                   setConstellationAccessBlock(null);
-                  // Access tab is a read-only explanation surface for members —
-                  // not a Request Access workflow.
+                  // Access tab explains membership; it is not a Request Access workflow.
                   handleOpenConstellationSettings(projectId, constellationId, "access");
                 }}
               >

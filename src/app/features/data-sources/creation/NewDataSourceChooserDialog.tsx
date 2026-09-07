@@ -139,7 +139,7 @@ export function NewDataSourceChooserDialog({
                             {option.label}
                           </span>
                           <span className="mt-0.5 block luxia-type-caption text-[var(--luxia-text-muted)]">
-                            Not available in this prototype
+                            Not available yet
                           </span>
                         </span>
                       </button>

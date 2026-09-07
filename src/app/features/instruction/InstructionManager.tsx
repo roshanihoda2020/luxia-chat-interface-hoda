@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Textarea } from "@/app/components/ui/textarea";
 import { cn } from "@/app/components/ui/utils";
 import { LUXIA_DIALOG_CLOSE_ON_DARK_CLASS } from "@/app/features/shared/structuredModalChrome";
+import { LUXIA_DIRTY_STATE_COPY } from "@/app/features/shared/luxiaSettingsUx";
 import { INSTRUCTION_MAX_CHARS } from "./constants";
 import { DiscardInstructionChangesDialog } from "./DiscardInstructionChangesDialog";
 import { InstructionAttachment } from "./InstructionAttachment";
@@ -115,7 +116,7 @@ export function InstructionManager({
             initialRef.current = next;
             setDraft(next);
             setSaving(false);
-            setSaveNotice("Changes saved for this session (prototype).");
+            setSaveNotice(LUXIA_DIRTY_STATE_COPY.saveSuccess);
             if (!isPage) onCancel();
         }, 500);
     }

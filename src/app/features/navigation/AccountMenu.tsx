@@ -25,7 +25,7 @@ export interface DemoPrototypeUser {
   contextLabel: string;
 }
 
-const SUPPORT_UNAVAILABLE_MESSAGE = "Support is not available in this prototype.";
+const SUPPORT_UNAVAILABLE_MESSAGE = "Support is currently unavailable.";
 
 interface AccountMenuProps {
   collapsed?: boolean;

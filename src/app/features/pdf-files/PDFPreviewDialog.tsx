@@ -24,7 +24,7 @@ export function PDFPreviewDialog({
                     <p className="luxia-type-metadata" style={{ color: LX.textMuted }}>{file.sizeLabel}</p>
                     <div className="mt-3 flex min-h-[200px] items-center justify-center rounded-[12px] border px-4 py-8 text-center" style={{ borderColor: LX.border, background: LX.subtle }}>
                         {file.previewable ? (
-                            <p className="luxia-type-body-dense-strong" style={{ color: LX.textSecondary }}>PDF preview placeholder</p>
+                            <p className="luxia-type-body-dense-strong" style={{ color: LX.textSecondary }}>PDF preview will appear here.</p>
                         ) : (
                             <>
                                 <div>
