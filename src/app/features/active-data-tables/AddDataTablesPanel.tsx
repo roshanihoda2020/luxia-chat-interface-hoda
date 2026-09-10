@@ -38,7 +38,7 @@ export function AddDataTablesPanel({
                     <h4 className="luxia-type-title-component" style={{ color: LX.primary }}>Add data table</h4>
                     <p className="mt-0.5 luxia-type-metadata" style={{ color: LX.textMuted }}>Select from the available catalog.</p>
                 </div>
-                <Button type="button" variant="outline" size="sm" className="rounded-full px-3" onClick={onBack}>
+                <Button type="button" variant="outline" size="sm" className="px-3" onClick={onBack}>
                     Back
                 </Button>
             </div>
@@ -48,7 +48,7 @@ export function AddDataTablesPanel({
                 <Input value={query} onChange={(e) => onQueryChange(e.target.value)} placeholder="Search tables to add..." className="h-8 border-0 bg-transparent px-0 luxia-type-input-search-dense shadow-none focus-visible:ring-0" aria-label="Search available tables" />
             </div>
 
-            <div className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto pb-4 pr-1">
+            <div className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical pb-4 pr-1">
                 {filtered.length === 0 ? (
                     <div className="rounded-[14px] border border-dashed px-4 py-8 text-center luxia-type-body-dense" style={{ borderColor: LX.border, color: LX.textMuted }}>
                         No tables match your search.
@@ -83,8 +83,8 @@ export function AddDataTablesPanel({
             </div>
 
             <div className="mt-4 flex-shrink-0 flex items-center justify-end gap-2">
-                <Button variant="secondary" className="rounded-full px-4" onClick={onBack}>Cancel</Button>
-                <Button className="rounded-full px-4" disabled={selectedIds.length === 0} onClick={onConfirm}>
+                <Button variant="secondary" className="px-4" onClick={onBack}>Cancel</Button>
+                <Button className="px-4" disabled={selectedIds.length === 0} onClick={onConfirm}>
                     <Plus size={14} />Add selected
                 </Button>
             </div>

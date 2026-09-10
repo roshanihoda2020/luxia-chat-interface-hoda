@@ -12,11 +12,13 @@ export function InstructionSection({
     isOpen,
     onToggle,
     onSignatureChange,
+    readOnly = false,
 }: {
     defaultInstruction: string;
     isOpen: boolean;
     onToggle: () => void;
     onSignatureChange?: (signature: string) => void;
+    readOnly?: boolean;
 }) {
     const [data, setData] = useState<InstructionData>(() => ({
         text: defaultInstruction,
@@ -39,6 +41,7 @@ export function InstructionSection({
     }, [isOpen]);
 
     function handleTextChange(value: string) {
+        if (readOnly) return;
         if (value.length > INSTRUCTION_MAX_CHARS) return;
         setData((current) => ({ ...current, text: value }));
     }
@@ -49,23 +52,25 @@ export function InstructionSection({
                 <div className={IC_CARD_HEADER}>
                     <Cpu size={14} color={IC.iconSemantic} className="flex-shrink-0" />
                     <span className="flex-1 truncate luxia-type-title-component" style={{ color: IC.iconSemantic }}>Instruction</span>
+                    {!readOnly ? (
                     <Tooltip>
                         <TooltipTrigger asChild>
                             <button
                                 type="button"
                                 className={IC_BTN_OPEN}
-                                aria-label="Open full editor"
+                                aria-label="Open Instruction settings"
                                 onClick={(e) => { e.stopPropagation(); setManagerOpen(true); }}
                                 onMouseEnter={icHoverOn}
                                 onMouseLeave={icHoverOff}
                                 onMouseDown={icOpenActiveOn}
                                 onMouseUp={icHoverOn}
                             >
-                                <SquareArrowOutUpRight size={14} strokeWidth={2} style={{ color: IC.textMuted }} />
+                                <SquareArrowOutUpRight size={14} strokeWidth={2} style={{ color: IC.textMuted }} aria-hidden />
                             </button>
                         </TooltipTrigger>
-                        <TooltipContent sideOffset={6}>Open full editor</TooltipContent>
+                        <TooltipContent sideOffset={6}>Open Instruction settings</TooltipContent>
                     </Tooltip>
+                    ) : null}
                     <Tooltip>
                         <TooltipTrigger asChild>
                             <button
@@ -95,12 +100,13 @@ export function InstructionSection({
                         <textarea
                             value={data.text}
                             onChange={(event) => handleTextChange(event.target.value)}
-                            onFocus={() => setFocused(true)}
+                            onFocus={() => { if (!readOnly) setFocused(true); }}
                             onBlur={() => setFocused(false)}
                             rows={3}
+                            readOnly={readOnly}
                             placeholder="Write instructions…"
                             aria-label="Instruction text"
-                            className={`mt-2 w-full resize-none overflow-y-auto rounded-[7px] p-2.5 outline-none luxia-type-caption transition-[border-color] duration-150 placeholder:text-[rgba(255,255,255,0.40)]`}
+                            className={`mt-2 w-full resize-none overflow-y-auto luxia-scrollbar luxia-scrollbar-dark luxia-scrollbar-vertical rounded-[7px] p-2.5 outline-none luxia-type-caption transition-[border-color] duration-150 placeholder:text-[rgba(255,255,255,0.40)]`}
                             style={icTextareaStyle(focused)}
                             onMouseEnter={(e) => icInputBorderHoverOn(e, focused)}
                             onMouseLeave={(e) => icInputBorderHoverOff(e, focused)}
@@ -114,12 +120,14 @@ export function InstructionSection({
                 ) : null}
             </div>
 
+            {!readOnly ? (
             <InstructionManager
                 open={managerOpen}
                 data={data}
                 onCommit={(next) => setData(next)}
                 onCancel={() => setManagerOpen(false)}
             />
+            ) : null}
         </>
     );
 }

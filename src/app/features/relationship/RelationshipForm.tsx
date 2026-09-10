@@ -193,7 +193,6 @@ export function RelationshipForm({
                     checked={values.active}
                     onCheckedChange={(active) => update({ active })}
                     aria-label="Relationship active"
-                    className="data-[state=checked]:bg-[#30214E]"
                 />
             </div>
         </div>

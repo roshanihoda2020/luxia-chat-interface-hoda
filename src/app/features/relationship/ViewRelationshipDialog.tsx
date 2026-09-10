@@ -41,7 +41,7 @@ export function ViewRelationshipDialog({
                     <DialogTitle className="luxia-type-title-panel">{relationshipName(item)}</DialogTitle>
                 </DialogHeader>
 
-                <div className="space-y-3">
+                <div className="space-y-3 px-6 py-4">
                     <p className="luxia-type-metadata" style={{ color: LX.textSecondary }}>
                         Type: <span className="font-semibold" style={{ color: LX.primary }}>{item.type}</span>
                     </p>
@@ -66,7 +66,7 @@ export function ViewRelationshipDialog({
                 </div>
 
                 <DialogFooter>
-                    <Button type="button" className="rounded-full px-4" onClick={() => onOpenChange(false)}>Close</Button>
+                    <Button type="button" variant="primary" onClick={() => onOpenChange(false)}>Close</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

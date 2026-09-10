@@ -1,0 +1,612 @@
+/**
+ * Shared Settings / Access / Creation surface hierarchy.
+ * Scoped to settings workflows — does not redefine global Chat tokens.
+ */
+
+:root {
+  --luxia-settings-canvas: var(--luxia-neutral-100);
+  --luxia-settings-panel-bg: var(--luxia-surface);
+  --luxia-settings-panel-border: var(--luxia-border-strong);
+  --luxia-settings-section-bg: var(--luxia-neutral-50);
+  --luxia-settings-section-border: var(--luxia-border-default);
+  --luxia-settings-row-divider: var(--luxia-border-default);
+  --luxia-settings-selected-bg: var(--luxia-opacity-brand-secondary-08);
+  --luxia-settings-selected-border: transparent;
+  --luxia-settings-hover-bg: var(--luxia-opacity-brand-primary-04);
+  --luxia-settings-tablist-bg: var(--luxia-neutral-50);
+  --luxia-settings-tablist-border: var(--luxia-border-default);
+  --luxia-settings-tab-active-bg: var(--luxia-opacity-brand-secondary-12);
+  --luxia-settings-tab-active-bg-hover: var(--luxia-opacity-brand-secondary-16);
+  --luxia-settings-tab-active-border: var(--luxia-purple-50);
+  --luxia-settings-tab-active-text: var(--luxia-purple-70);
+  --luxia-settings-tab-hover-bg: var(--luxia-opacity-brand-primary-08);
+  --luxia-settings-tab-focus-ring: var(--luxia-opacity-brand-secondary-32);
+}
+
+/* Level 2 — primary settings / creation content panel */
+.luxia-settings-content-surface {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  background: var(--luxia-settings-panel-bg);
+  border: 1px solid var(--luxia-settings-panel-border);
+  border-radius: var(--luxia-radius-12);
+  box-shadow: var(--luxia-shadow-xs);
+  padding: var(--luxia-spacing-24);
+}
+
+.luxia-settings-content-surface.is-flush {
+  padding: 0;
+}
+
+.luxia-settings-content-surface.is-padded-sm {
+  padding: var(--luxia-spacing-16);
+}
+
+/* Level 3 — grouped section / summary / matrix shell */
+.luxia-settings-section-surface {
+  box-sizing: border-box;
+  background: var(--luxia-settings-section-bg);
+  border: 1px solid var(--luxia-settings-section-border);
+  border-radius: var(--luxia-radius-12);
+  padding: var(--luxia-spacing-16);
+}
+
+.luxia-settings-summary-surface {
+  box-sizing: border-box;
+  background: var(--luxia-settings-section-bg);
+  border: 1px solid var(--luxia-settings-section-border);
+  border-radius: var(--luxia-radius-12);
+  padding: var(--luxia-spacing-16);
+}
+
+/* Level 3 — list / table containers */
+.luxia-settings-list-surface,
+.luxia-settings-table-surface {
+  box-sizing: border-box;
+  overflow: hidden;
+  background: var(--luxia-settings-panel-bg);
+  border: 1px solid var(--luxia-settings-section-border);
+  border-radius: var(--luxia-radius-12);
+}
+
+.luxia-settings-table-surface thead tr,
+.luxia-settings-table-surface [data-slot="table-header"] {
+  background: var(--luxia-settings-section-bg);
+}
+
+/* Level 4 — interactive / repeating rows */
+.luxia-settings-row {
+  border-top: 1px solid var(--luxia-settings-row-divider);
+  transition: background-color 140ms ease;
+}
+
+.luxia-settings-row:first-child {
+  border-top: 0;
+}
+
+/* Avoid double borders when Tailwind divide-y is also applied */
+.divide-y > .luxia-settings-row {
+  border-top: 0;
+}
+
+.luxia-settings-row.is-interactive:hover {
+  background: var(--luxia-settings-hover-bg);
+}
+
+.luxia-settings-row.is-selected {
+  background: var(--luxia-settings-selected-bg);
+  /* Soft tint only — checkbox is the primary selected indicator; no purple outline */
+  outline: none;
+}
+
+/* Stronger form control borders inside settings panels */
+.luxia-settings-content-surface [data-slot="input"],
+.luxia-settings-content-surface [data-slot="textarea"],
+.luxia-settings-content-surface [data-slot="select-trigger"],
+.luxia-settings-content-surface [data-slot="combobox-field"] {
+  border-color: var(--luxia-border-strong);
+}
+
+.luxia-settings-content-surface [data-slot="input"]:hover,
+.luxia-settings-content-surface [data-slot="textarea"]:hover,
+.luxia-settings-content-surface [data-slot="select-trigger"]:hover,
+.luxia-settings-content-surface [data-slot="combobox-field"]:hover {
+  border-color: color-mix(in srgb, var(--luxia-brand-primary) 28%, var(--luxia-border-strong));
+}
+
+.luxia-settings-content-surface [data-slot="input"]:focus-visible,
+.luxia-settings-content-surface [data-slot="textarea"]:focus-visible,
+.luxia-settings-content-surface [data-slot="select-trigger"]:focus-visible,
+.luxia-settings-content-surface [data-slot="combobox-field"]:focus-within {
+  border-color: var(--luxia-purple-60);
+  box-shadow: 0 0 0 3px var(--luxia-opacity-brand-secondary-24);
+}
+
+/* Tab list — restrained frame + soft purple active state */
+.luxia-settings-tablist {
+  background: var(--luxia-settings-tablist-bg) !important;
+  border-color: var(--luxia-settings-tablist-border) !important;
+  box-shadow: none;
+}
+
+.luxia-settings-tablist [data-slot="tabs-trigger"] {
+  box-sizing: border-box;
+  background-color: transparent;
+  color: var(--luxia-text-primary);
+  border: 1px solid transparent;
+  outline: none;
+  box-shadow: none;
+  font-weight: 400;
+  transition:
+    color 140ms ease,
+    background-color 140ms ease,
+    border-color 140ms ease;
+}
+
+.luxia-settings-tablist [data-slot="tabs-trigger"]:hover:not(:disabled):not([data-state="active"]) {
+  background-color: var(--luxia-settings-tab-hover-bg);
+  color: var(--luxia-purple-70);
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.luxia-settings-tablist [data-slot="tabs-trigger"][data-state="active"] {
+  background-color: var(--luxia-settings-tab-active-bg);
+  color: var(--luxia-settings-tab-active-text);
+  border-color: var(--luxia-settings-tab-active-border);
+  box-shadow: none;
+}
+
+.luxia-settings-tablist [data-slot="tabs-trigger"][data-state="active"]:hover:not(:disabled) {
+  background-color: var(--luxia-settings-tab-active-bg-hover);
+  color: var(--luxia-settings-tab-active-text);
+  border-color: var(--luxia-settings-tab-active-border);
+  box-shadow: none;
+}
+
+/* Keyboard focus only — outline sits outside the active boundary, no permanent ring */
+.luxia-settings-tablist [data-slot="tabs-trigger"]:focus-visible {
+  outline: 2px solid var(--luxia-settings-tab-focus-ring);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+.luxia-settings-tablist [data-slot="tabs-trigger"][data-state="active"]:focus-visible {
+  outline: 2px solid var(--luxia-settings-tab-focus-ring);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+.luxia-settings-tablist [data-slot="tabs-trigger"]:disabled,
+.luxia-settings-tablist [data-slot="tabs-trigger"][disabled] {
+  color: var(--luxia-text-secondary);
+  opacity: 0.72;
+}
+
+/* CSV import dropzone — white card on the settings canvas, hover/drag tint only */
+.luxia-csv-dropzone {
+  box-sizing: border-box;
+  cursor: pointer;
+  border: 1.5px dashed var(--luxia-border-strong);
+  border-radius: var(--luxia-radius-12);
+  background: var(--luxia-surface);
+  text-align: center;
+  outline: none;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease;
+}
+
+.luxia-csv-dropzone:hover {
+  border-color: var(--luxia-purple-50);
+  background: var(--luxia-opacity-brand-secondary-08);
+}
+
+.luxia-csv-dropzone.is-active {
+  border-style: solid;
+  border-color: var(--luxia-purple-50);
+  background: var(--luxia-opacity-brand-secondary-12);
+}
+
+.luxia-csv-dropzone-icon {
+  color: var(--luxia-purple-60);
+}
+
+.luxia-csv-dropzone:hover .luxia-csv-dropzone-icon,
+.luxia-csv-dropzone.is-active .luxia-csv-dropzone-icon {
+  color: var(--luxia-purple-70);
+}
+
+/* CSV file switcher — compact selectable file items, shared across wizard steps */
+.luxia-csv-file-switcher-frame {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.luxia-csv-file-switcher-meta {
+  margin: 0;
+  font-family: var(--font-family);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+  color: var(--luxia-text-secondary);
+}
+
+.luxia-csv-file-switcher {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 4px;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 4px;
+  background: var(--luxia-settings-tablist-bg);
+  border: 1px solid var(--luxia-settings-tablist-border);
+  border-radius: var(--luxia-radius-12);
+  box-shadow: none;
+}
+
+.luxia-csv-file-switcher.luxia-scrollbar-horizontal {
+  scrollbar-color: rgba(148, 163, 184, 0.22) transparent;
+}
+
+.luxia-csv-file-switcher.luxia-scrollbar-horizontal::-webkit-scrollbar {
+  height: 2px;
+}
+
+.luxia-csv-file-switcher.luxia-scrollbar-horizontal::-webkit-scrollbar-track {
+  background: transparent;
+  margin-top: 0;
+}
+
+.luxia-csv-file-switcher-tab {
+  box-sizing: border-box;
+  position: relative;
+  display: flex;
+  width: 8.75rem;
+  min-width: 8.75rem;
+  max-width: 8.75rem;
+  flex-shrink: 0;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 6px;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid transparent;
+  border-radius: var(--luxia-radius-8);
+  padding: 4px 16px 4px 8px;
+  background: transparent;
+  color: var(--luxia-text-primary);
+  text-align: left;
+  cursor: pointer;
+  font-weight: 400;
+  box-shadow: none;
+  transition:
+    color 140ms ease,
+    background-color 140ms ease,
+    border-color 140ms ease;
+}
+
+.luxia-csv-file-switcher-tab-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--luxia-text-muted);
+}
+
+.luxia-csv-file-switcher-tab:hover .luxia-csv-file-switcher-tab-icon,
+.luxia-csv-file-switcher-tab[aria-selected="true"] .luxia-csv-file-switcher-tab-icon {
+  color: currentColor;
+}
+
+.luxia-csv-file-switcher-tab-body {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+}
+
+.luxia-csv-file-switcher-tab:hover {
+  background: var(--luxia-settings-tab-hover-bg);
+  color: var(--luxia-purple-70);
+  border-color: transparent;
+}
+
+.luxia-csv-file-switcher-tab[aria-selected="true"] {
+  background: var(--luxia-settings-tab-active-bg);
+  border-color: var(--luxia-settings-tab-active-border);
+  color: var(--luxia-settings-tab-active-text);
+  box-shadow: none;
+}
+
+.luxia-csv-file-switcher-tab[aria-selected="true"]:hover {
+  background: var(--luxia-settings-tab-active-bg-hover);
+  border-color: var(--luxia-settings-tab-active-border);
+  color: var(--luxia-settings-tab-active-text);
+}
+
+.luxia-csv-file-switcher-tab:focus {
+  outline: none;
+}
+
+.luxia-csv-file-switcher-tab:focus-visible {
+  outline: 2px solid var(--luxia-settings-tab-focus-ring);
+  outline-offset: 2px;
+}
+
+.luxia-csv-file-switcher-remove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  z-index: 1;
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: var(--luxia-radius-4);
+  padding: 0;
+  background: transparent;
+  color: var(--luxia-text-muted);
+  opacity: 0;
+  cursor: pointer;
+}
+
+.luxia-csv-file-switcher-tab:hover .luxia-csv-file-switcher-remove,
+.luxia-csv-file-switcher-tab:focus-within .luxia-csv-file-switcher-remove,
+.luxia-csv-file-switcher-remove:focus-visible {
+  opacity: 1;
+}
+
+.luxia-csv-file-switcher-remove:hover,
+.luxia-csv-file-switcher-remove:focus-visible {
+  color: var(--luxia-text-primary);
+  background: var(--luxia-settings-hover-bg);
+}
+
+.luxia-csv-file-switcher-remove:focus-visible {
+  outline: 2px solid var(--luxia-border-focus);
+  outline-offset: 1px;
+}
+
+@media (hover: none) {
+  .luxia-csv-file-switcher-remove {
+    opacity: 1;
+  }
+}
+
+.luxia-csv-file-switcher-tab-name {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  font-weight: 400;
+  color: inherit;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.luxia-csv-file-switcher-tab-name:has(.luxia-csv-file-switcher-tab-name-base) {
+  display: flex;
+  text-overflow: clip;
+}
+
+.luxia-csv-file-switcher-tab-name-base {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.luxia-csv-file-switcher-tab-name-ext {
+  flex-shrink: 0;
+}
+
+.luxia-csv-file-switcher-tab-status {
+  display: inline-flex;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+  font-family: var(--font-family);
+  font-size: 12px;
+  line-height: 14px;
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.luxia-csv-file-switcher-tab-status > span:first-child {
+  width: 5px;
+  height: 5px;
+  flex-shrink: 0;
+}
+
+.luxia-csv-file-switcher-tab-status > span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.luxia-csv-file-switcher-add {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  align-self: stretch;
+  gap: 4px;
+  flex-shrink: 0;
+  margin: 0;
+  border: 1px solid transparent;
+  border-radius: var(--luxia-radius-8);
+  padding: 4px 8px;
+  background: transparent;
+  color: var(--luxia-text-secondary);
+  cursor: pointer;
+  font-family: var(--font-family);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+  white-space: nowrap;
+  box-shadow: none;
+  transition:
+    color 140ms ease,
+    background-color 140ms ease;
+}
+
+.luxia-csv-file-switcher-add:hover:not(:disabled) {
+  background: var(--luxia-settings-tab-hover-bg);
+  color: var(--luxia-purple-70);
+}
+
+.luxia-csv-file-switcher-add:focus {
+  outline: none;
+}
+
+.luxia-csv-file-switcher-add:focus-visible {
+  outline: 2px solid var(--luxia-settings-tab-focus-ring);
+  outline-offset: 2px;
+}
+
+.luxia-csv-file-switcher-add:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+/* CSV Schema preview — one shared grid for header, body, and editor rows */
+.luxia-csv-schema-scroll {
+  container-type: inline-size;
+  overflow-x: auto;
+  overflow-y: auto;
+  width: 100%;
+  min-width: 0;
+}
+
+.luxia-csv-schema-issue-bar {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.luxia-csv-schema-grid {
+  display: grid;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.luxia-csv-schema-grid-row {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  min-width: 0;
+  align-items: center;
+  box-sizing: border-box;
+}
+
+.luxia-csv-schema-grid-row.is-header {
+  align-items: start;
+  background: var(--luxia-settings-section-bg);
+  border-bottom: 2px solid var(--luxia-settings-panel-border);
+}
+
+.luxia-csv-schema-grid-row.is-body {
+  border-top: 1px solid var(--luxia-settings-row-divider);
+  background: var(--luxia-settings-panel-bg);
+}
+
+.luxia-csv-schema-grid-row.is-body.is-error {
+  background: var(--luxia-error-10);
+  border-top-color: var(--luxia-opacity-error-24);
+}
+
+.luxia-csv-schema-grid-row.is-body.is-excluded {
+  background: var(--luxia-warning-10);
+  border-top-color: var(--luxia-settings-row-divider);
+}
+
+.luxia-csv-schema-grid-cell {
+  box-sizing: border-box;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.luxia-csv-schema-grid-cell.is-invalid {
+  background: var(--luxia-opacity-error-08);
+}
+
+.luxia-csv-schema-invalid-value {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--luxia-error-70);
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.luxia-csv-schema-invalid-value:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.luxia-csv-schema-invalid-value:focus {
+  outline: none;
+}
+
+.luxia-csv-schema-invalid-value:focus-visible {
+  border-radius: 2px;
+  box-shadow: 0 0 0 2px var(--luxia-border-focus);
+}
+
+.luxia-csv-schema-grid-cell.is-actions {
+  overflow: visible;
+}
+
+.luxia-csv-schema-grid-span {
+  grid-column: 1 / -1;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.luxia-csv-schema-editor {
+  align-items: stretch;
+  background: var(--luxia-error-10);
+  border-top: 1px solid var(--luxia-opacity-error-24);
+}
+
+.luxia-csv-schema-editor.is-error {
+  background: var(--luxia-error-10);
+}
+
+.luxia-csv-schema-editor-cell {
+  grid-column: 1 / -1;
+  min-width: 0;
+  overflow: visible;
+}
+
+.luxia-csv-schema-editor-inner {
+  position: sticky;
+  left: 0;
+  box-sizing: border-box;
+  min-width: 0;
+  width: 100%;
+  width: 100cqw;
+}

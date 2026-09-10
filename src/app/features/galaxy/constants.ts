@@ -15,7 +15,7 @@ export type GalaxyRoutingPhase =
 export type GalaxyMatchedConstellation = {
   id: string;
   label: string;
-  type: "PDF" | "DB";
+  type: "PDF" | "CSV" | "DB";
 };
 
 export type GalaxyRelevance = "High relevance" | "Medium relevance" | "Low relevance";
@@ -23,7 +23,7 @@ export type GalaxyRelevance = "High relevance" | "Medium relevance" | "Low relev
 export type GalaxyCandidate = {
   id: string;
   label: string;
-  type: "PDF" | "DB";
+  type: "PDF" | "CSV" | "DB";
   relevance: GalaxyRelevance;
 };
 
@@ -57,7 +57,7 @@ export type GalaxySessionState = {
 };
 
 export const GALAXY_DEFAULT_INSTRUCTION =
-  "Answer using official financial policy only.\nPrefer latest approved documentation.\nIgnore archived reports.";
+  "Prioritize approved Project knowledge and provide concise, grounded responses.";
 
 export const GALAXY_DEFAULT_DESCRIPTION =
   "Routes questions across this project's knowledge to find the most relevant constellation and verified sources.";
@@ -118,21 +118,29 @@ export const GALAXY_OVERVIEW_SCOPE: {
 export type GalaxyControlRouteOption = {
   id: string;
   label: string;
-  type: "PDF" | "DB";
+  type: "PDF" | "CSV" | "DB";
   projectName?: string;
 };
 
 export function buildGalaxyRouteCatalog(
   _projectName: string,
-  _seeds: Array<{ id: string; label: string; type: "PDF" | "DB" }> = [],
+  seeds: Array<{ id: string; label: string; type: "PDF" | "CSV" | "DB" }> = [],
   total = GALAXY_MOCK_ROUTE_OPTION_COUNT,
 ): GalaxyControlRouteOption[] {
+  if (seeds.length > 0) {
+    return seeds.map((seed) => ({
+      id: seed.id,
+      label: seed.label,
+      type: seed.type,
+    }));
+  }
+
   const out: GalaxyControlRouteOption[] = [];
   for (let i = 1; i <= total; i += 1) {
     out.push({
       id: `galaxy-mock-${i}`,
       label: `Constellation ${i}`,
-      type: i % 3 === 0 ? "DB" : "PDF",
+      type: i % 3 === 0 ? "DB" : i % 3 === 1 ? "CSV" : "PDF",
     });
   }
   return out;

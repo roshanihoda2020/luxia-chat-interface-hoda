@@ -59,13 +59,13 @@ export function InstructionAttachment({
                     </div>
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-full" aria-label="Replace attached file" onClick={() => inputRef.current?.click()}>
+                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7 " aria-label="Replace attached file" onClick={() => inputRef.current?.click()}>
                                 <RefreshCw size={14} style={{ color: LX.textMuted }} />
                             </Button>
                         </TooltipTrigger>
                         <TooltipContent sideOffset={6}>Replace</TooltipContent>
                     </Tooltip>
-                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-full" aria-label="Remove attached file" onClick={onRemove}>
+                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7 " aria-label="Remove attached file" onClick={onRemove}>
                                 <X size={14} style={{ color: LX.textMuted }} />
                             </Button>
                 </div>

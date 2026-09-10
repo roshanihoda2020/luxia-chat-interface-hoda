@@ -20,13 +20,13 @@ export function RelationshipRow({
 }) {
     return (
         <div
-            className="group/item flex items-center gap-2 rounded-[14px] border px-2.5 py-2"
-            style={{ borderColor: LX.border, background: LX.subtle }}
+            className="group/item flex items-center gap-2 rounded-[10px] px-2.5 py-2 transition-colors hover:bg-[var(--luxia-opacity-brand-primary-04)]"
+            style={{ background: "transparent" }}
             onClick={(event) => event.stopPropagation()}
         >
             <div
                 className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[10px]"
-                style={{ background: LX.surface, border: `1px solid ${LX.border}` }}
+                style={{ background: LX.subtle }}
             >
                 <GitBranch size={14} style={{ color: LX.secondary }} />
             </div>
@@ -49,7 +49,6 @@ export function RelationshipRow({
                     checked={item.active}
                     onCheckedChange={onToggleActive}
                     aria-label={`Toggle ${relationshipName(item)} active`}
-                    className="data-[state=checked]:bg-[#30214E]"
                 />
                 <RelationshipMenu onView={onView} onEdit={onEdit} onRemove={onRemove} />
             </div>

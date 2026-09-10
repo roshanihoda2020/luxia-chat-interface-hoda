@@ -1,7 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import ReactDOM from "react-dom";
-import luxiaWordmarkUrl from "@/assets/brand/Luxia-Star.svg";
-import sidebarStarLogoUrl from "@/assets/brand/Star.svg";
 import flagUs from "@/assets/flags/us.svg";
 import flagIt from "@/assets/flags/it.svg";
 import flagSa from "@/assets/flags/sa.svg";
@@ -22,14 +20,9 @@ import {
   GalaxyActivityPanel,
   GalaxyCollapsedRail,
   GalaxyEmptyState,
-  GalaxyProvenanceRow,
   GalaxyRouteSelector,
   GALAXY_COLLAPSED_WIDTH,
-  GALAXY_MOCK_ANSWER,
-  GALAXY_MOCK_CANDIDATES,
-  GALAXY_MOCK_CONSTELLATIONS_CHECKED,
-  GALAXY_MOCK_MATCHED,
-  GALAXY_MOCK_SOURCES,
+  GALAXY_DEFAULT_INSTRUCTION,
   GALAXY_PANEL_OUTER_GAP,
   buildGalaxyRouteCatalog,
   createIdleGalaxySession,
@@ -38,9 +31,267 @@ import {
   type GalaxyRoutingPhase,
   type GalaxySessionState,
 } from "@/app/features/galaxy";
+import {
+  HomePage,
+  HomePageShell,
+  NewProjectModal,
+  HOME_PROJECTS,
+  HOME_RECENT_WORK,
+  HERO_DESCRIPTION_PLACEHOLDER,
+  getChatEntityKey,
+  getGalaxyEntityKey,
+  getProjectPath,
+  getGalaxyPath,
+  getGalaxySettingsPath,
+  getDashboardPath,
+  getChatPath,
+  getConstellationChatPath,
+  getConstellationsPath,
+  getProjectChatsPath,
+  getProjectActivityPath,
+  getConstellationCreatePath,
+  getConstellationSettingsPath,
+  getConstellationSettingsCapabilityPath,
+  getProjectMembersPath,
+  getProjectVidgetsPath,
+  getVidgetSettingsPath,
+  getVidgetInboxPath,
+  getAccessLevelsPath,
+  getAccessLevelPath,
+  getOrganizationUsersPath,
+  getOrganizationUserPath,
+  getDataSourcesPath,
+  getDataSourceSettingsPath,
+  isHomePath,
+  resolveLuxiaPathname,
+  homePrimaryPreferencesEqual,
+  normalizeHomePrimaryPreference,
+  parseEntityKey,
+  readDismissedContinueKeys,
+  readHomePrimaryPreference,
+  readPinnedEntityOrder,
+  readPinnedProjectIds,
+  togglePinnedEntityKey,
+  togglePinnedProjectId,
+  workItemEntityKey,
+  writeDismissedContinueKeys,
+  writeHomePrimaryPreference,
+  writePinnedEntityOrder,
+  writePinnedProjectIds,
+} from "@/app/features/home";
+import type { HomeBrowseMode, HomeProjectCard, HomeRecentWorkItem } from "@/app/features/home";
+import { getProjectNameById, ProjectManageDialogs, deriveProjectEntityCounts, filterActiveProjects } from "@/app/features/project";
+import type { ProjectManageMode, ProjectConstellationSourceEntry } from "@/app/features/project";
+import {
+  ConstellationSettingsPage,
+  ConstellationCapabilityManagePage,
+  ConstellationCreatePage,
+  CONSTELLATION_SETTINGS_RECORDS,
+  buildSettingsForConstellation,
+  buildConnectedSourceFromCreationDraft,
+  buildCapabilityBundleFromCreationDraft,
+  getReviewReadiness,
+  cloneConstellationSettingsRecord,
+  getConstellationSettingsRecord,
+  createSeedCapabilityBundle,
+  cloneCapabilityBundle,
+  summarizeCapabilityBundle,
+  type ConstellationSettingsRecord,
+  type ConstellationSettingsDraft,
+  type ConstellationSettingsSectionId,
+  type ConnectedDataSource,
+  type ConstellationCapabilityBundle,
+  type ConstellationCreationDraft,
+  type ConstellationCreateNavigationGuard,
+  constellationSettingsSectionToTab,
+  parseConstellationSettingsTabFromSearch,
+} from "@/app/features/constellation-settings";
+import {
+  GalaxySettingsPage,
+  GALAXY_CONFIGURE_DENIED_MESSAGE,
+  GALAXY_MANUAL_ROUTE_REQUIRED_MESSAGE,
+  buildGalaxyConstellationRoutingItems,
+  buildGalaxySettingsRecord,
+  cloneGalaxySettingsRecord,
+  galaxySettingsSectionToTab,
+  parseGalaxySettingsTabFromSearch,
+  type GalaxySettingsDraft,
+  type GalaxySettingsRecord,
+  type GalaxySettingsSectionId,
+} from "@/app/features/galaxy-settings";
+import {
+  DataSourcesPage,
+  NewDataSourceFlow,
+  CreateConstellationFromDataSourceDialog,
+  ConnectDataSourceToConstellationDialog,
+  listProjectsWhereUserCanCreateConstellation,
+  listConstellationsUserCanConfigure,
+} from "@/app/features/data-sources";
+import { commitDataSourceTagBucket, type DataSourceTagBucket } from "@/app/features/document-tags";
+import {
+  LuxiaSettingsDialog,
+  organizationSettingsSectionToAccountSection,
+  parseOrganizationSettingsTabFromSearch,
+  parsePersonalSettingsTabFromSearch,
+  personalSettingsSectionToAccountSection,
+  type AccountSettingsSectionId,
+} from "@/app/features/settings";
+import { Toaster, toast } from "sonner";
+import {
+  CAPSULE_CAPABILITY_ICON,
+  CAPSULE_CAPABILITY_PATH,
+  capabilityIdFromPath,
+  isCapsuleCapabilityAllowed,
+  CANONICAL_CONSTELLATIONS,
+  getCanonicalConstellationById,
+  getConstellationSourceCount,
+  type CapsuleCapabilityId,
+} from "@/app/features/constellation";
+import {
+  AccessLevelsPage,
+  AccessLevelEditorPage,
+  OrganizationUsersPage,
+  OrganizationUserDetailPage,
+  InviteOrganizationUserDialog,
+  ProjectMembersPage,
+  DataSourceSettingsPage,
+  canUserAccessDataSource,
+  ACCESS_LEVELS,
+  PROJECT_MEMBERSHIPS,
+  ORGANIZATION_USERS,
+  DATA_SOURCE_CATALOG,
+  CURRENT_USER_ID,
+  getOrganizationUserById,
+  setOrganizationUsersRuntime,
+  buildEmptyAccessLevel,
+  cloneAccessLevel,
+  getDataSourceById,
+  getDataSourceOwnerDisplay,
+  getProjectRequiredDataSourceIds,
+  buildSourceAccessSummaryRow,
+  buildDataSourceAccessSummary,
+  hasConstellationConnectAccess,
+  ACCESS_LEVEL_DENIED_MESSAGE,
+  ACCESS_LEVEL_CREATE_DENIED_MESSAGE,
+  CONSTELLATION_CONFIGURE_DENIED_MESSAGE,
+  CONSTELLATION_KNOWLEDGE_DENIED_MESSAGE,
+  PROJECT_ACTION_DENIED_MESSAGE,
+  PROJECT_CREATE_DENIED_MESSAGE,
+  canAdministerAccessLevels,
+  canArchiveConstellation,
+  canArchiveProject,
+  canAccessProject,
+  canAdministerProjectConfiguration,
+  canEditConstellationKnowledge,
+  canEditGalaxySettings,
+  canCreateOrganizationalDataSource,
+  canCreateProject,
+  canDeleteConstellation,
+  canDeleteProject,
+  canViewOrganizationAnalytics,
+  countProjectMembers,
+  evaluateConstellationUseAccess,
+  getAccessibleConstellationIds,
+  getActiveProjectMembership,
+  isWorkingChatAccessible,
+  setPrototypeCurrentUserId,
+  formatDemoIdentityContextLabel,
+} from "@/app/features/permissions";
+import type {
+  AccessLevelRecord,
+  DataSourceSettingsFocusSection,
+  InviteOrganizationUserPayload,
+  OrganizationUser,
+  PrototypeMfaMethod,
+} from "@/app/features/permissions";
+import {
+  ProjectOverviewPage,
+  ProjectDashboardPage,
+  ChatsLibrary,
+  ConstellationsLibrary,
+  ActivityLibrary,
+  CONSTELLATION_SOURCE_COUNTS,
+  getProjectActivity,
+  getProjectDashboardOutputs,
+  buildActivityNavigationContext,
+  openProjectActivity,
+  type ProjectNavSection,
+  type ProjectOverviewBrowseMode,
+  type ProjectOverviewChat,
+  type ProjectOverviewConstellation,
+  type ProjectActivityItem,
+} from "@/app/features/project-overview";
+import { PROJECT_DASHBOARD_OUTPUTS } from "@/app/features/project-overview/data";
+import {
+  ProjectAssistantHost,
+  type ProjectAssistantMessage,
+} from "@/app/features/project-assistant";
+import {
+  SEED_VIDGETS,
+  cloneVidget,
+  duplicateVidget,
+  buildEmptyVidget,
+  getVidgetsForProject,
+  getVidgetForProject,
+  resolveVidgetSourceDisplay,
+  canManageVidgets,
+  canReviewVidgetInbox,
+  VIDGET_MANAGE_DENIED_MESSAGE,
+  VIDGET_INBOX_DENIED_MESSAGE,
+  resolveVidgetCreateSource,
+  withLockedVidgetSource,
+  validateVidgetScopeForProject,
+  VidgetsPage,
+  VidgetSettingsPage,
+  CreateVidgetDialog,
+  parseVidgetSettingsTabFromSearch,
+  vidgetSettingsSectionToTab,
+  type VidgetCreateSourcePreset,
+  type VidgetSettingsSectionId,
+  type CreateVidgetSubmitPayload,
+} from "@/app/features/vidgets";
+import {
+  VidgetInboxPage,
+  serializeVidgetInboxQuery,
+  parseVidgetInboxQueryFromSearch,
+  vidgetInboxQueryFromPartial,
+  type VidgetInboxQuery,
+  type VidgetInboxRefinePayload,
+} from "@/app/features/vidget-inbox";
+import { parseLuxiaRelativeTimestamp } from "@/app/features/project-overview/projectOverviewPreview";
+import {
+  LuxiaBreadcrumb,
+  buildChatBreadcrumbItems,
+  buildGalaxyBreadcrumbItems,
+} from "@/app/components/LuxiaBreadcrumb";
+import { LuxiaPageHeader, LuxiaPageHeaderShell, LUXIA_PAGE_INTRO, LUXIA_PAGE_HEADER_ACTION } from "@/app/components/LuxiaPageHeader";
+import { LuxiaEntityOptionsMenu } from "@/app/components/LuxiaEntityOptionsMenu";
+import { ResponseActionsFooter } from "@/app/features/chat/ResponseActionsFooter";
+import { LuxiaResponseCard } from "@/app/features/chat/LuxiaResponseCard";
+import type { LuxiaResponsePresentation } from "@/app/features/chat/LuxiaResponseCard";
+import {
+  hydrateMessageResponsePresentation,
+  makeResponseConfidenceDemoMessages,
+} from "@/app/features/constellation-settings/responseConfidence";
 import { LX } from "@/app/features/active-data-tables/tokens";
 import { IC, IC_BTN_ICON, IC_BTN_OPEN, IC_CARD_HEADER, IC_INPUT_TEXT, IC_SEARCH_SHELL, IC_SEARCH_SHELL_STYLE, icCardStyle, icHoverOff, icHoverOn, icInspectorAccentStyle, icInspectorDescriptionColor, icInspectorTitleColor, icOpenActiveOn, icSearchShellBlur, icSearchShellFocus, icSearchShellHoverOff, icSearchShellHoverOn, icTextareaStyle } from "@/app/features/active-data-tables/inspectorTheme";
 import { Button } from "@/app/components/ui/button";
+import { LuxiaAiButton } from "@/app/components/LuxiaAiButton";
+import { cn } from "@/app/components/ui/utils";
+import {
+  LUXIA_DIALOG_CLOSE_ON_DARK_CLASS,
+  STRUCTURED_MODAL_DARK_CHROME_STYLE,
+} from "@/app/features/shared/structuredModalChrome";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/app/components/ui/alert-dialog";
 import { Badge } from "@/app/components/ui/badge";
 import { Label } from "@/app/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/app/components/ui/radio-group";
@@ -48,17 +299,28 @@ import { SearchableSelect } from "@/app/components/ui/searchable-select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/app/components/ui/tooltip";
 import {
   ChevronDown, ChevronRight, ChevronLeft,
-  Plus, X, Pin, Copy, Bookmark, SquareArrowOutUpRight,
-  FileText, Database, Globe, BookOpen, FolderOpen, Cpu,
+  Plus, X, Pin, Copy, SquareArrowOutUpRight,
+  FileText, Database, BookOpen,
   Send, Mic, Eye, Upload, GripVertical,
   Trash2, Check, Edit3, BarChart3, Table2,
-  Home, Users, LayoutGrid, Bot,
-  Bell, Wrench, HelpCircle,
-  MessageSquare, Network, Star,
-  RefreshCw, Search, MoreHorizontal, Wand2,
-  AlignLeft, Layers, Settings2, Pencil, Share2, List, FileBarChart2,
+  Search, MoreHorizontal,
+  AlignLeft, Layers, Share2, List, FileBarChart2,
   type LucideIcon,
 } from "lucide-react";
+import {
+  LuxiaAiIcon,
+  LuxiaGalaxyIcon,
+  LuxiaHomeIcon,
+  LuxiaSettingsIcon,
+} from "@/assets/icons";
+import {
+  LeftNav,
+  SIDEBAR_WIDTH_EXPANDED,
+  SIDEBAR_WIDTH_COLLAPSED,
+  SIDEBAR_SECONDARY_WIDTH,
+  LEFT_NAV_COLLAPSED_STORAGE_KEY,
+  LEFT_NAV_MOBILE_BREAKPOINT,
+} from "@/app/features/navigation/LeftNav";
 
 const CONSTELLATION_STYLE: Record<string, {
   color: string; bg: string; activeBg: string;
@@ -72,6 +334,13 @@ const CONSTELLATION_STYLE: Record<string, {
     activeBorder: "rgba(118,82,196,0.35)",
   },
   pdf: {
+    color: "#2B8DC4",
+    bg: "rgba(43,141,196,0.05)",
+    activeBg: "rgba(43,141,196,0.10)",
+    border: "rgba(43,141,196,0.18)",
+    activeBorder: "rgba(43,141,196,0.35)",
+  },
+  csv: {
     color: "#2B8DC4",
     bg: "rgba(43,141,196,0.05)",
     activeBg: "rgba(43,141,196,0.10)",
@@ -106,24 +375,27 @@ function FlagCircle({ flagUrl, label, size = 24 }: { flagUrl: string; label: str
 }
 
 type SectionId = "kb" | "dataTable" | "contextFiles" | "relationship" | "metrics" | "instr" | "pdfFiles" | "crawler";
-type ConstellationType = "database" | "pdf";
+type ConstellationType = "database" | "csv" | "pdf";
 
 type SectionIcon = LucideIcon;
 
 const SECTION_META: Record<SectionId, { label: string; icon: SectionIcon }> = {
-  kb: { label: "Knowledge Base", icon: BookOpen },
-  dataTable: { label: "Active Data Tables", icon: Table2 },
-  contextFiles: { label: "Extra Context Files", icon: FolderOpen },
-  relationship: { label: "Relationship", icon: Network },
-  metrics: { label: "Metrics", icon: BarChart3 },
-  instr: { label: "Instruction", icon: Cpu },
-  pdfFiles: { label: "PDF Files", icon: FileText },
-  crawler: { label: "Crawler URLs", icon: Globe },
+  kb: { label: "Knowledge Base", icon: CAPSULE_CAPABILITY_ICON.kb },
+  dataTable: { label: "Active Data Tables", icon: CAPSULE_CAPABILITY_ICON.dataTable },
+  contextFiles: { label: "Extra Context Files", icon: CAPSULE_CAPABILITY_ICON.contextFiles },
+  relationship: { label: "Relationship", icon: CAPSULE_CAPABILITY_ICON.relationship },
+  metrics: { label: "Metrics", icon: CAPSULE_CAPABILITY_ICON.metrics },
+  instr: { label: "Instruction", icon: CAPSULE_CAPABILITY_ICON.instr },
+  pdfFiles: { label: "PDF Files", icon: CAPSULE_CAPABILITY_ICON.pdfFiles },
+  crawler: { label: "Crawler URLs", icon: CAPSULE_CAPABILITY_ICON.crawler },
 };
+
+const FILE_BASED_SECTIONS: SectionId[] = ["pdfFiles", "kb", "instr", "crawler"];
 
 const CONSTELLATION_SECTIONS: Record<ConstellationType, SectionId[]> = {
   database: ["dataTable", "kb", "instr", "contextFiles", "relationship", "metrics"],
-  pdf: ["pdfFiles", "kb", "instr", "crawler"],
+  pdf: FILE_BASED_SECTIONS,
+  csv: FILE_BASED_SECTIONS,
 };
 
 const SECTION_DEFAULTS: Partial<Record<SectionId, string[]>> = {
@@ -139,6 +411,7 @@ const SECTION_DEFAULTS: Partial<Record<SectionId, string[]>> = {
 const SECTION_INSTRUCTION: Record<ConstellationType, string> = {
   database: "Answer based on the connected data sources and documents.",
   pdf: "Extract and summarise information from the connected PDF files.",
+  csv: "Answer based on the connected CSV tabular data.",
 };
 
 interface KBEntry { id: string; question: string; answer: string; responseType?: string; }
@@ -226,6 +499,10 @@ interface Message {
   id: string; role: "user" | "ai"; content: string; timestamp: string;
   sources?: Source[]; insights?: ResponseInsights;
   galaxy?: GalaxyRoutingMeta;
+  responsePresentation?: {
+    state: LuxiaResponsePresentation;
+    notice?: string;
+  };
 }
 interface Chat {
   id: string;
@@ -254,8 +531,16 @@ type NewChatPayload = {
   constellationId?: string;
 };
 
-function getConstellationSourceLabel(type: ConstellationType): "PDF" | "DB" {
-  return type === "pdf" ? "PDF" : "DB";
+function getConstellationSourceLabel(type: ConstellationType): "PDF" | "CSV" | "DB" {
+  if (type === "pdf") return "PDF";
+  if (type === "csv") return "CSV";
+  return "DB";
+}
+
+function constellationBadgeVariant(type: ConstellationType): "database" | "csv" | "pdf" {
+  if (type === "csv") return "csv";
+  if (type === "pdf") return "pdf";
+  return "database";
 }
 
 function ConstellationSourceBadge({
@@ -267,7 +552,7 @@ function ConstellationSourceBadge({
 }) {
   return (
     <Badge
-      variant={type === "pdf" ? "pdf" : "database"}
+      variant={constellationBadgeVariant(type)}
       className={`min-h-0 h-[15px] px-1 py-0 luxia-type-badge ${className}`}
     >
       {getConstellationSourceLabel(type)}
@@ -296,148 +581,210 @@ function ConstellationNameWithSource({
   );
 }
 
-function getProjectConstellations(projectId: string) {
-  return CONSTELLATIONS.filter((c) => c.projectId === projectId);
+function getProjectConstellations(
+  projectId: string,
+  catalog: Constellation[] = CONSTELLATIONS,
+) {
+  return catalog.filter((c) => c.projectId === projectId);
 }
 
-function resolveChatConstellation(chat: Chat | undefined): Constellation {
-  if (chat?.chatType === "constellation" && chat.constellationId) {
-    return CONSTELLATIONS.find((c) => c.id === chat.constellationId) ?? CONSTELLATIONS[0];
-  }
-  const projectConstellations = getProjectConstellations(chat?.projectId ?? PROJECTS[0].id);
-  return projectConstellations[0] ?? CONSTELLATIONS[0];
-}
-
-const INSIGHTS_MIN_CONTENT_LENGTH = 220;
-
-function normalizeInsightText(value: string): string {
-  return value.toLowerCase().replace(/[^\w\s]/g, " ").replace(/\s+/g, " ").trim();
-}
-
-function shouldShowInsightsEligibleContent(content: string): boolean {
-  const normalized = content.trim();
-  if (!normalized) return false;
-
-  const paragraphs = normalized.split(/\n\s*\n/).filter((paragraph) => paragraph.trim());
-  const bulletLines = normalized.split("\n").filter((line) => line.trim().startsWith("- "));
-  const sentences = normalized.split(/(?<=[.!?])\s+/).filter(Boolean);
-
-  return (
-    normalized.length >= INSIGHTS_MIN_CONTENT_LENGTH ||
-    paragraphs.length >= 3 ||
-    bulletLines.length >= 2 ||
-    sentences.length >= 5
-  );
-}
-
-function insightsRepeatAnswer(content: string, items: string[]): boolean {
-  const normalizedContent = normalizeInsightText(content);
-  const redundant = items.filter((item) => {
-    const normalizedItem = normalizeInsightText(item);
-    if (!normalizedItem) return true;
-    if (normalizedContent.includes(normalizedItem)) return true;
-    const words = normalizedItem.split(" ").filter(Boolean);
-    if (words.length < 4) return normalizedContent.includes(normalizedItem);
-    return normalizedContent.includes(words.slice(0, 6).join(" "));
+function applyConstellationNameOverrides(
+  constellations: Constellation[],
+  settingsById: Record<string, ConstellationSettingsRecord>,
+): Constellation[] {
+  return constellations.map((item) => {
+    const settings = settingsById[item.id];
+    if (!settings?.name) return item;
+    return {
+      ...item,
+      label: settings.name,
+      description: settings.description || item.description,
+    };
   });
-  return redundant.length >= Math.ceil(items.length * 0.67);
 }
 
-function getResponseInsights(content: string, insights?: ResponseInsights): ResponseInsights | null {
-  if (!insights?.items?.length) return null;
-  const items = insights.items.map((item) => item.trim()).filter(Boolean).slice(0, 3);
-  if (items.length === 0) return null;
-  if (!shouldShowInsightsEligibleContent(content)) return null;
-  if (insightsRepeatAnswer(content, items)) return null;
-  return { format: insights.format, items };
+function homeProjectsAsSelectOptions(
+  projects: readonly HomeProjectCard[],
+): Project[] {
+  return projects.map((project) => ({
+    id: project.id,
+    label: project.name,
+  }));
 }
 
-function ResponseInsightsContent({ insights }: { insights: ResponseInsights }) {
-  if (insights.format === "paragraphs") {
-    return (
-      <div className="mt-3 space-y-2 pl-1 min-w-0">
-        {insights.items.map((item, i) => (
-          <p key={i} className="luxia-chat-text luxia-type-metadata" style={{ color: LX.textSecondary }}>
-            {item}
-          </p>
-        ))}
-      </div>
-    );
+function syncProjectNameInSettingsById(
+  prev: Record<string, ConstellationSettingsRecord>,
+  projectId: string,
+  projectName: string,
+): Record<string, ConstellationSettingsRecord> {
+  let changed = false;
+  const next = { ...prev };
+  for (const [id, record] of Object.entries(next)) {
+    if (record.projectId === projectId && record.projectName !== projectName) {
+      next[id] = { ...record, projectName };
+      changed = true;
+    }
   }
-
-  return (
-    <ul className="mt-3 space-y-1.5 pl-1 min-w-0">
-      {insights.items.map((item, i) => (
-        <li key={i} className="flex items-start gap-2 luxia-type-metadata min-w-0" style={{ color: LX.textSecondary }}>
-          <span
-            className="mt-[6px] w-[5px] h-[5px] rounded-full flex-shrink-0"
-            style={{ background: LX.accent }}
-          />
-          <span className="luxia-chat-text min-w-0">{item}</span>
-        </li>
-      ))}
-    </ul>
-  );
+  return changed ? next : prev;
 }
 
-const PROJECTS: Project[] = [
-  { id: "proj1", label: "Project 01" },
-  { id: "proj2", label: "Project 02" },
-  { id: "proj3", label: "Project 03" },
-];
+function withLiveProjectNameOnSettingsRecord(
+  record: ConstellationSettingsRecord,
+  projects: readonly HomeProjectCard[],
+): ConstellationSettingsRecord {
+  const projectName = getProjectNameById(record.projectId, projects);
+  return record.projectName === projectName ? record : { ...record, projectName };
+}
 
-const CONSTELLATIONS: Constellation[] = [
-  {
-    id: "con1", label: "Constellation 01", type: "database", projectId: "proj1",
-    description: "Connects structured data tables, relationship graphs, and metrics for analytical queries and reporting.",
-  },
-  {
-    id: "con2", label: "Constellation 02", type: "pdf", projectId: "proj1",
-    description: "Indexes PDF documents and crawled web pages for semantic search and content summarisation.",
-  },
-  {
-    id: "con3", label: "Constellation 03", type: "database", projectId: "proj1",
-    description: "Operational database with real-time event streams, KPI dashboards, and usage analytics.",
-  },
-  {
-    id: "con4", label: "Constellation 04", type: "pdf", projectId: "proj2",
-    description: "Archived quarterly financial PDFs and supporting disclosure documents.",
-  },
-];
+function resolveChatConstellation(
+  chat: Chat | undefined,
+  catalog: Constellation[] = CONSTELLATIONS,
+): Constellation | undefined {
+  if (chat?.chatType === "constellation" && chat.constellationId) {
+    const exact = catalog.find((c) => c.id === chat.constellationId);
+    if (exact) {
+      if (chat.projectId && exact.projectId !== chat.projectId) {
+        console.warn(
+          `[Luxia] Constellation "${chat.constellationId}" belongs to "${exact.projectId}", not chat project "${chat.projectId}".`,
+        );
+        return undefined;
+      }
+      return exact;
+    }
+    console.warn(
+      `[Luxia] Constellation "${chat.constellationId}" not found for chat "${chat.id}". Preserving unavailable state.`,
+    );
+    return undefined;
+  }
+  return undefined;
+}
+
+const CONSTELLATIONS: Constellation[] = CANONICAL_CONSTELLATIONS.map((item) => ({
+  id: item.id,
+  label: item.name,
+  type: item.type,
+  projectId: item.projectId,
+  description: item.description,
+}));
 
 const INITIAL_CHATS: Chat[] = [
-  { id: "c1", label: "Chat 1", chatType: "constellation", projectId: "proj1", constellationId: "con1" },
-  { id: "c2", label: "Chat 2", chatType: "constellation", projectId: "proj1", constellationId: "con2" },
-  { id: "g1", label: "Galaxy Chat", chatType: "galaxy", projectId: "proj1" },
+  { id: "chat-01", label: "Chat name 01", chatType: "constellation", projectId: "project-01", constellationId: "con1", pinned: true },
+  { id: "chat-02", label: "Chat name 02", chatType: "constellation", projectId: "project-01", constellationId: "con2" },
+  { id: "chat-03", label: "Chat name 03", chatType: "constellation", projectId: "project-01", constellationId: "con3" },
+  { id: "chat-04", label: "Chat name 04", chatType: "constellation", projectId: "project-01", constellationId: "con4", pinned: true },
+  { id: "chat-05", label: "Chat name 05", chatType: "constellation", projectId: "project-01", constellationId: "con5" },
+  { id: "chat-06", label: "Chat name 06", chatType: "constellation", projectId: "project-02", constellationId: "con6" },
+  { id: "chat-07", label: "Chat name 07", chatType: "constellation", projectId: "project-02", constellationId: "con7" },
+  { id: "chat-08", label: "Chat name 08", chatType: "constellation", projectId: "project-02", constellationId: "con8" },
+  { id: "chat-09", label: "Chat name 09", chatType: "constellation", projectId: "project-03", constellationId: "con9" },
+  { id: "chat-10", label: "Chat name 10", chatType: "constellation", projectId: "project-03", constellationId: "con10" },
+  { id: "chat-11", label: "Chat name 11", chatType: "constellation", projectId: "project-04", constellationId: "con11" },
+  { id: "chat-12", label: "Chat name 12", chatType: "constellation", projectId: "project-04", constellationId: "con14" },
+  { id: "chat-13", label: "Chat name 13", chatType: "constellation", projectId: "project-05", constellationId: "con15" },
+  { id: "chat-14", label: "Chat name 14", chatType: "constellation", projectId: "project-06", constellationId: "con17" },
+  { id: "chat-15", label: "Chat name 15", chatType: "constellation", projectId: "project-06", constellationId: "con18" },
+  { id: "chat-16", label: "Chat name 16", chatType: "constellation", projectId: "project-06", constellationId: "con19" },
+  { id: "chat-17", label: "Chat name 17", chatType: "constellation", projectId: "project-06", constellationId: "con20" },
+  { id: "chat-18", label: "Chat name 18", chatType: "constellation", projectId: "project-06", constellationId: "con21" },
+  { id: "chat-19", label: "Chat name 19", chatType: "constellation", projectId: "project-06", constellationId: "con22" },
+  { id: "chat-20", label: "Chat name 20", chatType: "constellation", projectId: "project-06", constellationId: "con23" },
+  { id: "chat-21", label: "Chat name 21", chatType: "constellation", projectId: "project-06", constellationId: "con24" },
+  { id: "chat-22", label: "Chat name 22", chatType: "constellation", projectId: "project-06", constellationId: "con25" },
+  { id: "chat-23", label: "Chat name 23", chatType: "constellation", projectId: "project-06", constellationId: "con26" },
+  { id: "galaxy-01", label: "Galaxy name 01", chatType: "galaxy", projectId: "project-01" },
+  { id: "galaxy-02", label: "Galaxy name 02", chatType: "galaxy", projectId: "project-02", pinned: true },
+  { id: "galaxy-03", label: "Galaxy name 03", chatType: "galaxy", projectId: "project-03" },
+  { id: "galaxy-04", label: "Galaxy name 04", chatType: "galaxy", projectId: "project-04" },
+  { id: "galaxy-05", label: "Galaxy name 05", chatType: "galaxy", projectId: "project-05" },
+  { id: "galaxy-06", label: "Galaxy name 06", chatType: "galaxy", projectId: "project-06" },
 ];
 
-const MESSAGES_C1: Message[] = [
-  { id: "u1", role: "user", timestamp: "10:14 AM", content: "What data is available in this constellation?" },
-  {
-    id: "a1", role: "ai", timestamp: "10:14 AM",
-    content: "This constellation connects two active data tables and three knowledge base documents across the project workspace.\n\nYou can query tables directly for structured metrics, filter records, and join related entities. Document sources support semantic search, summarisation, and section-level retrieval.\n\nKnowledge base entries take priority when a curated answer exists, while tables and documents complement each other for analytical and narrative questions.",
-    sources: [{ id: "s1", label: "Table 1" }, { id: "s2", label: "Document A" }],
-    insights: {
-      format: "bullets",
-      items: [
-        "Start with knowledge base matches when you need a definitive, curated answer.",
-        "Use table queries when the question depends on metrics, filters, or relationships.",
-        "Blend document search when the question needs narrative or section-level context.",
-      ],
-    },
-  },
-];
+function makePrototypeMessages(chatId: string, chatLabel: string): Message[] {
+  return makeResponseConfidenceDemoMessages(chatId, chatLabel);
+}
 
-const MESSAGES_C2: Message[] = [
-  { id: "u1", role: "user", timestamp: "11:02 AM", content: "What PDF files are connected here?" },
-  {
-    id: "a1", role: "ai", timestamp: "11:02 AM",
-    content: "This constellation includes two PDF documents and one crawled URL.\n\nI can search within the PDFs, summarise their content, or retrieve specific sections.",
-    sources: [{ id: "s1", label: "Report A.pdf" }, { id: "s2", label: "Guide B.pdf" }],
-  },
-];
+const INITIAL_MESSAGES: Record<string, Message[]> = Object.fromEntries(
+  INITIAL_CHATS
+    .filter((chat) => chat.chatType === "constellation")
+    .map((chat) => [chat.id, makePrototypeMessages(chat.id, chat.label)]),
+);
 
-const INITIAL_MESSAGES: Record<string, Message[]> = { c1: MESSAGES_C1, c2: MESSAGES_C2 };
+const DEFAULT_ACTIVE_CHAT_ID = "chat-01";
+const PROJECT_NAME_FALLBACK = "Project name 01";
+
+function findGalaxyChatForProject(
+  projectId: string,
+  chatList: readonly Chat[],
+  projects: readonly HomeProjectCard[] = HOME_PROJECTS,
+): Chat | undefined {
+  const galaxyId = projects.find((entry) => entry.id === projectId)?.galaxyId
+    ?? chatList.find((chat) => chat.chatType === "galaxy" && chat.projectId === projectId)?.id
+    ?? INITIAL_CHATS.find((chat) => chat.chatType === "galaxy" && chat.projectId === projectId)?.id;
+  if (!galaxyId) return undefined;
+  return chatList.find((chat) => chat.id === galaxyId && chat.chatType === "galaxy")
+    ?? INITIAL_CHATS.find((chat) => chat.id === galaxyId && chat.chatType === "galaxy");
+}
+
+function findChatById(chatId: string, chatList: readonly Chat[]): Chat | undefined {
+  return chatList.find((chat) => chat.id === chatId)
+    ?? INITIAL_CHATS.find((chat) => chat.id === chatId);
+}
+
+type LuxiaAppView =
+  | "home"
+  | "chat"
+  | "project"
+  | "constellation-create"
+  | "constellation-settings"
+  | "galaxy-settings"
+  | "project-members"
+  | "project-vidgets"
+  | "vidget-inbox"
+  | "vidget-settings"
+  | "organization-users"
+  | "organization-user"
+  | "access-levels"
+  | "access-level"
+  | "data-sources"
+  | "data-source-settings";
+
+function readInitialShellFromLocation(): {
+  appView: LuxiaAppView;
+  activeProjectId: string | null;
+  activeChat: string;
+  projectBrowseMode: ProjectOverviewBrowseMode;
+  settingsConstellationId: string | null;
+  settingsCapabilityPath: string | null;
+  settingsSection: ConstellationSettingsSectionId;
+  accessLevelId: string | null;
+  organizationUserId: string | null;
+  dataSourceSettingsId: string | null;
+} {
+  const defaults = {
+    appView: "home" as LuxiaAppView,
+    activeProjectId: null as string | null,
+    activeChat: DEFAULT_ACTIVE_CHAT_ID,
+    projectBrowseMode: "overview" as ProjectOverviewBrowseMode,
+    settingsConstellationId: null as string | null,
+    settingsCapabilityPath: null as string | null,
+    settingsSection: "general" as ConstellationSettingsSectionId,
+    accessLevelId: null as string | null,
+    organizationUserId: null as string | null,
+    dataSourceSettingsId: null as string | null,
+  };
+
+  if (typeof window === "undefined") {
+    return defaults;
+  }
+
+  // Prototype rule: full page load / refresh / fresh session always start at Home.
+  // In-session navigation (pushState / popstate) is unchanged and still resolves deep URLs.
+  window.history.replaceState({ luxiaView: "home" }, "", "/");
+  return defaults;
+}
+
+const INITIAL_SHELL = readInitialShellFromLocation();
+
 
 const EMPTY_PROMPTS = [
   "What information is available here?",
@@ -446,68 +793,11 @@ const EMPTY_PROMPTS = [
   "Walk me through the structure",
 ];
 
-const NAV_TOP_ITEMS = [
-  { icon: Home, label: "Home page" },
-  { icon: Users, label: "User & permissions" },
-  { icon: Database, label: "Datasources" },
-];
-const NAV_PROJECT_ITEMS = [
-  { icon: Network, label: "Galaxies" },
-  { icon: LayoutGrid, label: "Constellations" },
-  { icon: BarChart3, label: "Dashboard" },
-  { icon: Bot, label: "Virtual assistant" },
-  { icon: MessageSquare, label: "Chat", active: true },
-];
-const NAV_BOTTOM_ITEMS = [
-  { icon: Bell, label: "Notifications" },
-  { icon: Wrench, label: "Tools gallery" },
-  { icon: Star, label: "Settings" },
-  { icon: HelpCircle, label: "Support" },
-];
-
-function renderMd(text: string) {
-  return text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g).map((p, i) => {
-    if (p.startsWith("**") && p.endsWith("**"))
-      return <strong key={i} className="font-bold">{p.slice(2, -2)}</strong>;
-    if (p.startsWith("`") && p.endsWith("`"))
-      return <code key={i} className="luxia-chat-text px-1.5 py-0.5 rounded luxia-type-body-dense font-mono" style={{ background: LX.blueT10, color: LX.accent }}>{p.slice(1, -1)}</code>;
-    return <span key={i} className="luxia-chat-text">{p}</span>;
-  });
-}
-
-function renderContent(content: string) {
-  return content.split("\n\n").map((block, i) => {
-    const lines = block.split("\n");
-    if (lines.every(l => l.startsWith("- "))) {
-      return (
-        <ul key={i} className="space-y-1.5 my-2 min-w-0">
-          {lines.map((l, j) => (
-            <li key={j} className="flex items-start gap-2 luxia-type-body-small min-w-0">
-              <span className="mt-[7px] w-[5px] h-[5px] rounded-full flex-shrink-0" style={{ background: LX.accent }} />
-              <span className="luxia-chat-text min-w-0">{renderMd(l.slice(2))}</span>
-            </li>
-          ))}
-        </ul>
-      );
-    }
-    return <p key={i} className={`luxia-chat-text luxia-type-body-small ${i > 0 ? "mt-3" : ""}`}>{renderMd(block)}</p>;
-  });
-}
-
-function SidebarBrandBackground() {
-  return null;
-}
-
-const SIDEBAR_WIDTH_EXPANDED = 280;
-const SIDEBAR_WIDTH_COLLAPSED = 76;
-const SIDEBAR_TOGGLE_SIZE = 42;
-const SIDEBAR_TOGGLE_INSET = SIDEBAR_TOGGLE_SIZE / 2;
-const LEFT_NAV_COLLAPSED_STORAGE_KEY = "luxia-left-nav-collapsed";
-const LEFT_NAV_NARROW_BREAKPOINT = 1600;
 const INSPECTOR_NARROW_BREAKPOINT = 1280;
 const INSPECTOR_WIDTH_DEFAULT = 288;
 const INSPECTOR_WIDTH_MIN = 260;
 const INSPECTOR_WIDTH_HARD_MAX = 360;
+const CONSTELLATION_COLLAPSED_WIDTH = 56;
 const CHAT_MIN_USABLE_WIDTH = 480;
 
 const GALAXY_WIDTH_DEFAULT = 360;
@@ -552,263 +842,13 @@ function clampGalaxyWidth(width: number, viewportWidth: number, leftNavWidth: nu
   return Math.max(GALAXY_WIDTH_MIN, Math.min(maxWidth, width));
 }
 
-function NavItem({ icon: Icon, label, active, badge, chevron, collapsed }: {
-  icon: LucideIcon;
-  label: string; active?: boolean; badge?: number; chevron?: boolean; collapsed?: boolean;
-}) {
-  const button = (
-    <button
-      type="button"
-      aria-label={collapsed ? label : undefined}
-      className={`w-full flex items-center rounded-[10px] transition-all group ${
-        collapsed ? "justify-center h-[40px] px-0" : "gap-3 px-3.5 h-[40px] text-left"
-      }`}
-      style={{ background: active ? "rgba(255,255,255,0.12)" : "transparent" }}
-      onMouseEnter={(e) => { if (!active) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.06)"; }}
-      onMouseLeave={(e) => { if (!active) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
-    >
-      <span className="relative flex-shrink-0">
-        <Icon size={16} color={active ? "white" : "rgba(255,255,255,0.55)"} />
-        {collapsed && badge ? (
-          <span
-            className="absolute -top-1 -right-1 min-w-[14px] h-[14px] px-0.5 rounded-full luxia-type-badge flex items-center justify-center"
-            style={{ background: LX.error, color: "white" }}
-          >
-            {badge}
-          </span>
-        ) : null}
-      </span>
-      {!collapsed ? (
-        <>
-          <span className="flex-1 luxia-type-nav-sidebar truncate"
-            style={{ color: active ? "white" : "rgba(255,255,255,0.7)" }}>
-            {label}
-          </span>
-          {badge ? <span className="luxia-type-badge px-1.5 py-0.5 rounded-full" style={{ background: LX.error, color: "white" }}>{badge}</span> : null}
-          {chevron ? <ChevronRight size={12} color={active ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.22)"} /> : null}
-        </>
-      ) : null}
-    </button>
-  );
-
-  if (collapsed) {
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>{button}</TooltipTrigger>
-        <TooltipContent side="right" sideOffset={8}>{label}</TooltipContent>
-      </Tooltip>
-    );
-  }
-
-  return button;
-}
-
-const SIDEBAR_LOGO_WIDTH = 119.66;
-const SIDEBAR_LOGO_HEIGHT = 46.64;
-const SIDEBAR_BRAND_LEFT = 24;
-const SIDEBAR_BRAND_TOP = 16;
-const SIDEBAR_BRAND_BOTTOM = 12;
-
-const SIDEBAR_STAR_WIDTH = 538.11;
-const SIDEBAR_STAR_HEIGHT = 674.69;
-const SIDEBAR_STAR_INTERSECTION_X = 174;
-
-function LuxiaLogo() {
-  return (
-    <img
-      src={luxiaWordmarkUrl}
-      alt="Luxia"
-      width={SIDEBAR_LOGO_WIDTH}
-      height={SIDEBAR_LOGO_HEIGHT}
-      style={{ display: "block", objectFit: "contain", flexShrink: 0 }}
-    />
-  );
-}
-
-function SidebarStarDecoration() {
-  return (
-    <div
-      aria-hidden="true"
-      className="pointer-events-none select-none absolute z-0"
-      style={{
-        left: SIDEBAR_STAR_INTERSECTION_X,
-        top: "81%",
-        width: SIDEBAR_STAR_WIDTH,
-        height: SIDEBAR_STAR_HEIGHT,
-        transform: "translate(-50%, -50%) rotate(10deg)",
-        transformOrigin: "center",
-        opacity: 0.4,
-      }}
-    >
-      <img
-        src={sidebarStarLogoUrl}
-        alt=""
-        draggable={false}
-        style={{
-          display: "block",
-          width: "100%",
-          height: "100%",
-          objectFit: "contain",
-        }}
-      />
-    </div>
-  );
-}
-
-function SidebarCollapseToggle({
-  collapsed,
-  onToggle,
-}: {
-  collapsed: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-      aria-expanded={!collapsed}
-      className="absolute flex items-center justify-center rounded-full outline-none transition-shadow hover:shadow-[var(--luxia-shadow-md)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--luxia-border-focus)]"
-      style={{
-        top: SIDEBAR_BRAND_TOP + SIDEBAR_LOGO_HEIGHT / 2 - SIDEBAR_TOGGLE_INSET,
-        right: -SIDEBAR_TOGGLE_INSET,
-        width: SIDEBAR_TOGGLE_SIZE,
-        height: SIDEBAR_TOGGLE_SIZE,
-        zIndex: 50,
-        background: "var(--luxia-surface)",
-        border: "1px solid var(--luxia-border-default)",
-        boxShadow: "var(--luxia-shadow-sm)",
-        color: "var(--luxia-brand-primary)",
-      }}
-    >
-      {collapsed ? <ChevronRight size={18} strokeWidth={2.2} /> : <ChevronLeft size={18} strokeWidth={2.2} />}
-    </button>
-  );
-}
-
-function LeftNav({
-  collapsed,
-  onToggleCollapsed,
-}: {
-  collapsed: boolean;
-  onToggleCollapsed: () => void;
-}) {
-  const navPadding = collapsed ? "px-2" : "px-3";
-
-  return (
-    <aside
-      className="relative h-full min-h-0 flex-shrink-0"
-      style={{
-        width: collapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_EXPANDED,
-        transition: "width 200ms ease",
-        overflow: "visible",
-      }}
-    >
-      <div
-        className="relative flex h-full min-h-0 flex-col overflow-hidden"
-        style={{ background: LX.gradient.nav, width: "100%" }}
-      >
-        {!collapsed ? <SidebarStarDecoration /> : null}
-
-        <div
-          className={`relative z-[2] flex-shrink-0 ${collapsed ? "flex justify-center" : ""}`}
-          style={{
-            paddingTop: SIDEBAR_BRAND_TOP,
-            paddingLeft: collapsed ? 0 : SIDEBAR_BRAND_LEFT,
-            paddingRight: collapsed ? 0 : SIDEBAR_BRAND_LEFT,
-            paddingBottom: SIDEBAR_BRAND_BOTTOM,
-          }}
-        >
-          {collapsed ? (
-            <div aria-label="Luxia" role="img">
-              <LuxiaStarLogo size={26} />
-            </div>
-          ) : (
-            <LuxiaLogo />
-          )}
-        </div>
-
-        <div className="relative z-[2] min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
-          <nav className={`${navPadding} space-y-px`}>
-            {NAV_TOP_ITEMS.map(({ icon, label }) => (
-              <NavItem key={label} icon={icon} label={label} collapsed={collapsed} />
-            ))}
-          </nav>
-
-          <div
-            className={`my-2.5 ${collapsed ? "mx-2" : "mx-4"}`}
-            style={{ height: 1, background: "rgba(255,255,255,0.07)" }}
-          />
-
-          <div className={navPadding}>
-            {!collapsed ? (
-              <p className="px-3 mb-1 luxia-type-overline-data"
-                style={{ color: "rgba(150,219,251,0.55)" }}>
-                Project Name 1
-              </p>
-            ) : null}
-            <nav className="space-y-px">
-              {NAV_PROJECT_ITEMS.map(({ icon, label, active }) => (
-                <NavItem key={label} icon={icon} label={label} active={active} chevron={!collapsed} collapsed={collapsed} />
-              ))}
-            </nav>
-          </div>
-
-          <div
-            className={`${navPadding} space-y-px pb-1 pt-2`}
-            style={{ borderTop: "1px solid rgba(255,255,255,0.07)", marginTop: 8 }}
-          >
-            {NAV_BOTTOM_ITEMS.map(({ icon, label }) => (
-              <NavItem key={label} icon={icon} label={label} collapsed={collapsed} />
-            ))}
-          </div>
-        </div>
-
-        {collapsed ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div
-                className="relative z-[2] flex flex-shrink-0 items-center justify-center px-2 py-2.5"
-                style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
-              >
-                <div className="w-8 h-8 rounded-[8px] flex items-center justify-center text-white luxia-type-caption flex-shrink-0"
-                  style={{ background: "linear-gradient(135deg, #5BC8F5 0%, #2C7A9E 100%)" }}>
-                  HR
-                </div>
-              </div>
-            </TooltipTrigger>
-            <TooltipContent side="right" sideOffset={8}>
-              Hoda Roshani — Administrator
-            </TooltipContent>
-          </Tooltip>
-        ) : (
-          <div
-            className="relative z-[2] flex flex-shrink-0 items-center gap-2.5 px-4 py-2.5"
-            style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
-          >
-            <div className="w-8 h-8 rounded-[8px] flex items-center justify-center text-white luxia-type-caption flex-shrink-0"
-              style={{ background: "linear-gradient(135deg, #5BC8F5 0%, #2C7A9E 100%)" }}>
-              HR
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-white luxia-type-profile-secondary truncate leading-tight">Hoda Roshani</p>
-              <p className="luxia-type-profile-secondary truncate leading-tight" style={{ color: "rgba(255,255,255,0.4)" }}>Administrator</p>
-            </div>
-            <ChevronRight size={12} color="rgba(255,255,255,0.25)" />
-          </div>
-        )}
-      </div>
-
-      <SidebarCollapseToggle collapsed={collapsed} onToggle={onToggleCollapsed} />
-    </aside>
-  );
-}
-
-function ChatTabBar({ chats, activeId, onSelect, onNew, onClose, onPin, onRename }: {
+function ChatTabBar({ chats, activeId, onSelect, onNew, onClose, onPin, onRename, projects, constellations }: {
   chats: Chat[]; activeId: string;
   onSelect: (id: string) => void; onNew: () => void;
   onClose: (id: string) => void; onPin: (id: string) => void;
   onRename: (id: string, v: string) => void;
+  projects: readonly HomeProjectCard[];
+  constellations: Constellation[];
 }) {
   const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
@@ -823,18 +863,18 @@ function ChatTabBar({ chats, activeId, onSelect, onNew, onClose, onPin, onRename
   }, []);
 
   return (
-    <div className="flex items-center gap-1.5 px-6 py-2 overflow-x-auto flex-shrink-0"
+    <div className="luxia-scrollbar luxia-scrollbar-horizontal flex items-center gap-1.5 py-2 overflow-x-auto flex-shrink-0"
       style={{ borderBottom: `1px solid ${LX.border}` }}>
       {chats.map((chat) => {
         const isActive = chat.id === activeId;
         const con = chat.chatType === "constellation" && chat.constellationId
-          ? CONSTELLATIONS.find((c) => c.id === chat.constellationId)
+          ? constellations.find((c) => c.id === chat.constellationId)
           : null;
         const style = con ? CONSTELLATION_STYLE[con.type] : null;
 
         const isGalaxyTab = chat.chatType === "galaxy";
         const galaxyProject = isGalaxyTab
-          ? (PROJECTS.find((p) => p.id === chat.projectId)?.label ?? "Project")
+          ? getProjectNameById(chat.projectId, projects)
           : null;
         const tabLabel = isGalaxyTab ? galaxyProject! : chat.label;
 
@@ -857,7 +897,7 @@ function ChatTabBar({ chats, activeId, onSelect, onNew, onClose, onPin, onRename
                 boxShadow: isActive ? LX.shadow.sm : "none",
               }}>
               {chat.pinned && <Pin size={10} style={{ color: isGalaxyTab ? LX.secondary : (style?.color ?? LX.accent) }} />}
-              {isGalaxyTab && <Network size={11} style={{ color: LX.secondary, flexShrink: 0 }} />}
+              {isGalaxyTab && <LuxiaGalaxyIcon size={11} style={{ color: LX.secondary, flexShrink: 0 }} />}
               {renaming === chat.id ? (
                 <input ref={renameRef} value={renameVal}
                   onChange={(e) => setRenameVal(e.target.value)}
@@ -874,7 +914,7 @@ function ChatTabBar({ chats, activeId, onSelect, onNew, onClose, onPin, onRename
                   {con ? (
                     <span
                       className="luxia-type-overline-data shrink-0"
-                      style={{ color: con.type === "pdf" ? "var(--luxia-blue-60)" : "var(--luxia-purple-50)" }}
+                      style={{ color: con.type === "database" ? "var(--luxia-purple-50)" : "var(--luxia-blue-60)" }}
                     >
                       {getConstellationSourceLabel(con.type)}
                     </span>
@@ -1018,22 +1058,45 @@ function ChatTypeOption({
 function NewChatModal({
   onCreate,
   onClose,
+  lockedProjectId,
+  constellations,
+  projects,
 }: {
   onCreate: (payload: NewChatPayload) => void;
   onClose: () => void;
+  lockedProjectId?: string | null;
+  constellations: Constellation[];
+  projects: Project[];
 }) {
-  const [chatType, setChatType] = useState<ChatScope>("galaxy");
-  const [projectId, setProjectId] = useState(PROJECTS[0]?.id ?? "");
+  const [chatType, setChatType] = useState<ChatScope>("constellation");
+  const [projectId, setProjectId] = useState(lockedProjectId ?? projects[0]?.id ?? "");
   const [constellationId, setConstellationId] = useState("");
 
+  useEffect(() => {
+    if (lockedProjectId) setProjectId(lockedProjectId);
+  }, [lockedProjectId]);
+
+  useEffect(() => {
+    if (projects.some((project) => project.id === projectId)) return;
+    setProjectId(lockedProjectId ?? projects[0]?.id ?? "");
+  }, [lockedProjectId, projectId, projects]);
+
   const projectConstellations = useMemo(
-    () => getProjectConstellations(projectId),
-    [projectId],
+    () => constellations.filter((c) => c.projectId === projectId),
+    [constellations, projectId],
   );
 
   const projectOptions = useMemo(
-    () => PROJECTS.map((project) => ({ value: project.id, label: project.label })),
-    [],
+    () => projects.map((project) => ({
+      value: project.id,
+      label: project.label,
+      content: (
+        <span className="truncate" style={{ color: "var(--luxia-text-project-title)" }}>
+          {project.label}
+        </span>
+      ),
+    })),
+    [projects],
   );
 
   const constellationOptions = useMemo(
@@ -1092,27 +1155,32 @@ function NewChatModal({
         aria-modal="true"
         aria-labelledby="new-chat-title"
       >
-        <div className="flex items-start justify-between px-7 pt-6 pb-4 flex-shrink-0">
+        <div
+          className="flex flex-shrink-0 items-start justify-between px-7 py-4"
+          style={STRUCTURED_MODAL_DARK_CHROME_STYLE}
+        >
           <div>
-            <h2 id="new-chat-title" className="luxia-type-title-modal mb-1" style={{ color: LX.primary }}>Create Chat</h2>
-            <p className="luxia-type-body-dense" style={{ color: LX.textMuted }}>
+            <h2 id="new-chat-title" className="luxia-type-title-modal mb-1 text-[var(--luxia-text-inverse)]">
+              Create Chat
+            </h2>
+            <p className="luxia-type-body-dense text-[var(--luxia-purple-10)]">
               Choose a chat type and project to start a new conversation.
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-full transition-colors flex-shrink-0 mt-0.5 outline-none"
-            style={{ border: `1px solid ${LX.border}` }}
+            className={cn(
+              "mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full outline-none transition-opacity",
+              LUXIA_DIALOG_CLOSE_ON_DARK_CLASS,
+            )}
             aria-label="Close create chat dialog"
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.borderSubtle; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
           >
-            <X size={13} style={{ color: LX.textMuted }} />
+            <X size={13} />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-7 pb-5 space-y-5">
+        <div className="flex-1 overflow-y-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical px-7 pb-5 space-y-5">
           <section>
             <Label className="mb-2 block luxia-type-overline-form" style={{ color: LX.textMuted }}>
               Chat Type
@@ -1143,15 +1211,21 @@ function NewChatModal({
             <Label htmlFor="create-chat-project" className="mb-2 block luxia-type-label-form" style={{ color: LX.primary }}>
               Project
             </Label>
-            <SearchableSelect
-              id="create-chat-project"
-              value={projectId}
-              onValueChange={setProjectId}
-              options={projectOptions}
-              placeholder="Search or select a project"
-              emptyText="No projects found"
-              noResultsText="No projects found"
-            />
+              <SearchableSelect
+                id="create-chat-project"
+                value={projectId}
+                onValueChange={setProjectId}
+                options={projectOptions}
+                placeholder="Search or select a project"
+                emptyText="No projects found"
+                noResultsText="No projects found"
+                disabled={Boolean(lockedProjectId)}
+              />
+              {lockedProjectId ? (
+                <p className="mt-2 luxia-type-metadata" style={{ color: LX.textMuted }}>
+                  This Chat is scoped to the current Project.
+                </p>
+              ) : null}
             {chatType === "galaxy" ? (
               <p className="mt-2 luxia-type-metadata" style={{ color: LX.textMuted }}>
                 Galaxy automatically uses the available constellations inside the selected project.
@@ -1186,10 +1260,10 @@ function NewChatModal({
         </div>
 
         <div className="flex-shrink-0 flex items-center justify-end gap-2.5 px-7 py-4" style={{ borderTop: `1px solid ${LX.border}` }}>
-          <Button type="button" variant="secondary" className="rounded-full px-4" onClick={onClose}>
+          <Button type="button" variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="button" className="rounded-full px-4" disabled={!canCreate} onClick={handleCreate}>
+          <Button type="button" variant="primary" disabled={!canCreate} onClick={handleCreate}>
             Create Chat
           </Button>
         </div>
@@ -1213,18 +1287,27 @@ function LuxiaDialog({ open, onClose, title, children, footer }: {
     <div className="fixed inset-0 z-[9990] flex items-center justify-center p-4"
       style={{ background: "rgba(15,23,42,0.40)" }}
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="w-full max-w-md flex flex-col max-h-[85vh]"
+      <div className="flex w-full max-w-md max-h-[85vh] flex-col overflow-hidden"
         style={{ background: "white", border: "1px solid #E2E8F0", borderRadius: 16, boxShadow: "0 12px 32px rgba(15,23,42,0.14)" }}>
-        <div className="flex-shrink-0 flex items-center justify-between px-7 pt-6 pb-4">
-          <h2 className="luxia-type-title-modal" style={{ color: LX.primary }}>{title}</h2>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-[8px] transition-colors outline-none"
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.borderSubtle; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
-            <X size={16} style={{ color: LX.textMuted }} />
+        <div
+          className="flex flex-shrink-0 items-center justify-between px-7 py-4"
+          style={STRUCTURED_MODAL_DARK_CHROME_STYLE}
+        >
+          <h2 className="luxia-type-title-modal text-[var(--luxia-text-inverse)]">{title}</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className={cn(
+              "flex h-8 w-8 items-center justify-center rounded-[8px] outline-none transition-opacity",
+              LUXIA_DIALOG_CLOSE_ON_DARK_CLASS,
+            )}
+            aria-label="Close"
+          >
+            <X size={16} />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto px-7 pb-2">{children}</div>
-        <div className="flex-shrink-0 flex items-center justify-end gap-3 px-7 py-5" style={{ borderTop: `1px solid ${LX.border}` }}>
+        <div className="flex-1 overflow-y-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical px-7 pb-2">{children}</div>
+        <div className="flex flex-shrink-0 items-center justify-end gap-3 px-7 py-5" style={{ borderTop: `1px solid ${LX.border}` }}>
           {footer}
         </div>
       </div>
@@ -1239,33 +1322,6 @@ const DEMO_USERS = [
   { id: "u3", name: "Clara Huang", email: "clara@luxia.ai" },
   { id: "u4", name: "David Kim", email: "david@luxia.ai" },
 ];
-
-function RenameDialog({ open, current, onClose, onRename }: {
-  open: boolean; current: string; onClose: () => void; onRename: (name: string) => void;
-}) {
-  const [value, setValue] = useState(current);
-  useEffect(() => { if (open) setValue(current); }, [open, current]);
-  const inputRef = useRef<HTMLInputElement>(null);
-  useEffect(() => { if (open) setTimeout(() => inputRef.current?.select(), 50); }, [open]);
-  return (
-    <LuxiaDialog open={open} onClose={onClose} title="Rename Chat"
-      footer={<>
-        <button onClick={onClose} className="px-5 h-[38px] rounded-full luxia-type-body-dense-strong transition-colors outline-none"
-          style={{ color: LX.textMuted, border: `1px solid ${LX.border}` }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.borderSubtle; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>Cancel</button>
-        <button onClick={() => { if (value.trim()) { onRename(value.trim()); onClose(); } }}
-          disabled={!value.trim()}
-          className="px-5 h-[38px] rounded-full luxia-type-body-dense-strong text-white transition-opacity hover:opacity-90 disabled:opacity-40 outline-none"
-          style={{ background: LX.gradient.button }}>Rename</button>
-      </>}>
-      <input ref={inputRef} value={value} onChange={(e) => setValue(e.target.value)}
-        onKeyDown={(e) => { if (e.key === "Enter" && value.trim()) { onRename(value.trim()); onClose(); } }}
-        className="w-full h-[42px] px-4 rounded-[10px] luxia-type-body-small outline-none"
-        style={{ border: `1px solid ${LX.border}`, color: LX.primary }} />
-    </LuxiaDialog>
-  );
-}
 
 function ShareDialog({ open, chatLabel, sharedUsers, onClose, onShare }: {
   open: boolean; chatLabel: string; sharedUsers: string[];
@@ -1284,7 +1340,7 @@ function ShareDialog({ open, chatLabel, sharedUsers, onClose, onShare }: {
   }
   if (done) return (
     <LuxiaDialog open={open} onClose={onClose} title={`Share ${chatLabel}`}
-      footer={<button onClick={onClose} className="px-5 h-[38px] rounded-full luxia-type-body-dense-strong text-white outline-none" style={{ background: LX.gradient.button }}>Done</button>}>
+      footer={<Button type="button" variant="primary" onClick={onClose}>Done</Button>}>
       <div className="py-6 text-center">
         <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3" style={{ background: "rgba(142,99,235,0.1)" }}>
           <Check size={22} style={{ color: LX.secondary }} />
@@ -1296,14 +1352,10 @@ function ShareDialog({ open, chatLabel, sharedUsers, onClose, onShare }: {
   return (
     <LuxiaDialog open={open} onClose={onClose} title={`Share ${chatLabel}`}
       footer={<>
-        <button onClick={onClose} className="px-5 h-[38px] rounded-full luxia-type-body-dense-strong transition-colors outline-none"
-          style={{ color: LX.textMuted, border: `1px solid ${LX.border}` }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.borderSubtle; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>Cancel</button>
-        <button onClick={() => { onShare(selected); setDone(true); }}
-          disabled={selected.length === 0}
-          className="px-5 h-[38px] rounded-full luxia-type-body-dense-strong text-white transition-opacity hover:opacity-90 disabled:opacity-40 outline-none"
-          style={{ background: LX.gradient.button }}>Share</button>
+        <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
+        <Button type="button" variant="primary" onClick={() => { onShare(selected); setDone(true); }} disabled={selected.length === 0}>
+          Share
+        </Button>
       </>}>
       <div className="flex items-center gap-2 px-3 h-[38px] rounded-[10px] mb-3" style={{ border: `1px solid ${LX.border}` }}>
         <Search size={13} style={{ color: LX.textMuted }} />
@@ -1325,7 +1377,7 @@ function ShareDialog({ open, chatLabel, sharedUsers, onClose, onShare }: {
           })}
         </div>
       )}
-      <div className="space-y-0.5 max-h-48 overflow-y-auto">
+      <div className="space-y-0.5 max-h-48 overflow-y-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical">
         {filtered.map(u => (
           <button key={u.id} onClick={() => toggle(u.id)}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-[8px] text-left transition-colors outline-none"
@@ -1352,7 +1404,7 @@ function ShareListDialog({ open, sharedUsers, onClose }: {
   const users = DEMO_USERS.filter(u => sharedUsers.includes(u.id));
   return (
     <LuxiaDialog open={open} onClose={onClose} title="Who Has Access"
-      footer={<button onClick={onClose} className="px-5 h-[38px] rounded-full luxia-type-body-dense-strong text-white outline-none" style={{ background: LX.gradient.button }}>Close</button>}>
+      footer={<Button type="button" variant="primary" onClick={onClose}>Close</Button>}>
       {users.length === 0
         ? <p className="py-6 luxia-type-body-small text-center" style={{ color: LX.textMuted }}>No users currently have access to this chat.</p>
         : <div className="space-y-1 py-1">
@@ -1380,13 +1432,8 @@ function GenerateReportDialog({ open, onClose }: { open: boolean; onClose: () =>
   return (
     <LuxiaDialog open={open} onClose={onClose} title="Generate Report"
       footer={<>
-        <button onClick={onClose} className="px-5 h-[38px] rounded-full luxia-type-body-dense-strong transition-colors outline-none"
-          style={{ color: LX.textMuted, border: `1px solid ${LX.border}` }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.borderSubtle; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>Cancel</button>
-        <button onClick={onClose}
-          className="px-5 h-[38px] rounded-full luxia-type-body-dense-strong text-white transition-opacity hover:opacity-90 outline-none"
-          style={{ background: LX.gradient.button }}>Generate and open in editor</button>
+        <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
+        <Button type="button" variant="primary" onClick={onClose}>Generate and open in editor</Button>
       </>}>
       <div className="space-y-5 py-1">
         <div>
@@ -1426,151 +1473,189 @@ function GenerateReportDialog({ open, onClose }: { open: boolean; onClose: () =>
   );
 }
 
-function DeleteChatDialog({ open, onClose, onDelete }: {
+function DeleteChatDialog({ open, onClose, onDelete, entityName, entityType = "Chat" }: {
   open: boolean; onClose: () => void; onDelete: () => void;
+  entityName: string;
+  entityType?: string;
 }) {
   return (
-    <LuxiaDialog open={open} onClose={onClose} title="Delete Chat?"
+    <LuxiaDialog open={open} onClose={onClose} title={`Delete ${entityName}?`}
       footer={<>
-        <button onClick={onClose} className="px-5 h-[38px] rounded-full luxia-type-body-dense-strong transition-colors outline-none"
-          style={{ color: LX.textMuted, border: `1px solid ${LX.border}` }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.borderSubtle; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>Cancel</button>
-        <button onClick={() => { onDelete(); onClose(); }}
-          className="px-5 h-[38px] rounded-full luxia-type-body-dense-strong text-white transition-opacity hover:opacity-90 outline-none"
-          style={{ background: "#F75050" }}>Delete Chat</button>
+        <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
+        <Button type="button" variant="destructive" onClick={() => { onDelete(); onClose(); }}>
+          {`Delete ${entityType}`}
+        </Button>
       </>}>
       <p className="py-4 luxia-type-body-small" style={{ color: LX.textSecondary }}>
-        This will permanently remove the current chat and all its messages. This action cannot be undone.
+        This will permanently remove {entityName} and all its messages. This action cannot be undone.
       </p>
     </LuxiaDialog>
   );
 }
 
-function PageHeader({ chatLabel, chat, onRenameChat, onDeleteChat }: {
+function PageHeader({
+  chatLabel,
+  chat,
+  projectName,
+  constellationLabel,
+  constellationId,
+  onNavigateHome,
+  onOpenProject,
+  onOpenConstellation,
+  onRenameChat,
+  onDeleteChat,
+  onOpenGalaxySettings,
+  onOpenConstellationSettings,
+  tabs,
+}: {
   chatLabel: string;
   chat: Chat;
+  projectName: string;
+  constellationLabel?: string;
+  constellationId?: string;
+  onNavigateHome: () => void;
+  onOpenProject: (projectId: string) => void;
+  onOpenConstellation?: (projectId: string, constellationId: string) => void;
   onRenameChat: (name: string) => void;
   onDeleteChat: () => void;
+  onOpenGalaxySettings?: () => void;
+  onOpenConstellationSettings?: () => void;
+  tabs?: React.ReactNode;
 }) {
-  const project = PROJECTS.find((p) => p.id === chat.projectId);
-  const constellation = chat.chatType === "constellation" && chat.constellationId
-    ? CONSTELLATIONS.find((c) => c.id === chat.constellationId)
-    : null;
-  const crumbs = chat.chatType === "galaxy"
-    ? ["Home", project?.label ?? "Project", "Galaxy", chatLabel]
-    : ["Home", project?.label ?? "Project", constellation?.label ?? "Constellation", chatLabel];
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
+  const isGalaxy = chat.chatType === "galaxy";
+  const isConstellation = chat.chatType === "constellation";
+  const entityType = isGalaxy ? "Galaxy" : "Chat";
+  const pageTypeLabel = isGalaxy ? "GALAXY" : "CHAT";
+  const headerTitle = chatLabel;
+
+  const crumbItems = isGalaxy
+    ? buildGalaxyBreadcrumbItems({
+      projectId: chat.projectId,
+      projectName,
+      galaxyId: chat.id,
+      galaxyName: chatLabel,
+    })
+    : buildChatBreadcrumbItems({
+      projectId: chat.projectId,
+      projectName,
+      constellationId: constellationId,
+      constellationName: constellationLabel
+        ?? (chat.constellationId ? "Constellation" : undefined),
+      chatId: chat.id,
+      chatLabel,
+    });
+
   const [sharedUsers, setSharedUsers] = useState<string[]>([]);
-  const [dialog, setDialog] = useState<"rename" | "share" | "shareList" | "report" | "delete" | null>(null);
-  const btnRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const [dialog, setDialog] = useState<"share" | "shareList" | "report" | "delete" | null>(null);
 
-  useEffect(() => {
-    if (!menuOpen) return;
-    function onOutside(e: MouseEvent) {
-      if (btnRef.current?.contains(e.target as Node)) return;
-      if (menuRef.current?.contains(e.target as Node)) return;
-      setMenuOpen(false);
-    }
-    function onKey(e: KeyboardEvent) { if (e.key === "Escape") { setMenuOpen(false); btnRef.current?.focus(); } }
-    document.addEventListener("mousedown", onOutside);
-    document.addEventListener("keydown", onKey);
-    return () => { document.removeEventListener("mousedown", onOutside); document.removeEventListener("keydown", onKey); };
-  }, [menuOpen]);
-
-  function openMenu() {
-    if (!btnRef.current) return;
-    const r = btnRef.current.getBoundingClientRect();
-    setMenuPos({ top: r.bottom + 8, right: window.innerWidth - r.right });
-    setMenuOpen(true);
-  }
-
-  function act(d: typeof dialog) { setMenuOpen(false); setDialog(d); }
-
-  const menuItems: Array<{ label: string; icon: LucideIcon; action: () => void; destructive?: boolean; divider?: boolean }> = [
-    { label: "Rename", icon: Pencil, action: () => act("rename") },
-    { label: "Share", icon: Share2, action: () => act("share") },
-    { label: "Share List", icon: List, action: () => act("shareList") },
-    { label: "Generate report", icon: FileBarChart2, action: () => act("report") },
-    { label: "Delete chat", icon: Trash2, action: () => act("delete"), destructive: true, divider: true },
+  const chatOptionsItems = [
+    {
+      id: "share",
+      label: "Share",
+      icon: <Share2 size={15} strokeWidth={1.8} aria-hidden />,
+      onSelect: () => setDialog("share"),
+    },
+    {
+      id: "share-list",
+      label: "Share List",
+      icon: <List size={15} strokeWidth={1.8} aria-hidden />,
+      onSelect: () => setDialog("shareList"),
+    },
+    {
+      id: "report",
+      label: "Generate report",
+      icon: <FileBarChart2 size={15} strokeWidth={1.8} aria-hidden />,
+      onSelect: () => setDialog("report"),
+    },
+    {
+      id: "delete",
+      label: "Delete Chat",
+      icon: <Trash2 size={15} strokeWidth={1.8} aria-hidden />,
+      onSelect: () => setDialog("delete"),
+      destructive: true,
+      separatorBefore: true,
+    },
   ];
 
-  const isGalaxy = chat.chatType === "galaxy";
-  const headerTitle = isGalaxy ? "Galaxy Chat" : chatLabel;
-
   return (
-    <div
-      className="flex-shrink-0 flex items-start justify-between gap-6 px-10 pt-4 pb-2"
+    <>
+    <LuxiaPageHeaderShell
+      trailing={tabs}
       style={isGalaxy ? {
         background: "#FAFAFC",
         borderBottom: "1px solid #E8EAF2",
       } : undefined}
     >
-      <div className="min-w-0 flex-1">
-        <h1 className="mb-1 min-w-0 truncate luxia-type-title-page" style={{ color: LX.primary }}>
-          {headerTitle}
-        </h1>
-        <nav className="flex items-center gap-1.5 flex-wrap" aria-label="Breadcrumb">
-          {crumbs.map((crumb, i) => {
-            const isLast = i === crumbs.length - 1;
-            return (
-              <span key={i} className="flex items-center gap-1.5">
-                {i > 0 && <span className="luxia-type-metadata" style={{ color: LX.borderStrong }}>/</span>}
-                <span className="luxia-type-metadata" style={{
-                  color: isLast ? LX.primary : "#697077",
-                  fontWeight: isLast ? 600 : 400,
-                }}>{crumb}</span>
-              </span>
-            );
-          })}
-        </nav>
-      </div>
+      <LuxiaPageHeader
+        contentGap="none"
+        pageTypeLabel={pageTypeLabel}
+        title={headerTitle}
+        titleStyle={{ color: LX.primary }}
+        onRename={onRenameChat}
+        renameLabel={`Rename ${headerTitle}`}
+        breadcrumb={
+          <LuxiaBreadcrumb
+            items={crumbItems}
+            tone="chat"
+            handlers={{
+              onHome: onNavigateHome,
+              onProject: onOpenProject,
+              onConstellation: onOpenConstellation,
+            }}
+          />
+        }
+        secondaryAction={
+          isGalaxy && onOpenGalaxySettings ? (
+            <Button
+              type="button"
+              {...LUXIA_PAGE_HEADER_ACTION.settings}
+              onClick={onOpenGalaxySettings}
+              aria-label="Galaxy Settings"
+            >
+              <LuxiaSettingsIcon size={16} aria-hidden color="currentColor" />
+              Galaxy Settings
+            </Button>
+          ) : isConstellation && onOpenConstellationSettings ? (
+            <Button
+              type="button"
+              {...LUXIA_PAGE_HEADER_ACTION.settings}
+              onClick={onOpenConstellationSettings}
+              aria-label="Constellation Settings"
+            >
+              <LuxiaSettingsIcon size={16} aria-hidden color="currentColor" />
+              Constellation Settings
+            </Button>
+          ) : null
+        }
+        options={
+          isGalaxy ? null : (
+            <LuxiaEntityOptionsMenu
+              entityType={entityType}
+              entityLabel={chatLabel}
+              ariaLabel="Chat options"
+              triggerVariant={LUXIA_PAGE_HEADER_ACTION.menuTrigger}
+              items={chatOptionsItems}
+            />
+          )
+        }
+      />
+    </LuxiaPageHeaderShell>
 
-      <button ref={btnRef} onClick={menuOpen ? () => setMenuOpen(false) : openMenu}
-        className="flex-shrink-0 flex items-center gap-2 h-[38px] px-5 rounded-full luxia-type-body-dense-strong text-white transition-opacity hover:opacity-90 outline-none"
-        style={{ background: LX.gradient.button, boxShadow: "0 2px 10px rgba(48,33,78,0.18)" }}>
-        <Settings2 size={14} />
-        Options
-      </button>
-
-      {menuOpen && menuPos && ReactDOM.createPortal(
-        <div ref={menuRef} className="fixed z-[9999] rounded-[12px] overflow-hidden py-1.5"
-          style={{
-            background: "white",
-            boxShadow: "0 4px 16px rgba(15,23,42,0.10)",
-            border: "1px solid #E2E8F0",
-            width: 220,
-            top: menuPos.top,
-            right: menuPos.right,
-          }}>
-          {menuItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <div key={item.label}>
-                {item.divider && <div style={{ height: 1, background: "#F1F5F9", margin: "4px 0" }} />}
-                <button onClick={item.action}
-                  className="w-full flex items-center gap-3 px-4 h-[40px] luxia-type-body-dense-strong text-left transition-colors outline-none"
-                  style={{ color: item.destructive ? "#F75050" : "#30214E" }}
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = item.destructive ? "rgba(247,80,80,0.06)" : "rgba(142,99,235,0.08)"; }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
-                  <Icon size={15} color={item.destructive ? "#F75050" : "#64748B"} strokeWidth={1.8} />
-                  {item.label}
-                </button>
-              </div>
-            );
-          })}
-        </div>,
-        document.body
-      )}
-
-      <RenameDialog open={dialog === "rename"} current={chatLabel} onClose={() => setDialog(null)} onRename={onRenameChat} />
-      <ShareDialog open={dialog === "share"} chatLabel={chatLabel} sharedUsers={sharedUsers} onClose={() => setDialog(null)} onShare={(ids) => setSharedUsers(ids)} />
-      <ShareListDialog open={dialog === "shareList"} sharedUsers={sharedUsers} onClose={() => setDialog(null)} />
-      <GenerateReportDialog open={dialog === "report"} onClose={() => setDialog(null)} />
-      <DeleteChatDialog open={dialog === "delete"} onClose={() => setDialog(null)} onDelete={onDeleteChat} />
-    </div>
+      {!isGalaxy ? (
+        <>
+          <ShareDialog open={dialog === "share"} chatLabel={chatLabel} sharedUsers={sharedUsers} onClose={() => setDialog(null)} onShare={(ids) => setSharedUsers(ids)} />
+          <ShareListDialog open={dialog === "shareList"} sharedUsers={sharedUsers} onClose={() => setDialog(null)} />
+          <GenerateReportDialog open={dialog === "report"} onClose={() => setDialog(null)} />
+          <DeleteChatDialog
+            open={dialog === "delete"}
+            entityName={chatLabel}
+            entityType="Chat"
+            onClose={() => setDialog(null)}
+            onDelete={onDeleteChat}
+          />
+        </>
+      ) : null}
+    </>
   );
 }
 
@@ -1584,121 +1669,44 @@ function DateSeparator({ label }: { label: string }) {
   );
 }
 
-function SourceFooter({
-  sources,
-  insights,
-}: {
-  sources?: Source[];
-  insights?: ResponseInsights;
-}) {
-  const [insightsOpen, setInsightsOpen] = useState(false);
-  const hasInsights = Boolean(insights?.items.length);
-  const hasSources = Boolean(sources && sources.length > 0);
-  const sectionOffset = hasSources ? "mt-3" : "";
-
-  return (
-    <div className="mt-4 pt-3.5 min-w-0" style={{ borderTop: `1px solid ${LX.borderSubtle}` }}>
-      {hasSources ? (
-        <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-          <span className="luxia-type-metadata flex-shrink-0" style={{ color: LX.textMuted }}>Sources:</span>
-          {sources!.map((s, i) => (
-            <button key={s.id} type="button"
-              className="luxia-chat-text luxia-type-metadata transition-colors outline-none text-left"
-              style={{ color: LX.purple60 }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = LX.primary; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = LX.purple60; }}>
-              {s.label}{i < sources!.length - 1 ? "," : ""}
-            </button>
-          ))}
-        </div>
-      ) : null}
-
-      {hasInsights && insights ? (
-        <div className={sectionOffset}>
-          <button
-            type="button"
-            onClick={() => setInsightsOpen((open) => !open)}
-            aria-expanded={insightsOpen}
-            className="flex items-center gap-1.5 luxia-type-caption hover:opacity-80 transition-opacity outline-none"
-            style={{ color: LX.textMuted }}
-          >
-            <ChevronDown
-              size={11}
-              style={{
-                transition: "transform 160ms ease",
-                transform: insightsOpen ? "rotate(180deg)" : "none",
-              }}
-            />
-            Insights
-          </button>
-          {insightsOpen ? <ResponseInsightsContent insights={insights} /> : null}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
 function AICard({
   message,
+  constellationId,
   onOpenGalaxyConstellation,
   onViewGalaxyActivity,
 }: {
   message: Message;
+  constellationId?: string;
   onOpenGalaxyConstellation?: () => void;
   onViewGalaxyActivity?: () => void;
 }) {
-  const [hover, setHover] = useState(false);
-  const insights = getResponseInsights(message.content, message.insights);
-  const galaxy = message.galaxy;
-  const showAnswerBody = !galaxy || galaxy.phase === "answering" || galaxy.phase === "complete";
-  const showStandardFooter = !galaxy && (message.sources || insights);
+  const hydrated = hydrateMessageResponsePresentation(message, constellationId);
+  const presentation = hydrated.presentation;
+  const notice = hydrated.notice;
+  const content = hydrated.content;
+  const showAnswerBody = !message.galaxy || message.galaxy.phase === "answering" || message.galaxy.phase === "complete";
+  const showResponseActions = Boolean(showAnswerBody && content);
 
   return (
-    <div className="flex items-start gap-3 mb-7 min-w-0 max-w-full" onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
-      <div className="flex-shrink-0 w-8 flex items-start justify-center rounded-[8px]"
-        style={{ background: "transparent" }}>
-        <LuxiaStarLogo size={24} />
-      </div>
-      <div className="flex-1 min-w-0 max-w-[680px]">
-        <div className="flex items-center gap-2 mb-2">
-          <span className="luxia-type-body-dense font-bold" style={{ color: LX.primary }}>Luxia</span>
-          <span className="luxia-type-caption" style={{ color: LX.borderStrong }}>{message.timestamp}</span>
-        </div>
-        <div className="px-5 py-4 rounded-[16px] min-w-0 overflow-hidden"
-          style={{ background: "white", border: "1px solid #EAF0F6", boxShadow: "0 6px 18px rgba(15,23,42,0.08)" }}>
-          {galaxy && galaxy.phase !== "complete" ? (
-            <GalaxyProvenanceRow meta={galaxy} />
-          ) : null}
-          {showAnswerBody && message.content ? (
-            <div className="luxia-chat-text" style={{ color: LX.primary }}>{renderContent(message.content)}</div>
-          ) : null}
-          {galaxy && galaxy.phase === "complete" ? (
-            <GalaxyProvenanceRow
-              meta={galaxy}
-              onViewActivity={onViewGalaxyActivity}
-              onOpenConstellation={onOpenGalaxyConstellation}
-            />
-          ) : null}
-          {showStandardFooter ? (
-            <SourceFooter
-              sources={message.sources}
-              insights={insights ?? undefined}
-            />
-          ) : null}
-        </div>
-        <div className="flex items-center gap-0.5 mt-2 transition-opacity duration-150" style={{ opacity: hover ? 1 : 0 }}>
-          {[{ icon: Copy, label: "Copy" }, { icon: RefreshCw, label: "Regenerate" }, { icon: Bookmark, label: "Save" }].map(({ icon: Icon, label }) => (
-            <button key={label}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-[8px] luxia-type-caption transition-colors"
-              style={{ color: LX.textMuted }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.borderSubtle; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
-              <Icon size={11} />{label}
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
+    <LuxiaResponseCard
+      content={content}
+      timestamp={message.timestamp}
+      presentation={presentation}
+      notice={notice}
+      sources={hydrated.sources}
+      insights={hydrated.hideInsights ? undefined : message.insights}
+      galaxy={message.galaxy}
+      onOpenGalaxyConstellation={onOpenGalaxyConstellation}
+      onViewGalaxyActivity={onViewGalaxyActivity}
+      footer={
+        showResponseActions ? (
+          <ResponseActionsFooter
+            content={content}
+            variant={hydrated.footerVariant}
+          />
+        ) : null
+      }
+    />
   );
 }
 
@@ -1915,7 +1923,6 @@ function ResponseTypeDropdown({ constellationType }: { constellationType: Conste
   );
 }
 
-/** Must match --luxia-composer-input-max-height / min-height in luxia-tokens.css */
 const COMPOSER_INPUT_MIN_HEIGHT = 20;
 const COMPOSER_INPUT_MAX_HEIGHT = 40;
 
@@ -1941,9 +1948,9 @@ function PromptComposer({
   galaxyRoute?: {
     routeMode: "auto" | "manual";
     pendingManual: GalaxyMatchedConstellation | null;
-    options: Array<{ id: string; label: string; type: "PDF" | "DB" }>;
+    options: Array<{ id: string; label: string; type: "PDF" | "CSV" | "DB" }>;
     onSelectAuto: () => void;
-    onSelectManual: (option: { id: string; label: string; type: "PDF" | "DB" }) => void;
+    onSelectManual: (option: { id: string; label: string; type: "PDF" | "CSV" | "DB" }) => void;
     onClearManual: () => void;
   };
 }) {
@@ -2129,30 +2136,41 @@ function ConfirmRemoveDialog({ label, onConfirm, onCancel }: {
   return ReactDOM.createPortal(
     <div className="fixed inset-0 z-[9990] flex items-center justify-center" onClick={onCancel}>
       <div className="absolute inset-0" style={{ background: "rgba(16,5,32,0.3)", backdropFilter: "blur(3px)" }} />
-      <div className="relative rounded-[20px] p-7 w-[380px]"
+      <div
+        className="relative w-[380px] overflow-hidden rounded-[20px]"
         style={{ background: "white", boxShadow: "0 12px 32px rgba(15,23,42,0.14)" }}
-        onClick={(e) => e.stopPropagation()}>
-        <div className="w-10 h-10 rounded-[12px] flex items-center justify-center mb-4"
-          style={{ background: "rgba(247,80,80,0.06)", border: "1px solid rgba(247,80,80,0.14)" }}>
-          <Trash2 size={17} style={{ color: LX.error }} />
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="confirm-remove-title"
+      >
+        <div className="px-6 py-4" style={STRUCTURED_MODAL_DARK_CHROME_STYLE}>
+          <h3
+            id="confirm-remove-title"
+            className="luxia-type-title-modal text-[var(--luxia-text-inverse)]"
+          >
+            Remove item?
+          </h3>
         </div>
-        <h3 className="luxia-type-body-small-strong mb-1.5" style={{ color: LX.primary }}>Remove item?</h3>
-        <p className="luxia-type-body-dense mb-6" style={{ color: LX.textMuted }}>
-          This will be removed from the constellation. This action cannot be undone.
-        </p>
-        <div className="flex items-center gap-2.5">
-          <button onClick={onCancel}
-            className="flex-1 h-[40px] rounded-[10px] luxia-type-body-dense-strong transition-colors outline-none"
-            style={{ color: LX.textMuted, border: `1px solid ${LX.border}`, background: "white" }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.subtle; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "white"; }}>
-            Cancel
-          </button>
-          <button onClick={onConfirm}
-            className="flex-1 h-[40px] rounded-[10px] luxia-type-body-dense-strong text-white hover:opacity-90 transition-opacity outline-none"
-            style={{ background: LX.error }}>
-            Remove
-          </button>
+        <div className="px-6 py-5">
+          <p className="luxia-type-body-dense mb-5" style={{ color: LX.textMuted }}>
+            <span className="luxia-type-body-dense-strong" style={{ color: LX.primary }}>{label}</span>
+            {" "}will be removed from the constellation. This action cannot be undone.
+          </p>
+          <div className="flex items-center gap-2.5">
+            <button onClick={onCancel}
+              className="flex-1 h-[40px] rounded-[10px] luxia-type-body-dense-strong transition-colors outline-none"
+              style={{ color: LX.textMuted, border: `1px solid ${LX.border}`, background: "white" }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.subtle; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "white"; }}>
+              Cancel
+            </button>
+            <button onClick={onConfirm}
+              className="flex-1 h-[40px] rounded-[10px] luxia-type-body-dense-strong text-white hover:opacity-90 transition-opacity outline-none"
+              style={{ background: LX.error }}>
+              Remove
+            </button>
+          </div>
         </div>
       </div>
     </div>,
@@ -2168,17 +2186,27 @@ function ItemPreviewModal({ label, icon: Icon, onClose }: {
       <div className="absolute inset-0 bg-black/30" style={{ backdropFilter: "blur(2px)" }} />
       <div className="relative rounded-[20px] w-[560px] max-h-[70vh] overflow-hidden flex flex-col"
         style={{ background: "white", boxShadow: LX.shadow.xl }} onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center gap-3 px-6 py-5 flex-shrink-0" style={{ borderBottom: `1px solid ${LX.border}` }}>
-          <div className="w-8 h-8 rounded-[8px] flex items-center justify-center" style={{ background: LX.blueT10 }}>
-            <Icon size={14} color={LX.accent} />
+        <div
+          className="flex flex-shrink-0 items-center gap-3 px-6 py-4"
+          style={STRUCTURED_MODAL_DARK_CHROME_STYLE}
+        >
+          <div className="flex h-8 w-8 items-center justify-center rounded-[8px]" style={{ background: "rgba(255,255,255,0.12)" }}>
+            <Icon size={14} color="var(--luxia-text-inverse)" />
           </div>
-          <h3 className="flex-1 luxia-type-title-panel truncate" style={{ color: LX.primary }}>{label}</h3>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/5 transition-colors"
-            style={{ border: `1px solid ${LX.border}` }}>
-            <X size={14} style={{ color: LX.muted }} />
+          <h3 className="min-w-0 flex-1 truncate luxia-type-title-panel text-[var(--luxia-text-inverse)]">{label}</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className={cn(
+              "flex h-8 w-8 items-center justify-center rounded-full outline-none transition-opacity",
+              LUXIA_DIALOG_CLOSE_ON_DARK_CLASS,
+            )}
+            aria-label="Close preview"
+          >
+            <X size={14} />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto px-6 py-6">
+        <div className="flex-1 overflow-y-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical px-6 py-6">
           <div className="rounded-[12px] p-4 luxia-type-body-dense"
             style={{ background: LX.subtle, border: `1px solid ${LX.border}`, color: LX.muted }}>
             <p className="font-bold mb-2" style={{ color: LX.primary }}>{label}</p>
@@ -2263,21 +2291,28 @@ function SectionWorkspaceModal({ sectionId, items, instruction, onSave, onClose 
         style={{ background: "white", boxShadow: "0 12px 32px rgba(15,23,42,0.14)" }}
         onClick={(e) => e.stopPropagation()}>
 
-        <div className="flex items-center gap-3 px-7 py-5 flex-shrink-0" style={{ borderBottom: `1px solid ${LX.border}` }}>
-          <div className="w-9 h-9 rounded-[10px] flex items-center justify-center flex-shrink-0"
-            style={{ background: "rgba(142,99,235,0.08)" }}>
-            <Icon size={16} color={LX.secondary} />
+        <div
+          className="flex flex-shrink-0 items-center gap-3 px-7 py-4"
+          style={STRUCTURED_MODAL_DARK_CHROME_STYLE}
+        >
+          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[10px]"
+            style={{ background: "rgba(255,255,255,0.12)" }}>
+            <Icon size={16} color="var(--luxia-text-inverse)" />
           </div>
-          <div className="flex-1 min-w-0">
-            <h2 className="luxia-type-title-panel" style={{ color: LX.primary }}>{meta.label}</h2>
-            <p className="luxia-type-caption mt-0.5" style={{ color: LX.textMuted }}>Changes are local until saved</p>
+          <div className="min-w-0 flex-1">
+            <h2 className="luxia-type-title-panel text-[var(--luxia-text-inverse)]">{meta.label}</h2>
+            <p className="mt-0.5 luxia-type-caption text-[var(--luxia-purple-10)]">Changes are local until saved</p>
           </div>
-          <button onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-full transition-colors outline-none"
-            style={{ border: `1px solid ${LX.border}` }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.borderSubtle; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
-            <X size={14} style={{ color: LX.textMuted }} />
+          <button
+            type="button"
+            onClick={onClose}
+            className={cn(
+              "flex h-8 w-8 items-center justify-center rounded-full outline-none transition-opacity",
+              LUXIA_DIALOG_CLOSE_ON_DARK_CLASS,
+            )}
+            aria-label="Close"
+          >
+            <X size={14} />
           </button>
         </div>
 
@@ -2296,7 +2331,7 @@ function SectionWorkspaceModal({ sectionId, items, instruction, onSave, onClose 
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto px-8 py-5">
+        <div className="flex-1 overflow-y-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical px-8 py-5">
           {isInstr ? (
             <textarea value={pendingInstr} onChange={(e) => setPendingInstr(e.target.value)} rows={14}
               className="w-full outline-none resize-none luxia-type-body-small p-4 rounded-[12px]"
@@ -2456,20 +2491,29 @@ function KBEntryModal({ mode: initialMode, entry, onSave, onAdd, onClose }: {
       <div className="relative rounded-[24px] w-[600px] max-h-[90vh] flex flex-col overflow-hidden"
         style={{ background: LX.surface, boxShadow: LX.shadow.xl }} onClick={(e) => e.stopPropagation()}>
 
-        <div className="flex items-center gap-3 px-8 pt-6 pb-5 flex-shrink-0">
-          <div className="w-9 h-9 rounded-[10px] flex items-center justify-center" style={{ background: LX.blueT10 }}>
-            <BookOpen size={15} color={LX.secondary} />
+        <div
+          className="flex flex-shrink-0 items-center gap-3 px-8 py-4"
+          style={STRUCTURED_MODAL_DARK_CHROME_STYLE}
+        >
+          <div className="flex h-9 w-9 items-center justify-center rounded-[10px]" style={{ background: "rgba(255,255,255,0.12)" }}>
+            <BookOpen size={15} color="var(--luxia-text-inverse)" />
           </div>
-          <div className="flex-1 min-w-0">
-            <h2 className="luxia-type-title-panel" style={{ color: LX.primary }}>{title}</h2>
+          <div className="min-w-0 flex-1">
+            <h2 className="luxia-type-title-panel text-[var(--luxia-text-inverse)]">{title}</h2>
           </div>
-          <Button type="button" variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 rounded-full" aria-label="Close">
-            <X size={14} style={{ color: LX.textMuted }} />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={onClose}
+            className={cn("h-8 w-8", LUXIA_DIALOG_CLOSE_ON_DARK_CLASS)}
+            aria-label="Close"
+          >
+            <X size={14} />
           </Button>
         </div>
-        <div className="h-px mx-8 flex-shrink-0" style={{ background: LX.border }} />
 
-        <div className="flex-1 overflow-y-auto px-8 py-6 space-y-5">
+        <div className="flex-1 overflow-y-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical px-8 py-6 space-y-5">
           <div>
             <label className="luxia-type-metadata mb-2 block" style={{ color: LX.textMuted }}>Question</label>
             {isView ? (
@@ -2523,12 +2567,12 @@ function KBEntryModal({ mode: initialMode, entry, onSave, onAdd, onClose }: {
                 {!isView && (
                   <div>
                     <label className="luxia-type-overline-form mb-2.5 block" style={{ color: LX.textMuted }}>Generate SQL</label>
-                    <button onClick={handleGenerateSQL}
+                    <LuxiaAiButton
+                      onClick={handleGenerateSQL}
                       disabled={!question.trim() || generating || sqlDisabled}
-                      className="flex items-center gap-2 px-4 h-[34px] rounded-[10px] luxia-type-metadata transition-opacity disabled:opacity-35"
-                      style={{ background: sqlDisabled ? LX.borderStrong : LX.primary, color: LX.surface }}>
-                      <Wand2 size={12} />{generating ? "Generating…" : "Generate SQL"}
-                    </button>
+                    >
+                      {generating ? "Generating…" : "Generate SQL with AI"}
+                    </LuxiaAiButton>
                     {sqlDisabled && (
                       <p className="luxia-type-caption mt-1.5" style={{ color: LX.textMuted }}>Available for Table, Chart, KPI, and List types only.</p>
                     )}
@@ -2550,20 +2594,22 @@ function KBEntryModal({ mode: initialMode, entry, onSave, onAdd, onClose }: {
         <div className="flex items-center justify-end gap-2.5 px-8 py-5 flex-shrink-0" style={{ borderTop: `1px solid ${LX.border}` }}>
           {isView ? (
             <>
-              <Button type="button" variant="secondary" onClick={onClose} className="h-[40px] rounded-[24px] px-5 luxia-type-body-dense-strong" style={{ color: LX.textMuted }}>
+              <Button type="button" variant="secondary" onClick={onClose}>
                 Close
               </Button>
-              <Button type="button" onClick={() => setMode("edit")} className="h-[40px] rounded-[24px] px-5 luxia-type-body-dense-strong text-white hover:opacity-90" style={{ background: LX.gradient.button, boxShadow: LX.shadow.sm }}>
-                <Edit3 size={14} />Edit
+              <Button type="button" variant="primary" onClick={() => setMode("edit")}>
+                <Edit3 size={16} aria-hidden />
+                Edit
               </Button>
             </>
           ) : (
             <>
-              <Button type="button" variant="secondary" onClick={onClose} className="h-[40px] rounded-[24px] px-5 luxia-type-body-dense-strong" style={{ color: LX.textMuted }}>
+              <Button type="button" variant="secondary" onClick={onClose}>
                 Cancel
               </Button>
-              <Button type="button" onClick={handleSubmit} disabled={!canSave} className="h-[40px] rounded-[24px] px-5 luxia-type-body-dense-strong text-white hover:opacity-90 disabled:opacity-40" style={{ background: LX.gradient.button, boxShadow: LX.shadow.sm }}>
-                <Check size={14} />{submitLabel}
+              <Button type="button" variant="primary" onClick={handleSubmit} disabled={!canSave}>
+                <Check size={16} aria-hidden />
+                {submitLabel}
               </Button>
             </>
           )}
@@ -2606,17 +2652,29 @@ function AutoKBModal({ constellationLabel, onAdd, onClose }: {
       <div className="absolute inset-0 bg-black/35" style={{ backdropFilter: "blur(3px)" }} />
       <div className="relative rounded-[24px] w-[640px] max-h-[86vh] flex flex-col overflow-hidden"
         style={{ background: LX.surface, boxShadow: LX.shadow.xl }} onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center gap-3 px-7 py-5 flex-shrink-0" style={{ borderBottom: `1px solid ${LX.border}` }}>
-          <div className="w-9 h-9 rounded-[10px] flex items-center justify-center flex-shrink-0"
-            style={{ background: `linear-gradient(135deg, ${LX.blueT10} 0%, ${LX.sl10} 100%)` }}>
-            <Wand2 size={15} color={LX.secondary} />
+        <div
+          className="flex flex-shrink-0 items-center gap-3 px-7 py-4"
+          style={STRUCTURED_MODAL_DARK_CHROME_STYLE}
+        >
+          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[10px]"
+            style={{ background: "rgba(255,255,255,0.12)" }}>
+            <LuxiaAiIcon size={15} color="var(--luxia-text-inverse)" />
           </div>
-          <div className="flex-1 min-w-0">
-            <h2 className="luxia-type-title-panel" style={{ color: LX.primary }}>Auto-generate Knowledge</h2>
-            <p className="luxia-type-metadata" style={{ color: LX.textMuted }}>From <span className="font-bold">{constellationLabel}</span></p>
+          <div className="min-w-0 flex-1">
+            <h2 className="luxia-type-title-panel text-[var(--luxia-text-inverse)]">Auto-generate Knowledge</h2>
+            <p className="luxia-type-metadata text-[var(--luxia-purple-10)]">
+              From <span className="font-bold">{constellationLabel}</span>
+            </p>
           </div>
-          <Button type="button" variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 rounded-full" aria-label="Close">
-            <X size={14} style={{ color: LX.textMuted }} />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={onClose}
+            className={cn("h-8 w-8", LUXIA_DIALOG_CLOSE_ON_DARK_CLASS)}
+            aria-label="Close"
+          >
+            <X size={14} />
           </Button>
         </div>
         <div className="flex items-center gap-4 px-7 py-3.5 flex-shrink-0" style={{ borderBottom: `1px solid ${LX.border}` }}>
@@ -2641,11 +2699,11 @@ function AutoKBModal({ constellationLabel, onAdd, onClose }: {
             </select>
           </div>
           <div className="flex-1" />
-          <Button type="button" onClick={handleGenerate} disabled={generating} className="h-[34px] rounded-[24px] px-4 luxia-type-metadata text-white hover:opacity-90 disabled:opacity-60" style={{ background: LX.gradient.button, boxShadow: LX.shadow.sm }}>
-            <Wand2 size={11} />{generating ? "Generating…" : "Generate"}
-          </Button>
+          <LuxiaAiButton onClick={handleGenerate} disabled={generating}>
+            {generating ? "Generating…" : "Generate with AI"}
+          </LuxiaAiButton>
         </div>
-        <div className="flex-1 overflow-y-auto px-7 py-5">
+        <div className="flex-1 overflow-y-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical px-7 py-5">
           {generating && (
             <div className="flex flex-col items-center justify-center py-14 gap-3">
               <div className="w-9 h-9 rounded-full border-2 animate-spin"
@@ -2655,7 +2713,7 @@ function AutoKBModal({ constellationLabel, onAdd, onClose }: {
           )}
           {!generating && generated.length === 0 && (
             <div className="flex flex-col items-center justify-center py-14 gap-2">
-              <Wand2 size={28} style={{ color: `${LX.textMuted}55` }} />
+              <LuxiaAiIcon size={28} style={{ color: `${LX.textMuted}55` }} />
               <p className="luxia-type-body-dense" style={{ color: LX.textMuted }}>Configure above, then click Generate</p>
             </div>
           )}
@@ -2689,14 +2747,17 @@ function AutoKBModal({ constellationLabel, onAdd, onClose }: {
           )}
         </div>
         <div className="flex items-center justify-end gap-2.5 px-7 py-4 flex-shrink-0" style={{ borderTop: `1px solid ${LX.border}` }}>
-          <Button type="button" variant="secondary" onClick={onClose} className="h-[40px] rounded-[24px] px-5 luxia-type-body-dense-strong" style={{ color: LX.textMuted }}>
+          <Button type="button" variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="button" onClick={() => { if (selectedEntries.length > 0) { onAdd(selectedEntries); onClose(); } }}
+          <Button
+            type="button"
+            variant="primary"
+            onClick={() => { if (selectedEntries.length > 0) { onAdd(selectedEntries); onClose(); } }}
             disabled={selectedEntries.length === 0}
-            className="h-[40px] rounded-[24px] px-5 luxia-type-body-dense-strong text-white hover:opacity-90 disabled:opacity-40"
-            style={{ background: LX.gradient.button, boxShadow: LX.shadow.sm }}>
-            <Plus size={14} />Add {selectedEntries.length > 0 ? `${selectedEntries.length} ` : ""}Selected
+          >
+            <Plus size={16} aria-hidden />
+            Add {selectedEntries.length > 0 ? `${selectedEntries.length} ` : ""}Selected
           </Button>
         </div>
       </div>
@@ -2746,15 +2807,25 @@ function KBWorkspaceModal({ entries, constellationLabel, onSave, onClose }: {
         <div className="relative w-[760px] max-h-[88vh] rounded-[24px] overflow-hidden flex flex-col"
           style={{ background: LX.surface, boxShadow: LX.shadow.xl }} onClick={(e) => e.stopPropagation()}>
 
-          <div className="flex items-center gap-4 px-8 py-6 flex-shrink-0">
-            <div className="flex-1 min-w-0">
-              <h2 className="luxia-type-heading-h4 leading-none" style={{ color: LX.primary }}>Knowledge Base</h2>
-              <p className="luxia-type-body-dense mt-1" style={{ color: LX.textMuted }}>
+          <div
+            className="flex flex-shrink-0 items-center gap-4 px-8 py-4"
+            style={STRUCTURED_MODAL_DARK_CHROME_STYLE}
+          >
+            <div className="min-w-0 flex-1">
+              <h2 className="luxia-type-heading-h4 leading-none text-[var(--luxia-text-inverse)]">Knowledge Base</h2>
+              <p className="mt-1 luxia-type-body-dense text-[var(--luxia-purple-10)]">
                 {constellationLabel} · {pending.length} {pending.length === 1 ? "entry" : "entries"}
               </p>
             </div>
-            <Button type="button" variant="ghost" size="icon" onClick={onClose} className="h-9 w-9 rounded-full" aria-label="Close knowledge base">
-              <X size={15} style={{ color: LX.textMuted }} />
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={onClose}
+              className={cn("h-9 w-9", LUXIA_DIALOG_CLOSE_ON_DARK_CLASS)}
+              aria-label="Close knowledge base"
+            >
+              <X size={15} />
             </Button>
           </div>
 
@@ -2775,10 +2846,9 @@ function KBWorkspaceModal({ entries, constellationLabel, onSave, onClose }: {
               className="h-[38px] rounded-[12px] px-3.5 luxia-type-metadata" style={{ color: LX.textMuted }}>
               <Upload size={12} />Import CSV
             </Button>
-            <Button type="button" variant="outline" onClick={() => setAutoOpen(true)}
-              className="h-[38px] rounded-[12px] px-3.5 luxia-type-metadata" style={{ color: LX.secondary }}>
-              <Wand2 size={12} />Auto-generate
-            </Button>
+            <LuxiaAiButton size="default" onClick={() => setAutoOpen(true)}>
+              Generate with AI
+            </LuxiaAiButton>
             <Button type="button" onClick={() => setAddOpen(true)}
               className="h-[38px] rounded-[12px] px-4 luxia-type-metadata text-white hover:opacity-90"
               style={{ background: LX.gradient.button, boxShadow: LX.shadow.sm }}>
@@ -2788,7 +2858,7 @@ function KBWorkspaceModal({ entries, constellationLabel, onSave, onClose }: {
 
           <div className="h-px mx-8 flex-shrink-0" style={{ background: LX.border }} />
 
-          <div className="flex-1 overflow-y-auto px-8 py-5">
+          <div className="flex-1 overflow-y-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical px-8 py-5">
             {filtered.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 gap-3">
                 <BookOpen size={32} style={{ color: `${LX.textMuted}44` }} />
@@ -2913,10 +2983,26 @@ function KBWorkspaceModal({ entries, constellationLabel, onSave, onClose }: {
   );
 }
 
-function KBSidebarSection({ entries, isOpen, onToggle, onExpand, onAdd, onView, onEdit, onRemove }: {
-  entries: KBEntry[]; isOpen: boolean;
-  onToggle: () => void; onExpand: () => void; onAdd: () => void;
-  onView: (id: string) => void; onEdit: (id: string) => void; onRemove: (id: string) => void;
+function KBSidebarSection({
+  entries,
+  isOpen,
+  onToggle,
+  onExpand,
+  onAdd,
+  onView,
+  onEdit,
+  onRemove,
+  readOnly = false,
+}: {
+  entries: KBEntry[];
+  isOpen: boolean;
+  onToggle: () => void;
+  onExpand: () => void;
+  onAdd?: () => void;
+  onView: (id: string) => void;
+  onEdit?: (id: string) => void;
+  onRemove?: (id: string) => void;
+  readOnly?: boolean;
 }) {
   const [searchQ, setSearchQ] = useState("");
 
@@ -2928,20 +3014,22 @@ function KBSidebarSection({ entries, isOpen, onToggle, onExpand, onAdd, onView, 
       <div className={IC_CARD_HEADER}>
         <BookOpen size={14} color={IC.iconSemantic} className="flex-shrink-0" />
         <span className="flex-1 luxia-type-title-component truncate" style={{ color: IC.iconSemantic }}>Knowledge Base</span>
+        {!readOnly ? (
         <Tooltip>
           <TooltipTrigger asChild>
             <button type="button" onClick={(e) => { e.stopPropagation(); onExpand(); }}
               className={IC_BTN_OPEN}
-              aria-label="Open full editor"
+              aria-label="Open Knowledge Base settings"
               onMouseEnter={icHoverOn}
               onMouseLeave={icHoverOff}
               onMouseDown={icOpenActiveOn}
               onMouseUp={icHoverOn}>
-              <SquareArrowOutUpRight size={14} strokeWidth={2} style={{ color: IC.textMuted }} />
+              <SquareArrowOutUpRight size={14} strokeWidth={2} style={{ color: IC.textMuted }} aria-hidden />
             </button>
           </TooltipTrigger>
-          <TooltipContent sideOffset={6}>Open full editor</TooltipContent>
+          <TooltipContent sideOffset={6}>Open Knowledge Base settings</TooltipContent>
         </Tooltip>
+        ) : null}
         <Tooltip>
           <TooltipTrigger asChild>
             <button onClick={onToggle}
@@ -2990,22 +3078,35 @@ function KBSidebarSection({ entries, isOpen, onToggle, onExpand, onAdd, onView, 
                 onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
                 <BookOpen size={10} color={IC.iconSemantic} className="flex-shrink-0" />
                 <span className="flex-1 luxia-type-caption truncate" style={{ color: IC.textPrimary }}>{entry.question}</span>
-                <KBEntryMenu
-                  onView={() => onView(entry.id)}
-                  onEdit={() => onEdit(entry.id)}
-                  onRemove={() => onRemove(entry.id)}
-                />
+                {readOnly || !onEdit || !onRemove ? (
+                  <button
+                    type="button"
+                    className="luxia-type-caption px-1.5 py-0.5 rounded-[6px] outline-none"
+                    style={{ color: IC.textMuted }}
+                    onClick={() => onView(entry.id)}
+                  >
+                    View
+                  </button>
+                ) : (
+                  <KBEntryMenu
+                    onView={() => onView(entry.id)}
+                    onEdit={() => onEdit(entry.id)}
+                    onRemove={() => onRemove(entry.id)}
+                  />
+                )}
               </div>
             ))
           )}
 
-          <button onClick={onAdd}
-            className="mt-1 w-full flex items-center gap-1.5 px-2 py-1.5 rounded-[7px] luxia-type-caption transition-colors outline-none"
-            style={{ color: IC.textMuted }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = IC.hover; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
-            <Plus size={10} />Add Entry
-          </button>
+          {!readOnly && onAdd ? (
+            <button onClick={onAdd}
+              className="mt-1 w-full flex items-center gap-1.5 px-2 py-1.5 rounded-[7px] luxia-type-caption transition-colors outline-none"
+              style={{ color: IC.textMuted }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = IC.hover; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
+              <Plus size={10} />Add Entry
+            </button>
+          ) : null}
         </div>
       )}
     </div>
@@ -3186,33 +3287,50 @@ function ConstellationSelector({
 
   return (
     <>
-      <button
-        ref={triggerRef}
-        type="button"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-controls={CONSTELLATION_MENU_ID}
-        disabled={disabled}
-        onClick={() => (open ? closeMenu(false) : openMenu())}
-        onMouseEnter={() => setTriggerHovered(true)}
-        onMouseLeave={() => setTriggerHovered(false)}
-        className="inline-flex max-w-full min-w-0 items-center justify-start overflow-hidden text-left luxia-type-title-panel disabled:cursor-default disabled:opacity-100 outline-none"
-        style={{ color: "var(--luxia-text-inverse)" }}
-      >
-        <ConstellationNameWithSource
-          label={constellation.label}
-          type={constellation.type}
-          className="min-w-0"
-          labelClassName="luxia-type-title-panel"
-        />
-        <ChevronDown
-          size={11}
-          strokeWidth={2}
-          aria-hidden
-          className="ml-1 flex-shrink-0 transition-colors"
-          style={{ color: triggerHovered ? "rgba(255, 255, 255, 0.78)" : IC.textMuted }}
-        />
-      </button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            ref={triggerRef}
+            type="button"
+            aria-label="Change Constellation"
+            aria-haspopup="listbox"
+            aria-expanded={open}
+            aria-controls={CONSTELLATION_MENU_ID}
+            disabled={disabled}
+            onClick={() => (open ? closeMenu(false) : openMenu())}
+            onMouseEnter={() => setTriggerHovered(true)}
+            onMouseLeave={() => setTriggerHovered(false)}
+            className="inline-flex max-w-full min-w-0 items-center justify-start gap-1.5 overflow-hidden text-left luxia-type-title-panel disabled:cursor-default disabled:opacity-100 outline-none focus-visible:outline-none rounded-[8px]"
+            style={{
+              color: "var(--luxia-text-inverse)",
+              background: "transparent",
+              transition: "background-color 140ms ease, box-shadow 140ms ease",
+            }}
+            onFocus={(e) => {
+              (e.currentTarget as HTMLElement).style.boxShadow = IC.focusRing;
+            }}
+            onBlur={(e) => {
+              (e.currentTarget as HTMLElement).style.boxShadow = "none";
+            }}
+          >
+            <span className="min-w-0 flex-1 overflow-hidden text-left" title={constellation.label}>
+              <span className="block min-w-0 truncate text-left">{constellation.label}</span>
+            </span>
+            <ConstellationSourceBadge
+              type={constellation.type}
+              className="pointer-events-none flex-shrink-0 select-none"
+            />
+            <ChevronDown
+              size={14}
+              strokeWidth={2.2}
+              aria-hidden
+              className="flex-shrink-0"
+              style={{ color: triggerHovered && !disabled ? "rgba(255, 255, 255, 0.78)" : IC.textMuted }}
+            />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" sideOffset={6}>Change Constellation</TooltipContent>
+      </Tooltip>
 
       {open && menuPos && ReactDOM.createPortal(
         <div
@@ -3248,7 +3366,7 @@ function ConstellationSelector({
             id={CONSTELLATION_MENU_ID}
             role="listbox"
             aria-label="Constellations"
-            className="py-1 max-h-[200px] overflow-y-auto"
+            className="py-1 max-h-[200px] overflow-y-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical"
           >
             {filtered.length === 0 ? (
               <p className="px-4 py-3 luxia-type-metadata" style={{ color: LX.textMuted }}>No results</p>
@@ -3276,7 +3394,9 @@ function ConstellationSelector({
                     >
                       {c.type === "database"
                         ? <Database size={10} color={cs.color} />
-                        : <FileText size={10} color={cs.color} />}
+                        : c.type === "csv"
+                          ? <Table2 size={10} color={cs.color} />
+                          : <FileText size={10} color={cs.color} />}
                     </div>
                     <span
                       className="flex-1 min-w-0 luxia-type-profile-secondary truncate"
@@ -3309,9 +3429,12 @@ function ConstellationSidebar({
   constellation,
   allConstellations,
   onConstellationChange,
+  onOpenConstellationSettings,
   projectId,
   allowConstellationChange,
   isGalaxyChat,
+  canConfigure = false,
+  canEditKnowledge = false,
 }: {
   width: number;
   onResizeStart: (e: React.MouseEvent) => void;
@@ -3320,9 +3443,12 @@ function ConstellationSidebar({
   constellation: Constellation;
   allConstellations: Constellation[];
   onConstellationChange: (id: string) => void;
+  onOpenConstellationSettings?: (projectId: string, constellationId: string) => void;
   projectId: string;
   allowConstellationChange: boolean;
   isGalaxyChat: boolean;
+  canConfigure?: boolean;
+  canEditKnowledge?: boolean;
 }) {
   const sectionIds = CONSTELLATION_SECTIONS[constellation.type];
 
@@ -3413,12 +3539,26 @@ function ConstellationSidebar({
     [allConstellations, projectId],
   );
 
+  function expandToSection(sid: SectionId) {
+    setOpenSections((prev) => {
+      const next = { ...prev } as Record<SectionId, boolean>;
+      for (const id of sectionIds) next[id] = id === sid;
+      return next;
+    });
+    onCollapse();
+  }
+
+  const railHit =
+    "flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[10px] outline-none focus-visible:outline-none transition-colors";
+  const expandHit =
+    "mt-px flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-[7px] outline-none focus-visible:outline-none";
+
   if (collapsed) {
     return (
       <div
         className="flex h-full min-h-0 flex-shrink-0 flex-col self-stretch"
         style={{
-          width: GALAXY_COLLAPSED_WIDTH + GALAXY_PANEL_OUTER_GAP * 2,
+          width: CONSTELLATION_COLLAPSED_WIDTH + GALAXY_PANEL_OUTER_GAP * 2,
           padding: GALAXY_PANEL_OUTER_GAP,
           boxSizing: "border-box",
           ...icInspectorAccentStyle(constellation.type),
@@ -3429,71 +3569,86 @@ function ConstellationSidebar({
         <aside
           className="relative flex min-h-0 flex-1 flex-col items-center overflow-hidden outline-none"
           style={{
-            width: GALAXY_COLLAPSED_WIDTH,
-            minWidth: GALAXY_COLLAPSED_WIDTH,
+            width: CONSTELLATION_COLLAPSED_WIDTH,
+            minWidth: CONSTELLATION_COLLAPSED_WIDTH,
             minHeight: 40,
             borderRadius: "var(--luxia-radius-24)",
             backgroundColor: IC.shell,
             backgroundImage: IC.shellGradient,
             border: `1px solid ${IC.shellBorder}`,
             boxShadow: IC.shellShadow,
-            transition: "filter 140ms ease, box-shadow 140ms ease",
-          }}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLElement).style.filter = "brightness(1.06)";
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLElement).style.filter = "none";
           }}
         >
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                onClick={onCollapse}
-                aria-label="Expand sidebar"
-                aria-expanded={false}
-                className="mt-4 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[8px] outline-none focus-visible:outline-none"
-                style={{ background: IC.controlBg }}
-                onFocus={(e) => {
-                  (e.currentTarget as HTMLElement).style.boxShadow = IC.focusRing;
-                }}
-                onBlur={(e) => {
-                  (e.currentTarget as HTMLElement).style.boxShadow = "none";
-                }}
-              >
-                <ChevronLeft size={16} style={{ color: IC.textMuted }} strokeWidth={2.2} />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="left">Expand sidebar</TooltipContent>
-          </Tooltip>
+          <div className="flex w-full flex-shrink-0 items-start justify-center px-1.5 pt-3 pb-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={onCollapse}
+                  aria-label="Expand Constellation inspector"
+                  aria-expanded={false}
+                  className={expandHit}
+                  style={{
+                    background: "transparent",
+                    color: IC.textMuted,
+                    transition: "background-color 140ms ease, box-shadow 140ms ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLElement).style.background = IC.hover;
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLElement).style.background = "transparent";
+                    (e.currentTarget as HTMLElement).style.boxShadow = "none";
+                  }}
+                  onFocus={(e) => {
+                    (e.currentTarget as HTMLElement).style.boxShadow = IC.focusRing;
+                  }}
+                  onBlur={(e) => {
+                    (e.currentTarget as HTMLElement).style.boxShadow = "none";
+                  }}
+                >
+                  <ChevronLeft size={15} strokeWidth={2.2} aria-hidden />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="left" sideOffset={8}>Expand inspector</TooltipContent>
+            </Tooltip>
+          </div>
 
-          <div className="mt-3 flex flex-col items-center gap-3">
-            {sectionIds.map((id) => {
-              const Icon = SECTION_META[id].icon;
-              return (
-                <Tooltip key={id}>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      onClick={onCollapse}
-                      aria-label={SECTION_META[id].label}
-                      className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-[10px] outline-none focus-visible:outline-none"
-                      style={{ background: IC.raised }}
-                      onFocus={(e) => {
-                        (e.currentTarget as HTMLElement).style.boxShadow = IC.focusRing;
-                      }}
-                      onBlur={(e) => {
-                        (e.currentTarget as HTMLElement).style.boxShadow = "none";
-                      }}
-                    >
-                      <Icon size={18} color={IC.iconSemantic} strokeWidth={2} />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="left">{SECTION_META[id].label}</TooltipContent>
-                </Tooltip>
-              );
-            })}
+          <div className="min-h-0 w-full flex-1 overflow-x-hidden overflow-y-auto luxia-scrollbar luxia-scrollbar-dark luxia-scrollbar-vertical px-1.5 pb-3">
+            <div className="flex flex-col items-center gap-2 pt-1">
+              {sectionIds.map((id) => {
+                const Icon = SECTION_META[id].icon;
+                const label = SECTION_META[id].label;
+                return (
+                  <Tooltip key={id}>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={() => expandToSection(id)}
+                        aria-label={`Open ${label}`}
+                        className={railHit}
+                        style={{ background: "transparent", color: IC.iconSemantic }}
+                        onMouseEnter={(e) => {
+                          (e.currentTarget as HTMLElement).style.background = IC.hover;
+                        }}
+                        onMouseLeave={(e) => {
+                          (e.currentTarget as HTMLElement).style.background = "transparent";
+                        }}
+                        onFocus={(e) => {
+                          (e.currentTarget as HTMLElement).style.boxShadow = IC.focusRing;
+                        }}
+                        onBlur={(e) => {
+                          (e.currentTarget as HTMLElement).style.boxShadow = "none";
+                        }}
+                      >
+                        <Icon size={17} strokeWidth={2} aria-hidden color="currentColor" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="left" sideOffset={8}>{label}</TooltipContent>
+                  </Tooltip>
+                );
+              })}
+            </div>
           </div>
         </aside>
       </div>
@@ -3532,7 +3687,7 @@ function ConstellationSidebar({
         className="relative flex-shrink-0 overflow-hidden px-5 pt-3 pb-2.5"
         style={{ background: IC.header, borderBottom: `1px solid ${IC.headerDivider}` }}
       >
-        <div className="flex min-w-0 items-start gap-2 overflow-hidden">
+        <div className="flex min-w-0 items-start gap-3 overflow-hidden">
           <div className="relative min-w-0 flex-1 overflow-hidden text-left">
             {isGalaxyChat ? (
               <div className="min-w-0 overflow-hidden text-left">
@@ -3562,11 +3717,11 @@ function ConstellationSidebar({
               <button
                 type="button"
                 onClick={onCollapse}
-                aria-label="Collapse sidebar"
+                aria-label="Collapse Constellation inspector"
                 aria-expanded={true}
-                className="ml-auto mt-px flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-[7px] outline-none focus-visible:outline-none"
+                className="mt-px flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-[7px] outline-none focus-visible:outline-none"
                 style={{
-                  background: "rgba(255, 255, 255, 0.05)",
+                  background: "transparent",
                   color: IC.textMuted,
                   transition: "background-color 140ms ease, box-shadow 140ms ease",
                 }}
@@ -3576,7 +3731,7 @@ function ConstellationSidebar({
                 }}
                 onMouseLeave={(e) => {
                   const el = e.currentTarget as HTMLElement;
-                  el.style.background = "rgba(255, 255, 255, 0.05)";
+                  el.style.background = "transparent";
                   el.style.boxShadow = "none";
                 }}
                 onFocus={(e) => {
@@ -3589,11 +3744,11 @@ function ConstellationSidebar({
                 <ChevronRight size={15} strokeWidth={2.2} aria-hidden />
               </button>
             </TooltipTrigger>
-            <TooltipContent side="left">Collapse sidebar</TooltipContent>
+            <TooltipContent side="left">Collapse inspector</TooltipContent>
           </Tooltip>
         </div>
 
-        <div className="mt-2">
+        <div className="mt-4">
           <p
             className="luxia-type-caption"
             style={{
@@ -3607,20 +3762,50 @@ function ConstellationSidebar({
           >
             {constellation.description}
           </p>
-          <button
-            type="button"
-            onClick={() => setDescExpanded((p) => !p)}
-            className="luxia-type-caption mt-1 hover:opacity-80 transition-opacity"
+          <div
+            className="mt-2 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1"
             style={{ color: isGalaxyChat ? IC.textPrimary : IC.iconSemantic }}
           >
-            {descExpanded ? "Read less" : "Read more"}
-          </button>
+            <button
+              type="button"
+              onClick={() => setDescExpanded((p) => !p)}
+              className="luxia-type-caption min-h-7 hover:opacity-80 transition-opacity outline-none focus-visible:underline"
+              style={{ color: "inherit" }}
+              aria-expanded={descExpanded}
+              aria-label={descExpanded ? "Read less Constellation description" : "Read more Constellation description"}
+            >
+              {descExpanded ? "Read less" : "Read more"}
+            </button>
+            {!isGalaxyChat ? (
+              <>
+                <span className="luxia-type-caption select-none" style={{ color: IC.textMuted }} aria-hidden>
+                  ·
+                </span>
+                <button
+                  type="button"
+                  className="luxia-type-caption min-h-7 hover:opacity-80 transition-opacity outline-none focus-visible:underline"
+                  style={{ color: "inherit" }}
+                  aria-label="Open Constellation"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    const settingsProjectId = constellation.projectId || projectId;
+                    const settingsConstellationId = constellation.id;
+                    if (!settingsProjectId || !settingsConstellationId) return;
+                    if (settingsConstellationId === "constellation-unavailable") return;
+                    onOpenConstellationSettings?.(settingsProjectId, settingsConstellationId);
+                  }}
+                >
+                  Open Constellation
+                </button>
+              </>
+            ) : null}
+          </div>
         </div>
       </div>
 
       <div
-        className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-5 pt-5 pb-2.5 space-y-2 galaxy-panel-scroll"
-        style={{ scrollbarWidth: "thin", scrollbarColor: `${IC.scrollThumb} transparent` }}
+        className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto luxia-scrollbar luxia-scrollbar-dark luxia-scrollbar-vertical galaxy-panel-scroll px-5 pt-5 pb-2.5 space-y-2"
       >
         {sectionIds.map((sid) => {
           const meta = SECTION_META[sid];
@@ -3679,6 +3864,7 @@ function ConstellationSidebar({
                 isOpen={isOpen}
                 onToggle={() => setOpenSections(p => ({ ...p, instr: !p.instr }))}
                 onSignatureChange={(sig) => registerSectionSignature("instr", sig)}
+                readOnly={!canEditKnowledge}
               />
             );
           }
@@ -3701,6 +3887,7 @@ function ConstellationSidebar({
                 isOpen={isOpen}
                 onToggle={() => setOpenSections(p => ({ ...p, crawler: !p.crawler }))}
                 onSignatureChange={(sig) => registerSectionSignature("crawler", sig)}
+                readOnly={!canEditKnowledge}
               />
             );
           }
@@ -3712,17 +3899,17 @@ function ConstellationSidebar({
                 isOpen={isOpen}
                 onToggle={() => setOpenSections(p => ({ ...p, kb: !p.kb }))}
                 onExpand={() => setKbWorkspaceOpen(true)}
-                onAdd={() => setKbAddOpen(true)}
+                onAdd={canEditKnowledge ? () => setKbAddOpen(true) : undefined}
                 onView={(id) => setKbViewId(id)}
-                onEdit={(id) => setKbEditId(id)}
-                onRemove={(id) => setKbConfirmId(id)}
+                onEdit={canEditKnowledge ? (id) => setKbEditId(id) : undefined}
+                onRemove={canEditKnowledge ? (id) => setKbConfirmId(id) : undefined}
+                readOnly={!canEditKnowledge}
               />
             );
           }
 
           const isInstr = sid === "instr";
           const showDrop = sid === "pdfFiles";
-          // Cast keeps the generic branch typed after specialized early-returns exhaust SectionId.
           const fallbackSid = sid as SectionId;
           const sectionItems: string[] = items[fallbackSid] ?? [];
           const FallbackIcon = SECTION_META[fallbackSid].icon;
@@ -3794,21 +3981,22 @@ function ConstellationSidebar({
             {constellationFeedback.message}
           </p>
         ) : null}
-        <button
-          type="button"
-          disabled={!constellationDirty || constellationSaving}
-          onClick={saveConstellation}
-          className="flex h-[38px] w-full items-center justify-center gap-2 rounded-[10px] luxia-type-body-dense-strong outline-none disabled:cursor-not-allowed"
-          style={{
-            color: "#FFFFFF",
-            background: IC.saveEnabled,
-            border: "1px solid transparent",
-            boxShadow: "var(--luxia-shadow-sm)",
-            opacity: constellationDirty && !constellationSaving ? 1 : 0.48,
-          }}
-        >
-          <Check size={13} />{constellationSaving ? "Saving…" : "Save Constellation"}
-        </button>
+        {canConfigure || canEditKnowledge ? (
+          <Button
+            type="button"
+            variant="primary"
+            disabled={!constellationDirty || constellationSaving}
+            onClick={saveConstellation}
+            className="w-full"
+          >
+            <Check size={16} aria-hidden />
+            {constellationSaving ? "Saving…" : "Save Constellation"}
+          </Button>
+        ) : (
+          <p className="text-center luxia-type-caption" style={{ color: IC.textMuted }}>
+            Configuration is read-only for your Project role.
+          </p>
+        )}
       </div>
     </aside>
 
@@ -3883,14 +4071,170 @@ function ConstellationSidebar({
 
 export default function App() {
   const [chats, setChats] = useState<Chat[]>(INITIAL_CHATS);
-  const [activeChat, setActiveChat] = useState("c1");
+  const [activeChat, setActiveChat] = useState(INITIAL_SHELL.activeChat);
   const [chatMessages, setChatMessages] = useState<Record<string, Message[]>>(INITIAL_MESSAGES);
   const [inputValue, setInputValue] = useState("");
   const [language, setLanguage] = useState("EN");
   const [assistantMode, setAssistantMode] = useState("Luxia");
   const [showNewChatModal, setShowNewChatModal] = useState(false);
+  const [newChatLockedProjectId, setNewChatLockedProjectId] = useState<string | null>(null);
+  const [showNewProjectModal, setShowNewProjectModal] = useState(false);
+  const [projectManageMode, setProjectManageMode] = useState<ProjectManageMode | null>(null);
+  const [projectManageId, setProjectManageId] = useState<string | null>(null);
+  const [appView, setAppView] = useState<LuxiaAppView>(INITIAL_SHELL.appView);
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(INITIAL_SHELL.activeProjectId);
+  const [projectBrowseMode, setProjectBrowseMode] = useState<ProjectOverviewBrowseMode>(
+    INITIAL_SHELL.projectBrowseMode,
+  );
+  const [settingsConstellationId, setSettingsConstellationId] = useState<string | null>(
+    INITIAL_SHELL.settingsConstellationId,
+  );
+  const [settingsCapabilityPath, setSettingsCapabilityPath] = useState<string | null>(
+    INITIAL_SHELL.settingsCapabilityPath,
+  );
+  const [settingsSection, setSettingsSection] = useState<ConstellationSettingsSectionId>(
+    INITIAL_SHELL.settingsSection,
+  );
+  const [galaxySettingsSection, setGalaxySettingsSection] = useState<GalaxySettingsSectionId>("general");
+  const [accountSettingsOpen, setAccountSettingsOpen] = useState(false);
+  const [accountSettingsSection, setAccountSettingsSection] = useState<AccountSettingsSectionId>("profile");
+  const [galaxySettingsFocusHeadingToken, setGalaxySettingsFocusHeadingToken] = useState(0);
+  const [galaxySettingsById, setGalaxySettingsById] = useState<
+    Record<string, GalaxySettingsRecord>
+  >({});
+  const [settingsFocusHeadingToken, setSettingsFocusHeadingToken] = useState(0);
+  const [accessLevelId, setAccessLevelId] = useState<string | null>(
+    INITIAL_SHELL.accessLevelId,
+  );
+  const [organizationUserId, setOrganizationUserId] = useState<string | null>(
+    INITIAL_SHELL.organizationUserId,
+  );
+  const [organizationUsersState, setOrganizationUsersState] = useState<OrganizationUser[]>(
+    () => ORGANIZATION_USERS.map((user) => ({ ...user })),
+  );
+  const [inviteOrganizationUserOpen, setInviteOrganizationUserOpen] = useState(false);
+  const [dataSourceSettingsId, setDataSourceSettingsId] = useState<string | null>(
+    INITIAL_SHELL.dataSourceSettingsId,
+  );
+  const [dataSourceSettingsFocus, setDataSourceSettingsFocus] = useState<
+    DataSourceSettingsFocusSection | null
+  >(null);
+  const [constellationSettingsById, setConstellationSettingsById] = useState<
+    Record<string, ConstellationSettingsRecord>
+  >(() => {
+    const map: Record<string, ConstellationSettingsRecord> = {};
+    for (const record of CONSTELLATION_SETTINGS_RECORDS) {
+      map[record.id] = cloneConstellationSettingsRecord(record);
+    }
+    return map;
+  });
+  const [accessLevelsState, setAccessLevelsState] = useState(() =>
+    ACCESS_LEVELS.map((level) => cloneAccessLevel(level)),
+  );
+  const [dataSourcesState, setDataSourcesState] = useState(() =>
+    DATA_SOURCE_CATALOG.map((source) => ({ ...source })),
+  );
+  const [dataSourceCreationOpen, setDataSourceCreationOpen] = useState(false);
+  const [constellationCreateExistingSourceId, setConstellationCreateExistingSourceId] =
+    useState<string | null>(null);
+  const [dataSourceHandoff, setDataSourceHandoff] = useState<{
+    sourceId: string;
+    kind: "create" | "connect";
+  } | null>(null);
+  const [projectMembershipsState, setProjectMembershipsState] = useState(() =>
+    PROJECT_MEMBERSHIPS.map((membership) => ({ ...membership })),
+  );
+  const [vidgetsState, setVidgetsState] = useState(() => SEED_VIDGETS.map(cloneVidget));
+  const [vidgetId, setVidgetId] = useState<string | null>(null);
+  const [vidgetInboxSessionId, setVidgetInboxSessionId] = useState<string | null>(null);
+  const [vidgetInboxSearch, setVidgetInboxSearch] = useState("");
+  const [dashboardFocusOutputId, setDashboardFocusOutputId] = useState<string | null>(null);
+  const [activeDashboardOutputId, setActiveDashboardOutputId] = useState<string | null>(null);
+  const [dashboardViewResetKey, setDashboardViewResetKey] = useState(0);
+  const [vidgetSettingsSection, setVidgetSettingsSection] = useState<VidgetSettingsSectionId>("general");
+  const [vidgetSettingsFocusPreview, setVidgetSettingsFocusPreview] = useState(false);
+  const [createVidgetOpen, setCreateVidgetOpen] = useState(false);
+  const [createVidgetPreset, setCreateVidgetPreset] = useState<VidgetCreateSourcePreset>({
+    kind: "choose",
+  });
+  const [createVidgetProjectId, setCreateVidgetProjectId] = useState<string | null>(null);
+  const [projectAssistantOpen, setProjectAssistantOpen] = useState(false);
+  const [projectAssistantSessions, setProjectAssistantSessions] = useState<
+    Record<string, ProjectAssistantMessage[]>
+  >({});
+  const [prototypeUserId, setPrototypeUserId] = useState(CURRENT_USER_ID);
+  const [constellationAccessBlock, setConstellationAccessBlock] = useState<{
+    projectId: string;
+    constellationId: string;
+    reason: string;
+  } | null>(null);
+  const [galaxyAccessBlock, setGalaxyAccessBlock] = useState<{
+    projectId: string;
+    reason: string;
+  } | null>(null);
+  const [capabilityBundlesById, setCapabilityBundlesById] = useState<
+    Record<string, ConstellationCapabilityBundle>
+  >(() => {
+    const map: Record<string, ConstellationCapabilityBundle> = {};
+    for (const item of CANONICAL_CONSTELLATIONS) {
+      const record = CONSTELLATION_SETTINGS_RECORDS.find((entry) => entry.id === item.id);
+      map[item.id] = createSeedCapabilityBundle(item.id, item.type, record?.instructions);
+    }
+    return map;
+  });
+  const [runtimeConstellations, setRuntimeConstellations] = useState<Constellation[]>([]);
+  const allConstellations = useMemo(
+    () => applyConstellationNameOverrides(
+      [...CONSTELLATIONS, ...runtimeConstellations],
+      constellationSettingsById,
+    ),
+    [runtimeConstellations, constellationSettingsById],
+  );
+  const [homeBrowseMode, setHomeBrowseMode] = useState<HomeBrowseMode>("overview");
+  const [homeScrollRequest, setHomeScrollRequest] = useState(0);
+  const [homeProjects, setHomeProjects] = useState<HomeProjectCard[]>(HOME_PROJECTS);
+  const dataSourceConstellationHandoff = useMemo(() => {
+    const projects = listProjectsWhereUserCanCreateConstellation({
+      projects: homeProjects,
+      memberships: projectMembershipsState,
+      userId: prototypeUserId,
+    });
+    const constellations = listConstellationsUserCanConfigure({
+      constellations: allConstellations.map((item) => {
+        const record = constellationSettingsById[item.id]
+          ?? getConstellationSettingsRecord(item.id);
+        return {
+          id: item.id,
+          name: item.label,
+          projectId: item.projectId,
+          dataSourceIds: record?.connectedSources.map((source) => source.id)
+            ?? getCanonicalConstellationById(item.id)?.dataSourceIds
+            ?? [],
+        };
+      }),
+      projects: homeProjects,
+      memberships: projectMembershipsState,
+      userId: prototypeUserId,
+    });
+    return { projects, constellations };
+  }, [
+    homeProjects,
+    projectMembershipsState,
+    prototypeUserId,
+    allConstellations,
+    constellationSettingsById,
+  ]);
+  const [pinnedProjectIds, setPinnedProjectIds] = useState<string[]>(readPinnedProjectIds);
+  const [pinnedEntityOrder, setPinnedEntityOrder] = useState(readPinnedEntityOrder);
+  const [primaryPreference, setPrimaryPreference] = useState(readHomePrimaryPreference);
+  const [dismissedContinueKeys, setDismissedContinueKeys] = useState(readDismissedContinueKeys);
   const [galaxySessions, setGalaxySessions] = useState<Record<string, GalaxySessionState>>(() => ({
-    g1: createIdleGalaxySession("Project Name 1"),
+    "galaxy-01": createIdleGalaxySession(getProjectNameById("project-01")),
+    "galaxy-02": createIdleGalaxySession(getProjectNameById("project-02")),
+    "galaxy-03": createIdleGalaxySession(getProjectNameById("project-03")),
+    "galaxy-04": createIdleGalaxySession(getProjectNameById("project-04")),
+    "galaxy-05": createIdleGalaxySession(getProjectNameById("project-05")),
+    "galaxy-06": createIdleGalaxySession(getProjectNameById("project-06")),
   }));
   const [sidebarWidth, setSidebarWidth] = useState(INSPECTOR_WIDTH_DEFAULT);
   const [galaxyPanelWidth, setGalaxyPanelWidth] = useState(() =>
@@ -3903,26 +4247,40 @@ export default function App() {
   const galaxyExpandSignalSeenRef = useRef(0);
   const [sidebarCollapsedPreference, setSidebarCollapsedPreference] = useState(false);
   const [leftNavCollapsedPreference, setLeftNavCollapsedPreference] = useState(readLeftNavCollapsedPreference);
-  const [leftNavExpandedDespiteNarrow, setLeftNavExpandedDespiteNarrow] = useState(false);
+  const [leftNavSecondaryOpen, setLeftNavSecondaryOpen] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [inspectorExpandedDespiteNarrow, setInspectorExpandedDespiteNarrow] = useState(false);
   const [viewportWidth, setViewportWidth] = useState(() =>
     typeof window !== "undefined" ? window.innerWidth : 1920
   );
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const counterRef = useRef(200);
+  const chatsRef = useRef(chats);
+  chatsRef.current = chats;
+  const homeProjectsRef = useRef(homeProjects);
+  homeProjectsRef.current = homeProjects;
+  const appViewRef = useRef(appView);
+  appViewRef.current = appView;
+  const activeProjectIdRef = useRef(activeProjectId);
+  activeProjectIdRef.current = activeProjectId;
+  const projectMembershipsStateRef = useRef(projectMembershipsState);
+  projectMembershipsStateRef.current = projectMembershipsState;
+  const constellationCreateGuardRef = useRef<ConstellationCreateNavigationGuard | null>(null);
+  const accessLevelCreateDraftRef = useRef<AccessLevelRecord | null>(null);
 
-  const isLeftNavNarrow = viewportWidth < LEFT_NAV_NARROW_BREAKPOINT;
+  const isMobileNav = viewportWidth < LEFT_NAV_MOBILE_BREAKPOINT;
   const isInspectorNarrow = viewportWidth <= INSPECTOR_NARROW_BREAKPOINT;
 
-  const leftNavCollapsed = isLeftNavNarrow
-    ? !leftNavExpandedDespiteNarrow
-    : leftNavCollapsedPreference;
+  const leftNavCollapsed = isMobileNav ? true : leftNavCollapsedPreference;
 
   const sidebarCollapsed = isInspectorNarrow
     ? !inspectorExpandedDespiteNarrow
     : sidebarCollapsedPreference;
 
-  const leftNavWidth = leftNavCollapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_EXPANDED;
+  const leftNavWidth = isMobileNav
+    ? 0
+    : (leftNavCollapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_EXPANDED)
+      + (leftNavSecondaryOpen ? SIDEBAR_SECONDARY_WIDTH : 0);
   const clampedInspectorWidth = clampInspectorWidth(sidebarWidth, viewportWidth, leftNavWidth);
   const clampedGalaxyWidth = clampGalaxyWidth(galaxyPanelWidth, viewportWidth, leftNavWidth);
   const isGalaxyNarrow = viewportWidth <= GALAXY_NARROW_BREAKPOINT;
@@ -3937,22 +4295,427 @@ export default function App() {
     try {
       localStorage.setItem(LEFT_NAV_COLLAPSED_STORAGE_KEY, String(leftNavCollapsedPreference));
     } catch {
-      /* ignore storage errors */
     }
   }, [leftNavCollapsedPreference]);
 
   useEffect(() => {
-    function onResize() {
-      setViewportWidth(window.innerWidth);
+    setOrganizationUsersRuntime(organizationUsersState);
+  }, [organizationUsersState]);
+
+  useEffect(() => {
+    function clearSettingsRouteState() {
+      setSettingsConstellationId(null);
+      setSettingsCapabilityPath(null);
+      setSettingsSection("general");
+      setGalaxySettingsSection("general");
+      setVidgetId(null);
+      setVidgetInboxSessionId(null);
+      setVidgetInboxSearch("");
+      setVidgetSettingsSection("general");
+      setAccessLevelId(null);
+      setOrganizationUserId(null);
+      setDataSourceSettingsId(null);
+      setDataSourceSettingsFocus(null);
     }
-    onResize();
+
+    function goHome(replace: boolean) {
+      if (typeof window !== "undefined") {
+        const onRoot = window.location.pathname === "/" || window.location.pathname === "";
+        if (!onRoot) {
+          if (replace) {
+            window.history.replaceState({ luxiaView: "home" }, "", "/");
+          } else {
+            window.history.pushState({ luxiaView: "home" }, "", "/");
+          }
+        }
+      }
+      setAppView("home");
+      setHomeBrowseMode("overview");
+      setActiveProjectId(null);
+      setProjectBrowseMode("overview");
+      clearSettingsRouteState();
+    }
+
+    function applyPath(pathname: string, search = typeof window !== "undefined" ? window.location.search : "") {
+      const resolved = resolveLuxiaPathname(pathname);
+
+      if (resolved.kind === "home") {
+        if (resolved.normalizeToRoot && typeof window !== "undefined") {
+          window.history.replaceState({ luxiaView: "home" }, "", "/");
+        }
+        setAppView("home");
+        setHomeBrowseMode("overview");
+        setActiveProjectId(null);
+        setProjectBrowseMode("overview");
+        clearSettingsRouteState();
+        return;
+      }
+
+      if (resolved.kind === "project") {
+        clearSettingsRouteState();
+        setActiveProjectId(resolved.projectId);
+        setProjectBrowseMode("overview");
+        setAppView("project");
+        return;
+      }
+
+      if (resolved.kind === "dashboard") {
+        clearSettingsRouteState();
+        setActiveProjectId(resolved.projectId);
+        setProjectBrowseMode("dashboards");
+        setAppView("project");
+        return;
+      }
+
+      if (resolved.kind === "constellation-create") {
+        clearSettingsRouteState();
+        setActiveProjectId(resolved.projectId);
+        setProjectBrowseMode("constellations");
+        setAppView("constellation-create");
+        return;
+      }
+
+      if (resolved.kind === "constellations") {
+        clearSettingsRouteState();
+        setActiveProjectId(resolved.projectId);
+        setProjectBrowseMode("constellations");
+        setAppView("project");
+        return;
+      }
+
+      if (resolved.kind === "project-chats") {
+        clearSettingsRouteState();
+        setActiveProjectId(resolved.projectId);
+        setProjectBrowseMode("chats");
+        setAppView("project");
+        return;
+      }
+
+      if (resolved.kind === "project-activity") {
+        clearSettingsRouteState();
+        setActiveProjectId(resolved.projectId);
+        setProjectBrowseMode("activity");
+        setAppView("project");
+        return;
+      }
+
+      if (resolved.kind === "constellation-settings") {
+        setActiveProjectId(resolved.projectId);
+        setSettingsConstellationId(resolved.constellationId);
+        setSettingsCapabilityPath(resolved.capabilityPath ?? null);
+        setSettingsSection(
+          resolved.capabilityPath
+            ? "configuration"
+            : parseConstellationSettingsTabFromSearch(search),
+        );
+        setGalaxySettingsSection("general");
+        setAccessLevelId(null);
+        setDataSourceSettingsId(null);
+        setAppView("constellation-settings");
+        return;
+      }
+
+      if (resolved.kind === "galaxy-settings") {
+        if (!canAccessProject(
+          resolved.projectId,
+          projectMembershipsStateRef.current,
+          CURRENT_USER_ID,
+        )) {
+          goHome(true);
+          return;
+        }
+        setActiveProjectId(resolved.projectId);
+        setSettingsConstellationId(null);
+        setSettingsCapabilityPath(null);
+        setGalaxySettingsSection(parseGalaxySettingsTabFromSearch(search));
+        setAccessLevelId(null);
+        setDataSourceSettingsId(null);
+        setAppView("galaxy-settings");
+        return;
+      }
+
+      if (resolved.kind === "project-members") {
+        setActiveProjectId(resolved.projectId);
+        setSettingsConstellationId(null);
+        setSettingsCapabilityPath(null);
+        setAccessLevelId(null);
+        setOrganizationUserId(null);
+        setDataSourceSettingsId(null);
+        setVidgetId(null);
+        setAppView("project-members");
+        return;
+      }
+
+      if (resolved.kind === "project-vidgets") {
+        setActiveProjectId(resolved.projectId);
+        setSettingsConstellationId(null);
+        setSettingsCapabilityPath(null);
+        setAccessLevelId(null);
+        setOrganizationUserId(null);
+        setDataSourceSettingsId(null);
+        setVidgetId(null);
+        setVidgetSettingsSection("general");
+        setVidgetInboxSessionId(null);
+        setVidgetInboxSearch("");
+        setAppView("project-vidgets");
+        return;
+      }
+
+      if (resolved.kind === "vidget-inbox") {
+        const parsed = parseVidgetInboxQueryFromSearch(search);
+        const sessionId = parsed.sessionId || resolved.sessionId || "";
+        const query = { ...parsed, sessionId };
+        const nextSearch = serializeVidgetInboxQuery(query);
+        setActiveProjectId(resolved.projectId);
+        setSettingsConstellationId(null);
+        setSettingsCapabilityPath(null);
+        setAccessLevelId(null);
+        setOrganizationUserId(null);
+        setDataSourceSettingsId(null);
+        setVidgetId(null);
+        setVidgetSettingsSection("general");
+        setVidgetInboxSessionId(sessionId || null);
+        setVidgetInboxSearch(nextSearch ? `?${nextSearch}` : "");
+        setAppView("vidget-inbox");
+        if (typeof window !== "undefined" && resolved.sessionId) {
+          const canonical = getVidgetInboxPath(resolved.projectId, { search: nextSearch });
+          const current = `${window.location.pathname}${window.location.search}`;
+          if (current !== canonical) {
+            window.history.replaceState(
+              {
+                luxiaView: "vidget-inbox",
+                projectId: resolved.projectId,
+                sessionId: sessionId || null,
+              },
+              "",
+              canonical,
+            );
+          }
+        }
+        return;
+      }
+
+      if (resolved.kind === "vidget-settings") {
+        setActiveProjectId(resolved.projectId);
+        setSettingsConstellationId(null);
+        setSettingsCapabilityPath(null);
+        setAccessLevelId(null);
+        setOrganizationUserId(null);
+        setDataSourceSettingsId(null);
+        setVidgetId(resolved.vidgetId);
+        setVidgetSettingsSection(parseVidgetSettingsTabFromSearch(search));
+        setAppView("vidget-settings");
+        return;
+      }
+
+      if (resolved.kind === "organization-users") {
+        setActiveProjectId(null);
+        setSettingsConstellationId(null);
+        setSettingsCapabilityPath(null);
+        setAccessLevelId(null);
+        setOrganizationUserId(null);
+        setDataSourceSettingsId(null);
+        setAppView("organization-users");
+        return;
+      }
+
+      if (resolved.kind === "organization-user") {
+        setActiveProjectId(null);
+        setSettingsConstellationId(null);
+        setSettingsCapabilityPath(null);
+        setAccessLevelId(null);
+        setOrganizationUserId(resolved.userId);
+        setDataSourceSettingsId(null);
+        setAppView("organization-user");
+        return;
+      }
+
+      if (resolved.kind === "access-levels") {
+        setActiveProjectId(null);
+        setSettingsConstellationId(null);
+        setSettingsCapabilityPath(null);
+        setAccessLevelId(null);
+        setOrganizationUserId(null);
+        setDataSourceSettingsId(null);
+        setAppView("access-levels");
+        return;
+      }
+
+      if (resolved.kind === "data-sources") {
+        setActiveProjectId(null);
+        setSettingsConstellationId(null);
+        setSettingsCapabilityPath(null);
+        setAccessLevelId(null);
+        setOrganizationUserId(null);
+        setDataSourceSettingsId(null);
+        setAppView("data-sources");
+        return;
+      }
+
+      if (resolved.kind === "personal-settings") {
+        setAccountSettingsSection(
+          personalSettingsSectionToAccountSection(parsePersonalSettingsTabFromSearch(search)),
+        );
+        setAccountSettingsOpen(true);
+        setMobileNavOpen(false);
+        setProjectAssistantOpen(false);
+        return;
+      }
+
+      if (resolved.kind === "organization-settings") {
+        const requested = parseOrganizationSettingsTabFromSearch(search);
+        setAccountSettingsSection(
+          requested === "analytics" && !canViewOrganizationAnalytics(prototypeUserId)
+            ? "general"
+            : organizationSettingsSectionToAccountSection(requested),
+        );
+        setAccountSettingsOpen(true);
+        setMobileNavOpen(false);
+        setProjectAssistantOpen(false);
+        return;
+      }
+
+      if (resolved.kind === "access-level") {
+        if (
+          resolved.accessLevelId === "new"
+          && !canAdministerAccessLevels()
+        ) {
+          toast.error(ACCESS_LEVEL_CREATE_DENIED_MESSAGE);
+          setActiveProjectId(null);
+          setSettingsConstellationId(null);
+          setSettingsCapabilityPath(null);
+          setAccessLevelId(null);
+          setOrganizationUserId(null);
+          setDataSourceSettingsId(null);
+          setAppView("access-levels");
+          if (typeof window !== "undefined") {
+            const listPath = getAccessLevelsPath();
+            if (window.location.pathname !== listPath) {
+              window.history.replaceState({ luxiaView: "access-levels" }, "", listPath);
+            }
+          }
+          return;
+        }
+        setActiveProjectId(null);
+        setSettingsConstellationId(null);
+        setSettingsCapabilityPath(null);
+        setAccessLevelId(resolved.accessLevelId);
+        setOrganizationUserId(null);
+        setDataSourceSettingsId(null);
+        setAppView("access-level");
+        return;
+      }
+
+      if (resolved.kind === "data-source-settings") {
+        setActiveProjectId(null);
+        setSettingsConstellationId(null);
+        setSettingsCapabilityPath(null);
+        setAccessLevelId(null);
+        setDataSourceSettingsId(resolved.dataSourceId);
+        setAppView("data-source-settings");
+        return;
+      }
+
+      if (resolved.kind === "galaxy") {
+        clearSettingsRouteState();
+        const galaxyChat = findGalaxyChatForProject(
+          resolved.projectId,
+          chatsRef.current,
+          homeProjectsRef.current,
+        );
+        if (!galaxyChat) {
+          setActiveProjectId(resolved.projectId);
+          setProjectBrowseMode("overview");
+          setAppView("project");
+          if (typeof window !== "undefined") {
+            const overviewPath = getProjectPath(resolved.projectId);
+            if (window.location.pathname !== overviewPath) {
+              window.history.replaceState(
+                { luxiaView: "project", projectId: resolved.projectId },
+                "",
+                overviewPath,
+              );
+            }
+          }
+          return;
+        }
+        setActiveProjectId(resolved.projectId);
+        setActiveChat(galaxyChat.id);
+        setAppView("chat");
+        return;
+      }
+
+      if (resolved.kind === "chat") {
+        clearSettingsRouteState();
+        const chat = findChatById(resolved.chatId, chatsRef.current);
+        if (!chat) {
+          goHome(true);
+          return;
+        }
+        if (
+          resolved.projectId
+          && chat.projectId
+          && resolved.projectId !== chat.projectId
+        ) {
+          goHome(true);
+          return;
+        }
+        if (
+          resolved.constellationId
+          && chat.chatType === "constellation"
+          && chat.constellationId
+          && resolved.constellationId !== chat.constellationId
+        ) {
+          goHome(true);
+          return;
+        }
+        if (chat.projectId) setActiveProjectId(chat.projectId);
+        setActiveChat(chat.id);
+        setAppView("chat");
+        return;
+      }
+
+      goHome(true);
+    }
+
+    function onPopState() {
+      const pathname = window.location.pathname;
+      const search = window.location.search;
+
+      if (appViewRef.current === "constellation-create") {
+        const guard = constellationCreateGuardRef.current;
+        const resolved = resolveLuxiaPathname(pathname);
+        if (guard?.isDirty() && resolved.kind !== "constellation-create") {
+          const projectId = activeProjectIdRef.current;
+          if (projectId) {
+            const createPath = getConstellationCreatePath(projectId);
+            window.history.pushState(
+              { luxiaView: "constellation-create", projectId },
+              "",
+              createPath,
+            );
+          }
+          guard.requestLeaveConfirmation(() => applyPath(pathname, search));
+          return;
+        }
+      }
+
+      applyPath(pathname, search);
+    }
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
+
+  useEffect(() => {
+    if (!isMobileNav) setMobileNavOpen(false);
+  }, [isMobileNav]);
+
+  useEffect(() => {
+    const onResize = () => setViewportWidth(window.innerWidth);
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
-
-  useEffect(() => {
-    if (!isLeftNavNarrow) setLeftNavExpandedDespiteNarrow(false);
-  }, [isLeftNavNarrow]);
 
   useEffect(() => {
     if (!isInspectorNarrow) setInspectorExpandedDespiteNarrow(false);
@@ -3968,8 +4731,153 @@ export default function App() {
   }, [viewportWidth, leftNavWidth]);
 
   const activeData = chats.find((c) => c.id === activeChat);
-  const activeConstellation = resolveChatConstellation(activeData);
+  const resolvedConstellation = resolveChatConstellation(activeData, allConstellations);
+  /** Render-only stand-in when a Chat's constellationId is missing — never used for Settings routing. */
+  const activeConstellation: Constellation = resolvedConstellation ?? {
+    id: activeData?.constellationId ?? "constellation-unavailable",
+    label: "Constellation unavailable",
+    type: "database",
+    projectId: activeData?.projectId ?? "",
+    description: "",
+  };
   const messages = chatMessages[activeChat] ?? [];
+
+  const contextProjectId = appView === "home"
+    || appView === "organization-users"
+    || appView === "organization-user"
+    || appView === "access-levels"
+    || appView === "access-level"
+    || appView === "data-sources"
+    || appView === "data-source-settings"
+    ? null
+    : appView === "project" || appView === "constellation-create" || appView === "constellation-settings" || appView === "galaxy-settings" || appView === "project-members" || appView === "project-vidgets" || appView === "vidget-inbox" || appView === "vidget-settings"
+      ? activeProjectId
+      : (activeData?.projectId ?? activeProjectId);
+
+  const contextProjectLabel = useMemo(() => {
+    if (!contextProjectId) return null;
+    return getProjectNameById(contextProjectId, homeProjects, PROJECT_NAME_FALLBACK);
+  }, [contextProjectId, homeProjects]);
+
+  const activeProjectSection: ProjectNavSection | null = useMemo(() => {
+    if (appView === "project") {
+      if (projectBrowseMode === "chats") return "chats";
+      if (projectBrowseMode === "constellations") return "constellations";
+      if (projectBrowseMode === "dashboards") return "dashboard";
+      if (projectBrowseMode === "virtual-assistants") return "virtual-assistant";
+      return "overview";
+    }
+    if (appView === "constellation-settings") return "constellations";
+    if (appView === "galaxy-settings") return "galaxy";
+    if (appView === "constellation-create") return "constellations";
+    if (appView === "project-members") return "members";
+    if (appView === "project-vidgets" || appView === "vidget-inbox" || appView === "vidget-settings") return "vidgets";
+    if (appView === "chat") {
+      if (activeData?.chatType === "galaxy") return "galaxy";
+      return "chats";
+    }
+    return null;
+  }, [appView, projectBrowseMode, activeData?.chatType]);
+
+  const galaxyNameById = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const chat of INITIAL_CHATS) {
+      if (chat.chatType === "galaxy") map[chat.id] = chat.label;
+    }
+    for (const chat of chats) {
+      if (chat.chatType === "galaxy") map[chat.id] = chat.label;
+    }
+    return map;
+  }, [chats]);
+
+  const constellationNameById = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const item of CANONICAL_CONSTELLATIONS) {
+      map[item.id] = item.name;
+    }
+    for (const item of allConstellations) {
+      map[item.id] = item.label;
+    }
+    return map;
+  }, [allConstellations]);
+
+  const galaxyInstructionById = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const chat of [...INITIAL_CHATS, ...chats]) {
+      if (chat.chatType !== "galaxy") continue;
+      map[chat.id] = galaxySettingsById[chat.id]?.instruction ?? GALAXY_DEFAULT_INSTRUCTION;
+    }
+    return map;
+  }, [chats, galaxySettingsById]);
+
+  const overviewChats: ProjectOverviewChat[] = useMemo(() => {
+    const source = [...INITIAL_CHATS, ...chats.filter((c) => !INITIAL_CHATS.some((i) => i.id === c.id))];
+    const byProject = new Map<string, number>();
+    return source.map((chat) => {
+      const constellation = allConstellations.find((c) => c.id === chat.constellationId);
+      const isGalaxy = chat.chatType === "galaxy";
+      const projectOrder = byProject.get(chat.projectId) ?? 0;
+      byProject.set(chat.projectId, projectOrder + 1);
+      const hoursAgo = isGalaxy ? 1 + projectOrder * 5 : 2 + projectOrder * 8;
+      return {
+        id: chat.id,
+        label: chat.label,
+        projectId: chat.projectId,
+        chatSource: isGalaxy ? ("galaxy" as const) : ("constellation" as const),
+        constellationId: chat.constellationId,
+        constellationName: constellation?.label,
+        constellationSource: constellation
+          ? constellation.type === "pdf"
+            ? ("pdf" as const)
+            : constellation.type === "csv"
+              ? ("csv" as const)
+              : ("database" as const)
+          : undefined,
+        lastOpenedAt:
+          hoursAgo <= 2
+            ? "1 hour ago"
+            : hoursAgo <= 24
+              ? "Yesterday"
+              : `${Math.max(2, Math.round(hoursAgo / 24))} days ago`,
+        lastOpenedTimestamp: Date.now() - hoursAgo * 3_600_000,
+      };
+    });
+  }, [chats, allConstellations]);
+
+  const overviewConstellations: ProjectOverviewConstellation[] = useMemo(
+    () => allConstellations
+      .filter((item) => {
+        const settings = constellationSettingsById[item.id]
+          ?? getConstellationSettingsRecord(item.id);
+        const status = settings?.status
+          ?? getCanonicalConstellationById(item.id)?.status
+          ?? "active";
+        return status !== "archived";
+      })
+      .map((item) => {
+        const settings = constellationSettingsById[item.id]
+          ?? getConstellationSettingsRecord(item.id);
+        const canonical = getCanonicalConstellationById(item.id);
+        const derivedSourceCount = settings
+          ? settings.connectedSources.length
+          : (getConstellationSourceCount(item.id)
+            || CONSTELLATION_SOURCE_COUNTS[item.id]
+            || 0);
+        const updatedAtLabel = settings?.updatedAt ?? canonical?.updatedAt ?? "";
+        const updatedAtTimestamp =
+          parseLuxiaRelativeTimestamp(updatedAtLabel) ?? 0;
+        return {
+          id: item.id,
+          label: item.label,
+          type: item.type === "pdf" ? "pdf" : item.type === "csv" ? "csv" : "database",
+          projectId: item.projectId,
+          sourceCount: derivedSourceCount,
+          description: item.description,
+          updatedAtTimestamp,
+        };
+      }),
+    [allConstellations, constellationSettingsById],
+  );
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
@@ -3979,8 +4887,7 @@ export default function App() {
     const startW = clampedInspectorWidth;
     function onMove(ev: MouseEvent) {
       const next = startW + startX - ev.clientX;
-      const navW = leftNavCollapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_EXPANDED;
-      setSidebarWidth(clampInspectorWidth(next, window.innerWidth, navW));
+      setSidebarWidth(clampInspectorWidth(next, window.innerWidth, leftNavWidth));
     }
     function onUp() {
       window.removeEventListener("mousemove", onMove);
@@ -3997,8 +4904,7 @@ export default function App() {
     const startW = clampedGalaxyWidth;
     function onMove(ev: MouseEvent) {
       const next = startW + startX - ev.clientX;
-      const navW = leftNavCollapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_EXPANDED;
-      setGalaxyPanelWidth(clampGalaxyWidth(next, window.innerWidth, navW));
+      setGalaxyPanelWidth(clampGalaxyWidth(next, window.innerWidth, leftNavWidth));
     }
     function onUp() {
       window.removeEventListener("mousemove", onMove);
@@ -4039,8 +4945,8 @@ export default function App() {
   }
 
   function handleLeftNavToggle() {
-    if (isLeftNavNarrow) {
-      setLeftNavExpandedDespiteNarrow((prev) => !prev);
+    if (isMobileNav) {
+      setMobileNavOpen((prev) => !prev);
       return;
     }
     setLeftNavCollapsedPreference((prev) => !prev);
@@ -4055,14 +4961,2322 @@ export default function App() {
   }
 
   function handleNewChat() {
+    setNewChatLockedProjectId(null);
+    setAppView("chat");
     setShowNewChatModal(true);
   }
 
+  function handleNewChatFromProject(projectId: string) {
+    setNewChatLockedProjectId(projectId);
+    setActiveProjectId(projectId);
+    setShowNewChatModal(true);
+  }
+
+  function handleNavigateHome() {
+    setAppView("home");
+    setHomeBrowseMode("overview");
+    setActiveProjectId(null);
+    setProjectBrowseMode("overview");
+    setSettingsConstellationId(null);
+    setSettingsCapabilityPath(null);
+    setSettingsSection("general");
+    setAccessLevelId(null);
+    setDataSourceSettingsId(null);
+    setShowNewChatModal(false);
+    setNewChatLockedProjectId(null);
+    setShowNewProjectModal(false);
+    setHomeScrollRequest((value) => value + 1);
+    if (typeof window !== "undefined") {
+      if (window.location.pathname === "/home" || window.location.pathname === "/home/") {
+        window.history.replaceState({ luxiaView: "home" }, "", "/");
+      } else if (!isHomePath(window.location.pathname)) {
+        window.history.pushState({ luxiaView: "home" }, "", "/");
+      }
+    }
+  }
+
+  function syncConstellationSettingsPath(
+    projectId: string,
+    constellationId: string,
+    options?: {
+      capabilityPath?: string | null;
+      section?: ConstellationSettingsSectionId;
+      /** Include `?tab=` even for General (tab switches / explicit destinations). */
+      explicitTab?: boolean;
+      replace?: boolean;
+    },
+  ) {
+    if (typeof window === "undefined") return;
+    const capabilityPath = options?.capabilityPath;
+    const next = capabilityPath
+      ? getConstellationSettingsCapabilityPath(projectId, constellationId, capabilityPath)
+      : getConstellationSettingsPath(projectId, constellationId, {
+          tab: constellationSettingsSectionToTab(options?.section ?? "general"),
+          includeTabQuery: Boolean(options?.explicitTab),
+        });
+    const current = `${window.location.pathname}${window.location.search}`;
+    if (current === next) return;
+    const state = {
+      luxiaView: "constellation-settings" as const,
+      projectId,
+      constellationId,
+      capabilityPath: capabilityPath ?? undefined,
+      section: options?.section ?? "general",
+    };
+    if (options?.replace) {
+      window.history.replaceState(state, "", next);
+    } else {
+      window.history.pushState(state, "", next);
+    }
+  }
+
+  function handleOpenConstellationSettings(
+    projectId: string,
+    constellationId: string,
+    section: ConstellationSettingsSectionId = "general",
+    options?: { explicitTab?: boolean; focusHeading?: boolean },
+  ) {
+    setActiveProjectId(projectId);
+    setSettingsConstellationId(constellationId);
+    setSettingsCapabilityPath(null);
+    setSettingsSection(section);
+    setAppView("constellation-settings");
+    syncConstellationSettingsPath(projectId, constellationId, {
+      section,
+      explicitTab: options?.explicitTab ?? section !== "general",
+    });
+    if (options?.focusHeading) {
+      setSettingsFocusHeadingToken((value) => value + 1);
+    }
+  }
+
+  function handleOpenConstellationCapability(
+    projectId: string,
+    constellationId: string,
+    capabilityId: CapsuleCapabilityId,
+  ) {
+    const capabilityPath = CAPSULE_CAPABILITY_PATH[capabilityId];
+    setActiveProjectId(projectId);
+    setSettingsConstellationId(constellationId);
+    setSettingsCapabilityPath(capabilityPath);
+    setSettingsSection("configuration");
+    setAppView("constellation-settings");
+    syncConstellationSettingsPath(projectId, constellationId, { capabilityPath });
+  }
+
+  function handleConstellationSettingsSectionChange(
+    projectId: string,
+    constellationId: string,
+    section: ConstellationSettingsSectionId,
+  ) {
+    if (section === settingsSection && !settingsCapabilityPath) return;
+    setSettingsSection(section);
+    setSettingsCapabilityPath(null);
+    syncConstellationSettingsPath(projectId, constellationId, {
+      section,
+      explicitTab: true,
+    });
+  }
+
+  function handleOpenConstellationsList(projectId: string) {
+    setActiveProjectId(projectId);
+    setProjectBrowseMode("constellations");
+    setSettingsConstellationId(null);
+    setSettingsCapabilityPath(null);
+    setAppView("project");
+    if (typeof window !== "undefined") {
+      const next = getConstellationsPath(projectId);
+      if (window.location.pathname !== next) {
+        window.history.pushState(
+          { luxiaView: "project", projectId, browse: "constellations" },
+          "",
+          next,
+        );
+      }
+    }
+  }
+
+  function handleOpenChatsList(projectId: string) {
+    setActiveProjectId(projectId);
+    setProjectBrowseMode("chats");
+    setSettingsConstellationId(null);
+    setSettingsCapabilityPath(null);
+    setAppView("project");
+    if (typeof window !== "undefined") {
+      const next = getProjectChatsPath(projectId);
+      if (window.location.pathname !== next) {
+        window.history.pushState(
+          { luxiaView: "project", projectId, browse: "chats" },
+          "",
+          next,
+        );
+      }
+    }
+  }
+
+  function handleOpenActivityList(projectId: string) {
+    setActiveProjectId(projectId);
+    setProjectBrowseMode("activity");
+    setSettingsConstellationId(null);
+    setSettingsCapabilityPath(null);
+    setAppView("project");
+    if (typeof window !== "undefined") {
+      const next = getProjectActivityPath(projectId);
+      if (window.location.pathname !== next) {
+        window.history.pushState(
+          { luxiaView: "project", projectId, browse: "activity" },
+          "",
+          next,
+        );
+      }
+    }
+  }
+
+  function handleOpenProjectMembers(projectId: string) {
+    setActiveProjectId(projectId);
+    setSettingsConstellationId(null);
+    setSettingsCapabilityPath(null);
+    setVidgetId(null);
+    setAppView("project-members");
+    if (typeof window !== "undefined") {
+      const next = getProjectMembersPath(projectId);
+      if (window.location.pathname !== next) {
+        window.history.pushState({ luxiaView: "project-members", projectId }, "", next);
+      }
+    }
+  }
+
+  function handleOpenProjectVidgets(projectId: string) {
+    setActiveProjectId(projectId);
+    setVidgetId(null);
+    setVidgetSettingsSection("general");
+    setVidgetInboxSessionId(null);
+    setVidgetInboxSearch("");
+    setAppView("project-vidgets");
+    if (typeof window !== "undefined") {
+      const next = getProjectVidgetsPath(projectId);
+      if (window.location.pathname !== next) {
+        window.history.pushState({ luxiaView: "project-vidgets", projectId }, "", next);
+      }
+    }
+  }
+
+  function handleOpenVidgetInbox(
+    projectId: string,
+    options?: {
+      sessionId?: string | null;
+      query?: Partial<VidgetInboxQuery>;
+      search?: string;
+      history?: "push" | "replace";
+    },
+  ) {
+    if (!canAccessProject(projectId, projectMembershipsState, prototypeUserId)) {
+      handleNavigateHome();
+      return;
+    }
+    if (!canReviewVidgetInbox(projectRoleFor(projectId))) {
+      toast.error(VIDGET_INBOX_DENIED_MESSAGE);
+      handleOpenProjectVidgets(projectId);
+      return;
+    }
+    const parsed = options?.search
+      ? parseVidgetInboxQueryFromSearch(options.search)
+      : vidgetInboxQueryFromPartial(options?.query);
+    const query = options && Object.prototype.hasOwnProperty.call(options, "sessionId")
+      ? { ...parsed, sessionId: options.sessionId?.trim() || "" }
+      : parsed;
+    const search = serializeVidgetInboxQuery(query);
+    const sessionId = query.sessionId || null;
+    setActiveProjectId(projectId);
+    setVidgetId(null);
+    setVidgetInboxSessionId(sessionId);
+    setVidgetInboxSearch(search ? `?${search}` : "");
+    setAppView("vidget-inbox");
+    if (typeof window !== "undefined") {
+      const next = getVidgetInboxPath(projectId, { search });
+      const current = `${window.location.pathname}${window.location.search}`;
+      if (current === next) return;
+      const state = { luxiaView: "vidget-inbox", projectId, sessionId };
+      if (options?.history === "replace") {
+        window.history.replaceState(state, "", next);
+      } else {
+        window.history.pushState(state, "", next);
+      }
+    }
+  }
+
+  function handleOpenVidgetSettings(
+    projectId: string,
+    nextVidgetId: string,
+    section?: VidgetSettingsSectionId,
+    focusPreview = false,
+  ) {
+    const resolvedSection = focusPreview ? "interface" : (section ?? "general");
+    setActiveProjectId(projectId);
+    setVidgetId(nextVidgetId);
+    setVidgetSettingsSection(resolvedSection);
+    setVidgetSettingsFocusPreview(focusPreview);
+    setAppView("vidget-settings");
+    if (typeof window !== "undefined") {
+      const next = getVidgetSettingsPath(projectId, nextVidgetId, {
+        tab: vidgetSettingsSectionToTab(resolvedSection),
+      });
+      const current = `${window.location.pathname}${window.location.search}`;
+      if (current !== next) {
+        window.history.pushState(
+          { luxiaView: "vidget-settings", projectId, vidgetId: nextVidgetId, section: resolvedSection },
+          "",
+          next,
+        );
+      }
+    }
+  }
+
+  function handleOpenCreateVidget(projectId: string, preset: VidgetCreateSourcePreset) {
+    if (!canManageVidgets(projectRoleFor(projectId))) {
+      toast.error(VIDGET_MANAGE_DENIED_MESSAGE);
+      return;
+    }
+    setCreateVidgetProjectId(projectId);
+    setCreateVidgetPreset(preset);
+    setCreateVidgetOpen(true);
+  }
+
+  function handleCreateVidgetSubmit(payload: CreateVidgetSubmitPayload): boolean {
+    const projectId = createVidgetProjectId;
+    if (!projectId) return false;
+    if (!canManageVidgets(projectRoleFor(projectId))) {
+      toast.error(VIDGET_MANAGE_DENIED_MESSAGE);
+      return false;
+    }
+
+    const project = homeProjects.find((entry) => entry.id === projectId);
+    const projectGalaxyId = project?.galaxyId
+      ?? findGalaxyChatForProject(projectId, chats, homeProjects)?.id
+      ?? null;
+
+    const projectConstellations = allConstellations.map((item) => ({
+      id: item.id,
+      projectId: item.projectId,
+    }));
+
+    const resolved = resolveVidgetCreateSource(payload, {
+      projectId,
+      projectGalaxyId,
+      projectConstellations,
+    });
+    if (!resolved.ok) {
+      toast.error(resolved.message);
+      return false;
+    }
+
+    try {
+      const record = buildEmptyVidget({
+        projectId,
+        name: payload.name,
+        channel: payload.channel,
+        sourceType: resolved.source.sourceType,
+        galaxyId: resolved.source.galaxyId,
+        constellationId: resolved.source.constellationId,
+        galaxyConstellationIds: resolved.source.galaxyConstellationIds,
+      });
+      setVidgetsState((prev) => [record, ...prev]);
+      setCreateVidgetOpen(false);
+      toast.success("Vidget created");
+      handleOpenVidgetSettings(projectId, record.id);
+      return true;
+    } catch {
+      toast.error("Could not create Vidget with the selected source.");
+      return false;
+    }
+  }
+
+  function handleOpenAccessLevels() {
+    setActiveProjectId(null);
+    setSettingsConstellationId(null);
+    setSettingsCapabilityPath(null);
+    setAccessLevelId(null);
+    setOrganizationUserId(null);
+    setDataSourceSettingsId(null);
+    setAppView("access-levels");
+    if (typeof window !== "undefined") {
+      const next = getAccessLevelsPath();
+      if (window.location.pathname !== next) {
+        window.history.pushState({ luxiaView: "access-levels" }, "", next);
+      }
+    }
+  }
+
+  function handleOpenOrganizationUsers() {
+    setActiveProjectId(null);
+    setSettingsConstellationId(null);
+    setSettingsCapabilityPath(null);
+    setAccessLevelId(null);
+    setOrganizationUserId(null);
+    setDataSourceSettingsId(null);
+    setAppView("organization-users");
+    if (typeof window !== "undefined") {
+      const next = getOrganizationUsersPath();
+      if (window.location.pathname !== next) {
+        window.history.pushState({ luxiaView: "organization-users" }, "", next);
+      }
+    }
+  }
+
+  function handleOpenOrganizationUser(userId: string) {
+    setActiveProjectId(null);
+    setSettingsConstellationId(null);
+    setSettingsCapabilityPath(null);
+    setAccessLevelId(null);
+    setOrganizationUserId(userId);
+    setDataSourceSettingsId(null);
+    setAppView("organization-user");
+    if (typeof window !== "undefined") {
+      const next = getOrganizationUserPath(userId);
+      if (window.location.pathname !== next) {
+        window.history.pushState(
+          { luxiaView: "organization-user", userId },
+          "",
+          next,
+        );
+      }
+    }
+  }
+
+  function handleInviteOrganizationUser(payload: InviteOrganizationUserPayload) {
+    if (!canAdministerAccessLevels(prototypeUserId)) {
+      toast.error("You do not have permission to invite organization users.");
+      return;
+    }
+    const id = `user-${Date.now()}`;
+    const invitedAt = new Date().toISOString();
+    const newUser: OrganizationUser = {
+      id,
+      name: payload.name,
+      email: payload.email,
+      orgRole: payload.orgRole,
+      status: "pending",
+      jobTitle: "",
+      mobile: "",
+      mfaEnabled: false,
+      mfaMethod: null,
+    };
+    setOrganizationUsersState((prev) => [...prev, newUser]);
+    if (payload.projectAssignments.length > 0) {
+      setProjectMembershipsState((prev) => [
+        ...prev,
+        ...payload.projectAssignments.map((assignment, index) => ({
+          id: `pm-invite-${Date.now()}-${index}`,
+          projectId: assignment.projectId,
+          userId: id,
+          projectRole: assignment.projectRole,
+          status: "pending" as const,
+          joinedOrInvitedAt: invitedAt,
+        })),
+      ]);
+    }
+    if (payload.accessLevelIds.length > 0) {
+      setAccessLevelsState((prev) =>
+        prev.map((level) => {
+          if (!payload.accessLevelIds.includes(level.id)) return level;
+          if (level.memberUserIds.includes(id)) return level;
+          return {
+            ...level,
+            memberUserIds: [...level.memberUserIds, id],
+            updatedAt: invitedAt,
+          };
+        }),
+      );
+    }
+    toast.success("Invitation sent.");
+    handleOpenOrganizationUser(id);
+  }
+
+  function removeOrganizationUserCompletely(userId: string) {
+    setOrganizationUsersState((prev) => prev.filter((user) => user.id !== userId));
+    setProjectMembershipsState((prev) =>
+      prev.filter((membership) => membership.userId !== userId),
+    );
+    setAccessLevelsState((prev) =>
+      prev.map((level) => ({
+        ...level,
+        memberUserIds: level.memberUserIds.filter((id) => id !== userId),
+      })),
+    );
+    if (prototypeUserId === userId) {
+      const fallback =
+        organizationUsersState.find(
+          (user) => user.id !== userId && user.status === "active",
+        )?.id
+        ?? CURRENT_USER_ID;
+      setPrototypeUserId(fallback);
+    }
+    if (organizationUserId === userId) {
+      handleOpenOrganizationUsers();
+    }
+  }
+
+  function handleOpenDataSources() {
+    setActiveProjectId(null);
+    setSettingsConstellationId(null);
+    setSettingsCapabilityPath(null);
+    setAccessLevelId(null);
+    setOrganizationUserId(null);
+    setDataSourceSettingsId(null);
+    setDataSourceSettingsFocus(null);
+    setAppView("data-sources");
+    if (typeof window !== "undefined") {
+      const next = getDataSourcesPath();
+      if (window.location.pathname !== next) {
+        window.history.pushState({ luxiaView: "data-sources" }, "", next);
+      }
+    }
+  }
+
+  function handleOpenAccountSettings(section: AccountSettingsSectionId = accountSettingsSection) {
+    const next =
+      section === "analytics" && !canViewOrganizationAnalytics(prototypeUserId)
+        ? "general"
+        : section;
+    setProjectAssistantOpen(false);
+    setAccountSettingsSection(next);
+    setAccountSettingsOpen(true);
+    setMobileNavOpen(false);
+  }
+
+  function handleAccountSettingsSectionChange(section: AccountSettingsSectionId) {
+    if (section === "analytics" && !canViewOrganizationAnalytics(prototypeUserId)) return;
+    setAccountSettingsSection(section);
+  }
+
+  function handleCloseAccountSettings() {
+    setAccountSettingsOpen(false);
+  }
+
+  function handleUpdateProfile(
+    userId: string,
+    draft: { name: string; jobTitle: string; mobile: string },
+  ) {
+    const nextName = draft.name.trim();
+    if (!nextName) return;
+    setOrganizationUsersState((prev) =>
+      prev.map((user) =>
+        user.id === userId
+          ? {
+              ...user,
+              name: nextName,
+              jobTitle: draft.jobTitle.trim(),
+              mobile: draft.mobile.trim(),
+            }
+          : user,
+      ),
+    );
+  }
+
+  function handleUpdateProfileMfa(
+    userId: string,
+    next: { mfaEnabled: boolean; mfaMethod: PrototypeMfaMethod | null },
+  ) {
+    setOrganizationUsersState((prev) =>
+      prev.map((user) =>
+        user.id === userId
+          ? {
+              ...user,
+              mfaEnabled: next.mfaEnabled,
+              mfaMethod: next.mfaEnabled ? next.mfaMethod : null,
+            }
+          : user,
+      ),
+    );
+  }
+
+  function handleSettingsOpenDataSources() {
+    setAccountSettingsOpen(false);
+    handleOpenDataSources();
+  }
+
+  function handleSettingsOpenUsers() {
+    setAccountSettingsOpen(false);
+    handleOpenOrganizationUsers();
+  }
+
+  function handleSettingsOpenAccessLevels() {
+    setAccountSettingsOpen(false);
+    handleOpenAccessLevels();
+  }
+
+  function handleOpenAccessLevel(id: string) {
+    if (id === "new" && !canAdministerAccessLevels(prototypeUserId)) {
+      toast.error(ACCESS_LEVEL_CREATE_DENIED_MESSAGE);
+      return;
+    }
+    setActiveProjectId(null);
+    setSettingsConstellationId(null);
+    setSettingsCapabilityPath(null);
+    setAccessLevelId(id);
+    setOrganizationUserId(null);
+    setDataSourceSettingsId(null);
+    setAppView("access-level");
+    if (typeof window !== "undefined") {
+      const next = getAccessLevelPath(id);
+      if (window.location.pathname !== next) {
+        window.history.pushState({ luxiaView: "access-level", accessLevelId: id }, "", next);
+      }
+    }
+  }
+
+  function handleCreateAccessLevel() {
+    if (!canAdministerAccessLevels(prototypeUserId)) {
+      toast.error(ACCESS_LEVEL_CREATE_DENIED_MESSAGE);
+      return;
+    }
+    accessLevelCreateDraftRef.current = null;
+    handleOpenAccessLevel("new");
+  }
+
+  function handleOpenDataSourceSettings(
+    dataSourceId: string,
+    options?: { focus?: DataSourceSettingsFocusSection },
+  ) {
+    const allowed = canUserAccessDataSource(
+      dataSourceId,
+      accessLevelsState,
+      dataSourcesState,
+      prototypeUserId,
+    );
+    if (!allowed) {
+      toast.error("You do not have access to this Data Source.");
+      handleOpenDataSources();
+      return;
+    }
+    setActiveProjectId(null);
+    setSettingsConstellationId(null);
+    setSettingsCapabilityPath(null);
+    setAccessLevelId(null);
+    setDataSourceSettingsId(dataSourceId);
+    setDataSourceSettingsFocus(options?.focus ?? null);
+    setAppView("data-source-settings");
+    if (typeof window !== "undefined") {
+      const next = getDataSourceSettingsPath(dataSourceId);
+      if (window.location.pathname !== next) {
+        window.history.pushState(
+          { luxiaView: "data-source-settings", dataSourceId },
+          "",
+          next,
+        );
+      }
+    }
+  }
+
+  function resolveConstellationSettingsRecordForView(
+    constellationId: string,
+  ): ConstellationSettingsRecord | undefined {
+    const existing = constellationSettingsById[constellationId];
+    if (existing) {
+      return withLiveProjectNameOnSettingsRecord(existing, homeProjects);
+    }
+
+    const seeded = getConstellationSettingsRecord(constellationId);
+    if (seeded) return cloneConstellationSettingsRecord(seeded);
+
+    const constellation = allConstellations.find((item) => item.id === constellationId);
+    if (!constellation) return undefined;
+
+    return buildSettingsForConstellation({
+      id: constellation.id,
+      projectId: constellation.projectId,
+      projectName: getProjectNameById(constellation.projectId, homeProjects),
+      name: constellation.label,
+      description: constellation.description ?? HERO_DESCRIPTION_PLACEHOLDER,
+      type: constellation.type,
+    });
+  }
+
+  function upsertConstellationSettingsRecord(
+    constellationId: string,
+    updater: (record: ConstellationSettingsRecord) => ConstellationSettingsRecord,
+  ) {
+    setConstellationSettingsById((prev) => {
+      let current = prev[constellationId];
+      if (!current) {
+        const seeded = getConstellationSettingsRecord(constellationId);
+        if (seeded) {
+          current = cloneConstellationSettingsRecord(seeded);
+        } else {
+          const constellation = allConstellations.find((item) => item.id === constellationId);
+          if (!constellation) return prev;
+          current = buildSettingsForConstellation({
+            id: constellation.id,
+            projectId: constellation.projectId,
+            projectName: getProjectNameById(constellation.projectId, homeProjects),
+            name: constellation.label,
+            description: constellation.description ?? HERO_DESCRIPTION_PLACEHOLDER,
+            type: constellation.type,
+          });
+        }
+      }
+      return {
+        ...prev,
+        [constellationId]: updater(cloneConstellationSettingsRecord(current)),
+      };
+    });
+  }
+
+  function handleSaveConstellationSettings(
+    constellationId: string,
+    draft: ConstellationSettingsDraft,
+  ) {
+    const current = resolveConstellationSettingsRecordForView(constellationId);
+    if (!current) return;
+    if (!guardConstellationConfigure(current.projectId)) return;
+    upsertConstellationSettingsRecord(constellationId, (existing) => ({
+      ...existing,
+      name: draft.name,
+      description: draft.description,
+      updatedAt: "Just now",
+    }));
+    setRuntimeConstellations((prev) => prev.map((item) => (
+      item.id === constellationId
+        ? { ...item, label: draft.name, description: draft.description }
+        : item
+    )));
+  }
+
+  function resolveConstellationSourceEntry(
+    constellation: Constellation,
+    settingsById: Record<string, ConstellationSettingsRecord> = constellationSettingsById,
+  ): ProjectConstellationSourceEntry {
+    const settings = settingsById[constellation.id]
+      ?? getConstellationSettingsRecord(constellation.id);
+    const canonical = getCanonicalConstellationById(constellation.id);
+    const status = settings?.status ?? canonical?.status ?? "active";
+    const dataSourceIds = settings
+      ? settings.connectedSources.map((source) => source.id)
+      : (canonical?.dataSourceIds ?? []);
+    return {
+      constellationId: constellation.id,
+      projectId: constellation.projectId,
+      status,
+      dataSourceIds,
+    };
+  }
+
+  function buildProjectSourceEntries(
+    projectId: string,
+    options?: {
+      settingsById?: Record<string, ConstellationSettingsRecord>;
+      constellations?: Constellation[];
+      omitConstellationIds?: ReadonlySet<string>;
+    },
+  ): ProjectConstellationSourceEntry[] {
+    const settingsById = options?.settingsById ?? constellationSettingsById;
+    const constellations = options?.constellations ?? allConstellations;
+    const omit = options?.omitConstellationIds;
+    return constellations
+      .filter((item) => item.projectId === projectId && !omit?.has(item.id))
+      .map((item) => resolveConstellationSourceEntry(item, settingsById));
+  }
+
+  function resolveConnectedSourceIds(constellationId: string): string[] {
+    const record = resolveConstellationSettingsRecordForView(constellationId);
+    return record?.connectedSources.map((source) => source.id) ?? [];
+  }
+
+  function assertConstellationUseAccess(
+    projectId: string,
+    constellationId: string,
+  ): boolean {
+    const membership = getActiveProjectMembership(
+      projectId,
+      projectMembershipsState,
+      prototypeUserId,
+    );
+    const connectedSourceIds = resolveConnectedSourceIds(constellationId);
+    const result = evaluateConstellationUseAccess({
+      userId: prototypeUserId,
+      projectRole: membership?.projectRole ?? null,
+      membershipStatus: membership?.status,
+      connectedSourceIds,
+      accessLevels: accessLevelsState,
+      dataSources: dataSourcesState,
+    });
+    if (!result.available) {
+      setConstellationAccessBlock({
+        projectId,
+        constellationId,
+        reason: result.reason,
+      });
+      return false;
+    }
+    return true;
+  }
+
+  function projectRoleFor(projectId: string) {
+    return getActiveProjectMembership(
+      projectId,
+      projectMembershipsState,
+      prototypeUserId,
+    )?.projectRole ?? null;
+  }
+
+  function userCanArchiveProject(projectId: string): boolean {
+    return canArchiveProject(projectRoleFor(projectId));
+  }
+
+  function userCanDeleteProject(projectId: string): boolean {
+    return canDeleteProject(projectRoleFor(projectId));
+  }
+
+  function userCanRestoreProject(projectId: string): boolean {
+    return canArchiveProject(projectRoleFor(projectId));
+  }
+
+  function userCanConfigureProject(projectId: string): boolean {
+    return canAdministerProjectConfiguration(
+      prototypeUserId,
+      projectRoleFor(projectId),
+    );
+  }
+
+  function isConstellationWorkingAccessible(
+    projectId: string,
+    constellationId: string,
+  ): boolean {
+    if (!canAccessProject(projectId, projectMembershipsState, prototypeUserId)) {
+      return false;
+    }
+    const membership = getActiveProjectMembership(
+      projectId,
+      projectMembershipsState,
+      prototypeUserId,
+    );
+    return evaluateConstellationUseAccess({
+      userId: prototypeUserId,
+      projectRole: membership?.projectRole ?? null,
+      membershipStatus: membership?.status,
+      connectedSourceIds: resolveConnectedSourceIds(constellationId),
+      accessLevels: accessLevelsState,
+      dataSources: dataSourcesState,
+    }).available;
+  }
+
+  function isChatWorkingAccessible(chat: {
+    chatType: string;
+    projectId: string;
+    constellationId?: string;
+  }): boolean {
+    return isWorkingChatAccessible({
+      chatType: chat.chatType,
+      projectId: chat.projectId,
+      constellationId: chat.constellationId,
+      userId: prototypeUserId,
+      memberships: projectMembershipsState,
+      accessLevels: accessLevelsState,
+      dataSources: dataSourcesState,
+      connectedSourceIds: chat.constellationId
+        ? resolveConnectedSourceIds(chat.constellationId)
+        : [],
+    });
+  }
+
+  function guardConstellationConfigure(projectId: string): boolean {
+    if (canAdministerProjectConfiguration(prototypeUserId, projectRoleFor(projectId))) {
+      return true;
+    }
+    toast.error(CONSTELLATION_CONFIGURE_DENIED_MESSAGE);
+    return false;
+  }
+
+  function guardConstellationKnowledge(projectId: string): boolean {
+    if (canEditConstellationKnowledge(projectRoleFor(projectId))) {
+      return true;
+    }
+    toast.error(CONSTELLATION_KNOWLEDGE_DENIED_MESSAGE);
+    return false;
+  }
+
+  function guardAccessLevelMutation(): boolean {
+    if (canAdministerAccessLevels(prototypeUserId)) return true;
+    toast.error(ACCESS_LEVEL_DENIED_MESSAGE);
+    return false;
+  }
+
+  function guardConstellationArchive(projectId: string): boolean {
+    const membership = getActiveProjectMembership(
+      projectId,
+      projectMembershipsState,
+      prototypeUserId,
+    );
+    if (canArchiveConstellation(membership?.projectRole)) return true;
+    toast.error(PROJECT_ACTION_DENIED_MESSAGE);
+    return false;
+  }
+
+  function guardConstellationDelete(projectId: string): boolean {
+    const membership = getActiveProjectMembership(
+      projectId,
+      projectMembershipsState,
+      prototypeUserId,
+    );
+    if (canDeleteConstellation(membership?.projectRole)) return true;
+    toast.error(PROJECT_ACTION_DENIED_MESSAGE);
+    return false;
+  }
+
+  function guardProjectArchive(projectId: string): boolean {
+    const membership = getActiveProjectMembership(
+      projectId,
+      projectMembershipsState,
+      prototypeUserId,
+    );
+    if (canArchiveProject(membership?.projectRole)) return true;
+    toast.error(PROJECT_ACTION_DENIED_MESSAGE);
+    return false;
+  }
+
+  function guardProjectDelete(projectId: string): boolean {
+    const membership = getActiveProjectMembership(
+      projectId,
+      projectMembershipsState,
+      prototypeUserId,
+    );
+    if (canDeleteProject(membership?.projectRole)) return true;
+    toast.error(PROJECT_ACTION_DENIED_MESSAGE);
+    return false;
+  }
+
+  useEffect(() => {
+    setPrototypeCurrentUserId(prototypeUserId);
+  }, [prototypeUserId]);
+
+  const prototypeUser = useMemo(
+    () =>
+      organizationUsersState.find((user) => user.id === prototypeUserId)
+      ?? organizationUsersState.find((user) => user.status === "active")
+      ?? ORGANIZATION_USERS[0]!,
+    [organizationUsersState, prototypeUserId],
+  );
+
+  const prototypeProjectRole = useMemo(() => {
+    const projectId = activeProjectId
+      ?? chats.find((chat) => chat.id === activeChat)?.projectId
+      ?? null;
+    if (!projectId) return null;
+    return getActiveProjectMembership(
+      projectId,
+      projectMembershipsState,
+      prototypeUserId,
+    )?.projectRole ?? null;
+  }, [activeProjectId, activeChat, chats, projectMembershipsState, prototypeUserId]);
+
+  function handlePrototypeUserChange(userId: string) {
+    if (!organizationUsersState.some((user) => user.id === userId && user.status === "active")) {
+      return;
+    }
+    setPrototypeCurrentUserId(userId);
+    setPrototypeUserId(userId);
+    setConstellationAccessBlock(null);
+    setGalaxyAccessBlock(null);
+    setMobileNavOpen(false);
+
+    if (
+      appView === "data-source-settings"
+      && dataSourceSettingsId
+      && !canUserAccessDataSource(
+        dataSourceSettingsId,
+        accessLevelsState,
+        dataSourcesState,
+        userId,
+      )
+    ) {
+      handleOpenDataSources();
+      return;
+    }
+
+    if (
+      appView === "access-level"
+      && accessLevelId === "new"
+      && !canAdministerAccessLevels(userId)
+    ) {
+      toast.error(ACCESS_LEVEL_CREATE_DENIED_MESSAGE);
+      setAppView("access-levels");
+      setAccessLevelId(null);
+      if (typeof window !== "undefined") {
+        const listPath = getAccessLevelsPath();
+        if (window.location.pathname !== listPath) {
+          window.history.replaceState({ luxiaView: "access-levels" }, "", listPath);
+        }
+      }
+      return;
+    }
+
+    const projectId =
+      appView === "home"
+        || appView === "organization-users"
+        || appView === "organization-user"
+        || appView === "access-levels"
+        || appView === "access-level"
+        || appView === "data-sources"
+        || appView === "data-source-settings"
+        ? null
+        : (activeProjectId
+          ?? chats.find((chat) => chat.id === activeChat)?.projectId
+          ?? null);
+    if (!projectId) return;
+
+    const onProjectSurface =
+      appView === "project"
+      || appView === "project-members"
+      || appView === "project-vidgets"
+      || appView === "vidget-inbox"
+      || appView === "vidget-settings"
+      || appView === "constellation-settings"
+      || appView === "galaxy-settings"
+      || appView === "constellation-create"
+      || appView === "chat";
+
+    if (!canAccessProject(projectId, projectMembershipsState, userId) && onProjectSurface) {
+      handleNavigateHome();
+      return;
+    }
+
+    if (appView === "vidget-inbox") {
+      const membership = getActiveProjectMembership(
+        projectId,
+        projectMembershipsState,
+        userId,
+      );
+      if (!canReviewVidgetInbox(membership?.projectRole)) {
+        toast.error(VIDGET_INBOX_DENIED_MESSAGE);
+        handleOpenProjectVidgets(projectId);
+        return;
+      }
+    }
+
+    if (appView === "chat") {
+      const chat = chats.find((item) => item.id === activeChat)
+        ?? INITIAL_CHATS.find((item) => item.id === activeChat);
+      if (!chat) return;
+      if (!isWorkingChatAccessible({
+        chatType: chat.chatType,
+        projectId: chat.projectId,
+        constellationId: chat.constellationId,
+        userId,
+        memberships: projectMembershipsState,
+        accessLevels: accessLevelsState,
+        dataSources: dataSourcesState,
+        connectedSourceIds: chat.constellationId
+          ? (constellationSettingsById[chat.constellationId]
+            ?? getConstellationSettingsRecord(chat.constellationId))
+            ?.connectedSources.map((source) => source.id) ?? []
+          : [],
+      })) {
+        if (canAccessProject(projectId, projectMembershipsState, userId)) {
+          handleOpenProjectOverview(projectId, "overview");
+        } else {
+          handleNavigateHome();
+        }
+      }
+    }
+  }
+
+  useEffect(() => {
+    setHomeProjects((prev) => prev.map((project) => ({
+      ...project,
+      memberCount: countProjectMembers(project.id, projectMembershipsState),
+    })));
+  }, [projectMembershipsState, prototypeUserId]);
+
+  function syncHomeProjectDerivedCounts(
+    projectId: string,
+    options?: {
+      settingsById?: Record<string, ConstellationSettingsRecord>;
+      constellations?: Constellation[];
+      omitConstellationIds?: ReadonlySet<string>;
+    },
+  ) {
+    const counts = deriveProjectEntityCounts(
+      projectId,
+      buildProjectSourceEntries(projectId, options),
+    );
+    setHomeProjects((prev) => prev.map((project) => (
+      project.id === projectId
+        ? {
+          ...project,
+          constellationCount: counts.constellationCount,
+          sourceCount: counts.sourceCount,
+          isEmpty: counts.constellationCount === 0,
+        }
+        : project
+    )));
+  }
+
+  function handleDisconnectConstellationSource(
+    constellationId: string,
+    sourceId: string,
+  ) {
+    const current = resolveConstellationSettingsRecordForView(constellationId);
+    if (!current || current.connectedSources.length <= 1) return;
+    if (!guardConstellationConfigure(current.projectId)) return;
+    const nextRecord: ConstellationSettingsRecord = {
+      ...current,
+      connectedSources: current.connectedSources.filter((source) => source.id !== sourceId),
+      sourceAccessRows: current.sourceAccessRows.filter((row) => row.sourceId !== sourceId),
+      updatedAt: "Just now",
+    };
+    setConstellationSettingsById((prev) => ({
+      ...prev,
+      [constellationId]: cloneConstellationSettingsRecord(nextRecord),
+    }));
+    syncHomeProjectDerivedCounts(current.projectId, {
+      settingsById: {
+        ...constellationSettingsById,
+        [constellationId]: nextRecord,
+      },
+    });
+  }
+
+  function handleAddConstellationDataSource(
+    constellationId: string,
+    sourceId: string,
+  ) {
+    const current = resolveConstellationSettingsRecordForView(constellationId);
+    if (!current) return;
+    if (!guardConstellationConfigure(current.projectId)) return;
+    if (current.connectedSources.some((source) => source.id === sourceId)) {
+      toast.error("That Data Source is already connected to this Constellation.");
+      return;
+    }
+    const item = dataSourcesState.find((source) => source.id === sourceId);
+    if (!item) {
+      toast.error("Data Source not found.");
+      return;
+    }
+    if (
+      !hasConstellationConnectAccess(
+        prototypeUserId,
+        sourceId,
+        accessLevelsState,
+        dataSourcesState,
+      )
+    ) {
+      toast.error("You need Use or Manage access to connect this Data Source.");
+      return;
+    }
+    if (item.status !== "active") {
+      toast.error("Only active Data Sources can be connected.");
+      return;
+    }
+
+    const type = (item.type.toLowerCase().includes("csv")
+      ? "csv"
+      : item.type.toLowerCase().includes("pdf") || item.type.toLowerCase().includes("file")
+        ? "pdf"
+        : "database") as ConnectedDataSource["type"];
+    const nextSource: ConnectedDataSource = {
+      id: item.id,
+      name: item.name,
+      type,
+      ownership: item.ownership,
+      ownerUserId: item.ownerUserId,
+      owner: getDataSourceOwnerDisplay(item),
+      status: item.status === "active" ? "connected" : "needs-attention",
+      accessSummary: buildDataSourceAccessSummary(
+        item,
+        accessLevelsState,
+        prototypeUserId,
+        dataSourcesState,
+      ),
+      lastUpdated: "Just now",
+      usageInConstellation:
+        type === "database"
+          ? "Active tables and metrics"
+          : type === "csv"
+            ? "Tabular file context"
+            : "Primary knowledge files",
+      selectable: true,
+    };
+
+    const accessRow = buildSourceAccessSummaryRow(
+      nextSource,
+      accessLevelsState,
+      prototypeUserId,
+      dataSourcesState,
+    );
+    const nextRecord: ConstellationSettingsRecord = {
+      ...current,
+      connectedSources: [...current.connectedSources, nextSource],
+      sourceAccessRows: [...current.sourceAccessRows, accessRow],
+      updatedAt: "Just now",
+    };
+    setConstellationSettingsById((prev) => ({
+      ...prev,
+      [constellationId]: cloneConstellationSettingsRecord(nextRecord),
+    }));
+    syncHomeProjectDerivedCounts(current.projectId, {
+      settingsById: {
+        ...constellationSettingsById,
+        [constellationId]: nextRecord,
+      },
+    });
+    toast.success(`Connected ${nextSource.name}`);
+  }
+
+  function handleManageSourceAccess(sourceId: string) {
+    const level = accessLevelsState.find((entry) =>
+      entry.status === "active"
+      && entry.sourceGrants.some((grant) => grant.dataSourceId === sourceId),
+    );
+    if (level) {
+      handleOpenAccessLevel(level.id);
+      return;
+    }
+    handleOpenAccessLevels();
+  }
+
+  function handleArchiveConstellationSettings(constellationId: string) {
+    const current = resolveConstellationSettingsRecordForView(constellationId);
+    if (!current) return;
+    if (!guardConstellationArchive(current.projectId)) return;
+    const nextRecord: ConstellationSettingsRecord = {
+      ...current,
+      status: "archived",
+      updatedAt: "Just now",
+    };
+    setConstellationSettingsById((prev) => ({
+      ...prev,
+      [constellationId]: cloneConstellationSettingsRecord(nextRecord),
+    }));
+    syncHomeProjectDerivedCounts(current.projectId, {
+      settingsById: {
+        ...constellationSettingsById,
+        [constellationId]: nextRecord,
+      },
+    });
+  }
+
+  function handleDeleteConstellationSettings(
+    projectId: string,
+    constellationId: string,
+  ) {
+    if (!guardConstellationDelete(projectId)) return;
+    const nextSettings = { ...constellationSettingsById };
+    delete nextSettings[constellationId];
+    const nextRuntime = runtimeConstellations.filter((item) => item.id !== constellationId);
+    const nextAll = allConstellations.filter((item) => item.id !== constellationId);
+
+    setConstellationSettingsById(nextSettings);
+    setCapabilityBundlesById((prev) => {
+      const next = { ...prev };
+      delete next[constellationId];
+      return next;
+    });
+    setRuntimeConstellations(nextRuntime);
+    syncHomeProjectDerivedCounts(projectId, {
+      settingsById: nextSettings,
+      constellations: nextAll,
+      omitConstellationIds: new Set([constellationId]),
+    });
+    handleOpenConstellationsList(projectId);
+  }
+
+  function resolveCapabilityBundle(
+    constellationId: string,
+    instructions?: string,
+  ): ConstellationCapabilityBundle {
+    const existing = capabilityBundlesById[constellationId];
+    if (existing) return existing;
+    const constellation = allConstellations.find((item) => item.id === constellationId);
+    const type = constellation?.type ?? "database";
+    return createSeedCapabilityBundle(constellationId, type, instructions);
+  }
+
+  useEffect(() => {
+    if (appView !== "constellation-settings" || !settingsConstellationId) return;
+    setCapabilityBundlesById((prev) => {
+      if (prev[settingsConstellationId]) return prev;
+      const record = constellationSettingsById[settingsConstellationId]
+        ?? getConstellationSettingsRecord(settingsConstellationId);
+      const constellation = allConstellations.find((item) => item.id === settingsConstellationId);
+      const type = constellation?.type ?? record?.type ?? "database";
+      return {
+        ...prev,
+        [settingsConstellationId]: createSeedCapabilityBundle(
+          settingsConstellationId,
+          type,
+          record?.instructions,
+        ),
+      };
+    });
+  }, [appView, settingsConstellationId, constellationSettingsById, allConstellations]);
+
+  function handleUpdateCapabilityBundle(
+    constellationId: string,
+    next: ConstellationCapabilityBundle,
+    options?: { capabilityKind?: "knowledge" | "configure" },
+  ) {
+    const current = resolveConstellationSettingsRecordForView(constellationId);
+    if (!current) return;
+    const kind = options?.capabilityKind ?? "configure";
+    if (kind === "knowledge") {
+      if (!guardConstellationKnowledge(current.projectId)) return;
+    } else if (!guardConstellationConfigure(current.projectId)) {
+      return;
+    }
+    const cloned = cloneCapabilityBundle(next);
+    setCapabilityBundlesById((prev) => ({
+      ...prev,
+      [constellationId]: cloned,
+    }));
+    upsertConstellationSettingsRecord(constellationId, (existing) => ({
+      ...existing,
+      instructions: cloned.instruction.text,
+      capabilitySummaries: {
+        ...existing.capabilitySummaries,
+        ...summarizeCapabilityBundle(cloned),
+      },
+      updatedAt: "Just now",
+    }));
+  }
+
+  function syncProjectPath(projectId: string) {
+    if (typeof window === "undefined") return;
+    const next = getProjectPath(projectId);
+    if (window.location.pathname !== next) {
+      window.history.pushState({ luxiaView: "project", projectId }, "", next);
+    }
+  }
+
+  function syncDashboardPath(projectId: string) {
+    if (typeof window === "undefined") return;
+    const next = getDashboardPath(projectId);
+    if (window.location.pathname !== next) {
+      window.history.pushState({ luxiaView: "dashboard", projectId }, "", next);
+    }
+  }
+
+  function syncWorkspacePathForChat(
+    chat: Pick<Chat, "id" | "chatType" | "projectId" | "constellationId">,
+  ) {
+    if (typeof window === "undefined") return;
+    const next = chat.chatType === "galaxy"
+      ? getGalaxyPath(chat.projectId)
+      : chat.chatType === "constellation" && chat.constellationId
+        ? getConstellationChatPath(chat.projectId, chat.constellationId, chat.id)
+        : getChatPath(chat.id);
+    if (window.location.pathname === next) return;
+    window.history.pushState(
+      {
+        luxiaView: "chat",
+        chatId: chat.id,
+        projectId: chat.projectId,
+        chatType: chat.chatType,
+        constellationId: chat.constellationId,
+      },
+      "",
+      next,
+    );
+  }
+
+  function handleOpenProjectOverview(
+    projectId: string,
+    browseMode: ProjectOverviewBrowseMode = "overview",
+    options?: { skipMembershipCheck?: boolean; project?: HomeProjectCard },
+  ) {
+    if (!options?.skipMembershipCheck) {
+      if (!canAccessProject(projectId, projectMembershipsState, prototypeUserId)) {
+        toast.error("You are not an active member of this Project.");
+        handleNavigateHome();
+        return;
+      }
+    }
+
+    const project = options?.project
+      ?? homeProjects.find((entry) => entry.id === projectId);
+    if (!project) {
+      setActiveProjectId(projectId);
+      setProjectBrowseMode(
+        browseMode === "dashboards"
+          ? "dashboards"
+          : browseMode === "constellations"
+            ? "constellations"
+            : "overview",
+      );
+      setAppView("project");
+      if (browseMode === "dashboards") {
+        syncDashboardPath(projectId);
+      } else if (browseMode === "constellations") {
+        if (typeof window !== "undefined") {
+          const next = getConstellationsPath(projectId);
+          if (window.location.pathname !== next) {
+            window.history.pushState(
+              { luxiaView: "project", projectId, browse: "constellations" },
+              "",
+              next,
+            );
+          }
+        }
+      } else {
+        syncProjectPath(projectId);
+      }
+      setHomeScrollRequest((value) => value + 1);
+      console.warn(`[Luxia] Project "${projectId}" not found. Showing not-found state.`);
+      return;
+    }
+    setActiveProjectId(projectId);
+    setProjectBrowseMode(
+      browseMode === "dashboards"
+        ? "dashboards"
+        : browseMode === "constellations"
+          ? "constellations"
+          : "overview",
+    );
+    setAppView("project");
+    if (browseMode === "dashboards") {
+      syncDashboardPath(projectId);
+    } else if (browseMode === "constellations") {
+      if (typeof window !== "undefined") {
+        const next = getConstellationsPath(projectId);
+        if (window.location.pathname !== next) {
+          window.history.pushState(
+            { luxiaView: "project", projectId, browse: "constellations" },
+            "",
+            next,
+          );
+        }
+      }
+    } else {
+      syncProjectPath(projectId);
+    }
+    setHomeScrollRequest((value) => value + 1);
+  }
+
+  function handleOpenProjectDashboard(
+    projectId: string,
+    options?: { outputId?: string },
+  ) {
+    if (options?.outputId) {
+      setDashboardFocusOutputId(options.outputId);
+      setActiveDashboardOutputId(options.outputId);
+    } else {
+      setDashboardFocusOutputId(null);
+      setActiveDashboardOutputId(null);
+      setDashboardViewResetKey((value) => value + 1);
+    }
+    handleOpenProjectOverview(projectId, "dashboards");
+  }
+
+  function handleOpenDashboardOutput(projectId: string, outputId: string) {
+    handleOpenProjectDashboard(projectId, { outputId });
+  }
+  function handleNavigateProjectDestination(
+    destination: "galaxy" | "constellations" | "openProject",
+    projectId: string,
+  ) {
+    if (destination === "galaxy") {
+      handleOpenGalaxyFromHome(projectId);
+      return;
+    }
+    if (destination === "constellations") {
+      handleOpenConstellationsList(projectId);
+      return;
+    }
+    handleOpenProjectOverview(projectId, "overview");
+  }
+
+  const recentWork = useMemo<HomeRecentWorkItem[]>(() => (
+    HOME_RECENT_WORK
+      .filter((item) =>
+        Boolean(
+          getActiveProjectMembership(
+            item.projectId,
+            projectMembershipsState,
+            prototypeUserId,
+          ),
+        ),
+      )
+      .filter((item) => {
+        const chat = chats.find((c) => c.id === item.chatId)
+          ?? INITIAL_CHATS.find((c) => c.id === item.chatId);
+        if (!chat) return true;
+        return isChatWorkingAccessible(chat);
+      })
+      .map((item) => {
+        const chat = chats.find((c) => c.id === item.chatId);
+        const key = workItemEntityKey(item);
+        const constellation = item.constellationId
+          ? allConstellations.find((entry) => entry.id === item.constellationId)
+          : undefined;
+        const projectCard = homeProjects.find((project) => project.id === item.projectId);
+        const { projectName: _legacyProjectName, ...rest } = item;
+        return {
+          ...rest,
+          title: chat?.label ?? item.title,
+          isPinned: pinnedEntityOrder.includes(key) || Boolean(chat?.pinned),
+          constellationName: constellation?.label ?? item.constellationName,
+          constellationSource: constellation?.type ?? item.constellationSource,
+          constellationDescription: constellation?.description,
+          projectDescription: projectCard?.description,
+        };
+      })
+  ), [allConstellations, chats, homeProjects, pinnedEntityOrder, projectMembershipsState, prototypeUserId, accessLevelsState, dataSourcesState, constellationSettingsById]);
+
+  useEffect(() => {
+    const normalized = normalizeHomePrimaryPreference(
+      primaryPreference,
+      recentWork,
+      dismissedContinueKeys,
+    );
+    if (!homePrimaryPreferencesEqual(normalized, primaryPreference)) {
+      setPrimaryPreference(normalized);
+      writeHomePrimaryPreference(normalized);
+    }
+  }, [dismissedContinueKeys, primaryPreference, recentWork]);
+
+  function handleToggleWorkPin(itemId: string) {
+    const item = recentWork.find((entry) => entry.id === itemId);
+    if (!item) return;
+    const key = workItemEntityKey(item);
+    const nextOrder = togglePinnedEntityKey(pinnedEntityOrder, key);
+    const pinned = nextOrder.includes(key);
+    setPinnedEntityOrder(nextOrder);
+    writePinnedEntityOrder(nextOrder);
+    setChats((prev) => prev.map((chat) => (
+      chat.id === item.chatId ? { ...chat, pinned } : chat
+    )));
+  }
+
+  function handleToggleProjectPin(projectId: string) {
+    const target = homeProjects.find((project) => project.id === projectId);
+    if (!target || target.status === "archived") return;
+
+    const next = togglePinnedProjectId(pinnedProjectIds, projectId);
+    setPinnedProjectIds(next);
+    writePinnedProjectIds(next);
+    setHomeProjects((prev) => prev.map((project) => (
+      project.id === projectId ? { ...project, isPinned: next.includes(projectId) } : project
+    )));
+  }
+
+  function handleArchiveProject(projectId: string) {
+    const target = homeProjects.find((project) => project.id === projectId);
+    if (!target || target.status === "archived") return;
+    if (!guardProjectArchive(projectId)) return;
+
+    setHomeProjects((prev) => prev.map((project) => (
+      project.id === projectId
+        ? { ...project, status: "archived" as const, isPinned: false }
+        : project
+    )));
+
+    if (pinnedProjectIds.includes(projectId)) {
+      const nextPins = pinnedProjectIds.filter((id) => id !== projectId);
+      setPinnedProjectIds(nextPins);
+      writePinnedProjectIds(nextPins);
+    }
+  }
+
+  function handleRestoreProject(projectId: string) {
+    const target = homeProjects.find((project) => project.id === projectId);
+    if (!target || target.status !== "archived") return;
+
+    setHomeProjects((prev) => prev.map((project) => (
+      project.id === projectId
+        ? { ...project, status: "active" as const }
+        : project
+    )));
+  }
+
+  function handleRenameProject(projectId: string, name: string) {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    setHomeProjects((prev) => prev.map((project) => (
+      project.id === projectId ? { ...project, name: trimmed } : project
+    )));
+    setConstellationSettingsById((prev) => (
+      syncProjectNameInSettingsById(prev, projectId, trimmed)
+    ));
+  }
+
+  function handleEditProjectDetails(
+    projectId: string,
+    details: { name: string; description: string },
+  ) {
+    const trimmedName = details.name.trim();
+    if (!trimmedName) return;
+    setHomeProjects((prev) => prev.map((project) => (
+      project.id === projectId
+        ? {
+            ...project,
+            name: trimmedName,
+            description: details.description.trim() || undefined,
+          }
+        : project
+    )));
+    setConstellationSettingsById((prev) => (
+      syncProjectNameInSettingsById(prev, projectId, trimmedName)
+    ));
+  }
+
+  function requestEditProjectDetails(projectId: string) {
+    setProjectManageId(projectId);
+    setProjectManageMode("edit");
+  }
+
+  function requestArchiveProject(projectId: string) {
+    setProjectManageId(projectId);
+    setProjectManageMode("archive");
+  }
+
+  function requestDeleteProject(projectId: string) {
+    setProjectManageId(projectId);
+    setProjectManageMode("delete");
+  }
+
+  function closeProjectManageDialogs() {
+    setProjectManageMode(null);
+    setProjectManageId(null);
+  }
+
+  function handleDeleteProject(projectId: string) {
+    const target = homeProjects.find((project) => project.id === projectId);
+    if (!target) return;
+    if (!guardProjectDelete(projectId)) return;
+
+    const viewingDeletedProject = activeProjectId === projectId
+      || activeData?.projectId === projectId;
+
+    setHomeProjects((prev) => prev.filter((project) => project.id !== projectId));
+
+    setProjectMembershipsState((prev) =>
+      prev.filter((membership) => membership.projectId !== projectId),
+    );
+
+    const galaxyId = target.galaxyId;
+    setGalaxySessions((prev) => {
+      if (!galaxyId || !(galaxyId in prev)) return prev;
+      const next = { ...prev };
+      delete next[galaxyId];
+      return next;
+    });
+    setGalaxySettingsById((prev) => {
+      if (!galaxyId || !(galaxyId in prev)) return prev;
+      const next = { ...prev };
+      delete next[galaxyId];
+      return next;
+    });
+
+    if (pinnedProjectIds.includes(projectId)) {
+      const nextPins = pinnedProjectIds.filter((id) => id !== projectId);
+      setPinnedProjectIds(nextPins);
+      writePinnedProjectIds(nextPins);
+    }
+
+    setChats((prev) => prev.filter((chat) => chat.projectId !== projectId));
+
+    if (viewingDeletedProject) {
+      handleNavigateHome();
+    }
+  }
+
+  function handleRenameGalaxy(projectId: string, name: string) {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const galaxyId = homeProjects.find((project) => project.id === projectId)?.galaxyId
+      ?? INITIAL_CHATS.find((chat) => chat.chatType === "galaxy" && chat.projectId === projectId)?.id;
+    if (!galaxyId) return;
+    setChats((prev) => prev.map((chat) => (
+      chat.id === galaxyId && chat.chatType === "galaxy"
+        ? { ...chat, label: trimmed }
+        : chat
+    )));
+    setGalaxySettingsById((prev) => {
+      const existing = prev[galaxyId];
+      if (!existing) return prev;
+      return {
+        ...prev,
+        [galaxyId]: { ...existing, name: trimmed, updatedAt: "Just now" },
+      };
+    });
+  }
+
+  function handleSetPrimaryHero(entityKey: string) {
+    if (!parseEntityKey(entityKey)) return;
+    const exists = recentWork.some((item) => workItemEntityKey(item) === entityKey);
+    if (!exists) return;
+
+    const next = { mode: "manual" as const, entityKey };
+    setPrimaryPreference(next);
+    writeHomePrimaryPreference(next);
+    if (dismissedContinueKeys.includes(entityKey)) {
+      const cleared = dismissedContinueKeys.filter((key) => key !== entityKey);
+      setDismissedContinueKeys(cleared);
+      writeDismissedContinueKeys(cleared);
+    }
+  }
+
+  function clearManualHomeFocus() {
+    const next = { mode: "automatic" as const, entityKey: null };
+    setPrimaryPreference(next);
+    writeHomePrimaryPreference(next);
+  }
+
+  function handleShowAllOnHome() {
+    setDismissedContinueKeys([]);
+    writeDismissedContinueKeys([]);
+    clearManualHomeFocus();
+  }
+
+  function handleDismissFromContinue(entityKey: string) {
+    const next = [...new Set([...dismissedContinueKeys, entityKey])];
+    setDismissedContinueKeys(next);
+    writeDismissedContinueKeys(next);
+    if (primaryPreference.mode === "manual" && primaryPreference.entityKey === entityKey) {
+      const automatic = { mode: "automatic" as const, entityKey: null };
+      setPrimaryPreference(automatic);
+      writeHomePrimaryPreference(automatic);
+    }
+  }
+
+  function handleRestoreToContinue(entityKey: string) {
+    const next = dismissedContinueKeys.filter((key) => key !== entityKey);
+    setDismissedContinueKeys(next);
+    writeDismissedContinueKeys(next);
+  }
+
+  function ensureChatOpen(chatId: string) {
+    const existing = chats.find((chat) => chat.id === chatId);
+    if (existing) {
+      setActiveChat(chatId);
+      return true;
+    }
+    const template = INITIAL_CHATS.find((chat) => chat.id === chatId);
+    if (!template) {
+      console.warn(`[Luxia] Chat/Galaxy "${chatId}" not found. Navigation aborted.`);
+      return false;
+    }
+    setChats((prev) => [...prev, template]);
+    setChatMessages((prev) => ({ ...prev, [chatId]: INITIAL_MESSAGES[chatId] ?? [] }));
+    if (template.chatType === "galaxy") {
+      const projectName = getProjectNameById(template.projectId, homeProjects);
+      if (!projectName) {
+        console.warn(
+          `[Luxia] Project "${template.projectId}" missing for galaxy "${chatId}". Navigation aborted.`,
+        );
+        return false;
+      }
+      setGalaxySessions((prev) => ({
+        ...prev,
+        [chatId]: prev[chatId] ?? createIdleGalaxySession(projectName),
+      }));
+    }
+    setActiveChat(chatId);
+    return true;
+  }
+
+  function handleContinueWork(item: HomeRecentWorkItem) {
+    if (item.projectId) setActiveProjectId(item.projectId);
+    const targetChat = findChatById(item.chatId, chatsRef.current)
+      ?? INITIAL_CHATS.find((entry) => entry.id === item.chatId);
+    if (
+      targetChat?.chatType === "constellation"
+      && targetChat.projectId
+      && targetChat.constellationId
+      && !assertConstellationUseAccess(targetChat.projectId, targetChat.constellationId)
+    ) {
+      return;
+    }
+    if (!ensureChatOpen(item.chatId)) return;
+    const chat = findChatById(item.chatId, chatsRef.current);
+    if (chat) syncWorkspacePathForChat(chat);
+    setAppView("chat");
+  }
+
+  function handleOpenProjectFromHome(projectId: string) {
+    handleOpenProjectOverview(projectId, "overview");
+  }
+
+  function handleOpenGalaxyFromHome(projectId: string) {
+    const project = homeProjects.find((entry) => entry.id === projectId);
+    if (!project) {
+      console.warn(`[Luxia] Project "${projectId}" not found for Galaxy open. Navigation aborted.`);
+      return;
+    }
+
+    const galaxyChat = findGalaxyChatForProject(projectId, chats, homeProjects);
+
+    if (!galaxyChat || galaxyChat.projectId !== projectId) {
+      console.warn(
+        `[Luxia] Galaxy is missing or not bound to project "${projectId}". Navigation aborted.`,
+      );
+      return;
+    }
+
+    setActiveProjectId(projectId);
+    if (!ensureChatOpen(galaxyChat.id)) return;
+    syncWorkspacePathForChat(galaxyChat);
+    setAppView("chat");
+  }
+
+  function handleOpenGalaxySettingsFromOverview(
+    projectId: string,
+    section: GalaxySettingsSectionId = "general",
+    options?: { explicitTab?: boolean; focusHeading?: boolean },
+  ) {
+    if (!canAccessProject(projectId, projectMembershipsState, prototypeUserId)) {
+      toast.error(PROJECT_ACTION_DENIED_MESSAGE);
+      return;
+    }
+
+    const galaxyChat = findGalaxyChatForProject(projectId, chats, homeProjects);
+
+    if (!galaxyChat || galaxyChat.projectId !== projectId) {
+      console.warn(
+        `[Luxia] Galaxy is missing or not bound to project "${projectId}". Settings navigation aborted.`,
+      );
+      return;
+    }
+
+    setActiveProjectId(projectId);
+    setGalaxySettingsSection(section);
+    setAppView("galaxy-settings");
+    syncGalaxySettingsPath(projectId, {
+      section,
+      explicitTab: options?.explicitTab ?? section !== "general",
+    });
+    if (options?.focusHeading) {
+      setGalaxySettingsFocusHeadingToken((value) => value + 1);
+    }
+  }
+
+  function syncGalaxySettingsPath(
+    projectId: string,
+    options?: {
+      section?: GalaxySettingsSectionId;
+      explicitTab?: boolean;
+      replace?: boolean;
+    },
+  ) {
+    if (typeof window === "undefined") return;
+    const next = getGalaxySettingsPath(projectId, {
+      tab: galaxySettingsSectionToTab(options?.section ?? "general"),
+      includeTabQuery: Boolean(options?.explicitTab),
+    });
+    const current = `${window.location.pathname}${window.location.search}`;
+    if (current === next) return;
+    const state = {
+      luxiaView: "galaxy-settings" as const,
+      projectId,
+      section: options?.section ?? "general",
+    };
+    if (options?.replace) {
+      window.history.replaceState(state, "", next);
+    } else {
+      window.history.pushState(state, "", next);
+    }
+  }
+
+  function handleGalaxySettingsSectionChange(
+    projectId: string,
+    section: GalaxySettingsSectionId,
+  ) {
+    if (section === galaxySettingsSection) return;
+    setGalaxySettingsSection(section);
+    syncGalaxySettingsPath(projectId, {
+      section,
+      explicitTab: true,
+    });
+  }
+
+  function resolveGalaxySettingsRecord(projectId: string): GalaxySettingsRecord | null {
+    const galaxyChat = findGalaxyChatForProject(projectId, chats, homeProjects);
+    if (!galaxyChat || galaxyChat.projectId !== projectId) return null;
+    const existing = galaxySettingsById[galaxyChat.id];
+    const session = galaxySessions[galaxyChat.id];
+    if (existing) {
+      return {
+        ...cloneGalaxySettingsRecord(existing),
+        name: galaxyChat.label,
+        projectName: getProjectNameById(projectId, homeProjects),
+        routeMode: session?.routeMode ?? existing.routeMode,
+        instruction: existing.instruction,
+        manualConstellationIds: [...existing.manualConstellationIds],
+      };
+    }
+    return buildGalaxySettingsRecord({
+      id: galaxyChat.id,
+      projectId,
+      projectName: getProjectNameById(projectId, homeProjects),
+      name: galaxyChat.label,
+      routeMode: session?.routeMode ?? "auto",
+      manualConstellationIds: [],
+    });
+  }
+
+  function handleSaveGalaxySettingsGeneral(
+    projectId: string,
+    patch: Pick<GalaxySettingsDraft, "name">,
+  ) {
+    if (!guardGalaxyConfigure(projectId)) return;
+    const galaxyChat = findGalaxyChatForProject(projectId, chats, homeProjects);
+    if (!galaxyChat || galaxyChat.projectId !== projectId) return;
+    const existing = resolveGalaxySettingsRecord(projectId);
+    const trimmedName = patch.name.trim() || galaxyChat.label;
+    setChats((prev) => prev.map((chat) => (
+      chat.id === galaxyChat.id && chat.chatType === "galaxy"
+        ? { ...chat, label: trimmedName }
+        : chat
+    )));
+    setGalaxySettingsById((prev) => ({
+      ...prev,
+      [galaxyChat.id]: buildGalaxySettingsRecord({
+        id: galaxyChat.id,
+        projectId,
+        projectName: getProjectNameById(projectId, homeProjects),
+        name: trimmedName,
+        instruction: existing?.instruction,
+        routeMode: existing?.routeMode
+          ?? galaxySessions[galaxyChat.id]?.routeMode
+          ?? "auto",
+        manualConstellationIds: existing?.manualConstellationIds ?? [],
+        updatedAt: "Just now",
+      }),
+    }));
+  }
+
+  function handleSaveGalaxySettingsInstruction(
+    projectId: string,
+    patch: Pick<GalaxySettingsDraft, "instruction">,
+  ) {
+    if (!guardGalaxyConfigure(projectId)) return;
+    const galaxyChat = findGalaxyChatForProject(projectId, chats, homeProjects);
+    if (!galaxyChat || galaxyChat.projectId !== projectId) return;
+    const existing = resolveGalaxySettingsRecord(projectId);
+    setGalaxySettingsById((prev) => ({
+      ...prev,
+      [galaxyChat.id]: buildGalaxySettingsRecord({
+        id: galaxyChat.id,
+        projectId,
+        projectName: getProjectNameById(projectId, homeProjects),
+        name: existing?.name ?? galaxyChat.label,
+        instruction: patch.instruction,
+        routeMode: existing?.routeMode
+          ?? galaxySessions[galaxyChat.id]?.routeMode
+          ?? "auto",
+        manualConstellationIds: existing?.manualConstellationIds ?? [],
+        updatedAt: "Just now",
+      }),
+    }));
+  }
+
+  function handleSaveGalaxySettingsRouting(
+    projectId: string,
+    patch: Pick<GalaxySettingsDraft, "routeMode" | "manualConstellationIds">,
+  ) {
+    if (!guardGalaxyConfigure(projectId)) return;
+    const galaxyChat = findGalaxyChatForProject(projectId, chats, homeProjects);
+    if (!galaxyChat || galaxyChat.projectId !== projectId) return;
+    const existing = resolveGalaxySettingsRecord(projectId);
+    setGalaxySessions((prev) => {
+      const current = prev[galaxyChat.id]
+        ?? createIdleGalaxySession(getProjectNameById(projectId, homeProjects));
+      return {
+        ...prev,
+        [galaxyChat.id]: {
+          ...current,
+          routeMode: patch.routeMode,
+        },
+      };
+    });
+    setGalaxySettingsById((prev) => ({
+      ...prev,
+      [galaxyChat.id]: buildGalaxySettingsRecord({
+        id: galaxyChat.id,
+        projectId,
+        projectName: getProjectNameById(projectId, homeProjects),
+        name: existing?.name ?? galaxyChat.label,
+        instruction: existing?.instruction,
+        routeMode: patch.routeMode,
+        manualConstellationIds: [...patch.manualConstellationIds],
+        updatedAt: "Just now",
+      }),
+    }));
+  }
+
+  function handleSaveGalaxyInstruction(projectId: string, instruction: string) {
+    if (!guardGalaxyConfigure(projectId)) return;
+    const galaxyChat = findGalaxyChatForProject(projectId, chats, homeProjects);
+    if (!galaxyChat || galaxyChat.projectId !== projectId) return;
+    const existing = resolveGalaxySettingsRecord(projectId);
+    setGalaxySettingsById((prev) => ({
+      ...prev,
+      [galaxyChat.id]: buildGalaxySettingsRecord({
+        id: galaxyChat.id,
+        projectId,
+        projectName: getProjectNameById(projectId, homeProjects),
+        name: existing?.name ?? galaxyChat.label,
+        instruction,
+        routeMode: existing?.routeMode
+          ?? galaxySessions[galaxyChat.id]?.routeMode
+          ?? "auto",
+        manualConstellationIds: existing?.manualConstellationIds ?? [],
+        updatedAt: "Just now",
+      }),
+    }));
+  }
+
+  function guardGalaxyConfigure(projectId: string): boolean {
+    if (canEditGalaxySettings(projectRoleFor(projectId))) {
+      return true;
+    }
+    toast.error(GALAXY_CONFIGURE_DENIED_MESSAGE);
+    return false;
+  }
+
+  function handleOpenChatFromHome(chatId: string) {
+    const chat = chats.find((entry) => entry.id === chatId)
+      ?? INITIAL_CHATS.find((entry) => entry.id === chatId);
+    if (
+      chat?.chatType === "constellation"
+      && chat.projectId
+      && chat.constellationId
+      && !assertConstellationUseAccess(chat.projectId, chat.constellationId)
+    ) {
+      return;
+    }
+    if (chat?.projectId) setActiveProjectId(chat.projectId);
+    if (!ensureChatOpen(chatId)) return;
+    if (chat) syncWorkspacePathForChat(chat);
+    setAppView("chat");
+  }
+
+  function handleOpenConstellationFromProject(projectId: string, constellationId: string) {
+    const constellation = allConstellations.find(
+      (entry) => entry.id === constellationId && entry.projectId === projectId,
+    );
+    if (!constellation) {
+      console.warn(
+        `[Luxia] Constellation "${constellationId}" not found in project "${projectId}". Navigation aborted.`,
+      );
+      return;
+    }
+    handleOpenConstellationSettings(projectId, constellationId);
+  }
+
+  function handleCreateChatForConstellation(projectId: string, constellationId: string) {
+    const constellation = allConstellations.find(
+      (entry) => entry.id === constellationId && entry.projectId === projectId,
+    );
+    if (!constellation) {
+      console.warn(
+        `[Luxia] Cannot create Chat — Constellation "${constellationId}" not found in project "${projectId}".`,
+      );
+      return;
+    }
+    if (!assertConstellationUseAccess(projectId, constellationId)) return;
+    const existingCount = chats.filter(
+      (chat) => chat.chatType === "constellation"
+        && chat.projectId === projectId
+        && chat.constellationId === constellationId,
+    ).length;
+    const id = `c${Date.now()}`;
+    const created: Chat = {
+      id,
+      label: `Chat name ${String(existingCount + 1).padStart(2, "0")}`,
+      chatType: "constellation",
+      projectId,
+      constellationId,
+    };
+    setChats((prev) => [...prev, created]);
+    setChatMessages((prev) => ({ ...prev, [id]: [] }));
+    setActiveProjectId(projectId);
+    setActiveChat(id);
+    syncWorkspacePathForChat(created);
+    setAppView("chat");
+  }
+
+  function handleOpenConstellationCreate(
+    projectId: string,
+    options?: { existingDataSourceId?: string },
+  ) {
+    if (!guardConstellationConfigure(projectId)) return;
+    setConstellationCreateExistingSourceId(options?.existingDataSourceId ?? null);
+    setActiveProjectId(projectId);
+    setProjectBrowseMode("constellations");
+    setSettingsConstellationId(null);
+    setSettingsCapabilityPath(null);
+    setAppView("constellation-create");
+    if (typeof window !== "undefined") {
+      const next = getConstellationCreatePath(projectId);
+      if (window.location.pathname !== next) {
+        window.history.pushState(
+          { luxiaView: "constellation-create", projectId },
+          "",
+          next,
+        );
+      }
+    }
+  }
+
+  function handleRequestCreateConstellationFromSource(sourceId: string, projectId?: string) {
+    if (!dataSourcesState.some((source) => source.id === sourceId)) return;
+    if (projectId) {
+      if (!dataSourceConstellationHandoff.projects.some((project) => project.id === projectId)) {
+        return;
+      }
+      handleOpenConstellationCreate(projectId, { existingDataSourceId: sourceId });
+      return;
+    }
+    setDataSourceHandoff({ sourceId, kind: "create" });
+  }
+
+  function handleRequestConnectConstellationFromSource(sourceId: string) {
+    if (!dataSourcesState.some((source) => source.id === sourceId)) return;
+    setDataSourceHandoff({ sourceId, kind: "connect" });
+  }
+
+  function handleAddConstellationToProject(
+    projectId: string,
+    name: string,
+    type: "database" | "csv" | "pdf",
+  ) {
+    void name;
+    void type;
+    handleOpenConstellationCreate(projectId);
+  }
+
+  function buildConnectedSourceFromDraft(
+    draft: ConstellationCreationDraft,
+  ): ReturnType<typeof buildConnectedSourceFromCreationDraft> {
+    return buildConnectedSourceFromCreationDraft(draft, {
+      dataSources: dataSourcesState,
+      accessLevels: accessLevelsState,
+      currentUserId: prototypeUserId,
+    });
+  }
+
+  function handleCreateConstellationDraft(
+    draft: ConstellationCreationDraft,
+    tagBucket?: DataSourceTagBucket,
+  ) {
+    const projectId = draft.projectId;
+    if (!projectId || !draft.type) return;
+    if (!guardConstellationConfigure(projectId)) return;
+
+    const existingNames = allConstellations
+      .filter((item) => item.projectId === projectId)
+      .map((item) => item.label);
+    const readiness = getReviewReadiness(draft, existingNames);
+    if (!readiness.ready) return;
+
+    const id = `con-runtime-${Date.now()}`;
+    const createdConstellation: Constellation = {
+      id,
+      label: draft.name.trim(),
+      type: draft.type,
+      projectId,
+      description: draft.description.trim(),
+    };
+    const nextRuntime = [...runtimeConstellations, createdConstellation];
+    const nextAll = [...CONSTELLATIONS, ...nextRuntime];
+    setRuntimeConstellations(nextRuntime);
+
+    const seededBase = buildSettingsForConstellation({
+      id,
+      projectId,
+      projectName: getProjectNameById(projectId, homeProjects),
+      name: draft.name.trim(),
+      description: draft.description.trim(),
+      type: draft.type,
+    });
+
+    const creationSource = buildConnectedSourceFromDraft(draft);
+    const connectedSource = creationSource?.connected ?? null;
+    const connectedSources = connectedSource ? [connectedSource] : [];
+
+    const nextDataSources = creationSource?.catalogItem
+      && !dataSourcesState.some((item) => item.id === creationSource.catalogItem!.id)
+      ? [...dataSourcesState, creationSource.catalogItem]
+      : dataSourcesState;
+
+    if (nextDataSources !== dataSourcesState) {
+      setDataSourcesState(nextDataSources);
+    }
+
+    if (creationSource?.catalogItem && tagBucket) {
+      commitDataSourceTagBucket(creationSource.catalogItem.id, tagBucket);
+    }
+
+    const seeded: ConstellationSettingsRecord = {
+      ...seededBase,
+      instructions: draft.instruction.trim() || seededBase.instructions,
+      connectedSources,
+      sourceAccessRows: connectedSources.map((source) =>
+        buildSourceAccessSummaryRow(
+          source,
+          accessLevelsState,
+          prototypeUserId,
+          nextDataSources,
+        ),
+      ),
+    };
+
+    const nextSettings = {
+      ...constellationSettingsById,
+      [id]: seeded,
+    };
+    setConstellationSettingsById(nextSettings);
+
+    const instructionText = draft.instruction.trim() || seeded.instructions;
+    const bundle = buildCapabilityBundleFromCreationDraft(
+      id,
+      draft,
+      connectedSource,
+      instructionText,
+    );
+
+    setCapabilityBundlesById((prev) => ({
+      ...prev,
+      [id]: bundle,
+    }));
+    syncHomeProjectDerivedCounts(projectId, {
+      settingsById: nextSettings,
+      constellations: nextAll,
+    });
+    toast.success("Constellation created.");
+    handleOpenConstellationSettings(projectId, id);
+  }
+
+  function handleProjectNavSection(section: ProjectNavSection) {
+    const projectId = contextProjectId;
+    if (!projectId) return;
+
+    if (section === "overview") {
+      handleOpenProjectOverview(projectId, "overview");
+      return;
+    }
+    if (section === "galaxy") {
+      handleOpenGalaxyFromHome(projectId);
+      return;
+    }
+    if (section === "dashboard") {
+      handleOpenProjectDashboard(projectId);
+      return;
+    }
+    if (section === "constellations") {
+      handleOpenConstellationsList(projectId);
+      return;
+    }
+    if (section === "chats") {
+      handleOpenChatsList(projectId);
+      return;
+    }
+    if (section === "members") {
+      handleOpenProjectMembers(projectId);
+      return;
+    }
+    if (section === "vidgets" || section === "virtual-assistant") {
+      handleOpenProjectVidgets(projectId);
+    }
+  }
+
+  function handleCreateProject(name: string) {
+    if (!canCreateProject(prototypeUserId)) {
+      toast.error(PROJECT_CREATE_DENIED_MESSAGE);
+      return;
+    }
+    const trimmed = name.trim();
+    if (!trimmed) return;
+
+    const stamp = Date.now();
+    const id = `project-${stamp}`;
+    const galaxyId = `galaxy-${stamp}`;
+    const galaxyLabel = trimmed;
+    const newProject: HomeProjectCard = {
+      id,
+      name: trimmed,
+      galaxyId,
+      constellationCount: 0,
+      sourceCount: 0,
+      memberCount: 1,
+      updatedAt: "Just now",
+      updatedAtTimestamp: stamp,
+      isPinned: false,
+      isFeatured: false,
+      isEmpty: true,
+      status: "active",
+      description: undefined,
+    };
+
+    setHomeProjects((prev) => [...prev, newProject]);
+
+    setProjectMembershipsState((prev) => [...prev, {
+      id: `pm-${id}-${prototypeUserId}`,
+      projectId: id,
+      userId: prototypeUserId,
+      projectRole: "Project Owner",
+      status: "active",
+      joinedOrInvitedAt: new Date(stamp).toISOString(),
+    }]);
+
+    setChats((prev) => [...prev, {
+      id: galaxyId,
+      label: galaxyLabel,
+      chatType: "galaxy",
+      projectId: id,
+    }]);
+
+    setGalaxySessions((prev) => ({
+      ...prev,
+      [galaxyId]: createIdleGalaxySession(trimmed),
+    }));
+
+    setGalaxySettingsById((prev) => ({
+      ...prev,
+      [galaxyId]: buildGalaxySettingsRecord({
+        id: galaxyId,
+        projectId: id,
+        projectName: trimmed,
+        name: galaxyLabel,
+      }),
+    }));
+
+    setShowNewProjectModal(false);
+    handleOpenProjectOverview(id, "overview", {
+      skipMembershipCheck: true,
+      project: newProject,
+    });
+  }
+
+  function handleChatPin(id: string) {
+    setChats((prev) => {
+      const target = prev.find((chat) => chat.id === id);
+      if (!target) return prev;
+      const nextPinned = !target.pinned;
+      const key = target.chatType === "galaxy" ? getGalaxyEntityKey(id) : getChatEntityKey(id);
+      setPinnedEntityOrder((order) => {
+        const next = nextPinned
+          ? [...order.filter((entry) => entry !== key), key]
+          : order.filter((entry) => entry !== key);
+        writePinnedEntityOrder(next);
+        return next;
+      });
+      return prev.map((chat) => (chat.id === id ? { ...chat, pinned: nextPinned } : chat));
+    });
+  }
+
   function handleNewChatCreate(payload: NewChatPayload) {
+    if (
+      payload.chatType === "constellation"
+      && payload.constellationId
+      && !assertConstellationUseAccess(payload.projectId, payload.constellationId)
+    ) {
+      return;
+    }
     const id = `c${Date.now()}`;
     const n = chats.length + 1;
     const galaxyCount = chats.filter((c) => c.chatType === "galaxy").length;
-    const projectName = PROJECTS.find((p) => p.id === payload.projectId)?.label ?? "Project";
+    const projectName = getProjectNameById(payload.projectId, homeProjects);
     setChats((p) => [...p, {
       id,
       label: payload.chatType === "galaxy"
@@ -4076,8 +7290,66 @@ export default function App() {
     if (payload.chatType === "galaxy") {
       setGalaxySessions((p) => ({ ...p, [id]: createIdleGalaxySession(projectName) }));
     }
+    setActiveProjectId(payload.projectId);
     setActiveChat(id);
     setShowNewChatModal(false);
+    setNewChatLockedProjectId(null);
+    setAppView("chat");
+    syncWorkspacePathForChat({
+      id,
+      chatType: payload.chatType,
+      projectId: payload.projectId,
+      constellationId: payload.constellationId,
+    });
+  }
+
+  function handleRefineInboxInteraction(payload: VidgetInboxRefinePayload) {
+    if (!assertConstellationUseAccess(payload.projectId, payload.constellationId)) {
+      return;
+    }
+    const id = `c${Date.now()}`;
+    const n = chats.length + 1;
+    const now = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+    setChats((prev) => [...prev, {
+      id,
+      label: `Chat ${n}`,
+      chatType: "constellation",
+      projectId: payload.projectId,
+      constellationId: payload.constellationId,
+    }]);
+    const seeded: Message[] = [];
+    if (payload.question.trim()) {
+      seeded.push({
+        id: `${id}-user`,
+        role: "user",
+        content: payload.question,
+        timestamp: now,
+      });
+    }
+    if (payload.answer.trim() || payload.presentation === "block") {
+      seeded.push({
+        id: `${id}-ai`,
+        role: "ai",
+        content: payload.answer,
+        timestamp: now,
+        sources: payload.sources,
+        responsePresentation: {
+          state: payload.presentation,
+          notice: payload.notice,
+        },
+      });
+    }
+    setChatMessages((prev) => ({ ...prev, [id]: seeded }));
+    setInputValue(payload.question);
+    setActiveProjectId(payload.projectId);
+    setActiveChat(id);
+    setAppView("chat");
+    syncWorkspacePathForChat({
+      id,
+      chatType: "constellation",
+      projectId: payload.projectId,
+      constellationId: payload.constellationId,
+    });
   }
 
   function handleCloseChat(id: string) {
@@ -4090,22 +7362,54 @@ export default function App() {
     });
     if (activeChat === id) {
       const remaining = chats.filter(c => c.id !== id);
-      setActiveChat(remaining[remaining.length - 1]!.id);
+      const nextChat = remaining[remaining.length - 1]!;
+      setActiveChat(nextChat.id);
+      syncWorkspacePathForChat(nextChat);
+    }
+  }
+
+  function handleSelectChat(chatId: string) {
+    const chat = findChatById(chatId, chats);
+    if (
+      chat?.chatType === "constellation"
+      && chat.projectId
+      && chat.constellationId
+      && !assertConstellationUseAccess(chat.projectId, chat.constellationId)
+    ) {
+      return;
+    }
+    setActiveChat(chatId);
+    if (chat) {
+      if (chat.projectId) setActiveProjectId(chat.projectId);
+      syncWorkspacePathForChat(chat);
     }
   }
 
   function handleConstellationChange(conId: string) {
     const active = chats.find((c) => c.id === activeChat);
-    if (!active || active.chatType !== "constellation") return;
+    if (!active || active.chatType !== "constellation" || !active.projectId) return;
+    if (!assertConstellationUseAccess(active.projectId, conId)) return;
     setChats((p) => p.map((c) => c.id === activeChat ? { ...c, constellationId: conId } : c));
+    syncWorkspacePathForChat({
+      ...active,
+      constellationId: conId,
+    });
   }
 
   function updateGalaxySession(chatId: string, patch: Partial<GalaxySessionState>) {
     setGalaxySessions((prev) => {
+      const projectId = chats.find((c) => c.id === chatId)?.projectId;
       const current = prev[chatId] ?? createIdleGalaxySession(
-        PROJECTS.find((p) => p.id === chats.find((c) => c.id === chatId)?.projectId)?.label ?? "Project",
+        getProjectNameById(projectId, homeProjects),
       );
-      return { ...prev, [chatId]: { ...current, ...patch } };
+      return {
+        ...prev,
+        [chatId]: {
+          ...current,
+          ...patch,
+          projectName: getProjectNameById(projectId, homeProjects),
+        },
+      };
     });
   }
 
@@ -4135,35 +7439,149 @@ export default function App() {
     const chatId = activeChat;
     const active = chats.find((c) => c.id === chatId);
     const isGalaxy = active?.chatType === "galaxy";
-    const projectName = PROJECTS.find((p) => p.id === active?.projectId)?.label ?? "Project";
+    const projectName = getProjectNameById(active?.projectId, homeProjects);
 
     if (!isGalaxy) {
+      if (
+        active?.chatType === "constellation"
+        && active.projectId
+        && active.constellationId
+        && !assertConstellationUseAccess(active.projectId, active.constellationId)
+      ) {
+        return;
+      }
+      const constellationRecord = active?.constellationId
+        ? resolveConstellationSettingsRecordForView(active.constellationId)
+        : undefined;
+      const chatSources = (constellationRecord?.connectedSources ?? []).map((source) => ({
+        id: `${aid}-${source.id}`,
+        label: source.name,
+      }));
       setChatMessages(p => ({
         ...p,
         [chatId]: [...(p[chatId] ?? []),
         { id: uid, role: "user", content, timestamp: now },
         {
           id: aid, role: "ai", timestamp: now,
-          content: "I have searched the connected constellation for your query.\n\nHere is what I found based on the available sources.",
-          sources: [{ id: `${aid}s1`, label: "Document A" }],
+          content: chatSources.length > 0
+            ? `I have searched the connected Constellation for your query.\n\nSources considered: ${chatSources.map((source) => source.label).join(", ")}.`
+            : "I have searched the connected Constellation for your query.\n\nNo connected Data Source labels are available.",
+          sources: chatSources,
         },
         ],
       }));
       return;
     }
 
+    const projectId = active?.projectId ?? homeProjects[0]?.id ?? "project-01";
+    const projectConstellations = getProjectConstellations(projectId, allConstellations);
+    const constellationSourceMap = projectConstellations.map((constellation) => {
+      const record = constellationSettingsById[constellation.id]
+        ?? getConstellationSettingsRecord(constellation.id);
+      return {
+        id: constellation.id,
+        dataSourceIds: record?.connectedSources.map((source) => source.id) ?? [],
+      };
+    });
+    const accessibleIds = getAccessibleConstellationIds({
+      projectId,
+      constellationSourceMap,
+      memberships: projectMembershipsState,
+      accessLevels: accessLevelsState,
+      dataSources: dataSourcesState,
+      userId: prototypeUserId,
+    });
+    const accessibleConstellations = projectConstellations.filter((item) =>
+      accessibleIds.includes(item.id),
+    );
+
+    if (accessibleConstellations.length === 0) {
+      setGalaxyAccessBlock({
+        projectId,
+        reason:
+          "You need Use access to every connected Data Source before Galaxy can use a Constellation.",
+      });
+      updateGalaxySession(chatId, {
+        status: "ready",
+        activityLabel: "No accessible Constellations",
+        candidates: [],
+        selected: null,
+        selectionSource: null,
+        sources: [],
+        pendingManualId: null,
+      });
+      return;
+    }
+
     const session = galaxySessions[chatId] ?? createIdleGalaxySession(projectName);
-    const isManual = session.routeMode === "manual" && session.pendingManualId;
+    const routeMode = session.routeMode === "manual" ? "manual" : "auto";
+
+    if (routeMode === "manual" && !session.pendingManualId) {
+      toast.error(GALAXY_MANUAL_ROUTE_REQUIRED_MESSAGE);
+      expandGalaxyIntelligencePanel({ force: true });
+      updateGalaxySession(chatId, {
+        routeMode: "manual",
+        status: "ready",
+        activityLabel: "Select a Constellation",
+        focusSection: "activity",
+      });
+      return;
+    }
+
+    const isManual = routeMode === "manual" && Boolean(session.pendingManualId);
     const manualOption = isManual
-      ? CONSTELLATIONS.find((c) => c.id === session.pendingManualId)
+      ? accessibleConstellations.find((c) => c.id === session.pendingManualId)
       : null;
-    const matched: GalaxyMatchedConstellation = manualOption
-      ? {
-          id: manualOption.id,
-          label: manualOption.label,
-          type: getConstellationSourceLabel(manualOption.type),
-        }
-      : GALAXY_MOCK_MATCHED;
+
+    if (isManual && !manualOption) {
+      setGalaxyAccessBlock({
+        projectId,
+        reason:
+          "The selected Constellation is no longer accessible with your current Data Source permissions.",
+      });
+      updateGalaxySession(chatId, {
+        status: "ready",
+        activityLabel: "Selected Constellation unavailable",
+        selected: null,
+        selectionSource: null,
+        pendingManualId: null,
+        routeMode: "manual",
+        focusSection: "activity",
+      });
+      expandGalaxyIntelligencePanel({ force: true });
+      toast.error(GALAXY_MANUAL_ROUTE_REQUIRED_MESSAGE);
+      return;
+    }
+
+    const matchedConstellation = manualOption ?? accessibleConstellations[0]!;
+    const matchedRecord = constellationSettingsById[matchedConstellation.id]
+      ?? getConstellationSettingsRecord(matchedConstellation.id);
+    const matched: GalaxyMatchedConstellation = {
+      id: matchedConstellation.id,
+      label: matchedConstellation.label,
+      type: getConstellationSourceLabel(matchedConstellation.type),
+    };
+    const accessibleSources = (matchedRecord?.connectedSources ?? []).map((source) => ({
+      id: `src-${source.id}`,
+      label: source.name,
+      description:
+        `${source.type === "pdf" ? "PDF" : source.type === "csv" ? "CSV" : "Database"} · ${
+          source.ownership === "organizational" ? "Organizational" : "Private"
+        }`,
+    }));
+    const answerContent = accessibleSources.length > 0
+      ? `Based on accessible Constellation ${matched.label}, here is an answer using only Data Sources you can Use.\n\nSources considered: ${accessibleSources.map((source) => source.label).join(", ")}.`
+      : `Based on accessible Constellation ${matched.label}, no connected Data Source labels are available.`;
+    const candidates = accessibleConstellations.slice(0, 3).map((item, index) => ({
+      id: item.id,
+      label: item.label,
+      type: getConstellationSourceLabel(item.type),
+      relevance: (index === 0
+        ? "High relevance"
+        : index === 1
+          ? "Medium relevance"
+          : "Low relevance") as "High relevance" | "Medium relevance" | "Low relevance",
+    }));
 
     galaxyManualCollapseRef.current = false;
     expandGalaxyIntelligencePanel({ force: true });
@@ -4173,7 +7591,7 @@ export default function App() {
       phase: "searching",
       matched,
       selectionSource: isManual ? "manual" : "auto",
-      constellationsChecked: GALAXY_MOCK_CONSTELLATIONS_CHECKED,
+      constellationsChecked: accessibleConstellations.length,
     };
 
     updateGalaxySession(chatId, {
@@ -4186,8 +7604,8 @@ export default function App() {
       selectionSource: isManual ? "manual" : null,
       sources: [],
       focusSection: "activity",
-      routeMode: "auto",
-      pendingManualId: null,
+      routeMode,
+      pendingManualId: isManual ? session.pendingManualId : null,
     });
 
     setChatMessages((p) => ({
@@ -4208,7 +7626,7 @@ export default function App() {
           selectionSource: "manual",
         });
         patchGalaxyMessage(chatId, aid, {
-          content: GALAXY_MOCK_ANSWER,
+          content: answerContent,
           galaxy: { ...baseGalaxy, phase: "answering" },
         });
       }, 700);
@@ -4218,12 +7636,12 @@ export default function App() {
           activityLabel: "Answer complete",
           selected: matched,
           selectionSource: "manual",
-          sources: GALAXY_MOCK_SOURCES,
+          sources: accessibleSources,
           focusSection: "sources",
         });
         patchGalaxyMessage(chatId, aid, {
-          content: GALAXY_MOCK_ANSWER,
-          sources: GALAXY_MOCK_SOURCES.map((s) => ({ id: `${aid}-${s.id}`, label: s.label })),
+          content: answerContent,
+          sources: accessibleSources.map((s) => ({ id: `${aid}-${s.id}`, label: s.label })),
           galaxy: { ...baseGalaxy, phase: "complete" },
         });
       }, 1800);
@@ -4243,7 +7661,7 @@ export default function App() {
           updateGalaxySession(chatId, {
             status: "matching",
             activityLabel: "Comparing relevant matches",
-            candidates: GALAXY_MOCK_CANDIDATES,
+            candidates,
           });
           patchGalaxyMessage(chatId, aid, { galaxy: { ...baseGalaxy, phase } });
           return;
@@ -4252,7 +7670,7 @@ export default function App() {
           updateGalaxySession(chatId, {
             status: "matching",
             activityLabel: "Best match found",
-            candidates: GALAXY_MOCK_CANDIDATES,
+            candidates,
             selected: matched,
             selectionSource: "auto",
             focusSection: "selected",
@@ -4266,10 +7684,10 @@ export default function App() {
             activityLabel: "Generating answer",
             selected: matched,
             selectionSource: "auto",
-            candidates: GALAXY_MOCK_CANDIDATES,
+            candidates,
           });
           patchGalaxyMessage(chatId, aid, {
-            content: GALAXY_MOCK_ANSWER,
+            content: answerContent,
             galaxy: { ...baseGalaxy, phase },
           });
           return;
@@ -4279,13 +7697,13 @@ export default function App() {
           activityLabel: "Answer complete",
           selected: matched,
           selectionSource: "auto",
-          candidates: GALAXY_MOCK_CANDIDATES,
-          sources: GALAXY_MOCK_SOURCES,
+          candidates,
+          sources: accessibleSources,
           focusSection: "sources",
         });
         patchGalaxyMessage(chatId, aid, {
-          content: GALAXY_MOCK_ANSWER,
-          sources: GALAXY_MOCK_SOURCES.map((s) => ({ id: `${aid}-${s.id}`, label: s.label })),
+          content: answerContent,
+          sources: accessibleSources.map((s) => ({ id: `${aid}-${s.id}`, label: s.label })),
           galaxy: { ...baseGalaxy, phase: "complete" },
         });
       }, delay);
@@ -4295,26 +7713,34 @@ export default function App() {
   function handleOpenGalaxyConstellation() {
     expandGalaxyIntelligencePanel({ force: true });
     const session = galaxySessions[activeChat];
-    const matchedId = session?.selected?.id ?? GALAXY_MOCK_MATCHED.id;
-    const match = CONSTELLATIONS.find((c) => c.id === matchedId);
+    const matchedId = session?.selected?.id;
+    if (!matchedId) {
+      toast.message("Select an accessible Constellation before opening Chat.");
+      return;
+    }
+    const match = allConstellations.find((c) => c.id === matchedId);
     if (!match) return;
+    if (!assertConstellationUseAccess(match.projectId, match.id)) return;
     const existing = chats.find(
       (c) => c.chatType === "constellation" && c.constellationId === match.id,
     );
     if (existing) {
       setActiveChat(existing.id);
+      syncWorkspacePathForChat(existing);
       return;
     }
     const id = `c${Date.now()}`;
-    setChats((p) => [...p, {
+    const created: Chat = {
       id,
       label: match.label,
       chatType: "constellation",
       projectId: match.projectId,
       constellationId: match.id,
-    }]);
+    };
+    setChats((p) => [...p, created]);
     setChatMessages((p) => ({ ...p, [id]: [] }));
     setActiveChat(id);
+    syncWorkspacePathForChat(created);
   }
 
   function handleViewGalaxyActivity() {
@@ -4334,9 +7760,14 @@ export default function App() {
   }
 
   const activeGalaxySession = activeData?.chatType === "galaxy"
-    ? (galaxySessions[activeChat] ?? createIdleGalaxySession(
-        PROJECTS.find((p) => p.id === activeData.projectId)?.label ?? "Project",
-      ))
+    ? (() => {
+      const session = galaxySessions[activeChat]
+        ?? createIdleGalaxySession(getProjectNameById(activeData.projectId, homeProjects));
+      return {
+        ...session,
+        projectName: getProjectNameById(activeData.projectId, homeProjects),
+      };
+    })()
     : null;
 
   useEffect(() => {
@@ -4370,17 +7801,61 @@ export default function App() {
     activeGalaxySession?.focusSection,
   ]);
 
-  const galaxyProjectName = PROJECTS.find((p) => p.id === (activeData?.projectId ?? PROJECTS[0].id))?.label
-    ?? "Project";
+  const galaxyProjectName = getProjectNameById(activeData?.projectId, homeProjects);
 
   const galaxyRouteOptions = useMemo(() => {
-    const seeds = getProjectConstellations(activeData?.projectId ?? PROJECTS[0].id).map((c) => ({
-      id: c.id,
-      label: c.label,
-      type: getConstellationSourceLabel(c.type) as "PDF" | "DB",
-    }));
-    return buildGalaxyRouteCatalog(galaxyProjectName, seeds);
-  }, [activeData?.projectId, galaxyProjectName]);
+    const projectId = activeData?.projectId ?? homeProjects[0]?.id ?? "project-01";
+    const projectConstellations = getProjectConstellations(projectId, allConstellations);
+    const constellationSourceMap = projectConstellations.map((constellation) => {
+      const record = constellationSettingsById[constellation.id]
+        ?? getConstellationSettingsRecord(constellation.id);
+      return {
+        id: constellation.id,
+        dataSourceIds: record?.connectedSources.map((source) => source.id) ?? [],
+      };
+    });
+    const accessibleIds = new Set(
+      getAccessibleConstellationIds({
+        projectId,
+        constellationSourceMap,
+        memberships: projectMembershipsState,
+        accessLevels: accessLevelsState,
+        dataSources: dataSourcesState,
+        userId: prototypeUserId,
+      }),
+    );
+    const seeds = projectConstellations
+      .filter((constellation) => accessibleIds.has(constellation.id))
+      .map((constellation) => ({
+        id: constellation.id,
+        label: constellation.label,
+        type: getConstellationSourceLabel(constellation.type),
+      }));
+    const galaxyChat = findGalaxyChatForProject(projectId, chats, homeProjects);
+    const savedSettings = galaxyChat ? galaxySettingsById[galaxyChat.id] : undefined;
+    const savedRouteMode = savedSettings?.routeMode
+      ?? (galaxyChat ? galaxySessions[galaxyChat.id]?.routeMode : undefined)
+      ?? "auto";
+    const manualIds = savedSettings?.manualConstellationIds ?? [];
+    const filteredSeeds =
+      savedRouteMode === "manual" && manualIds.length > 0
+        ? seeds.filter((seed) => manualIds.includes(seed.id))
+        : seeds;
+    return buildGalaxyRouteCatalog(galaxyProjectName, filteredSeeds);
+  }, [
+    activeData?.projectId,
+    allConstellations,
+    chats,
+    galaxyProjectName,
+    galaxySessions,
+    galaxySettingsById,
+    homeProjects,
+    constellationSettingsById,
+    projectMembershipsState,
+    accessLevelsState,
+    dataSourcesState,
+    prototypeUserId,
+  ]);
 
   const pendingManual = activeGalaxySession?.pendingManualId
     ? (() => {
@@ -4389,43 +7864,1850 @@ export default function App() {
       })()
     : null;
 
+  useEffect(() => {
+    if (!activeGalaxySession || activeData?.chatType !== "galaxy") return;
+    const projectId = activeData.projectId;
+    if (!projectId) return;
+    if (galaxyRouteOptions.length === 0) {
+      if (
+        activeGalaxySession.selected
+        || activeGalaxySession.pendingManualId
+        || (activeGalaxySession.sources?.length ?? 0) > 0
+      ) {
+        updateGalaxySession(activeChat, {
+          selected: null,
+          selectionSource: null,
+          pendingManualId: null,
+          candidates: [],
+          sources: [],
+          activityLabel: "No accessible Constellations",
+          routeMode: activeGalaxySession.routeMode === "manual" ? "manual" : "auto",
+        });
+        setGalaxyAccessBlock({
+          projectId,
+          reason:
+            "You need Use access to every connected Data Source before Galaxy can use a Constellation.",
+        });
+      }
+      return;
+    }
+    if (
+      activeGalaxySession.pendingManualId
+      && !galaxyRouteOptions.some((option) => option.id === activeGalaxySession.pendingManualId)
+    ) {
+      updateGalaxySession(activeChat, {
+        pendingManualId: null,
+        routeMode: activeGalaxySession.routeMode === "manual" ? "manual" : "auto",
+        selected: null,
+        selectionSource: null,
+        activityLabel: "Selected Constellation unavailable",
+      });
+    }
+  }, [
+    activeChat,
+    activeData?.chatType,
+    activeData?.projectId,
+    activeGalaxySession?.pendingManualId,
+    activeGalaxySession?.selected?.id,
+    activeGalaxySession?.sources?.length,
+    galaxyRouteOptions,
+  ]);
+
+  const settingsConstellation = settingsConstellationId
+    ? allConstellations.find((item) => item.id === settingsConstellationId)
+    : undefined;
+
+  const settingsProjectExists = activeProjectId
+    ? Boolean(homeProjects.find((project) => project.id === activeProjectId))
+    : false;
+
+  const settingsUnavailable = !activeProjectId
+    || !settingsProjectExists
+    || !settingsConstellation
+    || settingsConstellation.projectId !== activeProjectId;
+
+  const settingsRecord = settingsConstellationId
+    ? resolveConstellationSettingsRecordForView(settingsConstellationId)
+    : undefined;
+
+  const settingsCapabilityId = settingsCapabilityPath
+    ? capabilityIdFromPath(settingsCapabilityPath)
+    : null;
+
+  const settingsCapabilityUnavailable = Boolean(settingsCapabilityPath)
+    && (
+      !settingsCapabilityId
+      || !settingsConstellation
+      || !isCapsuleCapabilityAllowed(settingsCapabilityId, settingsConstellation.type)
+    );
+
+  useEffect(() => {
+    if (
+      appView === "access-level"
+      && accessLevelId === "new"
+      && !canAdministerAccessLevels(prototypeUserId)
+    ) {
+      toast.error(ACCESS_LEVEL_CREATE_DENIED_MESSAGE);
+      setAppView("access-levels");
+      setAccessLevelId(null);
+      if (typeof window !== "undefined") {
+        const listPath = getAccessLevelsPath();
+        if (window.location.pathname !== listPath) {
+          window.history.replaceState({ luxiaView: "access-levels" }, "", listPath);
+        }
+      }
+    }
+  }, [appView, accessLevelId, prototypeUserId]);
+
+  const editingAccessLevel = useMemo(() => {
+    if (appView !== "access-level" || !accessLevelId) {
+      accessLevelCreateDraftRef.current = null;
+      return null;
+    }
+    if (accessLevelId === "new") {
+      if (!canAdministerAccessLevels(prototypeUserId)) {
+        accessLevelCreateDraftRef.current = null;
+        return null;
+      }
+      if (!accessLevelCreateDraftRef.current) {
+        accessLevelCreateDraftRef.current = buildEmptyAccessLevel();
+      }
+      return accessLevelCreateDraftRef.current;
+    }
+    accessLevelCreateDraftRef.current = null;
+    return accessLevelsState.find((level) => level.id === accessLevelId) ?? null;
+  }, [appView, accessLevelId, accessLevelsState, prototypeUserId]);
+
+  const projectNamesById = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const project of homeProjects) map[project.id] = project.name;
+    return map;
+  }, [homeProjects]);
+
+  const membersProject = activeProjectId
+    ? {
+      id: activeProjectId,
+      name: getProjectNameById(activeProjectId, homeProjects),
+    }
+    : null;
+
+  const membersProjectExists = activeProjectId
+    ? Boolean(homeProjects.find((project) => project.id === activeProjectId))
+    : false;
+
+  const membersForProject = activeProjectId
+    ? projectMembershipsState.filter((membership) => membership.projectId === activeProjectId)
+    : [];
+
+  const dataSourceForSettings = dataSourceSettingsId
+    ? dataSourcesState.find((source) => source.id === dataSourceSettingsId)
+      ?? getDataSourceById(dataSourceSettingsId)
+      ?? null
+    : null;
+
+  const canAccessDataSourceSettings = Boolean(
+    dataSourceForSettings
+    && canUserAccessDataSource(
+      dataSourceForSettings.id,
+      accessLevelsState,
+      dataSourcesState,
+      prototypeUserId,
+    ),
+  );
+
+  const dataSourceHandoffSource = dataSourceHandoff
+    ? dataSourcesState.find((source) => source.id === dataSourceHandoff.sourceId)
+    : undefined;
+
+  const contextProjectMembership = useMemo(() => {
+    if (!contextProjectId) return null;
+    return getActiveProjectMembership(
+      contextProjectId,
+      projectMembershipsState,
+      prototypeUserId,
+    ) ?? null;
+  }, [contextProjectId, projectMembershipsState, prototypeUserId]);
+
+  const showProjectContext = Boolean(contextProjectId && contextProjectMembership);
+
+  useEffect(() => {
+    setProjectAssistantOpen(false);
+  }, [contextProjectId]);
+
+  const projectAssistantMessages = contextProjectId
+    ? projectAssistantSessions[contextProjectId] ?? []
+    : [];
+
+  const sidebarProjectChats = useMemo(() => {
+    if (!contextProjectId || !contextProjectMembership) return [];
+    return overviewChats
+      .filter((chat) => chat.projectId === contextProjectId)
+      .filter((chat) => isWorkingChatAccessible({
+        chatType: chat.chatSource === "galaxy" ? "galaxy" : "constellation",
+        projectId: chat.projectId,
+        constellationId: chat.constellationId,
+        userId: prototypeUserId,
+        memberships: projectMembershipsState,
+        accessLevels: accessLevelsState,
+        dataSources: dataSourcesState,
+        connectedSourceIds: chat.constellationId
+          ? (constellationSettingsById[chat.constellationId]
+            ?? getConstellationSettingsRecord(chat.constellationId))
+            ?.connectedSources.map((source) => source.id) ?? []
+          : [],
+      }))
+      .map((chat) => ({
+        id: chat.id,
+        label: chat.label,
+        chatSource: chat.chatSource,
+        constellationId: chat.constellationId,
+        lastOpenedTimestamp: chat.lastOpenedTimestamp,
+        pinned: chats.find((item) => item.id === chat.id)?.pinned,
+      }));
+  }, [
+    contextProjectId,
+    contextProjectMembership,
+    overviewChats,
+    constellationSettingsById,
+    prototypeUserId,
+    accessLevelsState,
+    dataSourcesState,
+    chats,
+  ]);
+
+  const sidebarProjectConstellations = useMemo(() => {
+    if (!contextProjectId || !contextProjectMembership) return [];
+    return overviewConstellations
+      .filter((item) => item.projectId === contextProjectId)
+      .filter((item) => {
+        const record = constellationSettingsById[item.id]
+          ?? getConstellationSettingsRecord(item.id);
+        const connectedSourceIds = record?.connectedSources.map((source) => source.id) ?? [];
+        return evaluateConstellationUseAccess({
+          userId: prototypeUserId,
+          projectRole: contextProjectMembership.projectRole,
+          membershipStatus: contextProjectMembership.status,
+          connectedSourceIds,
+          accessLevels: accessLevelsState,
+          dataSources: dataSourcesState,
+        }).available;
+      })
+      .map((item) => ({
+        id: item.id,
+        label: item.label,
+        type: item.type,
+        updatedAtTimestamp: item.updatedAtTimestamp,
+      }));
+  }, [
+    contextProjectId,
+    contextProjectMembership,
+    overviewConstellations,
+    constellationSettingsById,
+    prototypeUserId,
+    accessLevelsState,
+    dataSourcesState,
+  ]);
+
+  const sidebarProjectDashboardOutputs = useMemo(() => {
+    if (!contextProjectId || !contextProjectMembership) return [];
+    return getProjectDashboardOutputs(contextProjectId).map((item) => ({
+      id: item.id,
+      label: item.name,
+      updatedAtTimestamp: item.updatedAtTimestamp,
+    }));
+  }, [contextProjectId, contextProjectMembership]);
+
+  const sidebarProjectVidgets = useMemo(() => {
+    if (!contextProjectId || !contextProjectMembership) return [];
+    return getVidgetsForProject(contextProjectId, vidgetsState).map((item) => ({
+      id: item.id,
+      label: item.name,
+      updatedAtTimestamp: new Date(item.updatedAt).getTime() || 0,
+    }));
+  }, [contextProjectId, contextProjectMembership, vidgetsState]);
+
+  useEffect(() => {
+    setDashboardFocusOutputId(null);
+    setActiveDashboardOutputId(null);
+    setDashboardViewResetKey((value) => value + 1);
+  }, [activeProjectId]);
+
+  const workingAccessibleChats = useMemo(
+    () => chats.filter((chat) => isChatWorkingAccessible(chat)),
+    [
+      chats,
+      prototypeUserId,
+      projectMembershipsState,
+      accessLevelsState,
+      dataSourcesState,
+      constellationSettingsById,
+    ],
+  );
+
+  const workingAccessibleOverviewChats = useMemo(
+    () => overviewChats.filter((chat) => isChatWorkingAccessible({
+      chatType: chat.chatSource === "galaxy" ? "galaxy" : "constellation",
+      projectId: chat.projectId,
+      constellationId: chat.constellationId,
+    })),
+    [
+      overviewChats,
+      prototypeUserId,
+      projectMembershipsState,
+      accessLevelsState,
+      dataSourcesState,
+      constellationSettingsById,
+    ],
+  );
+
+  const accessibleHomeProjects = useMemo(
+    () => {
+      // Personal Project collection: active membership required (Org Admin included).
+      const visible = homeProjects.filter((project) =>
+        Boolean(
+          getActiveProjectMembership(
+            project.id,
+            projectMembershipsState,
+            prototypeUserId,
+          ),
+        ),
+      );
+      return visible.map((project) => {
+        const membership = getActiveProjectMembership(
+          project.id,
+          projectMembershipsState,
+          prototypeUserId,
+        )!;
+        const viewerProjectRole = membership.projectRole;
+        const accessibleConstellations = overviewConstellations.filter((item) => {
+          if (item.projectId !== project.id) return false;
+          const record = constellationSettingsById[item.id]
+            ?? getConstellationSettingsRecord(item.id);
+          const connectedSourceIds = record?.connectedSources.map((source) => source.id) ?? [];
+          return evaluateConstellationUseAccess({
+            userId: prototypeUserId,
+            projectRole: membership.projectRole,
+            membershipStatus: membership.status,
+            connectedSourceIds,
+            accessLevels: accessLevelsState,
+            dataSources: dataSourcesState,
+          }).available;
+        });
+        const sourceIds = new Set<string>();
+        for (const item of accessibleConstellations) {
+          const record = constellationSettingsById[item.id]
+            ?? getConstellationSettingsRecord(item.id);
+          for (const source of record?.connectedSources ?? []) {
+            sourceIds.add(source.id);
+          }
+        }
+        return {
+          ...project,
+          constellationCount: accessibleConstellations.length,
+          sourceCount: sourceIds.size,
+          isEmpty: accessibleConstellations.length === 0,
+          viewerProjectRole,
+        };
+      });
+    },
+    [
+      homeProjects,
+      projectMembershipsState,
+      prototypeUserId,
+      overviewConstellations,
+      constellationSettingsById,
+      accessLevelsState,
+      dataSourcesState,
+    ],
+  );
+
+  const sidebarSwitchableProjects = useMemo(
+    () => accessibleHomeProjects.map((project) => ({
+      id: project.id,
+      label: project.name,
+      projectRole: project.viewerProjectRole ?? null,
+    })),
+    [accessibleHomeProjects],
+  );
+
+  const prototypeUsersForDemo = useMemo(() => {
+    const inProjectContext = Boolean(activeProjectId);
+    return organizationUsersState
+      .filter((user) => user.status === "active")
+      .map((user) => {
+        const projectRole = activeProjectId
+          ? getActiveProjectMembership(
+            activeProjectId,
+            projectMembershipsState,
+            user.id,
+          )?.projectRole ?? null
+          : null;
+        return {
+          id: user.id,
+          name: user.name,
+          orgRole: user.orgRole,
+          projectRole,
+          contextLabel: formatDemoIdentityContextLabel({
+            orgRole: user.orgRole,
+            projectRole,
+            includeProjectRole: inProjectContext,
+          }),
+        };
+      });
+  }, [activeProjectId, organizationUsersState, projectMembershipsState]);
+
+  const privateDataSourceCountForUser = useMemo(
+    () => dataSourcesState.filter(
+      (source) => source.ownership === "private" && source.ownerUserId === prototypeUserId,
+    ).length,
+    [dataSourcesState, prototypeUserId],
+  );
+
+  const organizationalDataSourceCount = useMemo(
+    () => dataSourcesState.filter((source) => source.ownership === "organizational").length,
+    [dataSourcesState],
+  );
+
+  const organizationMemberSummary = useMemo(() => ({
+    total: organizationUsersState.length,
+    active: organizationUsersState.filter((user) => user.status === "active").length,
+    invited: organizationUsersState.filter((user) => user.status === "pending").length,
+  }), [organizationUsersState]);
+
+  const organizationUsageMetrics = useMemo(() => ({
+    projects: filterActiveProjects(homeProjects).length,
+    users: organizationUsersState.length,
+    dataSources: dataSourcesState.length,
+    accessLevels: accessLevelsState.length,
+    constellations: CANONICAL_CONSTELLATIONS.length,
+    chats: chats.length,
+    dashboardOutputs: PROJECT_DASHBOARD_OUTPUTS.length,
+    vidgets: vidgetsState.length,
+  }), [
+    homeProjects,
+    organizationUsersState,
+    dataSourcesState,
+    accessLevelsState,
+    chats,
+    vidgetsState,
+  ]);
+
+  const workingAccessibleOverviewConstellations = useMemo(() => {
+    return overviewConstellations.filter((item) => {
+      if (!canAccessProject(item.projectId, projectMembershipsState, prototypeUserId)) {
+        return false;
+      }
+      const membership = getActiveProjectMembership(
+        item.projectId,
+        projectMembershipsState,
+        prototypeUserId,
+      );
+      const record = constellationSettingsById[item.id]
+        ?? getConstellationSettingsRecord(item.id);
+      const connectedSourceIds = record?.connectedSources.map((source) => source.id) ?? [];
+      return evaluateConstellationUseAccess({
+        userId: prototypeUserId,
+        projectRole: membership?.projectRole ?? null,
+        membershipStatus: membership?.status,
+        connectedSourceIds,
+        accessLevels: accessLevelsState,
+        dataSources: dataSourcesState,
+      }).available;
+    });
+  }, [
+    overviewConstellations,
+    projectMembershipsState,
+    prototypeUserId,
+    constellationSettingsById,
+    accessLevelsState,
+    dataSourcesState,
+  ]);
+
+  const projectActivityNavigationContext = useMemo(() => {
+    if (!activeProjectId) return null;
+    const projectChats = workingAccessibleOverviewChats.filter(
+      (chat) => chat.projectId === activeProjectId,
+    );
+    const projectConstellations = workingAccessibleOverviewConstellations.filter(
+      (entry) => entry.projectId === activeProjectId,
+    );
+    return buildActivityNavigationContext({
+      projectId: activeProjectId,
+      chatIds: projectChats.map((chat) => chat.id),
+      constellationIds: projectConstellations.map((entry) => entry.id),
+      outputIds: getProjectDashboardOutputs(activeProjectId).map((output) => output.id),
+      vidgetIds: getVidgetsForProject(activeProjectId, vidgetsState).map((vidget) => vidget.id),
+      hasGalaxy: Boolean(findGalaxyChatForProject(activeProjectId, chats, homeProjects)),
+    });
+  }, [
+    activeProjectId,
+    workingAccessibleOverviewChats,
+    workingAccessibleOverviewConstellations,
+    vidgetsState,
+    chats,
+    homeProjects,
+  ]);
+
+  function handleOpenProjectActivity(item: ProjectActivityItem) {
+    if (!projectActivityNavigationContext || item.projectId !== projectActivityNavigationContext.projectId) {
+      return;
+    }
+    openProjectActivity(item, projectActivityNavigationContext, {
+      onOpenChat: handleOpenChatFromHome,
+      onOpenConstellation: handleOpenConstellationFromProject,
+      onOpenDashboard: handleOpenProjectDashboard,
+      onOpenDashboardOutput: handleOpenDashboardOutput,
+      onOpenVidget: handleOpenVidgetSettings,
+      onOpenGalaxy: handleOpenGalaxyFromHome,
+      onOpenGalaxySettings: handleOpenGalaxySettingsFromOverview,
+    });
+  }
+
+  const projectAssistantConstellations = useMemo(() => {
+    if (!contextProjectId || !contextProjectMembership) return [];
+    return workingAccessibleOverviewConstellations
+      .filter((item) => item.projectId === contextProjectId)
+      .map((item) => ({ id: item.id, name: item.label }));
+  }, [
+    contextProjectId,
+    contextProjectMembership,
+    workingAccessibleOverviewConstellations,
+  ]);
+
+  useEffect(() => {
+    if (appView !== "chat") return;
+    const chat = chats.find((item) => item.id === activeChat);
+    if (!chat) return;
+    if (isChatWorkingAccessible(chat)) return;
+    const fallback = workingAccessibleChats[0];
+    if (fallback) {
+      setActiveChat(fallback.id);
+      return;
+    }
+    const projectId = chat.projectId;
+    if (canAccessProject(projectId, projectMembershipsState, prototypeUserId)) {
+      handleOpenProjectOverview(projectId, "overview");
+      return;
+    }
+    handleNavigateHome();
+  }, [
+    appView,
+    activeChat,
+    chats,
+    workingAccessibleChats,
+    projectMembershipsState,
+    prototypeUserId,
+    accessLevelsState,
+    dataSourcesState,
+    constellationSettingsById,
+  ]);
+
   return (
     <div
       className="flex h-dvh max-h-dvh overflow-hidden"
       style={{ background: activeData?.chatType === "galaxy" ? "#FAFAFC" : "#FAFDFF" }}
     >
+      {isMobileNav && !mobileNavOpen ? (
+        <button
+          type="button"
+          className="fixed left-3 top-3 z-[45] flex h-10 w-10 items-center justify-center rounded-full"
+          style={{
+            background: "var(--luxia-surface, #fff)",
+            border: "1px solid rgba(28, 19, 54, 0.12)",
+            boxShadow: "0 4px 14px rgba(8, 5, 18, 0.16)",
+            color: "var(--luxia-brand-primary, #5B3FA6)",
+          }}
+          aria-label="Open navigation"
+          onClick={() => setMobileNavOpen(true)}
+        >
+          <LuxiaHomeIcon size={16} color="currentColor" />
+        </button>
+      ) : null}
       <LeftNav
         collapsed={leftNavCollapsed}
         onToggleCollapsed={handleLeftNavToggle}
+        isMobileDrawer={isMobileNav}
+        mobileOpen={mobileNavOpen}
+        onMobileClose={() => setMobileNavOpen(false)}
+        homeActive={appView === "home"}
+        organizationUsersActive={
+          appView === "organization-users" || appView === "organization-user"
+        }
+        accessLevelsActive={appView === "access-levels" || appView === "access-level"}
+        dataSourcesActive={appView === "data-sources" || appView === "data-source-settings"}
+        projectId={contextProjectId}
+        projectLabel={contextProjectLabel}
+        showProjectContext={showProjectContext}
+        showGalaxy={Boolean(contextProjectMembership)}
+        activeProjectSection={activeProjectSection}
+        activeChatId={appView === "chat" ? activeChat : null}
+        activeConstellationId={
+          appView === "constellation-settings" || appView === "constellation-create"
+            ? settingsConstellationId
+            : null
+        }
+        activeDashboardOutputId={
+          appView === "project" && projectBrowseMode === "dashboards"
+            ? activeDashboardOutputId
+            : null
+        }
+        activeVidgetId={appView === "vidget-settings" ? vidgetId : null}
+        projectChats={sidebarProjectChats}
+        projectConstellations={sidebarProjectConstellations}
+        projectDashboardOutputs={sidebarProjectDashboardOutputs}
+        projectVidgets={sidebarProjectVidgets}
+        switchableProjects={sidebarSwitchableProjects}
+        chatTotalCount={sidebarProjectChats.length}
+        constellationTotalCount={sidebarProjectConstellations.length}
+        dashboardTotalCount={sidebarProjectDashboardOutputs.length}
+        vidgetTotalCount={sidebarProjectVidgets.length}
+        onHomeClick={handleNavigateHome}
+        onOrganizationUsersClick={handleOpenOrganizationUsers}
+        onAccessLevelsClick={handleOpenAccessLevels}
+        onDataSourcesClick={handleOpenDataSources}
+        onProjectSectionClick={handleProjectNavSection}
+        onSwitchProject={(projectId) => {
+          handleOpenProjectOverview(projectId, "overview");
+        }}
+        onOpenChat={handleSelectChat}
+        onOpenConstellation={(projectId, constellationId) => {
+          handleOpenConstellationSettings(projectId, constellationId, "general");
+        }}
+        onOpenDashboardOutput={handleOpenDashboardOutput}
+        onOpenVidget={(projectId, nextVidgetId) => {
+          handleOpenVidgetSettings(projectId, nextVidgetId);
+        }}
+        prototypeUser={prototypeUser}
+        prototypeProjectRole={prototypeProjectRole}
+        activeProjectLabel={
+          activeProjectId
+            ? getProjectNameById(activeProjectId, homeProjects)
+            : null
+        }
+        prototypeUsers={prototypeUsersForDemo}
+        onPrototypeUserChange={handlePrototypeUserChange}
+        onSettingsClick={() => handleOpenAccountSettings("profile")}
+        onSecondaryRailOpenChange={setLeftNavSecondaryOpen}
       />
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <PageHeader
-          chatLabel={activeData?.label ?? "Chat 1"}
-          chat={activeData ?? INITIAL_CHATS[0]}
-          onRenameChat={(name) => setChats((p) => p.map((c) => c.id === activeChat ? { ...c, label: name } : c))}
-          onDeleteChat={handleCloseChat.bind(null, activeChat)}
-        />
-
-        <ChatTabBar
-          chats={chats} activeId={activeChat}
-          onSelect={setActiveChat} onNew={handleNewChat}
-          onClose={handleCloseChat}
-          onPin={(id) => setChats(p => p.map(c => c.id === id ? { ...c, pinned: !c.pinned } : c))}
-          onRename={(id, label) => setChats(p => p.map(c => c.id === id ? { ...c, label } : c))}
-        />
-
-        <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
-          <div
-            className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
-            style={{ minWidth: 0 }}
+        {appView === "home" ? (
+          <HomePageShell scrollRequest={homeScrollRequest} variant="standard">
+            <HomePage
+              projects={accessibleHomeProjects}
+              recentWork={recentWork}
+              pinnedProjectIds={pinnedProjectIds}
+              pinnedEntityOrder={pinnedEntityOrder}
+              primaryPreference={primaryPreference}
+              dismissedContinueKeys={dismissedContinueKeys}
+              browseMode={homeBrowseMode}
+              onBrowseModeChange={setHomeBrowseMode}
+              onPrimaryPreferenceChange={(preference) => {
+                setPrimaryPreference(preference);
+                writeHomePrimaryPreference(preference);
+              }}
+              onDismissFromContinue={handleDismissFromContinue}
+              onRestoreToContinue={handleRestoreToContinue}
+              onSetPrimaryHero={handleSetPrimaryHero}
+              onShowAllOnHome={handleShowAllOnHome}
+              onToggleProjectPin={handleToggleProjectPin}
+              onArchiveProject={requestArchiveProject}
+              onRestoreProject={handleRestoreProject}
+              onEditProject={requestEditProjectDetails}
+              onDeleteProject={requestDeleteProject}
+              canEditProject={userCanConfigureProject}
+              canArchiveProject={userCanArchiveProject}
+              canDeleteProject={userCanDeleteProject}
+              canRestoreProject={userCanRestoreProject}
+              onToggleWorkPin={handleToggleWorkPin}
+              onContinueWork={handleContinueWork}
+              onOpenProject={handleOpenProjectFromHome}
+              onOpenGalaxy={handleOpenGalaxyFromHome}
+              onOpenChat={handleOpenChatFromHome}
+              onOpenConstellation={handleOpenConstellationFromProject}
+              searchConstellations={workingAccessibleOverviewConstellations.map((item) => ({
+                id: item.id,
+                label: item.label,
+                projectId: item.projectId,
+                type: item.type,
+              }))}
+              onNewChat={handleNewChat}
+              onNewProject={() => setShowNewProjectModal(true)}
+              onNavigateProjectDestination={handleNavigateProjectDestination}
+            />
+          </HomePageShell>
+        ) : appView === "project" ? (
+          <HomePageShell
+            scrollRequest={homeScrollRequest}
+            variant="standard"
           >
-            <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-11 pt-6 pb-5">
+            {projectBrowseMode === "dashboards" ? (
+              <ProjectDashboardPage
+                projectId={activeProjectId}
+                projects={homeProjects}
+                projectRole={prototypeProjectRole}
+                currentUserId={prototypeUserId}
+                focusOutputId={dashboardFocusOutputId}
+                viewResetKey={dashboardViewResetKey}
+                onViewOutputIdChange={setActiveDashboardOutputId}
+                onNavigateHome={handleNavigateHome}
+                onViewProjects={() => {
+                  setAppView("home");
+                  setHomeBrowseMode("projects");
+                  setActiveProjectId(null);
+                  setProjectBrowseMode("overview");
+                  setHomeScrollRequest((value) => value + 1);
+                  if (typeof window !== "undefined" && !isHomePath(window.location.pathname)) {
+                    window.history.pushState({ luxiaView: "home", browse: "projects" }, "", "/");
+                  }
+                }}
+                onOpenProjectOverview={(projectId) => {
+                  handleOpenProjectOverview(projectId, "overview");
+                }}
+                onOpenGalaxy={handleOpenGalaxyFromHome}
+              />
+            ) : projectBrowseMode === "constellations" && activeProjectId ? (
+              <ConstellationsLibrary
+                projectId={activeProjectId}
+                projectName={getProjectNameById(activeProjectId, homeProjects)}
+                constellations={(
+                  userCanConfigureProject(activeProjectId)
+                    ? overviewConstellations
+                    : workingAccessibleOverviewConstellations
+                ).filter((item) => item.projectId === activeProjectId)}
+                onNavigateHome={handleNavigateHome}
+                onBack={() => handleOpenProjectOverview(activeProjectId, "overview")}
+                onOpen={(constellationId) => {
+                  if (isConstellationWorkingAccessible(activeProjectId, constellationId)) {
+                    handleOpenConstellationFromProject(activeProjectId, constellationId);
+                    return;
+                  }
+                  handleOpenConstellationSettings(activeProjectId, constellationId);
+                }}
+                onOpenSettings={(constellationId) =>
+                  handleOpenConstellationSettings(activeProjectId, constellationId)
+                }
+                onAdd={
+                  userCanConfigureProject(activeProjectId)
+                    ? () =>
+                        handleAddConstellationToProject(
+                          activeProjectId,
+                          `Constellation name ${String(overviewConstellations.filter((item) => item.projectId === activeProjectId).length + 1).padStart(2, "0")}`,
+                          "database",
+                        )
+                    : undefined
+                }
+              />
+            ) : projectBrowseMode === "chats" && activeProjectId ? (
+              <ChatsLibrary
+                projectId={activeProjectId}
+                projectName={getProjectNameById(activeProjectId, homeProjects)}
+                chats={workingAccessibleOverviewChats.filter((chat) => chat.projectId === activeProjectId)}
+                onNavigateHome={handleNavigateHome}
+                onBack={() => handleOpenProjectOverview(activeProjectId, "overview")}
+                onOpenChat={handleOpenChatFromHome}
+                onNewChat={() => handleNewChatFromProject(activeProjectId)}
+              />
+            ) : projectBrowseMode === "activity" && activeProjectId && projectActivityNavigationContext ? (
+              <ActivityLibrary
+                projectId={activeProjectId}
+                projectName={getProjectNameById(activeProjectId, homeProjects)}
+                items={getProjectActivity(activeProjectId)}
+                navigationContext={projectActivityNavigationContext}
+                onNavigateHome={handleNavigateHome}
+                onBack={() => handleOpenProjectOverview(activeProjectId, "overview")}
+                onOpen={handleOpenProjectActivity}
+              />
+            ) : (
+              <ProjectOverviewPage
+                projectId={activeProjectId}
+                projects={homeProjects}
+                galaxyNameById={galaxyNameById}
+                galaxyInstructionById={galaxyInstructionById}
+                chats={workingAccessibleOverviewChats}
+                constellations={workingAccessibleOverviewConstellations}
+                initialBrowseMode="overview"
+                onBrowseModeChange={setProjectBrowseMode}
+                onNavigateHome={handleNavigateHome}
+                onViewProjects={() => {
+                  setAppView("home");
+                  setHomeBrowseMode("projects");
+                  setActiveProjectId(null);
+                  setHomeScrollRequest((value) => value + 1);
+                  if (typeof window !== "undefined" && !isHomePath(window.location.pathname)) {
+                    window.history.pushState({ luxiaView: "home", browse: "projects" }, "", "/");
+                  }
+                }}
+                onOpenGalaxy={handleOpenGalaxyFromHome}
+                onOpenGalaxySettings={handleOpenGalaxySettingsFromOverview}
+                onOpenChat={handleOpenChatFromHome}
+                onOpenConstellation={handleOpenConstellationFromProject}
+                onOpenConstellationSettings={handleOpenConstellationSettings}
+                onViewAllConstellations={handleOpenConstellationsList}
+                onViewAllChats={handleOpenChatsList}
+                onNewChat={handleNewChatFromProject}
+                onAddConstellation={
+                  activeProjectId && userCanConfigureProject(activeProjectId)
+                    ? handleAddConstellationToProject
+                    : undefined
+                }
+                onOpenDashboard={handleOpenProjectDashboard}
+                onOpenDashboardOutput={handleOpenDashboardOutput}
+                onViewAllActivity={handleOpenActivityList}
+                activityNavigationContext={projectActivityNavigationContext ?? undefined}
+                onRenameProject={
+                  activeProjectId && userCanConfigureProject(activeProjectId)
+                    ? handleRenameProject
+                    : undefined
+                }
+                onEditProject={
+                  activeProjectId && userCanConfigureProject(activeProjectId)
+                    ? requestEditProjectDetails
+                    : undefined
+                }
+                onArchiveProject={
+                  activeProjectId && userCanArchiveProject(activeProjectId)
+                    ? requestArchiveProject
+                    : undefined
+                }
+                onDeleteProject={
+                  activeProjectId && userCanDeleteProject(activeProjectId)
+                    ? requestDeleteProject
+                    : undefined
+                }
+                onViewAllVidgets={handleOpenProjectVidgets}
+                vidgets={
+                  activeProjectId
+                    ? getVidgetsForProject(activeProjectId, vidgetsState)
+                    : []
+                }
+                onCreateVidgetFromGalaxy={(projectId) =>
+                  handleOpenCreateVidget(projectId, { kind: "galaxy" })
+                }
+                onCreateVidget={(projectId) =>
+                  handleOpenCreateVidget(projectId, { kind: "choose" })
+                }
+                canManageVidgets={(projectId) => canManageVidgets(projectRoleFor(projectId))}
+                onAskProjectAssistant={() => setProjectAssistantOpen(true)}
+                onOpenVirtualAssistant={(projectId, vidgetId) => {
+                  handleOpenVidgetSettings(projectId, vidgetId);
+                }}
+              />
+            )}
+          </HomePageShell>
+        ) : appView === "constellation-create" && activeProjectId ? (
+          <HomePageShell scrollRequest={homeScrollRequest} framed={false}>
+            <ConstellationCreatePage
+              projectId={activeProjectId}
+              projectName={getProjectNameById(activeProjectId, homeProjects)}
+              existingConstellationNames={allConstellations
+                .filter((item) => item.projectId === activeProjectId)
+                .map((item) => item.label)}
+              unavailable={!homeProjects.some((project) => project.id === activeProjectId)}
+              accessLevels={accessLevelsState}
+              dataSources={dataSourcesState}
+              currentUserId={prototypeUserId}
+              initialExistingDataSourceId={constellationCreateExistingSourceId}
+              navigationGuardRef={constellationCreateGuardRef}
+              onNavigateHome={handleNavigateHome}
+              onOpenProject={(projectId) => handleOpenProjectOverview(projectId, "overview")}
+              onCancel={(projectId) => handleOpenConstellationsList(projectId)}
+              onCreate={handleCreateConstellationDraft}
+            />
+          </HomePageShell>
+        ) : appView === "galaxy-settings" ? (
+          <HomePageShell scrollRequest={homeScrollRequest} framed={false}>
+            {(() => {
+              const projectId = activeProjectId ?? "";
+              const settingsRecord = projectId
+                ? resolveGalaxySettingsRecord(projectId)
+                : null;
+              const membership = projectId
+                ? getActiveProjectMembership(
+                  projectId,
+                  projectMembershipsState,
+                  prototypeUserId,
+                )
+                : null;
+              const projectConstellations = projectId
+                ? allConstellations.filter((item) => item.projectId === projectId)
+                : [];
+              const constellationItems = projectId && membership
+                ? buildGalaxyConstellationRoutingItems({
+                  projectConstellations: projectConstellations.map((item) => ({
+                    id: item.id,
+                    label: item.label,
+                    type: item.type,
+                  })),
+                  projectRole: membership.projectRole,
+                  membershipStatus: membership.status,
+                  userId: prototypeUserId,
+                  accessLevels: accessLevelsState,
+                  dataSources: dataSourcesState,
+                  constellationSettingsById,
+                })
+                : [];
+              const fallbackRecord = settingsRecord ?? buildGalaxySettingsRecord({
+                id: "galaxy-unavailable",
+                projectId: projectId || "unavailable",
+                projectName: projectId
+                  ? getProjectNameById(projectId, homeProjects)
+                  : "Project unavailable",
+                name: "Galaxy unavailable",
+              });
+
+              return (
+                <GalaxySettingsPage
+                  record={fallbackRecord}
+                  unavailable={!settingsRecord}
+                  unavailableReason="This Galaxy settings view is unavailable."
+                  constellationItems={constellationItems}
+                  activeSection={galaxySettingsSection}
+                  onSectionChange={(section) => {
+                    if (!projectId) return;
+                    handleGalaxySettingsSectionChange(projectId, section);
+                  }}
+                  focusHeadingToken={galaxySettingsFocusHeadingToken}
+                  onSaveGeneral={(draft) => {
+                    if (!projectId) return;
+                    handleSaveGalaxySettingsGeneral(projectId, draft);
+                  }}
+                  onSaveInstruction={(draft) => {
+                    if (!projectId) return;
+                    handleSaveGalaxySettingsInstruction(projectId, draft);
+                  }}
+                  onSaveRouting={(draft) => {
+                    if (!projectId) return;
+                    handleSaveGalaxySettingsRouting(projectId, draft);
+                  }}
+                  onOpenGalaxy={handleOpenGalaxyFromHome}
+                  onNavigateHome={handleNavigateHome}
+                  onOpenProject={(pid) => handleOpenProjectOverview(pid, "overview")}
+                  onOpenConstellations={handleOpenConstellationsList}
+                  onOpenConstellationResponse={(constellationId) => {
+                    if (!projectId) return;
+                    handleOpenConstellationSettings(projectId, constellationId, "response");
+                  }}
+                  onOpenAccessLevels={handleOpenAccessLevels}
+                  onOpenDataSources={handleOpenDataSources}
+                  currentProjectRole={membership?.projectRole ?? null}
+                  onCreateVidget={
+                    canManageVidgets(membership?.projectRole)
+                      ? (pid) => handleOpenCreateVidget(pid, { kind: "galaxy" })
+                      : undefined
+                  }
+                />
+              );
+            })()}
+          </HomePageShell>
+        ) : appView === "constellation-settings" ? (
+          <HomePageShell scrollRequest={homeScrollRequest} framed={false}>
+            {(() => {
+              const projectId = activeProjectId ?? "";
+              const constellationId = settingsConstellationId ?? "";
+              const constellationProjectId =
+                settingsConstellation?.projectId
+                || settingsRecord?.projectId
+                || projectId;
+              const constellationProjectRole = projectRoleFor(constellationProjectId);
+              const fallbackRecord = settingsRecord ?? buildSettingsForConstellation({
+                id: constellationId || "unavailable",
+                projectId: projectId || "unavailable",
+                projectName: projectId
+                  ? getProjectNameById(projectId, homeProjects)
+                  : "Project unavailable",
+                name: settingsConstellation?.label ?? "Constellation unavailable",
+                description: "",
+                type: settingsConstellation?.type ?? "database",
+              });
+              const liveCapabilityBundle = constellationId && !settingsUnavailable
+                ? resolveCapabilityBundle(constellationId, fallbackRecord.instructions)
+                : null;
+              const settingsPageRecord: ConstellationSettingsRecord = {
+                ...fallbackRecord,
+                projectName: projectId
+                  ? getProjectNameById(projectId, homeProjects)
+                  : fallbackRecord.projectName,
+                name: settingsConstellation?.label ?? fallbackRecord.name,
+                capabilitySummaries: {
+                  ...fallbackRecord.capabilitySummaries,
+                  ...(liveCapabilityBundle
+                    ? summarizeCapabilityBundle(liveCapabilityBundle)
+                    : {}),
+                },
+              };
+
+              if (settingsCapabilityPath) {
+                const capabilityBundle = liveCapabilityBundle
+                  ?? resolveCapabilityBundle(
+                    constellationId || "unavailable",
+                    fallbackRecord.instructions,
+                  );
+                return (
+                  <ConstellationCapabilityManagePage
+                    project={{
+                      id: projectId || "unavailable",
+                      name: projectId
+                        ? getProjectNameById(projectId, homeProjects)
+                        : "Project unavailable",
+                    }}
+                    constellation={{
+                      id: constellationId || "unavailable",
+                      name: settingsConstellation?.label ?? fallbackRecord.name,
+                      type: settingsConstellation?.type ?? fallbackRecord.type,
+                      status: fallbackRecord.status,
+                    }}
+                    capabilityId={settingsCapabilityId ?? "instr"}
+                    bundle={capabilityBundle}
+                    connectedSourceIds={settingsPageRecord.connectedSources.map((source) => source.id)}
+                    onUpdateBundle={(next) => {
+                      if (!constellationId || settingsUnavailable) return;
+                      const capId = settingsCapabilityId ?? "instr";
+                      const isKnowledgeCap = capId === "kb" || capId === "instr" || capId === "crawler";
+                      const role = constellationProjectRole;
+                      if (isKnowledgeCap) {
+                        if (!canEditConstellationKnowledge(role)) return;
+                        handleUpdateCapabilityBundle(constellationId, next, {
+                          capabilityKind: "knowledge",
+                        });
+                        return;
+                      }
+                      if (!canAdministerProjectConfiguration(prototypeUserId, role)) return;
+                      handleUpdateCapabilityBundle(constellationId, next, {
+                        capabilityKind: "configure",
+                      });
+                    }}
+                    readOnly={(() => {
+                      const capId = settingsCapabilityId ?? "instr";
+                      const isKnowledgeCap = capId === "kb" || capId === "instr" || capId === "crawler";
+                      const role = constellationProjectRole;
+                      if (isKnowledgeCap) return !canEditConstellationKnowledge(role);
+                      return !canAdministerProjectConfiguration(prototypeUserId, role);
+                    })()}
+                    unavailable={
+                      settingsUnavailable
+                      || settingsCapabilityUnavailable
+                      || !settingsCapabilityId
+                    }
+                    unavailableReason={
+                      settingsUnavailable
+                        ? "This Constellation settings view is unavailable."
+                        : "This capability is not available for this Constellation type."
+                    }
+                    onBackToSettings={() => {
+                      if (!projectId || !constellationId) {
+                        handleNavigateHome();
+                        return;
+                      }
+                      handleOpenConstellationSettings(
+                        projectId,
+                        constellationId,
+                        "configuration",
+                        { explicitTab: true, focusHeading: true },
+                      );
+                    }}
+                    onNavigateHome={handleNavigateHome}
+                    onOpenProject={handleOpenProjectFromHome}
+                    onOpenConstellations={handleOpenConstellationsList}
+                    onOpenConstellation={(pid, cid) => {
+                      handleOpenConstellationSettings(pid, cid, "general", {
+                        focusHeading: true,
+                      });
+                    }}
+                  />
+                );
+              }
+
+              return (
+                <ConstellationSettingsPage
+                  record={settingsPageRecord}
+                  unavailable={settingsUnavailable || !settingsRecord}
+                  unavailableReason="This Constellation settings view is unavailable."
+                  activeSection={settingsSection}
+                  onSectionChange={(section) => {
+                    if (!projectId || !constellationId) return;
+                    handleConstellationSettingsSectionChange(
+                      projectId,
+                      constellationId,
+                      section,
+                    );
+                  }}
+                  focusHeadingToken={settingsFocusHeadingToken}
+                  relatedChats={chats
+                    .filter((chat) =>
+                      chat.chatType === "constellation"
+                      && chat.projectId === projectId
+                      && chat.constellationId === constellationId
+                      && isChatWorkingAccessible(chat),
+                    )
+                    .map((chat) => ({ id: chat.id, label: chat.label }))}
+                  relatedVidgets={getVidgetsForProject(projectId, vidgetsState)
+                    .filter((item) =>
+                      item.sourceType === "constellation"
+                      && item.constellationId === constellationId,
+                    )
+                    .map((item) => ({ id: item.id, label: item.name }))}
+                  onCreateChat={
+                    projectId
+                    && constellationId
+                    && isConstellationWorkingAccessible(projectId, constellationId)
+                      ? handleCreateChatForConstellation
+                      : undefined
+                  }
+                  onOpenChat={handleOpenChatFromHome}
+                  onOpenVidget={(pid, nextVidgetId) => {
+                    handleOpenVidgetSettings(pid, nextVidgetId);
+                  }}
+                  onSaveGeneral={(draft) => {
+                    if (!constellationId || settingsUnavailable) return;
+                    handleSaveConstellationSettings(constellationId, draft);
+                  }}
+                  onManageCapability={(capabilityId) => {
+                    if (!projectId || !constellationId || settingsUnavailable) return;
+                    const isKnowledgeCap = capabilityId === "kb" || capabilityId === "instr" || capabilityId === "crawler";
+                    const role = constellationProjectRole;
+                    if (isKnowledgeCap) {
+                      if (!canEditConstellationKnowledge(role)) return;
+                    } else if (!canAdministerProjectConfiguration(prototypeUserId, role)) {
+                      return;
+                    }
+                    handleOpenConstellationCapability(
+                      projectId,
+                      constellationId,
+                      capabilityId,
+                    );
+                  }}
+                  onAddDataSource={(sourceId) => {
+                    if (!constellationId || settingsUnavailable) return;
+                    handleAddConstellationDataSource(constellationId, sourceId);
+                  }}
+                  onOpenDataSourceSettings={handleOpenDataSourceSettings}
+                  onManageSourceAccess={handleManageSourceAccess}
+                  onDisconnectSource={(sourceId) => {
+                    if (!constellationId || settingsUnavailable) return;
+                    handleDisconnectConstellationSource(constellationId, sourceId);
+                  }}
+                  onArchive={() => {
+                    if (!constellationId || settingsUnavailable) return;
+                    handleArchiveConstellationSettings(constellationId);
+                  }}
+                  onDelete={() => {
+                    if (!projectId || !constellationId || settingsUnavailable) return;
+                    handleDeleteConstellationSettings(projectId, constellationId);
+                  }}
+                  onNavigateHome={handleNavigateHome}
+                  onOpenProject={handleOpenProjectFromHome}
+                  onOpenConstellations={handleOpenConstellationsList}
+                  onOpenConstellation={handleOpenConstellationFromProject}
+                  onOpenMembers={handleOpenProjectMembers}
+                  onOpenAccessLevels={handleOpenAccessLevels}
+                  accessLevels={accessLevelsState}
+                  dataSources={dataSourcesState}
+                  currentUserId={prototypeUserId}
+                  currentProjectRole={constellationProjectRole}
+                  onCreateVidget={
+                    canManageVidgets(projectRoleFor(projectId))
+                      ? (pid, constellationId) =>
+                        handleOpenCreateVidget(pid, {
+                          kind: "constellation",
+                          constellationId,
+                        })
+                      : undefined
+                  }
+                />
+              );
+            })()}
+          </HomePageShell>
+        ) : appView === "project-vidgets" && activeProjectId ? (
+          <HomePageShell scrollRequest={homeScrollRequest} framed={false}>
+            {(() => {
+              const projectId = activeProjectId;
+              const project = homeProjects.find((entry) => entry.id === projectId);
+              const galaxyChat = findGalaxyChatForProject(projectId, chats, homeProjects);
+              const projectGalaxyId = project?.galaxyId
+                ?? galaxyChat?.id
+                ?? null;
+              const galaxyName = projectGalaxyId
+                ? (galaxyNameById[projectGalaxyId] ?? galaxyChat?.label ?? "")
+                : "";
+              const constellationProjectById = Object.fromEntries(
+                allConstellations.map((item) => [item.id, item.projectId]),
+              );
+              return (
+                <VidgetsPage
+                  projectId={projectId}
+                  projectName={getProjectNameById(projectId, homeProjects)}
+                  galaxyName={galaxyName}
+                  projectGalaxyId={projectGalaxyId}
+                  vidgets={getVidgetsForProject(projectId, vidgetsState)}
+                  constellationNameById={constellationNameById}
+                  constellationProjectById={constellationProjectById}
+                  canManage={canManageVidgets(projectRoleFor(projectId))}
+                  canReviewInbox={canReviewVidgetInbox(projectRoleFor(projectId))}
+                  onNavigateHome={handleNavigateHome}
+                  onOpenProject={(pid) => handleOpenProjectOverview(pid, "overview")}
+                  onOpenInbox={(id) =>
+                    handleOpenVidgetInbox(projectId, {
+                      query: id ? { vidgetId: id } : undefined,
+                    })
+                  }
+                  onCreate={() => handleOpenCreateVidget(projectId, { kind: "choose" })}
+                  onOpen={(id) => handleOpenVidgetSettings(projectId, id)}
+                  onPreview={(id) =>
+                    handleOpenVidgetSettings(projectId, id, "interface", true)
+                  }
+                  onRename={(id, name) => {
+                    if (!canManageVidgets(projectRoleFor(projectId))) {
+                      toast.error(VIDGET_MANAGE_DENIED_MESSAGE);
+                      return;
+                    }
+                    const trimmed = name.trim();
+                    if (!trimmed) return;
+                    setVidgetsState((prev) =>
+                      prev.map((item) =>
+                        item.id === id
+                          ? { ...item, name: trimmed, updatedAt: new Date().toISOString() }
+                          : item,
+                      ),
+                    );
+                    toast.success("Vidget renamed");
+                  }}
+                  onDuplicate={(id) => {
+                    if (!canManageVidgets(projectRoleFor(projectId))) {
+                      toast.error(VIDGET_MANAGE_DENIED_MESSAGE);
+                      return;
+                    }
+                    const source = vidgetsState.find(
+                      (item) => item.id === id && item.projectId === projectId,
+                    );
+                    if (!source) return;
+                    const copy = duplicateVidget(source);
+                    setVidgetsState((prev) => [copy, ...prev]);
+                    toast.success("Vidget duplicated");
+                  }}
+                  onDelete={(id) => {
+                    if (!canManageVidgets(projectRoleFor(projectId))) {
+                      toast.error(VIDGET_MANAGE_DENIED_MESSAGE);
+                      return;
+                    }
+                    setVidgetsState((prev) =>
+                      prev.filter(
+                        (item) => !(item.id === id && item.projectId === projectId),
+                      ),
+                    );
+                    toast.success("Vidget deleted");
+                  }}
+                />
+              );
+            })()}
+          </HomePageShell>
+        ) : appView === "vidget-inbox" && activeProjectId ? (
+          <HomePageShell
+            scrollRequest={homeScrollRequest}
+            framed={false}
+            containLayout
+          >
+            {(() => {
+              const projectId = activeProjectId;
+              const constellationTypeById = Object.fromEntries(
+                allConstellations.map((item) => [item.id, item.type]),
+              );
+              return (
+                <VidgetInboxPage
+                  projectId={projectId}
+                  projectName={getProjectNameById(projectId, homeProjects)}
+                  sessionId={vidgetInboxSessionId}
+                  search={vidgetInboxSearch}
+                  vidgets={getVidgetsForProject(projectId, vidgetsState)}
+                  constellationNameById={constellationNameById}
+                  constellationTypeById={constellationTypeById}
+                  canReview={canReviewVidgetInbox(projectRoleFor(projectId))}
+                  canManage={canManageVidgets(projectRoleFor(projectId))}
+                  onNavigateHome={handleNavigateHome}
+                  onOpenProject={(pid) => handleOpenProjectOverview(pid, "overview")}
+                  onOpenVidgets={handleOpenProjectVidgets}
+                  onCreateVidget={
+                    canManageVidgets(projectRoleFor(projectId))
+                      ? () => handleOpenCreateVidget(projectId, { kind: "choose" })
+                      : undefined
+                  }
+                  onNavigateInbox={({ query, history }) =>
+                    handleOpenVidgetInbox(projectId, {
+                      query,
+                      history,
+                    })
+                  }
+                  onRefine={handleRefineInboxInteraction}
+                />
+              );
+            })()}
+          </HomePageShell>
+        ) : appView === "vidget-settings" && activeProjectId && vidgetId ? (
+          <HomePageShell scrollRequest={homeScrollRequest} framed={false}>
+            {(() => {
+              const projectId = activeProjectId;
+              const record =
+                getVidgetForProject(projectId, vidgetId, vidgetsState) ?? null;
+              if (!record) {
+                return (
+                  <div className="mx-auto flex min-h-[50vh] max-w-lg flex-col items-start justify-center gap-4 py-16">
+                    <p className="luxia-type-overline-data" style={{ color: "var(--luxia-purple-60)" }}>
+                      Vidget settings
+                    </p>
+                    <h1 className="luxia-type-title-page" style={{ color: "var(--luxia-purple-70)" }}>
+                      Unavailable
+                    </h1>
+                    <p className="luxia-type-body-dense" style={{ color: "var(--luxia-text-secondary)" }}>
+                      This Vidget is not available in the current Project.
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="compact"
+                      onClick={() => handleOpenProjectVidgets(projectId)}
+                    >
+                      Back to Vidgets
+                    </Button>
+                  </div>
+                );
+              }
+              const galaxyChat = findGalaxyChatForProject(projectId, chats, homeProjects);
+              const project = homeProjects.find((entry) => entry.id === projectId);
+              const projectGalaxyId = project?.galaxyId
+                ?? galaxyChat?.id
+                ?? null;
+              const galaxyName = projectGalaxyId
+                ? (galaxyNameById[projectGalaxyId] ?? null)
+                : null;
+              const constellationOptions = allConstellations
+                .filter((item) => item.projectId === projectId)
+                .map((item) => ({ id: item.id, name: item.label }));
+              const projectConstellations = constellationOptions.map((item) => ({
+                id: item.id,
+                projectId,
+                name: item.name,
+              }));
+              const boundConstellation = record.constellationId
+                ? allConstellations.find((item) => item.id === record.constellationId)
+                : undefined;
+              const sourceDisplay = resolveVidgetSourceDisplay(record, {
+                projectGalaxyId,
+                galaxyName,
+                constellation: boundConstellation
+                  ? {
+                      id: boundConstellation.id,
+                      projectId: boundConstellation.projectId,
+                      name: boundConstellation.label,
+                    }
+                  : record.constellationId
+                    ? null
+                    : undefined,
+                projectConstellations,
+              });
+              const constellationName = sourceDisplay.available
+                && sourceDisplay.sourceType === "constellation"
+                ? sourceDisplay.label
+                : null;
+              const resolvedGalaxyName = sourceDisplay.available
+                && sourceDisplay.sourceType === "galaxy"
+                ? sourceDisplay.label
+                : galaxyName ?? "";
+              return (
+                <VidgetSettingsPage
+                  record={record}
+                  projectId={projectId}
+                  projectName={getProjectNameById(projectId, homeProjects)}
+                  galaxyName={resolvedGalaxyName}
+                  constellationName={constellationName}
+                  constellationOptions={constellationOptions}
+                  sourceAvailable={sourceDisplay.available}
+                  sourceDisplayLabel={sourceDisplay.label}
+                  activeSection={vidgetSettingsSection}
+                  focusPreviewOnMount={vidgetSettingsFocusPreview}
+                  onPreviewFocusHandled={() => setVidgetSettingsFocusPreview(false)}
+                  onSectionChange={(section) => {
+                    setVidgetSettingsSection(section);
+                    if (typeof window === "undefined") return;
+                    const next = getVidgetSettingsPath(projectId, record.id, {
+                      tab: vidgetSettingsSectionToTab(section),
+                    });
+                    const current = `${window.location.pathname}${window.location.search}`;
+                    if (current === next) return;
+                    window.history.pushState(
+                      {
+                        luxiaView: "vidget-settings",
+                        projectId,
+                        vidgetId: record.id,
+                        section,
+                      },
+                      "",
+                      next,
+                    );
+                  }}
+                  onSave={(nextRecord) => {
+                    if (!canManageVidgets(projectRoleFor(projectId))) {
+                      toast.error(VIDGET_MANAGE_DENIED_MESSAGE);
+                      return;
+                    }
+                    if (
+                      nextRecord.id !== record.id
+                      || nextRecord.projectId !== projectId
+                    ) {
+                      toast.error("This Vidget is not available in the current Project.");
+                      return;
+                    }
+                    const locked = withLockedVidgetSource(nextRecord, record);
+                    const scopeCheck = validateVidgetScopeForProject(
+                      locked,
+                      allConstellations.map((item) => ({
+                        id: item.id,
+                        projectId: item.projectId,
+                      })),
+                    );
+                    if (!scopeCheck.valid) {
+                      toast.error(scopeCheck.message ?? "Invalid Vidget source scope.");
+                      return;
+                    }
+                    setVidgetsState((prev) =>
+                      prev.map((item) =>
+                        item.id === locked.id && item.projectId === projectId
+                          ? cloneVidget(locked)
+                          : item,
+                      ),
+                    );
+                    toast.success("Vidget saved");
+                  }}
+                  onPublish={(nextRecord) => {
+                    if (!canManageVidgets(projectRoleFor(projectId))) {
+                      toast.error(VIDGET_MANAGE_DENIED_MESSAGE);
+                      return false;
+                    }
+                    if (!sourceDisplay.available) {
+                      toast.error("Cannot publish: the Vidget source is unavailable.");
+                      return false;
+                    }
+                    if (
+                      nextRecord.id !== record.id
+                      || nextRecord.projectId !== projectId
+                    ) {
+                      toast.error("This Vidget is not available in the current Project.");
+                      return false;
+                    }
+                    const locked = withLockedVidgetSource(nextRecord, record);
+                    const publishScopeCheck = validateVidgetScopeForProject(
+                      locked,
+                      allConstellations.map((item) => ({
+                        id: item.id,
+                        projectId: item.projectId,
+                      })),
+                    );
+                    if (!publishScopeCheck.valid) {
+                      toast.error(
+                        publishScopeCheck.message ?? "Cannot publish: invalid Vidget source scope.",
+                      );
+                      return false;
+                    }
+                    setVidgetsState((prev) =>
+                      prev.map((item) =>
+                        item.id === locked.id && item.projectId === projectId
+                          ? cloneVidget(locked)
+                          : item,
+                      ),
+                    );
+                    return true;
+                  }}
+                  onNavigateHome={handleNavigateHome}
+                  onOpenProject={(pid) => handleOpenProjectOverview(pid, "overview")}
+                  onOpenVidgets={handleOpenProjectVidgets}
+                  currentProjectRole={projectRoleFor(projectId)}
+                />
+              );
+            })()}
+          </HomePageShell>
+        ) : appView === "project-members" ? (
+          <HomePageShell scrollRequest={homeScrollRequest} framed={false}>
+            {membersProject && membersProjectExists ? (
+              <ProjectMembersPage
+                project={membersProject}
+                memberships={membersForProject}
+                accessLevels={accessLevelsState}
+                organizationUsers={organizationUsersState.filter(
+                  (user) => user.status === "active",
+                )}
+                dataSources={dataSourcesState}
+                projectRequiredSourceIds={getProjectRequiredDataSourceIds(membersProject.id)}
+                onSaveMemberships={(memberships) => {
+                  setProjectMembershipsState((prev) => {
+                    const others = prev.filter(
+                      (membership) => membership.projectId !== membersProject.id,
+                    );
+                    return [...others, ...memberships];
+                  });
+                  setHomeProjects((prev) => prev.map((project) => (
+                    project.id === membersProject.id
+                      ? {
+                        ...project,
+                        memberCount: countProjectMembers(
+                          membersProject.id,
+                          memberships,
+                        ),
+                      }
+                      : project
+                  )));
+                }}
+                onNavigateHome={handleNavigateHome}
+                onOpenProject={handleOpenProjectFromHome}
+                onOpenAccessLevels={handleOpenAccessLevels}
+                onOpenDataSourceSettings={handleOpenDataSourceSettings}
+              />
+            ) : (
+              <div className="mx-auto flex min-h-[50vh] max-w-lg flex-col items-start justify-center gap-4 py-16">
+                <p className="luxia-type-overline-data" style={{ color: "var(--luxia-purple-60)" }}>
+                  Members & Roles
+                </p>
+                <h1 className="luxia-type-title-page" style={{ color: "var(--luxia-purple-70)" }}>
+                  Unavailable
+                </h1>
+                <p className="luxia-type-body-dense" style={{ color: "var(--luxia-text-secondary)" }}>
+                  This Project is not available in the current workspace.
+                </p>
+                <Button type="button" variant="outline" size="compact" onClick={handleNavigateHome}>
+                  Back to Home
+                </Button>
+              </div>
+            )}
+          </HomePageShell>
+        ) : appView === "organization-users" ? (
+          <HomePageShell scrollRequest={homeScrollRequest} framed={false}>
+            <OrganizationUsersPage
+              users={organizationUsersState}
+              memberships={projectMembershipsState}
+              accessLevels={accessLevelsState}
+              onOpenUser={handleOpenOrganizationUser}
+              onInvite={() => {
+                if (!canAdministerAccessLevels(prototypeUserId)) {
+                  toast.error("You do not have permission to invite organization users.");
+                  return;
+                }
+                setInviteOrganizationUserOpen(true);
+              }}
+              onUpdateOrgRole={(userId, orgRole) => {
+                if (!canAdministerAccessLevels(prototypeUserId)) {
+                  toast.error("You do not have permission to edit Organization roles.");
+                  return;
+                }
+                setOrganizationUsersState((prev) =>
+                  prev.map((user) =>
+                    user.id === userId ? { ...user, orgRole } : user,
+                  ),
+                );
+                toast.success("Organization role updated");
+              }}
+              onRemoveUser={(userId) => {
+                if (!canAdministerAccessLevels(prototypeUserId)) {
+                  toast.error("You do not have permission to remove organization users.");
+                  return;
+                }
+                removeOrganizationUserCompletely(userId);
+                toast.success("User removed from organization");
+              }}
+              onResendInvitation={(userId) => {
+                if (!canAdministerAccessLevels(prototypeUserId)) return;
+                const user = organizationUsersState.find((entry) => entry.id === userId);
+                toast.success(
+                  user
+                    ? `Invitation resent to ${user.email}`
+                    : "Invitation resent",
+                );
+              }}
+              onCancelInvitation={(userId) => {
+                if (!canAdministerAccessLevels(prototypeUserId)) return;
+                removeOrganizationUserCompletely(userId);
+                toast.success("Invitation cancelled");
+              }}
+              onNavigateHome={handleNavigateHome}
+              canAdminister={canAdministerAccessLevels(prototypeUserId)}
+            />
+          </HomePageShell>
+        ) : appView === "organization-user" ? (
+          <HomePageShell scrollRequest={homeScrollRequest} framed={false}>
+            {(() => {
+              const detailUser = organizationUsersState.find(
+                (user) => user.id === organizationUserId,
+              );
+              if (!detailUser) {
+                return (
+                  <div className="mx-auto flex min-h-[50vh] max-w-lg flex-col items-start justify-center gap-4 py-16">
+                    <p
+                      className="luxia-type-overline-data"
+                      style={{ color: "var(--luxia-purple-60)" }}
+                    >
+                      Users
+                    </p>
+                    <h1
+                      className="luxia-type-title-page"
+                      style={{ color: "var(--luxia-purple-70)" }}
+                    >
+                      User unavailable
+                    </h1>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="compact"
+                      onClick={handleOpenOrganizationUsers}
+                    >
+                      Back to Users
+                    </Button>
+                  </div>
+                );
+              }
+              return (
+                <OrganizationUserDetailPage
+                  user={detailUser}
+                  memberships={projectMembershipsState}
+                  accessLevels={accessLevelsState}
+                  dataSources={dataSourcesState}
+                  projectOptions={homeProjects.map((project) => ({
+                    id: project.id,
+                    name: project.name,
+                  }))}
+                  onNavigateHome={handleNavigateHome}
+                  onNavigateUsers={handleOpenOrganizationUsers}
+                  onOpenProject={handleOpenProjectFromHome}
+                  onOpenProjectMembers={handleOpenProjectMembers}
+                  onOpenAccessLevel={handleOpenAccessLevel}
+                  canEditProjectRoles={canAdministerAccessLevels(prototypeUserId)}
+                  onUpdateProjectRole={(membershipId, projectRole) => {
+                    if (!canAdministerAccessLevels(prototypeUserId)) return;
+                    setProjectMembershipsState((prev) =>
+                      prev.map((membership) => {
+                        if (membership.id !== membershipId) return membership;
+                        if (membership.projectRole === "Project Owner") {
+                          return membership;
+                        }
+                        if (projectRole === "Project Owner") return membership;
+                        return { ...membership, projectRole };
+                      }),
+                    );
+                    toast.success("Project role updated");
+                  }}
+                />
+              );
+            })()}
+          </HomePageShell>
+        ) : appView === "access-levels" ? (
+          <HomePageShell scrollRequest={homeScrollRequest} framed={false}>
+            <AccessLevelsPage
+              accessLevels={accessLevelsState}
+              onOpen={handleOpenAccessLevel}
+              onCreate={handleCreateAccessLevel}
+              onDelete={(id) => {
+                if (!guardAccessLevelMutation()) return;
+                setAccessLevelsState((prev) => prev.filter((level) => level.id !== id));
+              }}
+              onNavigateHome={handleNavigateHome}
+              canAdminister={canAdministerAccessLevels(prototypeUserId)}
+            />
+          </HomePageShell>
+        ) : appView === "data-sources" ? (
+          <HomePageShell scrollRequest={homeScrollRequest} framed={false}>
+            <DataSourcesPage
+              dataSources={dataSourcesState}
+              accessLevels={accessLevelsState}
+              currentUserId={prototypeUserId}
+              constellationConnections={allConstellations.map((item) => {
+                const record = constellationSettingsById[item.id]
+                  ?? getConstellationSettingsRecord(item.id);
+                return {
+                  id: item.id,
+                  dataSourceIds: record?.connectedSources.map((source) => source.id)
+                    ?? getCanonicalConstellationById(item.id)?.dataSourceIds
+                    ?? [],
+                };
+              })}
+              constellationHandoff={dataSourceConstellationHandoff}
+              onOpenSource={handleOpenDataSourceSettings}
+              onSaveSource={(nextSource) => {
+                setDataSourcesState((prev) =>
+                  prev.map((item) => (item.id === nextSource.id ? nextSource : item)),
+                );
+              }}
+              onCreateConstellationFromSource={handleRequestCreateConstellationFromSource}
+              onAddToExistingConstellation={handleRequestConnectConstellationFromSource}
+              onNavigateHome={handleNavigateHome}
+              onNewDataSource={() => setDataSourceCreationOpen(true)}
+            />
+          </HomePageShell>
+        ) : appView === "access-level" ? (
+          <HomePageShell scrollRequest={homeScrollRequest} framed={false}>
+            {editingAccessLevel ? (
+              <AccessLevelEditorPage
+                record={editingAccessLevel}
+                otherLevels={accessLevelsState.filter((level) => level.id !== editingAccessLevel.id)}
+                dataSources={dataSourcesState}
+                organizationUsers={organizationUsersState}
+                canAdminister={canAdministerAccessLevels(prototypeUserId)}
+                onSave={(record) => {
+                  if (!guardAccessLevelMutation()) return;
+                  const wasNew = Boolean(editingAccessLevel?.isNew);
+                  setAccessLevelsState((prev) => {
+                    const index = prev.findIndex((level) => level.id === record.id);
+                    const saved = cloneAccessLevel({ ...record, isNew: undefined });
+                    if (index >= 0) {
+                      const next = [...prev];
+                      next[index] = saved;
+                      return next;
+                    }
+                    return [...prev, saved];
+                  });
+                  if (wasNew) {
+                    toast.success("Access Level created");
+                  }
+                  handleOpenAccessLevel(record.id);
+                }}
+                onCancel={handleOpenAccessLevels}
+                onDelete={(id) => {
+                  if (!guardAccessLevelMutation()) return;
+                  setAccessLevelsState((prev) => prev.filter((level) => level.id !== id));
+                  handleOpenAccessLevels();
+                }}
+                onNavigateHome={handleNavigateHome}
+                onOpenAccessLevels={handleOpenAccessLevels}
+                onOpenDataSourceSettings={handleOpenDataSourceSettings}
+                onOpenConstellationSettings={(projectId, constellationId) => {
+                  handleOpenConstellationSettings(projectId, constellationId, "access");
+                }}
+                onOpenProject={handleOpenProjectFromHome}
+                projectNames={projectNamesById}
+              />
+            ) : (
+              <div className="mx-auto flex min-h-[50vh] max-w-lg flex-col items-start justify-center gap-4 py-16">
+                <p className="luxia-type-overline-data" style={{ color: "var(--luxia-purple-60)" }}>
+                  Access Levels
+                </p>
+                <h1 className="luxia-type-title-page" style={{ color: "var(--luxia-purple-70)" }}>
+                  Unavailable
+                </h1>
+                <p className="luxia-type-body-dense" style={{ color: "var(--luxia-text-secondary)" }}>
+                  This Access Level is not available in the current workspace.
+                </p>
+                <Button type="button" variant="outline" size="compact" onClick={handleOpenAccessLevels}>
+                  Back to Access Levels
+                </Button>
+              </div>
+            )}
+          </HomePageShell>
+        ) : appView === "data-source-settings" ? (
+          <HomePageShell scrollRequest={homeScrollRequest} framed={false}>
+            <DataSourceSettingsPage
+              source={dataSourceForSettings}
+              accessLevels={accessLevelsState}
+              dataSources={dataSourcesState}
+              projects={homeProjects}
+              constellations={allConstellations}
+              constellationConnections={allConstellations.map((item) => {
+                const record = constellationSettingsById[item.id]
+                  ?? getConstellationSettingsRecord(item.id);
+                return {
+                  id: item.id,
+                  label: item.label,
+                  projectId: item.projectId,
+                  dataSourceIds: record?.connectedSources.map((source) => source.id)
+                    ?? getCanonicalConstellationById(item.id)?.dataSourceIds
+                    ?? [],
+                };
+              })}
+              memberships={projectMembershipsState}
+              currentUserId={prototypeUserId}
+              focusSection={dataSourceSettingsFocus}
+              canAccess={canAccessDataSourceSettings}
+              onNavigateHome={handleNavigateHome}
+              onOpenDataSources={handleOpenDataSources}
+              onOpenAccessLevels={handleOpenAccessLevels}
+              onOpenAccessLevel={handleOpenAccessLevel}
+              onOpenProject={handleOpenProjectFromHome}
+              onOpenConstellationSettings={(projectId, constellationId) => {
+                handleOpenConstellationSettings(projectId, constellationId, "access");
+              }}
+              onSaveSource={(nextSource) => {
+                setDataSourcesState((prev) =>
+                  prev.map((item) => (item.id === nextSource.id ? nextSource : item)),
+                );
+              }}
+              onBack={handleOpenDataSources}
+            />
+          </HomePageShell>
+        ) : (
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          <PageHeader
+            chatLabel={activeData?.label ?? "Chat 1"}
+            chat={activeData ?? INITIAL_CHATS[0]}
+            projectName={getProjectNameById(activeData?.projectId, homeProjects)}
+            constellationId={
+              activeData?.chatType === "constellation"
+                && activeData.constellationId
+                && resolvedConstellation
+                && activeData.constellationId === resolvedConstellation.id
+                ? resolvedConstellation.id
+                : undefined
+            }
+            constellationLabel={
+              activeData?.chatType === "constellation"
+                ? (
+                  resolvedConstellation
+                    && activeData.constellationId === resolvedConstellation.id
+                    ? resolvedConstellation.label
+                    : "Constellation"
+                )
+                : undefined
+            }
+            onNavigateHome={handleNavigateHome}
+            onOpenProject={handleOpenProjectFromHome}
+            onOpenConstellation={handleOpenConstellationFromProject}
+            onRenameChat={(name) => setChats((p) => p.map((c) => c.id === activeChat ? { ...c, label: name } : c))}
+            onDeleteChat={handleCloseChat.bind(null, activeChat)}
+            onOpenGalaxySettings={
+              activeData?.chatType === "galaxy" && activeData.projectId
+                ? () => handleOpenGalaxySettingsFromOverview(activeData.projectId)
+                : undefined
+            }
+            onOpenConstellationSettings={
+              activeData?.chatType === "constellation"
+                && activeData.projectId
+                && activeData.constellationId
+                ? () => handleOpenConstellationSettings(
+                  activeData.projectId,
+                  activeData.constellationId!,
+                )
+                : undefined
+            }
+            tabs={(
+              <ChatTabBar
+                chats={workingAccessibleChats} activeId={activeChat}
+                onSelect={handleSelectChat} onNew={handleNewChat}
+                onClose={handleCloseChat}
+                onPin={handleChatPin}
+                onRename={(id, label) => setChats(p => p.map(c => c.id === id ? { ...c, label } : c))}
+                projects={homeProjects}
+                constellations={allConstellations}
+              />
+            )}
+          />
+
+          <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
+            <div
+              className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+              style={{ minWidth: 0 }}
+            >
+            <div
+              className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical luxia-scrollbar-messages pt-6 pb-5"
+              style={{ paddingInline: LUXIA_PAGE_INTRO.padInline }}
+            >
               {messages.length === 0
                 ? (activeData?.chatType === "galaxy"
                   ? (
                     <GalaxyEmptyState
-                      projectName={PROJECTS.find((p) => p.id === activeData.projectId)?.label ?? "Project"}
+                      projectName={getProjectNameById(activeData.projectId, homeProjects)}
                       onPrompt={handleSend}
                     />
                   )
@@ -4438,6 +9720,11 @@ export default function App() {
                       : <AICard
                           key={msg.id}
                           message={msg}
+                          constellationId={
+                            activeData?.chatType === "constellation"
+                              ? activeData.constellationId
+                              : msg.galaxy?.matched.id
+                          }
                           onOpenGalaxyConstellation={
                             activeData?.chatType === "galaxy" ? handleOpenGalaxyConstellation : undefined
                           }
@@ -4459,21 +9746,51 @@ export default function App() {
                 routeMode: activeGalaxySession.routeMode,
                 pendingManual,
                 options: galaxyRouteOptions,
-                onSelectAuto: () => updateGalaxySession(activeChat, {
-                  routeMode: "auto",
-                  pendingManualId: null,
-                }),
-                onSelectManual: (option) => updateGalaxySession(activeChat, {
-                  routeMode: "manual",
-                  pendingManualId: option.id,
-                }),
+                onSelectAuto: () => {
+                  updateGalaxySession(activeChat, {
+                    routeMode: "auto",
+                    pendingManualId: null,
+                  });
+                  if (activeData?.projectId) {
+                    const current = resolveGalaxySettingsRecord(activeData.projectId);
+                    if (current) {
+                      setGalaxySettingsById((prev) => ({
+                        ...prev,
+                        [activeChat]: {
+                          ...current,
+                          routeMode: "auto",
+                          updatedAt: "Just now",
+                        },
+                      }));
+                    }
+                  }
+                },
+                onSelectManual: (option) => {
+                  updateGalaxySession(activeChat, {
+                    routeMode: "manual",
+                    pendingManualId: option.id,
+                  });
+                  if (activeData?.projectId) {
+                    const current = resolveGalaxySettingsRecord(activeData.projectId);
+                    if (current) {
+                      setGalaxySettingsById((prev) => ({
+                        ...prev,
+                        [activeChat]: {
+                          ...current,
+                          routeMode: "manual",
+                          updatedAt: "Just now",
+                        },
+                      }));
+                    }
+                  }
+                },
                 onClearManual: () => updateGalaxySession(activeChat, {
-                  routeMode: "auto",
+                  routeMode: "manual",
                   pendingManualId: null,
                 }),
               } : undefined}
             />
-          </div>
+            </div>
 
           {activeData?.chatType === "galaxy" && activeGalaxySession ? (
             <div
@@ -4496,21 +9813,60 @@ export default function App() {
                   width={clampedGalaxyWidth}
                   routeOptions={galaxyRouteOptions}
                   pendingManual={pendingManual}
+                  instructionValue={galaxyInstructionById[activeChat]}
+                  onSaveInstruction={
+                    activeData.projectId
+                    && canEditGalaxySettings(projectRoleFor(activeData.projectId))
+                      ? (instruction) => {
+                          handleSaveGalaxyInstruction(activeData.projectId, instruction);
+                        }
+                      : undefined
+                  }
                   onResizeStart={handleGalaxyResizeStart}
                   onOpenConstellation={handleOpenGalaxyConstellation}
                   onCollapse={collapseGalaxyIntelligencePanel}
                   contentOpacity={galaxyPanelContentOpaque ? 1 : 0}
-                  onSelectAuto={() => updateGalaxySession(activeChat, {
-                    routeMode: "auto",
-                    pendingManualId: null,
-                  })}
+                  onSelectAuto={() => {
+                    updateGalaxySession(activeChat, {
+                      routeMode: "auto",
+                      pendingManualId: null,
+                    });
+                    if (activeData.projectId) {
+                      const current = resolveGalaxySettingsRecord(activeData.projectId);
+                      if (current) {
+                        setGalaxySettingsById((prev) => ({
+                          ...prev,
+                          [activeChat]: {
+                            ...current,
+                            routeMode: "auto",
+                            updatedAt: "Just now",
+                          },
+                        }));
+                      }
+                    }
+                  }}
                   onEnterSpecific={() => updateGalaxySession(activeChat, {
                     routeMode: "manual",
                   })}
-                  onSelectManual={(option) => updateGalaxySession(activeChat, {
-                    routeMode: "manual",
-                    pendingManualId: option.id,
-                  })}
+                  onSelectManual={(option) => {
+                    updateGalaxySession(activeChat, {
+                      routeMode: "manual",
+                      pendingManualId: option.id,
+                    });
+                    if (activeData.projectId) {
+                      const current = resolveGalaxySettingsRecord(activeData.projectId);
+                      if (current) {
+                        setGalaxySettingsById((prev) => ({
+                          ...prev,
+                          [activeChat]: {
+                            ...current,
+                            routeMode: "manual",
+                            updatedAt: "Just now",
+                          },
+                        }));
+                      }
+                    }
+                  }}
                   onClearManual={() => updateGalaxySession(activeChat, {
                     routeMode: "manual",
                     pendingManualId: null,
@@ -4526,22 +9882,279 @@ export default function App() {
               collapsed={sidebarCollapsed}
               onCollapse={handleInspectorCollapseToggle}
               constellation={activeConstellation}
-              allConstellations={CONSTELLATIONS}
+              allConstellations={allConstellations.filter((item) =>
+                workingAccessibleOverviewConstellations.some((entry) => entry.id === item.id)
+                || item.id === activeConstellation.id,
+              )}
               onConstellationChange={handleConstellationChange}
-              projectId={activeData?.projectId ?? PROJECTS[0].id}
+              onOpenConstellationSettings={(projectId, constellationId) =>
+                handleOpenConstellationSettings(projectId, constellationId, "general")
+              }
+              projectId={activeData?.projectId ?? homeProjects[0]?.id ?? "project-01"}
               allowConstellationChange={activeData?.chatType === "constellation"}
               isGalaxyChat={false}
+              canConfigure={canAdministerProjectConfiguration(
+                prototypeUserId,
+                prototypeProjectRole,
+              )}
+              canEditKnowledge={canEditConstellationKnowledge(prototypeProjectRole)}
             />
           )}
+          </div>
         </div>
+        )}
       </div>
 
       {showNewChatModal && (
         <NewChatModal
           onCreate={handleNewChatCreate}
-          onClose={() => setShowNewChatModal(false)}
+          onClose={() => {
+            setShowNewChatModal(false);
+            setNewChatLockedProjectId(null);
+          }}
+          lockedProjectId={newChatLockedProjectId}
+          constellations={allConstellations.filter((item) =>
+            workingAccessibleOverviewConstellations.some((entry) => entry.id === item.id),
+          )}
+          projects={homeProjectsAsSelectOptions(accessibleHomeProjects)}
         />
       )}
+      {showNewProjectModal && (
+        <NewProjectModal
+          open={showNewProjectModal}
+          onClose={() => setShowNewProjectModal(false)}
+          onCreate={handleCreateProject}
+        />
+      )}
+      <AlertDialog
+        open={Boolean(constellationAccessBlock)}
+        onOpenChange={(open) => !open && setConstellationAccessBlock(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Constellation unavailable</AlertDialogTitle>
+            <AlertDialogDescription>
+              {constellationAccessBlock?.reason
+                ?? "You need Use access to every connected Data Source before you can use this Constellation."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Close</AlertDialogCancel>
+            {constellationAccessBlock ? (
+              <AlertDialogAction
+                onClick={() => {
+                  const { projectId, constellationId } = constellationAccessBlock;
+                  setConstellationAccessBlock(null);
+                  // Access tab explains membership; it is not a Request Access workflow.
+                  handleOpenConstellationSettings(projectId, constellationId, "access");
+                }}
+              >
+                View access details
+              </AlertDialogAction>
+            ) : null}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog
+        open={Boolean(galaxyAccessBlock)}
+        onOpenChange={(open) => !open && setGalaxyAccessBlock(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              No accessible Constellations are currently available in this Project.
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {galaxyAccessBlock?.reason
+                ?? "You need Use access to every connected Data Source before Galaxy can use a Constellation."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Close</AlertDialogCancel>
+            {galaxyAccessBlock ? (
+              <AlertDialogAction
+                onClick={() => {
+                  const { projectId } = galaxyAccessBlock;
+                  setGalaxyAccessBlock(null);
+                  const projectConstellations = getProjectConstellations(
+                    projectId,
+                    allConstellations,
+                  );
+                  const first = projectConstellations[0];
+                  if (first) {
+                    handleOpenConstellationSettings(projectId, first.id, "access");
+                    return;
+                  }
+                  handleOpenProjectMembers(projectId);
+                }}
+              >
+                View access details
+              </AlertDialogAction>
+            ) : null}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <NewDataSourceFlow
+        open={dataSourceCreationOpen}
+        currentUserId={prototypeUserId}
+        allowOrganizational={canCreateOrganizationalDataSource(prototypeUserId)}
+        existingSources={dataSourcesState}
+        returnContext={{ kind: "library" }}
+        onOpenChange={setDataSourceCreationOpen}
+        onCreated={(source, _returnContext, options) => {
+          setDataSourcesState((prev) => {
+            if (prev.some((item) => item.id === source.id)) return prev;
+            return [...prev, source];
+          });
+          if (!options?.openSettings) {
+            toast.success(`Created ${source.name}`);
+          }
+          if (options?.openSettings) {
+            handleOpenDataSourceSettings(source.id);
+            return;
+          }
+          if (appView !== "data-sources") {
+            handleOpenDataSources();
+          }
+        }}
+        eligibleProjects={dataSourceConstellationHandoff.projects}
+        onCreateConstellationFromSource={handleRequestCreateConstellationFromSource}
+      />
+      <CreateConstellationFromDataSourceDialog
+        open={dataSourceHandoff?.kind === "create"}
+        sourceName={dataSourceHandoffSource?.name ?? "this Data Source"}
+        projects={dataSourceConstellationHandoff.projects}
+        onOpenChange={(open) => {
+          if (!open) setDataSourceHandoff(null);
+        }}
+        onConfirm={(projectId) => {
+          if (!dataSourceHandoff) return;
+          const sourceId = dataSourceHandoff.sourceId;
+          setDataSourceHandoff(null);
+          handleOpenConstellationCreate(projectId, { existingDataSourceId: sourceId });
+        }}
+      />
+      <ConnectDataSourceToConstellationDialog
+        open={dataSourceHandoff?.kind === "connect"}
+        sourceId={dataSourceHandoff?.sourceId ?? ""}
+        sourceName={dataSourceHandoffSource?.name ?? "this Data Source"}
+        constellations={dataSourceConstellationHandoff.constellations}
+        onOpenChange={(open) => {
+          if (!open) setDataSourceHandoff(null);
+        }}
+        onConfirm={(constellationId) => {
+          if (!dataSourceHandoff) return;
+          handleAddConstellationDataSource(constellationId, dataSourceHandoff.sourceId);
+          setDataSourceHandoff(null);
+        }}
+      />
+      <InviteOrganizationUserDialog
+        open={inviteOrganizationUserOpen}
+        onOpenChange={setInviteOrganizationUserOpen}
+        projects={homeProjects.map((project) => ({
+          id: project.id,
+          name: project.name,
+        }))}
+        accessLevels={accessLevelsState}
+        existingEmails={organizationUsersState.map((user) => user.email)}
+        onInvite={handleInviteOrganizationUser}
+      />
+      <CreateVidgetDialog
+        open={createVidgetOpen}
+        onOpenChange={setCreateVidgetOpen}
+        projectName={
+          createVidgetProjectId
+            ? getProjectNameById(createVidgetProjectId, homeProjects)
+            : ""
+        }
+        galaxyId={(() => {
+          if (!createVidgetProjectId) return null;
+          const project = homeProjects.find((entry) => entry.id === createVidgetProjectId);
+          if (project?.galaxyId) return project.galaxyId;
+          return findGalaxyChatForProject(
+            createVidgetProjectId,
+            chats,
+            homeProjects,
+          )?.id ?? null;
+        })()}
+        galaxyName={(() => {
+          if (!createVidgetProjectId) return "";
+          const galaxyChat = findGalaxyChatForProject(
+            createVidgetProjectId,
+            chats,
+            homeProjects,
+          );
+          if (galaxyChat) return galaxyNameById[galaxyChat.id] ?? galaxyChat.label;
+          return getProjectNameById(createVidgetProjectId, homeProjects);
+        })()}
+        constellations={
+          createVidgetProjectId
+            ? allConstellations
+              .filter((item) => item.projectId === createVidgetProjectId)
+              .map((item) => ({
+                id: item.id,
+                name: item.label,
+                type: item.type,
+              }))
+            : []
+        }
+        sourcePreset={createVidgetPreset}
+        onCreate={handleCreateVidgetSubmit}
+      />
+      <Toaster richColors closeButton position="top-right" />
+      <ProjectAssistantHost
+        projectId={contextProjectId}
+        projectName={contextProjectLabel ?? "Project"}
+        constellations={projectAssistantConstellations}
+        visible={showProjectContext}
+        open={projectAssistantOpen}
+        onOpenChange={setProjectAssistantOpen}
+        messages={projectAssistantMessages}
+        onMessagesChange={(next) => {
+          if (!contextProjectId) return;
+          setProjectAssistantSessions((prev) => ({
+            ...prev,
+            [contextProjectId]: next,
+          }));
+        }}
+      />
+      <ProjectManageDialogs
+        mode={projectManageMode}
+        project={
+          projectManageId
+            ? homeProjects.find((project) => project.id === projectManageId) ?? null
+            : null
+        }
+        onClose={closeProjectManageDialogs}
+        onEditDetails={handleEditProjectDetails}
+        onArchive={handleArchiveProject}
+        onDelete={handleDeleteProject}
+      />
+      {prototypeUser ? (
+        <LuxiaSettingsDialog
+          open={accountSettingsOpen}
+          onOpenChange={(open) => {
+            if (!open) handleCloseAccountSettings();
+            else setAccountSettingsOpen(true);
+          }}
+          user={prototypeUser}
+          activeSection={accountSettingsSection}
+          onSectionChange={handleAccountSettingsSectionChange}
+          canViewOrganizationAnalytics={canViewOrganizationAnalytics(prototypeUserId)}
+          privateDataSourceCount={privateDataSourceCountForUser}
+          memberSummary={organizationMemberSummary}
+          accessLevelCount={accessLevelsState.length}
+          organizationalDataSourceCount={organizationalDataSourceCount}
+          usageMetrics={organizationUsageMetrics}
+          directoryUsers={organizationUsersState}
+          vidgets={vidgetsState}
+          onOpenDataSources={handleSettingsOpenDataSources}
+          onOpenUsers={handleSettingsOpenUsers}
+          onOpenAccessLevels={handleSettingsOpenAccessLevels}
+          onUpdateProfile={handleUpdateProfile}
+          onUpdateProfileMfa={handleUpdateProfileMfa}
+        />
+      ) : null}
     </div>
   );
 }

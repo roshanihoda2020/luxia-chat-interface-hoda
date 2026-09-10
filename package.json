@@ -11,6 +11,7 @@
   "dependencies": {
     "@emotion/react": "11.14.0",
     "@emotion/styled": "11.14.1",
+    "@fluentui/react-icons": "2.0.339",
     "@mui/icons-material": "7.3.5",
     "@mui/material": "7.3.5",
     "@popperjs/core": "2.11.8",
@@ -60,6 +61,7 @@
     "react-router": "7.13.0",
     "react-slick": "0.31.0",
     "recharts": "2.15.2",
+    "simple-icons": "16.28.0",
     "sonner": "2.0.3",
     "tailwind-merge": "3.2.0",
     "tw-animate-css": "1.3.8",

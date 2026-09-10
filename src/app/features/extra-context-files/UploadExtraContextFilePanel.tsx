@@ -94,7 +94,7 @@ export function UploadExtraContextFilePanel({
                         <p className="truncate luxia-type-body-dense-strong" style={{ color: LX.primary }}>{selectedFile.name}</p>
                         <p className="luxia-type-caption" style={{ color: LX.textMuted }}>{formatFileSize(selectedFile.size)}</p>
                     </div>
-                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-full" aria-label="Remove selected file" onClick={() => pickFile(null)}>
+                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7 " aria-label="Remove selected file" onClick={() => pickFile(null)}>
                         <X size={14} style={{ color: LX.textMuted }} />
                     </Button>
                 </div>
@@ -104,8 +104,8 @@ export function UploadExtraContextFilePanel({
             {uploading ? <p className="luxia-type-metadata" style={{ color: LX.textMuted }}>Uploading…</p> : null}
 
             <div className="flex items-center justify-end gap-2">
-                <Button type="button" variant="secondary" className="rounded-full px-4" onClick={onCancel}>Cancel</Button>
-                <Button type="button" className="rounded-full px-4" disabled={!selectedFile || uploading || !!error} onClick={handleUpload}>
+                <Button type="button" variant="secondary" className="px-4" onClick={onCancel}>Cancel</Button>
+                <Button type="button" className="px-4" disabled={!selectedFile || uploading || !!error} onClick={handleUpload}>
                     Add File
                 </Button>
             </div>

@@ -5,6 +5,10 @@ import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog";
 
 import { cn } from "./utils";
 import { buttonVariants } from "./button";
+import {
+  LUXIA_DIALOG_HEADER_CLASS,
+  STRUCTURED_MODAL_DARK_CHROME_STYLE,
+} from "@/app/features/shared/structuredModalChrome";
 
 function AlertDialog({
   ...props
@@ -46,18 +50,21 @@ function AlertDialogOverlay({
 
 function AlertDialogContent({
   className,
+  overlayClassName,
   ...props
-}: React.ComponentProps<typeof AlertDialogPrimitive.Content>) {
+}: React.ComponentProps<typeof AlertDialogPrimitive.Content> & {
+  overlayClassName?: string;
+}) {
   return (
     <AlertDialogPortal>
-      <AlertDialogOverlay />
+      <AlertDialogOverlay className={overlayClassName} />
       <AlertDialogPrimitive.Content
         data-slot="alert-dialog-content"
         className={cn(
           "bg-[var(--luxia-surface)] text-[var(--luxia-text-primary)] border-[var(--luxia-border-default)]",
           "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
-          "fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4",
-          "rounded-[var(--luxia-radius-16)] border p-6 shadow-[var(--luxia-shadow-lg)] duration-200 sm:max-w-lg",
+          "fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%]",
+          "rounded-[var(--luxia-radius-16)] border p-0 gap-0 overflow-hidden shadow-[var(--luxia-shadow-lg)] duration-200 sm:max-w-lg",
           className,
         )}
         {...props}
@@ -68,12 +75,14 @@ function AlertDialogContent({
 
 function AlertDialogHeader({
   className,
+  style,
   ...props
 }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="alert-dialog-header"
-      className={cn("flex flex-col gap-2 text-center sm:text-left", className)}
+      className={cn(LUXIA_DIALOG_HEADER_CLASS, "pr-6", className)}
+      style={{ ...STRUCTURED_MODAL_DARK_CHROME_STYLE, ...style }}
       {...props}
     />
   );
@@ -87,7 +96,7 @@ function AlertDialogFooter({
     <div
       data-slot="alert-dialog-footer"
       className={cn(
-        "flex flex-col-reverse gap-2 sm:flex-row sm:justify-end",
+        "flex flex-col-reverse gap-2 border-t border-[var(--luxia-border-default)] bg-[var(--luxia-surface)] px-6 py-4 sm:flex-row sm:justify-end",
         className,
       )}
       {...props}
@@ -102,7 +111,10 @@ function AlertDialogTitle({
   return (
     <AlertDialogPrimitive.Title
       data-slot="alert-dialog-title"
-      className={cn("luxia-type-title-modal", className)}
+      className={cn(
+        "luxia-type-title-modal text-[var(--luxia-text-inverse)]",
+        className,
+      )}
       {...props}
     />
   );
@@ -115,7 +127,10 @@ function AlertDialogDescription({
   return (
     <AlertDialogPrimitive.Description
       data-slot="alert-dialog-description"
-      className={cn("text-muted-foreground luxia-type-body-dense", className)}
+      className={cn(
+        "luxia-type-body-dense text-[var(--luxia-purple-10)]",
+        className,
+      )}
       {...props}
     />
   );

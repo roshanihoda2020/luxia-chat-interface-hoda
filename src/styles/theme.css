@@ -10,7 +10,6 @@
   --font-weight-extrabold: 800;
 
   --font-weight-normal: var(--font-weight-regular);
-  /* Luxia has no 500 — map Tailwind font-medium → 600 */
   --font-weight-medium: var(--font-weight-semibold);
 
   --background: var(--luxia-background);
@@ -81,7 +80,6 @@
   --gradient-fade-purple-light: var(--luxia-gradient-primary);
   --gradient-fade-blue: var(--luxia-gradient-secondary-tertiary);
 
-  /* Sidebar — solid brand for shadcn sidebar utility; nav gradient applied in LeftNav */
   --sidebar: var(--luxia-brand-primary);
   --sidebar-foreground: var(--luxia-text-inverse);
   --sidebar-primary: var(--luxia-brand-secondary);
@@ -323,7 +321,6 @@
     box-shadow: none !important;
   }
 
-  /* Composer owns its focus ring on the shell — never on the nested field */
   .luxia-chat-composer textarea:focus-visible,
   .luxia-chat-composer textarea:focus,
   .luxia-chat-composer .luxia-chat-composer__input:focus-visible,
@@ -633,7 +630,6 @@
     text-transform: uppercase;
   }
 
-  /* Legacy aliases */
   .typography-body-large-extrabold {
     font-family: var(--font-family);
     font-size: 18px;

@@ -14,8 +14,11 @@ function Switch({
       data-slot="switch"
       className={cn(
         "peer inline-flex h-[1.15rem] w-8 shrink-0 items-center rounded-full border border-transparent outline-none transition-all",
-        "data-[state=checked]:bg-[var(--luxia-brand-secondary)] data-[state=unchecked]:bg-[var(--luxia-neutral-300)]",
-        "focus-visible:shadow-[0_0_0_3px_var(--luxia-opacity-brand-secondary-32)]",
+        /* Active = dark Luxia purple; inactive = neutral grey (never grey-when-on). */
+        "data-[state=checked]:bg-[var(--luxia-brand-primary)] data-[state=unchecked]:bg-[var(--luxia-neutral-300)]",
+        "data-[state=checked]:hover:enabled:bg-[var(--luxia-brand-primary-dark)]",
+        "data-[state=unchecked]:hover:enabled:bg-[var(--luxia-neutral-400)]",
+        "focus-visible:shadow-[0_0_0_3px_var(--luxia-opacity-brand-primary-32)]",
         "disabled:cursor-not-allowed disabled:opacity-50",
         className,
       )}

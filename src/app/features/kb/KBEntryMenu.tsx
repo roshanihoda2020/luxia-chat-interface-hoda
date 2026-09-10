@@ -92,7 +92,7 @@ export function KBEntryMenu({
     return (
         <>
             <div ref={triggerWrapRef} className="relative z-20 inline-flex flex-shrink-0 opacity-100" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
-                <Button type="button" variant="ghost" size="icon" className="h-5 w-5 rounded-full opacity-100" aria-label="Entry actions" aria-expanded={open} aria-haspopup="menu" style={{ color: LX.textMuted }} onClick={() => setOpen((c) => !c)}>
+                <Button type="button" variant="ghost" size="icon" className="h-5 w-5 opacity-100" aria-label="Entry actions" aria-expanded={open} aria-haspopup="menu" style={{ color: LX.textMuted }} onClick={() => setOpen((c) => !c)}>
                     <MoreHorizontal size={10} />
                 </Button>
             </div>

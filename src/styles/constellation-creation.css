@@ -1,0 +1,739 @@
+/* Guided Constellation creation — aligned with Luxia Settings surfaces. */
+
+.luxia-creation-surface {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+}
+
+.luxia-creation-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.luxia-creation-stack-tight {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.luxia-creation-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.luxia-creation-field-group-header {
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--luxia-border-default);
+}
+
+.luxia-creation-field-group-title {
+  margin: 0;
+  font-size: inherit;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--luxia-text-primary);
+}
+
+.luxia-creation-field-group-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.luxia-creation-ds-details {
+  container-type: inline-size;
+  container-name: luxia-ds-details;
+  min-width: 0;
+}
+
+.luxia-creation-ds-details-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  column-gap: 1.5rem;
+  row-gap: 0.75rem;
+  min-width: 0;
+  align-items: start;
+}
+
+@container luxia-ds-details (min-width: 36rem) {
+  .luxia-creation-ds-details-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .luxia-creation-ds-details-grid--two {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* —— Compact stage header —— */
+
+.luxia-creation-stage-header {
+  margin-bottom: 1rem;
+  width: 100%;
+  min-width: 0;
+  max-width: var(--luxia-page-max-width-wide, 100%);
+}
+
+.luxia-creation-stage-mobile-name {
+  color: var(--luxia-purple-70);
+  font-weight: 600;
+}
+
+.luxia-creation-exit-button {
+  display: inline-flex;
+  height: 1.875rem;
+  width: 1.875rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid var(--luxia-border-default);
+  background: var(--luxia-surface);
+  color: var(--luxia-text-secondary);
+  cursor: pointer;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+.luxia-creation-exit-button:hover {
+  background: var(--luxia-opacity-brand-primary-04);
+  color: var(--luxia-purple-70);
+  border-color: color-mix(in srgb, var(--luxia-purple-50) 35%, var(--luxia-border-default));
+}
+
+.luxia-creation-exit-button:focus-visible {
+  outline: 2px solid var(--luxia-opacity-brand-secondary-32);
+  outline-offset: 2px;
+}
+
+/* Mobile / narrow: step count + bar */
+.luxia-creation-stage-mobile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+@media (min-width: 768px) {
+  .luxia-creation-stage-mobile {
+    display: none;
+  }
+}
+
+.luxia-creation-stage-mobile-count {
+  color: var(--luxia-text-secondary);
+}
+
+.luxia-creation-progress-bar {
+  height: 4px;
+  width: 100%;
+  max-width: 12rem;
+  border-radius: 999px;
+  background: var(--luxia-neutral-200);
+  overflow: hidden;
+}
+
+.luxia-creation-progress-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--luxia-purple-50);
+  transition: width 180ms ease;
+}
+
+/* Desktop: compact milestone row */
+.luxia-creation-stage-desktop {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .luxia-creation-stage-desktop {
+    display: block;
+  }
+}
+
+.luxia-creation-stage-milestones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.luxia-creation-stage-milestone {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  font: inherit;
+}
+
+.luxia-creation-stage-milestone:disabled {
+  cursor: default;
+}
+
+.luxia-creation-stage-milestone.is-clickable {
+  cursor: pointer;
+}
+
+.luxia-creation-stage-milestone.is-clickable:hover .luxia-creation-stage-label {
+  color: var(--luxia-purple-70);
+}
+
+.luxia-creation-stage-milestone:focus-visible {
+  outline: 2px solid var(--luxia-opacity-brand-secondary-32);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.luxia-creation-stage-marker {
+  display: inline-flex;
+  height: 0.625rem;
+  width: 0.625rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid var(--luxia-border-strong);
+  background: var(--luxia-surface);
+  color: var(--luxia-purple-60);
+  box-sizing: border-box;
+}
+
+.luxia-creation-stage-milestone.is-current .luxia-creation-stage-marker {
+  border-color: var(--luxia-purple-50);
+  background: var(--luxia-purple-50);
+}
+
+.luxia-creation-stage-milestone.is-completed .luxia-creation-stage-marker {
+  border-color: var(--luxia-purple-50);
+  background: var(--luxia-opacity-brand-secondary-12);
+  color: var(--luxia-purple-60);
+}
+
+.luxia-creation-stage-connector {
+  display: inline-block;
+  width: 1.25rem;
+  height: 1px;
+  margin-inline: 0.375rem;
+  background: var(--luxia-neutral-300);
+  flex-shrink: 0;
+}
+
+.luxia-creation-stage-connector.is-filled {
+  background: var(--luxia-purple-50);
+}
+
+.luxia-creation-stage-label {
+  color: var(--luxia-text-secondary);
+  white-space: nowrap;
+}
+
+.luxia-creation-stage-milestone.is-current .luxia-creation-stage-label {
+  color: var(--luxia-purple-70);
+  font-weight: 600;
+}
+
+.luxia-creation-stage-milestone.is-completed .luxia-creation-stage-label {
+  color: var(--luxia-text-primary);
+}
+
+.luxia-creation-stage-meta {
+  margin-top: 0.5rem;
+  color: var(--luxia-text-secondary);
+}
+
+/* —— Data Source mode selector —— */
+
+.luxia-creation-mode-selector {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.375rem;
+  border-radius: 10px;
+  border: 1px solid var(--luxia-border-default);
+  background: var(--luxia-settings-section-bg, var(--luxia-neutral-50));
+  padding: 0.25rem;
+}
+
+@media (min-width: 640px) {
+  .luxia-creation-mode-selector {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.luxia-creation-mode-option {
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 0.5rem 0.625rem;
+  text-align: left;
+  font: inherit;
+  color: var(--luxia-text-primary);
+  cursor: pointer;
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+
+.luxia-creation-mode-option:hover:not(:disabled) {
+  background: var(--luxia-opacity-brand-primary-04);
+}
+
+.luxia-creation-mode-option.is-selected {
+  border-color: var(--luxia-purple-50);
+  background: var(--luxia-opacity-brand-secondary-12);
+  font-weight: 600;
+}
+
+.luxia-creation-mode-option:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.luxia-creation-mode-option:focus-visible {
+  outline: 2px solid var(--luxia-opacity-brand-secondary-32);
+  outline-offset: 1px;
+}
+
+.luxia-creation-select {
+  width: 100%;
+  max-width: 20rem;
+  height: 2.25rem;
+  border-radius: var(--luxia-radius-8);
+  border: 1px solid var(--luxia-border-default);
+  background: var(--luxia-surface);
+  padding: 0 0.625rem;
+  font: inherit;
+  color: var(--luxia-text-primary);
+}
+
+.luxia-creation-select:focus-visible {
+  outline: 2px solid var(--luxia-opacity-brand-secondary-32);
+  outline-offset: 1px;
+}
+
+/* —— Type options —— */
+
+.luxia-creation-option {
+  position: relative;
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  border-radius: var(--luxia-radius-12);
+  border: 1px solid var(--luxia-border-strong);
+  background: var(--luxia-surface);
+  padding: 0.875rem;
+  text-align: left;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease;
+}
+
+.luxia-creation-option:hover {
+  background: var(--luxia-opacity-brand-primary-04);
+  border-color: color-mix(in srgb, var(--luxia-brand-primary) 28%, var(--luxia-border-strong));
+}
+
+.luxia-creation-option:focus-visible {
+  outline: 2px solid var(--luxia-opacity-brand-secondary-32);
+  outline-offset: 2px;
+}
+
+.luxia-creation-option.is-selected {
+  border-color: var(--luxia-purple-50);
+  background: var(--luxia-opacity-brand-secondary-12);
+}
+
+.luxia-creation-option-check {
+  position: absolute;
+  top: 0.625rem;
+  right: 0.625rem;
+  display: inline-flex;
+  height: 1.125rem;
+  width: 1.125rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--luxia-purple-50);
+  color: white;
+}
+
+.luxia-creation-option-icon {
+  color: var(--luxia-purple-60);
+}
+
+.luxia-creation-option.is-selected .luxia-creation-option-icon {
+  color: var(--luxia-purple-70);
+}
+
+.luxia-creation-option-title {
+  color: var(--luxia-text-primary);
+}
+
+.luxia-creation-option-desc {
+  color: var(--luxia-text-secondary);
+  font-size: 0.8125rem;
+  line-height: 1.35;
+}
+
+/* —— Ownership compact radio list (Settings field; distinct from type cards & mode selector) —— */
+
+.luxia-creation-ownership-fieldset {
+  min-width: 0;
+  max-width: 28rem;
+}
+
+.luxia-creation-ownership-list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--luxia-border-default);
+  border-radius: var(--luxia-radius-12);
+  background: var(--luxia-settings-panel-bg, var(--luxia-surface));
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+}
+
+.luxia-creation-ownership-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  cursor: pointer;
+  padding: 0.625rem 0.75rem;
+  background: transparent;
+  text-align: left;
+  transition: background-color 140ms ease;
+}
+
+.luxia-creation-ownership-row:hover:not(.is-selected) {
+  background: var(--luxia-opacity-brand-primary-04);
+}
+
+.luxia-creation-ownership-row.is-selected {
+  background: var(--luxia-opacity-brand-primary-04);
+}
+
+.luxia-creation-ownership-divider {
+  height: 1px;
+  background: var(--luxia-border-default);
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.luxia-creation-ownership-row-title {
+  display: block;
+  font-size: inherit;
+  line-height: 1.35;
+  color: var(--luxia-text-primary);
+}
+
+.luxia-creation-ownership-row.is-selected .luxia-creation-ownership-row-title {
+  font-weight: 600;
+}
+
+.luxia-creation-ownership-row-desc {
+  margin: 0.125rem 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  color: var(--luxia-text-secondary);
+}
+
+.luxia-creation-ownership-row-radio {
+  margin-top: 0.125rem;
+}
+
+.luxia-creation-ownership-row [data-slot="radio-group-item"] {
+  box-shadow: none;
+  border-color: var(--luxia-border-strong);
+}
+
+.luxia-creation-ownership-row.is-selected [data-slot="radio-group-item"] {
+  border-color: var(--luxia-purple-50);
+}
+
+.luxia-creation-ownership-row [data-slot="radio-group-item"]:focus {
+  box-shadow: none;
+}
+
+.luxia-creation-ownership-row [data-slot="radio-group-item"]:focus-visible {
+  outline: 2px solid var(--luxia-opacity-brand-secondary-32);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+.luxia-creation-ownership-readonly {
+  max-width: 28rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.luxia-creation-ownership-readonly-label {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  color: var(--luxia-text-secondary);
+}
+
+.luxia-creation-ownership-readonly-value {
+  margin: 0;
+  font-size: inherit;
+  line-height: 1.35;
+  font-weight: 600;
+  color: var(--luxia-text-primary);
+}
+
+.luxia-creation-ownership-readonly-hint {
+  margin: 0.125rem 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  color: var(--luxia-text-secondary);
+}
+
+/* —— Upload —— */
+
+.luxia-creation-upload {
+  display: flex;
+  cursor: pointer;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  border-radius: var(--luxia-radius-12);
+  border: 1.5px dashed var(--luxia-border-strong);
+  background: var(--luxia-settings-section-bg, var(--luxia-neutral-50));
+  padding: 1rem 0.875rem;
+  text-align: center;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease;
+}
+
+.luxia-creation-upload:hover {
+  border-color: var(--luxia-purple-50);
+  background: var(--luxia-opacity-brand-secondary-08);
+}
+
+.luxia-creation-upload.is-dragover {
+  border-color: var(--luxia-purple-50);
+  border-style: solid;
+  background: var(--luxia-opacity-brand-secondary-12);
+}
+
+.luxia-creation-upload-icon {
+  color: var(--luxia-purple-60);
+}
+
+.luxia-creation-upload-title {
+  color: var(--luxia-text-primary);
+}
+
+.luxia-creation-upload-browse {
+  color: var(--luxia-purple-60);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.luxia-creation-upload-hint {
+  color: var(--luxia-text-secondary);
+}
+
+.luxia-creation-file-row {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  border-radius: 10px;
+  border: 1px solid var(--luxia-border-default);
+  background: var(--luxia-surface);
+  padding: 0.375rem 0.5rem;
+}
+
+/* —— Data source / table rows —— */
+
+.luxia-creation-data-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  border-radius: 10px;
+  border: 1px solid var(--luxia-border-default);
+  background: var(--luxia-surface);
+  padding: 0.5rem 0.625rem;
+  transition: border-color 140ms ease, background-color 140ms ease;
+}
+
+.luxia-creation-data-row.is-selected {
+  border-color: var(--luxia-purple-50);
+  background: var(--luxia-opacity-brand-secondary-12);
+}
+
+.luxia-creation-data-row.is-unavailable {
+  cursor: not-allowed;
+  opacity: 0.88;
+}
+
+.luxia-creation-list-panel {
+  border-radius: 10px;
+  border: 1px solid var(--luxia-border-default);
+  background: var(--luxia-surface);
+  padding: 0.25rem;
+}
+
+.luxia-creation-list-scroll {
+  max-height: 9.5rem;
+  overflow-y: auto;
+}
+
+.luxia-creation-list-scroll.is-views {
+  max-height: 7rem;
+}
+
+.luxia-creation-list-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 8px;
+  padding: 0.25rem 0.375rem;
+  min-height: 1.75rem;
+}
+
+.luxia-creation-list-row.is-selected {
+  background: var(--luxia-opacity-brand-secondary-08);
+}
+
+/* —— Optional views disclosure —— */
+
+.luxia-creation-views-disclosure {
+  border-radius: 10px;
+  border: 1px solid var(--luxia-border-default);
+  background: var(--luxia-settings-section-bg, var(--luxia-neutral-50));
+  padding: 0.5rem 0.75rem;
+}
+
+.luxia-creation-views-summary {
+  cursor: pointer;
+  list-style: none;
+  font-weight: 600;
+  color: var(--luxia-text-primary);
+}
+
+.luxia-creation-views-summary::-webkit-details-marker {
+  display: none;
+}
+
+.luxia-creation-views-optional {
+  margin-left: 0.375rem;
+  font-weight: 400;
+  color: var(--luxia-text-secondary);
+}
+
+/* —— Action bar —— */
+
+.luxia-creation-action-bar {
+  margin-top: 1.25rem;
+  border-top: 1px solid var(--luxia-settings-row-divider, var(--luxia-border-default));
+  padding-top: 1rem;
+}
+
+.luxia-creation-action-bar.is-sticky {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  background: var(--luxia-settings-panel-bg, var(--luxia-surface));
+  padding-bottom: 0.25rem;
+}
+
+.luxia-creation-action-bar-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.625rem;
+}
+
+.luxia-creation-action-bar-right {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* —— Review —— */
+
+.luxia-creation-review-surface {
+  border-radius: var(--luxia-radius-12);
+  border: 1px solid var(--luxia-border-default);
+  background: var(--luxia-settings-section-bg, var(--luxia-neutral-50));
+  padding: 1rem 1.125rem;
+}
+
+.luxia-creation-review-divider {
+  border: 0;
+  border-top: 1px solid var(--luxia-border-default);
+  margin-block: 1rem;
+}
+
+.luxia-creation-readiness.is-blocked {
+  color: var(--luxia-error);
+}
+
+.luxia-creation-readiness-icon {
+  color: var(--luxia-success);
+  flex-shrink: 0;
+}
+
+/* —— Review section headers and edit actions —— */
+
+.luxia-creation-review-section-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.luxia-creation-review-section-title {
+  min-width: 0;
+  flex: 1 1 auto;
+  margin: 0;
+  font-weight: 600;
+  font-size: inherit;
+  line-height: 1.35;
+  color: var(--luxia-text-primary);
+}
+
+.luxia-creation-review-edit-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex-shrink: 0;
+  color: var(--luxia-text-primary);
+  background: var(--luxia-surface);
+  border-color: var(--luxia-border-strong);
+  box-shadow: none;
+  font-weight: 500;
+}
+
+.luxia-creation-review-edit-btn:hover:not(:disabled):not([aria-disabled="true"]) {
+  color: var(--luxia-text-primary);
+  background: var(--luxia-opacity-brand-primary-04);
+  border-color: var(--luxia-border-strong);
+}
+
+.luxia-creation-review-edit-btn:focus {
+  box-shadow: none;
+}
+
+.luxia-creation-review-edit-btn:focus-visible {
+  outline: 2px solid var(--luxia-opacity-brand-secondary-32);
+  outline-offset: 2px;
+}

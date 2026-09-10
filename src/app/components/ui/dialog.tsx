@@ -5,6 +5,11 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { XIcon } from "lucide-react";
 
 import { cn } from "./utils";
+import {
+  LUXIA_DIALOG_CLOSE_ON_DARK_CLASS,
+  LUXIA_DIALOG_HEADER_CLASS,
+  STRUCTURED_MODAL_DARK_CHROME_STYLE,
+} from "@/app/features/shared/structuredModalChrome";
 
 function Dialog({
   ...props
@@ -65,6 +70,7 @@ const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
     hideCloseButton?: boolean;
+    overlayClassName?: string;
   }
 >(
   (
@@ -72,27 +78,57 @@ const DialogContent = React.forwardRef<
       className,
       children,
       hideCloseButton,
+      overlayClassName,
+      onInteractOutside,
+      onPointerDownOutside,
+      onFocusOutside,
       ...props
     },
     ref,
   ) => (
     <DialogPortal data-slot="dialog-portal">
-      <DialogOverlay />
+      <DialogOverlay className={overlayClassName} />
       <DialogPrimitive.Content
         ref={ref}
         data-slot="dialog-content"
         className={cn(
           "bg-[var(--luxia-surface)] text-[var(--luxia-text-primary)] border-[var(--luxia-border-default)]",
           "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
-          "fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4",
-          "rounded-[var(--luxia-radius-16)] border p-6 shadow-[var(--luxia-shadow-lg)] duration-200 sm:max-w-lg",
+          "fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%]",
+          "rounded-[var(--luxia-radius-16)] border p-0 gap-0 overflow-hidden shadow-[var(--luxia-shadow-lg)] duration-200 sm:max-w-lg",
           className,
         )}
+        onInteractOutside={(event) => {
+          const target = event.target;
+          if (target instanceof Element && target.closest("[data-slot=popover-content]")) {
+            event.preventDefault();
+          }
+          onInteractOutside?.(event);
+        }}
+        onPointerDownOutside={(event) => {
+          const target = event.target;
+          if (target instanceof Element && target.closest("[data-slot=popover-content]")) {
+            event.preventDefault();
+          }
+          onPointerDownOutside?.(event);
+        }}
+        onFocusOutside={(event) => {
+          const target = event.target;
+          if (target instanceof Element && target.closest("[data-slot=popover-content]")) {
+            event.preventDefault();
+          }
+          onFocusOutside?.(event);
+        }}
         {...props}
       >
         {children}
         {!hideCloseButton && (
-          <DialogPrimitive.Close className="luxia-button luxia-button--ghost luxia-button--icon-compact absolute top-4 right-4 opacity-70 transition-opacity hover:opacity-100 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4">
+          <DialogPrimitive.Close
+            className={cn(
+              "luxia-button luxia-button--ghost luxia-button--icon-compact absolute top-3.5 right-3.5 z-10 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+              LUXIA_DIALOG_CLOSE_ON_DARK_CLASS,
+            )}
+          >
             <XIcon />
             <span className="sr-only">Close</span>
           </DialogPrimitive.Close>
@@ -105,15 +141,14 @@ DialogContent.displayName = DialogPrimitive.Content.displayName;
 
 function DialogHeader({
   className,
+  style,
   ...props
 }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="dialog-header"
-      className={cn(
-        "flex flex-col gap-2 text-center sm:text-left",
-        className,
-      )}
+      className={cn(LUXIA_DIALOG_HEADER_CLASS, className)}
+      style={{ ...STRUCTURED_MODAL_DARK_CHROME_STYLE, ...style }}
       {...props}
     />
   );
@@ -127,7 +162,8 @@ function DialogFooter({
     <div
       data-slot="dialog-footer"
       className={cn(
-        "flex flex-col-reverse gap-2 sm:flex-row sm:justify-end",
+        "flex flex-col-reverse gap-2 border-t bg-[var(--luxia-surface)] px-6 py-4 sm:flex-row sm:justify-end",
+        "border-[var(--luxia-border-default)]",
         className,
       )}
       {...props}
@@ -143,7 +179,7 @@ function DialogTitle({
     <DialogPrimitive.Title
       data-slot="dialog-title"
       className={cn(
-        "luxia-type-title-modal",
+        "luxia-type-title-modal text-[var(--luxia-text-inverse)]",
         className,
       )}
       {...props}
@@ -158,7 +194,10 @@ function DialogDescription({
   return (
     <DialogPrimitive.Description
       data-slot="dialog-description"
-      className={cn("text-muted-foreground luxia-type-body-dense", className)}
+      className={cn(
+        "luxia-type-body-dense text-[var(--luxia-purple-10)]",
+        className,
+      )}
       {...props}
     />
   );

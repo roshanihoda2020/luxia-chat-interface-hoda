@@ -13,10 +13,12 @@ export function CrawlerSection({
     isOpen,
     onToggle,
     onSignatureChange,
+    readOnly = false,
 }: {
     isOpen: boolean;
     onToggle: () => void;
     onSignatureChange?: (signature: string) => void;
+    readOnly?: boolean;
 }) {
     const [state, setState] = useState<CrawlerState>(() => cloneCrawlerState(INITIAL_CRAWLER_STATE));
     const [managerOpen, setManagerOpen] = useState(false);
@@ -39,17 +41,22 @@ export function CrawlerSection({
                 entries={visibleEntries}
                 isOpen={isOpen}
                 onToggle={onToggle}
-                onOpenManager={() => setManagerOpen(true)}
+                onOpenManager={readOnly ? () => undefined : () => setManagerOpen(true)}
                 onView={(id) => setViewId(id)}
-                onEdit={(id) => setEditId(id)}
-                onRemove={(id) => setConfirmRemoveId(id)}
+                onEdit={readOnly ? undefined : (id) => setEditId(id)}
+                onRemove={readOnly ? undefined : (id) => setConfirmRemoveId(id)}
+                readOnly={readOnly}
             />
 
-            <CrawlerManager open={managerOpen} state={state} onCommit={setState} onCancel={() => setManagerOpen(false)} />
-            <AddCrawlerDialog open={addOpen} onOpenChange={setAddOpen} onAdd={(values) => setState((c) => ({ ...c, entries: [...c.entries, { id: `crawl-${Date.now()}`, ...values, url: values.url.trim(), description: values.description.trim() }] }))} />
-            {editItem ? <EditCrawlerDialog open={!!editId} onOpenChange={(o) => { if (!o) setEditId(null); }} initialValues={{ url: editItem.url, description: editItem.description, exactSearch: editItem.exactSearch }} onUpdate={(values) => { setState((c) => ({ ...c, entries: c.entries.map((e) => e.id === editId ? { ...e, url: values.url.trim(), description: values.description.trim(), exactSearch: values.exactSearch } : e) })); setEditId(null); }} /> : null}
+            {!readOnly ? (
+                <>
+                    <CrawlerManager open={managerOpen} state={state} onCommit={setState} onCancel={() => setManagerOpen(false)} />
+                    <AddCrawlerDialog open={addOpen} onOpenChange={setAddOpen} onAdd={(values) => setState((c) => ({ ...c, entries: [...c.entries, { id: `crawl-${Date.now()}`, ...values, url: values.url.trim(), description: values.description.trim() }] }))} />
+                    {editItem ? <EditCrawlerDialog open={!!editId} onOpenChange={(o) => { if (!o) setEditId(null); }} initialValues={{ url: editItem.url, description: editItem.description, exactSearch: editItem.exactSearch }} onUpdate={(values) => { setState((c) => ({ ...c, entries: c.entries.map((e) => e.id === editId ? { ...e, url: values.url.trim(), description: values.description.trim(), exactSearch: values.exactSearch } : e) })); setEditId(null); }} /> : null}
+                    <RemoveCrawlerDialog open={!!confirmRemoveId} onOpenChange={(o) => { if (!o) setConfirmRemoveId(null); }} onConfirm={() => { if (!confirmRemoveId) return; setState((c) => ({ ...c, entries: c.entries.filter((e) => e.id !== confirmRemoveId) })); setConfirmRemoveId(null); }} />
+                </>
+            ) : null}
             <ViewCrawlerDialog open={!!viewItem} onOpenChange={(o) => { if (!o) setViewId(null); }} item={viewItem} />
-            <RemoveCrawlerDialog open={!!confirmRemoveId} onOpenChange={(o) => { if (!o) setConfirmRemoveId(null); }} onConfirm={() => { if (!confirmRemoveId) return; setState((c) => ({ ...c, entries: c.entries.filter((e) => e.id !== confirmRemoveId) })); setConfirmRemoveId(null); }} />
         </>
     );
 }

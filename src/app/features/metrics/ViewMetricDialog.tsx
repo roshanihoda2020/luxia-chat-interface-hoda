@@ -20,7 +20,7 @@ export function ViewMetricDialog({
                 <DialogHeader>
                     <DialogTitle className="luxia-type-title-panel">{item.name}</DialogTitle>
                 </DialogHeader>
-                <div className="space-y-3">
+                <div className="space-y-3 px-6 py-4">
                     <div>
                         <p className="luxia-type-caption" style={{ color: LX.textMuted }}>Metric Description</p>
                         <p className="mt-1 luxia-type-body-dense-strong leading-relaxed" style={{ color: LX.primary }}>{item.description}</p>
@@ -28,7 +28,7 @@ export function ViewMetricDialog({
                     <div>
                         <p className="luxia-type-caption" style={{ color: LX.textMuted }}>SQL Expression</p>
                         <pre
-                            className="mt-1 max-h-[240px] overflow-auto rounded-[12px] border px-3 py-2.5 font-mono luxia-type-metadata leading-relaxed whitespace-pre-wrap"
+                            className="mt-1 max-h-[240px] overflow-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical rounded-[12px] border px-3 py-2.5 font-mono luxia-type-metadata leading-relaxed whitespace-pre-wrap"
                             style={{ borderColor: LX.border, background: LX.subtle, color: LX.primary }}
                         >
                             {item.sqlExpression}
@@ -36,7 +36,7 @@ export function ViewMetricDialog({
                     </div>
                 </div>
                 <DialogFooter>
-                    <Button type="button" className="rounded-full px-4" onClick={() => onOpenChange(false)}>Close</Button>
+                    <Button type="button" className="px-4" onClick={() => onOpenChange(false)}>Close</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

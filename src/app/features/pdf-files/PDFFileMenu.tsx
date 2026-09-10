@@ -83,7 +83,7 @@ export function PDFFileMenu({ onView, onRemove }: { onView: () => void; onRemove
     return (
         <>
             <div ref={triggerWrapRef} className="relative z-20 inline-flex" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
-                <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-full" aria-label="Open PDF file actions" aria-expanded={open} aria-haspopup="menu" style={{ color: LX.textMuted }} onClick={() => setOpen((c) => !c)}>
+                <Button type="button" variant="ghost" size="icon" className="h-7 w-7 " aria-label="Open PDF file actions" aria-expanded={open} aria-haspopup="menu" style={{ color: LX.textMuted }} onClick={() => setOpen((c) => !c)}>
                     <MoreHorizontal size={14} />
                 </Button>
             </div>

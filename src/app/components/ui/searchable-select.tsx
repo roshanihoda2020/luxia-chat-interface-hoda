@@ -19,7 +19,6 @@ export type SearchableSelectOption = {
   content?: React.ReactNode;
 };
 
-/** Cap rendered rows so empty-open stays responsive with large catalogs. */
 const VISIBLE_OPTION_CAP = 200;
 
 const triggerClassName = cn(
@@ -130,7 +129,6 @@ export function SearchableSelect({
           "z-[100] w-[var(--radix-popover-trigger-width)] min-w-[var(--radix-popover-trigger-width)] max-w-[var(--radix-popover-trigger-width)]",
         )}
         onOpenAutoFocus={(event) => {
-          // Keep focus in the search field (CommandInput handles it).
           event.preventDefault();
           const root = event.currentTarget as HTMLElement;
           window.requestAnimationFrame(() => {

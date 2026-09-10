@@ -22,10 +22,10 @@ export function ExtraContextFileRow({
 
     return (
         <div
-            className="flex items-center gap-3 rounded-[12px] border px-3 py-2.5 transition-colors focus-within:ring-2 focus-within:ring-offset-2"
+            className="flex items-center gap-3 rounded-[10px] px-3 py-2.5 transition-colors focus-within:ring-2 focus-within:ring-offset-2"
             style={{
-                borderColor: isFailed ? LX.error : isNew ? LX.secondary : LX.border,
-                background: isMarked ? LX.state.error06 : isNew ? LX.state.secondary04 : LX.surface,
+                border: isFailed || isNew ? `1px solid ${isFailed ? LX.error : LX.secondary}` : "1px solid transparent",
+                background: isMarked ? LX.state.error06 : isNew ? LX.state.secondary04 : "transparent",
                 opacity: isMarked ? 0.72 : isUploading ? 0.85 : 1,
             }}
         >
@@ -41,13 +41,13 @@ export function ExtraContextFileRow({
             <div className="flex flex-shrink-0 items-center gap-1">
                 <Tooltip>
                     <TooltipTrigger asChild>
-                        <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-full" aria-label="View file" onClick={onView} disabled={isUploading}>
+                        <Button type="button" variant="ghost" size="icon" className="h-7 w-7 " aria-label="View file" onClick={onView} disabled={isUploading}>
                             <Eye size={14} style={{ color: LX.textMuted }} />
                         </Button>
                     </TooltipTrigger>
                     <TooltipContent sideOffset={6}>View file</TooltipContent>
                 </Tooltip>
-                <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-full" aria-label="Remove file" onClick={onRemove} disabled={isUploading || isMarked}>
+                <Button type="button" variant="ghost" size="icon" className="h-7 w-7 " aria-label="Remove file" onClick={onRemove} disabled={isUploading || isMarked}>
                     <Trash2 size={14} style={{ color: LX.error }} />
                 </Button>
             </div>

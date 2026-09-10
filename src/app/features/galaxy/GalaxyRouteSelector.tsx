@@ -1,4 +1,5 @@
-import { Check, Network, X } from "lucide-react";
+import { Check, X } from "lucide-react";
+import { LuxiaGalaxyIcon } from "@/assets/icons";
 import { useEffect, useMemo, useRef, useState } from "react";
 import ReactDOM from "react-dom";
 import { LX } from "@/app/features/active-data-tables/tokens";
@@ -7,7 +8,7 @@ import { GALAXY_ROUTE_RESULT_LIMIT, type GalaxyMatchedConstellation, type Galaxy
 export type GalaxyRouteOption = {
   id: string;
   label: string;
-  type: "PDF" | "DB";
+  type: "PDF" | "CSV" | "DB";
 };
 
 export function GalaxyRouteSelector({
@@ -107,7 +108,7 @@ export function GalaxyRouteSelector({
           border: `1px solid rgba(142,99,235,0.22)`,
         }}
       >
-        <Network size={11} style={{ color: LX.secondary }} />
+        <LuxiaGalaxyIcon size={11} style={{ color: LX.secondary }} />
         {label}
       </button>
 
@@ -202,7 +203,7 @@ export function GalaxyRouteSelector({
                 className="mb-1.5 h-8 w-full rounded-[8px] px-2.5 outline-none luxia-type-caption"
                 style={{ border: `1px solid ${LX.border}`, background: LX.subtle, color: LX.primary }}
               />
-              <div className="max-h-[200px] overflow-y-auto" role="listbox" aria-label="Project constellations">
+              <div className="max-h-[200px] overflow-y-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical" role="listbox" aria-label="Project constellations">
                 {filtered.length === 0 ? (
                   <p className="px-2 py-3 luxia-type-caption" style={{ color: LX.textMuted }}>No results</p>
                 ) : (

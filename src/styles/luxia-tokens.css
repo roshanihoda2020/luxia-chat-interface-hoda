@@ -36,7 +36,6 @@
   --luxia-neutral-breadcrumb: #697077;
   --luxia-neutral-surface-subtle: #FAFDFF;
 
-  /* Legacy short aliases (map to canonical) */
   --luxia-black: var(--luxia-neutral-black);
   --luxia-white: var(--luxia-neutral-white);
   --luxia-breadcrumb: var(--luxia-neutral-breadcrumb);
@@ -67,6 +66,7 @@
   --luxia-text-muted: var(--luxia-neutral-500);
   --luxia-text-breadcrumb: var(--luxia-neutral-breadcrumb);
   --luxia-text-inverse: var(--luxia-neutral-white);
+  --luxia-text-project-title: var(--luxia-purple-60);
 
   --luxia-border-subtle: var(--luxia-neutral-100);
   --luxia-border-default: var(--luxia-neutral-200);
@@ -156,7 +156,6 @@
   --luxia-opacity-breadcrumb-64: rgba(105, 112, 119, 0.64);
   --luxia-opacity-breadcrumb-80: rgba(105, 112, 119, 0.80);
 
-  /* Component-state opacities (not foundation families) */
   --luxia-opacity-success-08: rgba(5, 170, 63, 0.08);
   --luxia-opacity-success-12: rgba(5, 170, 63, 0.12);
   --luxia-opacity-success-16: rgba(5, 170, 63, 0.16);
@@ -173,7 +172,6 @@
   --luxia-opacity-warning-24: rgba(255, 204, 0, 0.24);
   --luxia-opacity-warning-32: rgba(255, 204, 0, 0.32);
 
-  /* Legacy purple/blue opacity aliases → brand secondary/tertiary */
   --luxia-opacity-purple-04: var(--luxia-opacity-brand-secondary-04);
   --luxia-opacity-purple-08: var(--luxia-opacity-brand-secondary-08);
   --luxia-opacity-purple-12: var(--luxia-opacity-brand-secondary-12);
@@ -196,7 +194,6 @@
   --luxia-opacity-blue-64: var(--luxia-opacity-brand-tertiary-64);
   --luxia-opacity-blue-80: var(--luxia-opacity-brand-tertiary-80);
 
-  /* Legacy short opacity names (theme.css / product) */
   --luxia-primary-4: var(--luxia-opacity-brand-primary-04);
   --luxia-primary-8: var(--luxia-opacity-brand-primary-08);
   --luxia-primary-12: var(--luxia-opacity-brand-primary-12);
@@ -308,8 +305,8 @@
   --luxia-radius-24: 24px;
   --luxia-radius-circle: 50%;
   --luxia-radius-pill: 9999px;
+  --luxia-radius-button: 10px;
 
-  /* Legacy radius aliases */
   --luxia-radius-sm: var(--luxia-radius-8);
   --luxia-radius-md: var(--luxia-radius-12);
   --luxia-radius-lg: var(--luxia-radius-16);
@@ -342,6 +339,11 @@
     #1E173A 0%,
     #16122E 44%,
     #131028 100%
+  );
+  --luxia-galaxy-hero-surface: linear-gradient(
+    165deg,
+    var(--luxia-brand-primary-dark) 0%,
+    #1C1336 100%
   );
   --luxia-galaxy-shell: #16122E;
   --luxia-galaxy-shell-shadow:
@@ -384,11 +386,11 @@
   gap: 8px;
   height: 38px;
   min-height: 38px;
-  padding-inline: 20px;
+  padding-inline: 16px;
   border-width: 1px;
   border-style: solid;
   border-color: transparent;
-  border-radius: var(--luxia-radius-pill);
+  border-radius: var(--luxia-radius-button);
   font-family: var(--luxia-font-family);
   font-size: 13px;
   line-height: 18px;
@@ -430,25 +432,52 @@
 }
 
 .luxia-button--secondary {
-  color: var(--luxia-text-muted);
+  color: var(--luxia-brand-primary);
   background: var(--luxia-surface);
   border-color: var(--luxia-border-default);
   box-shadow: none;
 }
 
 .luxia-button--secondary:hover:not(:disabled):not([aria-disabled="true"]) {
-  background: var(--luxia-border-subtle);
+  background: var(--luxia-opacity-brand-secondary-08);
+  border-color: color-mix(in srgb, var(--luxia-brand-primary) 35%, var(--luxia-border-default));
   color: var(--luxia-brand-primary);
+}
+
+/* Secondary AI actions — sparkles + “AI” label, not primary and not plain secondary. */
+.luxia-button--ai {
+  color: var(--luxia-purple-60);
+  background: var(--luxia-opacity-brand-secondary-08);
+  border-color: color-mix(in srgb, var(--luxia-brand-secondary) 42%, var(--luxia-border-default));
+  box-shadow: none;
+}
+
+.luxia-button--ai:hover:not(:disabled):not([aria-disabled="true"]) {
+  color: var(--luxia-brand-primary);
+  background: var(--luxia-opacity-brand-secondary-12);
+  border-color: color-mix(in srgb, var(--luxia-brand-secondary) 58%, var(--luxia-border-default));
 }
 
 .luxia-button--outline {
   color: var(--luxia-brand-primary);
-  background: var(--luxia-surface);
-  border-color: var(--luxia-brand-primary);
+  background: transparent;
+  border-color: var(--luxia-border-default);
   box-shadow: none;
 }
 
 .luxia-button--outline:hover:not(:disabled):not([aria-disabled="true"]) {
+  background: var(--luxia-opacity-brand-secondary-08);
+}
+
+/* Tertiary / text header actions — transparent, no permanent border. */
+.luxia-button--tertiary {
+  color: var(--luxia-brand-primary);
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.luxia-button--tertiary:hover:not(:disabled):not([aria-disabled="true"]) {
   background: var(--luxia-opacity-brand-secondary-08);
 }
 
@@ -508,16 +537,16 @@
   gap: 6px;
   font-size: 12px;
   line-height: 16px;
-  border-radius: var(--luxia-radius-pill);
+  border-radius: var(--luxia-radius-button);
 }
 
 .luxia-button--large {
   height: 44px;
   min-height: 44px;
-  padding-inline: 24px;
+  padding-inline: 20px;
   font-size: 14px;
   line-height: 20px;
-  border-radius: var(--luxia-radius-pill);
+  border-radius: var(--luxia-radius-button);
 }
 
 .luxia-button--icon {
@@ -548,10 +577,59 @@
 
 .luxia-button:disabled,
 .luxia-button[aria-disabled="true"] {
-  opacity: 0.48;
+  opacity: 0.62;
   pointer-events: none;
   cursor: not-allowed;
   transform: none;
+}
+
+.luxia-button--on-dark.luxia-button--primary {
+  color: var(--luxia-text-inverse);
+  background: linear-gradient(87.081deg, #30214E 45.623%, #8E63EB 112.38%);
+  border-color: rgba(198, 177, 245, 0.28);
+  box-shadow: var(--luxia-shadow-sm);
+}
+
+.luxia-button--on-dark.luxia-button--secondary {
+  color: rgba(198, 177, 245, 0.95);
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(198, 177, 245, 0.36);
+  box-shadow: none;
+}
+
+.luxia-button--on-dark.luxia-button--secondary:hover:not(:disabled):not([aria-disabled="true"]) {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--luxia-text-inverse);
+}
+
+.luxia-button--on-dark.luxia-button--outline {
+  color: rgba(198, 177, 245, 0.95);
+  background: transparent;
+  border-color: rgba(198, 177, 245, 0.36);
+  box-shadow: none;
+}
+
+.luxia-button--on-dark.luxia-button--outline:hover:not(:disabled):not([aria-disabled="true"]) {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.luxia-button--on-dark.luxia-button--tertiary {
+  color: rgba(198, 177, 245, 0.95);
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.luxia-button--on-dark.luxia-button--tertiary:hover:not(:disabled):not([aria-disabled="true"]) {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.luxia-button--on-dark:disabled,
+.luxia-button--on-dark[aria-disabled="true"] {
+  opacity: 1;
+  color: rgba(198, 177, 245, 0.72);
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(198, 177, 245, 0.28);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -599,7 +677,6 @@
   box-shadow: 0 0 0 3px var(--luxia-chat-composer-focus-ring);
 }
 
-/* Rectangular text-safe zone — text never enters the pill’s curved caps */
 .luxia-chat-composer__text-safe {
   flex: 1;
   min-width: 0;
@@ -650,21 +727,41 @@
   overflow-wrap: anywhere;
   word-break: break-word;
   scrollbar-width: thin;
-  scrollbar-color: rgba(148, 163, 184, 0.55) transparent;
+  scrollbar-color: rgba(148, 163, 184, 0.28) rgba(148, 163, 184, 0.08);
 }
 
 .luxia-chat-composer__input::-webkit-scrollbar {
-  width: 6px;
+  width: 4px;
 }
 
 .luxia-chat-composer__input::-webkit-scrollbar-track {
-  background: transparent;
-  margin-block: 6px;
+  background: rgba(148, 163, 184, 0.08);
+  margin-block: 4px;
+  border-radius: 999px;
 }
 
 .luxia-chat-composer__input::-webkit-scrollbar-thumb {
-  background-color: rgba(148, 163, 184, 0.55);
+  background-color: rgba(148, 163, 184, 0.28);
   border-radius: 999px;
+  border: 0;
+  box-shadow: none;
+}
+
+.luxia-chat-composer__input::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(100, 116, 139, 0.42);
+}
+
+.luxia-chat-composer__input::-webkit-scrollbar-button,
+.luxia-chat-composer__input::-webkit-scrollbar-button:single-button,
+.luxia-chat-composer__input::-webkit-scrollbar-button:double-button,
+.luxia-chat-composer__input::-webkit-scrollbar-button:vertical:decrement,
+.luxia-chat-composer__input::-webkit-scrollbar-button:vertical:increment {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  background: transparent !important;
 }
 
 .luxia-chat-composer__input::placeholder {
@@ -682,24 +779,5 @@
   box-shadow: none !important;
 }
 
-.galaxy-panel-scroll {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
-}
+/* Settings tablist active/hover states live in luxia-settings-surfaces.css */
 
-.galaxy-panel-scroll::-webkit-scrollbar {
-  width: 6px;
-}
-
-.galaxy-panel-scroll::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.galaxy-panel-scroll::-webkit-scrollbar-thumb {
-  background-color: rgba(255, 255, 255, 0.16);
-  border-radius: 999px;
-}
-
-.galaxy-panel-scroll::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(255, 255, 255, 0.26);
-}

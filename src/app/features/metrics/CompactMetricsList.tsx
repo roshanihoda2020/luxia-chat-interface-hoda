@@ -30,14 +30,14 @@ export function CompactMetricsList({
                 <span className="flex-1 truncate luxia-type-title-component" style={{ color: IC.iconSemantic }}>Metrics</span>
                 <Tooltip>
                     <TooltipTrigger asChild>
-                        <button type="button" className={IC_BTN_OPEN} aria-label="Open full editor"
+                        <button type="button" className={IC_BTN_OPEN} aria-label="Open Metrics settings"
                             onClick={(e) => { e.stopPropagation(); onOpenManager(); }}
                             onMouseEnter={icHoverOn} onMouseLeave={icHoverOff}
                             onMouseDown={icOpenActiveOn} onMouseUp={icHoverOn}>
-                            <SquareArrowOutUpRight size={14} strokeWidth={2} style={{ color: IC.textMuted }} />
+                            <SquareArrowOutUpRight size={14} strokeWidth={2} style={{ color: IC.textMuted }} aria-hidden />
                         </button>
                     </TooltipTrigger>
-                    <TooltipContent sideOffset={6}>Open full editor</TooltipContent>
+                    <TooltipContent sideOffset={6}>Open Metrics settings</TooltipContent>
                 </Tooltip>
                 <Tooltip>
                     <TooltipTrigger asChild>

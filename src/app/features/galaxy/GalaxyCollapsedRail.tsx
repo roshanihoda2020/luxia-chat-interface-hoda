@@ -1,4 +1,5 @@
-import { ChevronLeft, Network } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
+import { LuxiaGalaxyIcon } from "@/assets/icons";
 import { GALAXY_COLLAPSED_WIDTH, GALAXY_PANEL_OUTER_GAP } from "./constants";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/app/components/ui/tooltip";
 
@@ -76,7 +77,7 @@ export function GalaxyCollapsedRail({
               style={{ background: RAIL.iconWell }}
               aria-hidden
             >
-              <Network size={18} style={{ color: RAIL.icon }} strokeWidth={2} />
+              <LuxiaGalaxyIcon size={18} style={{ color: RAIL.icon }} />
             </span>
           </button>
         </TooltipTrigger>

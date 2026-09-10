@@ -2,6 +2,8 @@ import { Columns3, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/app/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/app/components/ui/dialog";
+import { cn } from "@/app/components/ui/utils";
+import { LUXIA_DIALOG_CLOSE_ON_DARK_CLASS } from "@/app/features/shared/structuredModalChrome";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -87,14 +89,22 @@ export function ConfigureColumnsDialog({
             <Dialog open={open} onOpenChange={(next) => { if (!next) requestClose(); }}>
                 <DialogContent hideCloseButton className="overflow-hidden p-0" style={{ width: "min(92vw, 1280px)", maxWidth: "min(92vw, 1280px)" }}>
                     <div className="flex flex-col">
-                        <DialogHeader className="border-b px-6 py-5 text-left" style={{ borderColor: LX.border }}>
+                        <DialogHeader>
                             <div className="flex items-start gap-3">
                                 <div className="min-w-0 flex-1">
-                                    <DialogTitle className="luxia-type-title-modal" style={{ color: LX.primary }}>Configure columns</DialogTitle>
+                                    <DialogTitle className="luxia-type-title-modal">Configure columns</DialogTitle>
                                     <DialogDescription className="sr-only">Control visibility, display names, types, descriptions, and value context for columns.</DialogDescription>
-                                    <p className="mt-1 luxia-type-metadata" style={{ color: LX.textMuted }}>Control visibility, display names, types, descriptions, and value context.</p>
+                                    <p className="mt-1 luxia-type-metadata text-[var(--luxia-purple-10)]">Control visibility, display names, types, descriptions, and value context.</p>
                                 </div>
-                                <button type="button" onClick={requestClose} className="flex h-9 w-9 items-center justify-center rounded-full border transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2" style={{ borderColor: LX.border, color: LX.textMuted }} aria-label="Close configure columns">
+                                <button
+                                    type="button"
+                                    onClick={requestClose}
+                                    className={cn(
+                                        "flex h-9 w-9 items-center justify-center rounded-full outline-none transition-opacity focus-visible:ring-2 focus-visible:ring-offset-2",
+                                        LUXIA_DIALOG_CLOSE_ON_DARK_CLASS,
+                                    )}
+                                    aria-label="Close configure columns"
+                                >
                                     <X size={15} />
                                 </button>
                             </div>
@@ -112,7 +122,7 @@ export function ConfigureColumnsDialog({
                                     <p className="mt-3 luxia-type-metadata" style={{ color: LX.error }}>Fix the highlighted display names before saving.</p>
                                 ) : null}
 
-                                <div className="mt-4 flex-1 min-h-0 overflow-auto rounded-[18px] border" style={{ borderColor: LX.border }}>
+                                <div className="mt-4 flex-1 min-h-0 overflow-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical rounded-[18px] border" style={{ borderColor: LX.border }}>
                                     <Table>
                                         <TableHeader>
                                             <TableRow style={{ background: LX.subtle }}>
@@ -153,7 +163,7 @@ export function ConfigureColumnsDialog({
                                                         <TableCell>
                                                             <Tooltip>
                                                                 <TooltipTrigger asChild>
-                                                                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8 rounded-full" aria-label={`Edit ${column.displayName}`} onClick={(event) => { event.stopPropagation(); setSelectedColumnId(column.id); }}>
+                                                                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8 " aria-label={`Edit ${column.displayName}`} onClick={(event) => { event.stopPropagation(); setSelectedColumnId(column.id); }}>
                                                                         <Columns3 size={14} style={{ color: LX.textMuted }} />
                                                                     </Button>
                                                                 </TooltipTrigger>
@@ -171,7 +181,7 @@ export function ConfigureColumnsDialog({
                             <div className="flex min-h-0 w-full max-w-[480px] flex-col px-6 py-5 xl:border-l" style={{ borderColor: LX.border }}>
                                 {selectedColumn ? (
                                     <div className="flex h-full min-h-0 flex-col">
-                                        <div className="mt-4 min-h-0 flex-1 space-y-4 overflow-auto pr-1">
+                                        <div className="mt-4 min-h-0 flex-1 space-y-4 overflow-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical pr-1">
                                             <div>
                                                 <label className="mb-1.5 block luxia-type-label-form" style={{ color: LX.primary }}>Display name</label>
                                                 <Input value={selectedColumn.displayName} onChange={(e) => patchSelectedColumn({ displayName: e.target.value })} aria-invalid={selectedColumn.displayName.trim().length === 0} />
@@ -215,8 +225,8 @@ export function ConfigureColumnsDialog({
 
                         <div className="border-t px-6 py-4" style={{ borderColor: LX.border }}>
                             <div className="flex items-center justify-end gap-2">
-                                <Button variant="secondary" className="rounded-full px-4" onClick={requestClose}>Cancel</Button>
-                                <Button className="rounded-full px-4" disabled={!isDirty || !canSave} onClick={() => { onSave(table.id, draftColumns.map(cloneColumn)); onOpenChange(false); }}>Save changes</Button>
+                                <Button variant="secondary" className="px-4" onClick={requestClose}>Cancel</Button>
+                                <Button className="px-4" disabled={!isDirty || !canSave} onClick={() => { onSave(table.id, draftColumns.map(cloneColumn)); onOpenChange(false); }}>Save changes</Button>
                             </div>
                         </div>
                     </div>

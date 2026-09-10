@@ -353,6 +353,8 @@ export function GalaxyActivityPanel({
   routeOptions,
   routeOptionsLoading = false,
   pendingManual,
+  instructionValue,
+  onSaveInstruction,
   onResizeStart,
   onOpenConstellation,
   onSelectAuto,
@@ -367,6 +369,9 @@ export function GalaxyActivityPanel({
   routeOptions: GalaxyControlRouteOption[];
   routeOptionsLoading?: boolean;
   pendingManual: GalaxyMatchedConstellation | null;
+  /** Canonical Galaxy instruction from shared Settings store. */
+  instructionValue?: string;
+  onSaveInstruction?: (instruction: string) => void;
   onResizeStart: (e: React.MouseEvent) => void;
   onOpenConstellation?: () => void;
   onSelectAuto: () => void;
@@ -376,9 +381,11 @@ export function GalaxyActivityPanel({
   onCollapse?: () => void;
   contentOpacity?: number;
 }) {
-  const [instruction, setInstruction] = useState(GALAXY_DEFAULT_INSTRUCTION);
-  const [savedInstruction, setSavedInstruction] = useState(GALAXY_DEFAULT_INSTRUCTION);
+  const resolvedInstruction = instructionValue ?? GALAXY_DEFAULT_INSTRUCTION;
+  const [instruction, setInstruction] = useState(resolvedInstruction);
+  const [savedInstruction, setSavedInstruction] = useState(resolvedInstruction);
   const [instructionManagerOpen, setInstructionManagerOpen] = useState(false);
+  const canEditInstruction = Boolean(onSaveInstruction);
   const [savedDescription, setSavedDescription] = useState(GALAXY_DEFAULT_DESCRIPTION);
   const [draftDescription, setDraftDescription] = useState(GALAXY_DEFAULT_DESCRIPTION);
   const [editingDescription, setEditingDescription] = useState(false);
@@ -397,6 +404,11 @@ export function GalaxyActivityPanel({
   const instructionRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const selectorTriggerRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    setInstruction(resolvedInstruction);
+    setSavedInstruction(resolvedInstruction);
+  }, [resolvedInstruction]);
   const selectorPanelRef = useRef<HTMLDivElement>(null);
   const descriptionEditRef = useRef<HTMLButtonElement>(null);
   const descriptionTextareaRef = useRef<HTMLTextAreaElement>(null);
@@ -501,7 +513,6 @@ export function GalaxyActivityPanel({
       const target = e.target as Node;
       if (selectorTriggerRef.current?.contains(target)) return;
       if (selectorPanelRef.current?.contains(target)) return;
-      // Keep clear control inside the closed field from treating as outside
       const field = (e.target as HTMLElement | null)?.closest?.("[data-galaxy-selected-trigger]");
       if (field) return;
       setSelectorOpen(false);
@@ -599,6 +610,7 @@ export function GalaxyActivityPanel({
     setSaving(true);
     window.setTimeout(() => {
       setSavedInstruction(instruction);
+      onSaveInstruction?.(instruction);
       setSaving(false);
     }, 400);
   }
@@ -753,10 +765,8 @@ export function GalaxyActivityPanel({
         </header>
 
         <div
-          className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-5 galaxy-panel-scroll"
+          className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto luxia-scrollbar luxia-scrollbar-dark luxia-scrollbar-vertical galaxy-panel-scroll px-5"
           style={{
-            scrollbarWidth: "thin",
-            scrollbarColor: `${GC.scrollThumb} transparent`,
             background: GC.page,
           }}
         >
@@ -841,7 +851,7 @@ export function GalaxyActivityPanel({
                   aria-label="Galaxy description"
                   aria-invalid={descriptionInvalid}
                   aria-describedby={descriptionInvalid ? "galaxy-description-error" : undefined}
-                  className="w-full resize-none overflow-y-auto p-3 outline-none luxia-type-caption focus:outline-none focus-visible:outline-none galaxy-panel-scroll placeholder:text-[rgba(255,255,255,0.40)]"
+                  className="w-full resize-none overflow-y-auto luxia-scrollbar luxia-scrollbar-dark luxia-scrollbar-vertical galaxy-panel-scroll p-3 outline-none luxia-type-caption focus:outline-none focus-visible:outline-none placeholder:text-[rgba(255,255,255,0.40)]"
                   style={{
                     minHeight: 72,
                     maxHeight: 112,
@@ -849,8 +859,6 @@ export function GalaxyActivityPanel({
                     lineHeight: 1.55,
                     borderRadius: R.nested,
                     ...icTextareaStyle(true, { invalid: descriptionInvalid }),
-                    scrollbarWidth: "thin",
-                    scrollbarColor: `${GC.scrollThumb} transparent`,
                     transition: TRANSITION,
                   }}
                   data-galaxy-description-input="true"
@@ -1225,14 +1233,10 @@ export function GalaxyActivityPanel({
 
                                 <div
                                   id="galaxy-constellation-listbox"
-                                  className="max-h-[180px] overflow-x-hidden overflow-y-auto px-2 py-2 galaxy-panel-scroll"
+                                  className="max-h-[180px] overflow-x-hidden overflow-y-auto luxia-scrollbar luxia-scrollbar-dark luxia-scrollbar-vertical galaxy-panel-scroll px-2 py-2"
                                   role="listbox"
                                   aria-label="Project constellations"
                                   data-galaxy-constellation-results="true"
-                                  style={{
-                                    scrollbarWidth: "thin",
-                                    scrollbarColor: `${GC.scrollThumb} transparent`,
-                                  }}
                                 >
                                   {routeOptionsLoading ? (
                                     <p className="px-2 py-3 luxia-type-caption" style={{ color: GC.textSecondary }}>
@@ -1240,7 +1244,9 @@ export function GalaxyActivityPanel({
                                     </p>
                                   ) : filteredAll.length === 0 ? (
                                     <p className="px-2 py-3 luxia-type-caption" style={{ color: GC.textSecondary }}>
-                                      {query.trim() ? "No constellations found" : "No constellations available"}
+                                      {query.trim()
+                                        ? "No constellations found"
+                                        : "No accessible Constellations are currently available in this Project."}
                                     </p>
                                   ) : (
                                     visibleResults.map((option, index) => {
@@ -1700,6 +1706,7 @@ export function GalaxyActivityPanel({
                   >
                     Instruction
                   </h3>
+                  {canEditInstruction ? (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
@@ -1721,6 +1728,7 @@ export function GalaxyActivityPanel({
                     </TooltipTrigger>
                     <TooltipContent sideOffset={6}>Open full editor</TooltipContent>
                   </Tooltip>
+                  ) : null}
                 </div>
                 <p
                   className="luxia-type-caption"
@@ -1732,10 +1740,15 @@ export function GalaxyActivityPanel({
 
               <textarea
                 value={instruction}
-                onChange={(e) => handleInstructionChange(e.target.value)}
+                readOnly={!canEditInstruction}
+                onChange={(e) => {
+                  if (!canEditInstruction) return;
+                  handleInstructionChange(e.target.value);
+                }}
                 onFocus={() => setFocused(true)}
                 onBlur={() => setFocused(false)}
                 onKeyDown={(e) => {
+                  if (!canEditInstruction) return;
                   if (e.key === "Escape" && dirty) {
                     e.preventDefault();
                     cancelInstructionEdit();
@@ -1747,7 +1760,8 @@ export function GalaxyActivityPanel({
                 }}
                 rows={4}
                 aria-label="Galaxy instruction"
-                className="w-full resize-none overflow-y-auto p-3.5 outline-none luxia-type-metadata focus:outline-none focus-visible:outline-none galaxy-panel-scroll placeholder:text-[rgba(255,255,255,0.40)]"
+                aria-readonly={!canEditInstruction}
+                className="w-full resize-none overflow-y-auto luxia-scrollbar luxia-scrollbar-dark luxia-scrollbar-vertical galaxy-panel-scroll p-3.5 outline-none luxia-type-metadata focus:outline-none focus-visible:outline-none placeholder:text-[rgba(255,255,255,0.40)]"
                 style={{
                   minHeight: 104,
                   maxHeight: 140,
@@ -1755,14 +1769,13 @@ export function GalaxyActivityPanel({
                   lineHeight: 1.55,
                   borderRadius: "var(--luxia-radius-12)",
                   ...icTextareaStyle(focused),
-                  scrollbarWidth: "thin",
-                  scrollbarColor: `${GC.scrollThumb} transparent`,
                   transition: TRANSITION,
                 }}
                 onMouseEnter={(e) => icInputBorderHoverOn(e, focused)}
                 onMouseLeave={(e) => icInputBorderHoverOff(e, focused)}
               />
 
+              {canEditInstruction ? (
               <div className="flex items-center justify-end gap-2 pt-0.5">
                 {dirty ? (
                   <button
@@ -1796,11 +1809,17 @@ export function GalaxyActivityPanel({
                   {saving ? "Saving…" : "Save instruction"}
                 </button>
               </div>
+              ) : (
+                <p className="luxia-type-caption pt-0.5" style={{ color: GC.instructionHelper }}>
+                  Instruction is read-only for your Project role.
+                </p>
+              )}
             </div>
           </section>
         </div>
       </aside>
 
+      {canEditInstruction ? (
       <InstructionManager
         open={instructionManagerOpen}
         data={instructionEditorData}
@@ -1808,6 +1827,7 @@ export function GalaxyActivityPanel({
         onCommit={(next) => handleInstructionChange(next.text)}
         onCancel={() => setInstructionManagerOpen(false)}
       />
+      ) : null}
     </div>
   );
 }

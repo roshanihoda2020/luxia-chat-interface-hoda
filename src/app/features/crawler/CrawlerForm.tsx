@@ -32,7 +32,7 @@ export function CrawlerForm({
             <Textarea value={values.description} onChange={(e) => update({ description: e.target.value })} placeholder="Description" rows={3} className="resize-y rounded-[12px] luxia-type-body-dense" aria-label="Description" />
             <div className="flex items-center justify-between rounded-[12px] border px-3 py-2.5" style={{ borderColor: LX.border, background: LX.subtle }}>
                 <span className="luxia-type-body-dense-strong" style={{ color: LX.primary }}>Exact Search</span>
-                <Switch checked={values.exactSearch} onCheckedChange={(exactSearch) => update({ exactSearch })} aria-label="Exact search" className="data-[state=checked]:bg-[#30214E]" />
+                <Switch checked={values.exactSearch} onCheckedChange={(exactSearch) => update({ exactSearch })} aria-label="Exact search" />
             </div>
         </div>
     );

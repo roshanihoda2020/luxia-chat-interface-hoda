@@ -69,7 +69,7 @@ export function CrawlerMenu({ onView, onEdit, onRemove }: { onView: () => void; 
     return (
         <>
             <div ref={triggerWrapRef} className="relative z-20 inline-flex" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
-                <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-full" aria-label="Open crawler URL actions" aria-expanded={open} aria-haspopup="menu" style={{ color: LX.textMuted }} onClick={() => setOpen((c) => !c)}><MoreHorizontal size={14} /></Button>
+                <Button type="button" variant="ghost" size="icon" className="h-7 w-7 " aria-label="Open crawler URL actions" aria-expanded={open} aria-haspopup="menu" style={{ color: LX.textMuted }} onClick={() => setOpen((c) => !c)}><MoreHorizontal size={14} /></Button>
             </div>
             {menu}
         </>
