@@ -102,6 +102,24 @@ export function getVidgetSettingsPath(
   return `${base}?${params.toString()}`;
 }
 
+export function getVidgetInboxPath(
+  projectId: string,
+  options?: {
+    sessionId?: string | null;
+    search?: string | null;
+  },
+): string {
+  const base = `/projects/${encodeURIComponent(projectId)}/vidgets/inbox`;
+  const params = new URLSearchParams(options?.search?.replace(/^\?/, "") ?? "");
+  if (options && Object.prototype.hasOwnProperty.call(options, "sessionId")) {
+    const sessionId = options.sessionId?.trim();
+    if (sessionId) params.set("session", sessionId);
+    else params.delete("session");
+  }
+  const search = params.toString();
+  return search ? `${base}?${search}` : base;
+}
+
 export function getAccessLevelsPath(): string {
   return "/organization/access-levels";
 }
@@ -289,6 +307,20 @@ export function parseVidgetSettingsFromPath(pathname: string): {
   };
 }
 
+export function parseVidgetInboxFromPath(pathname: string): {
+  projectId: string;
+  sessionId: string | null;
+} | null {
+  const match = pathname.match(
+    /^\/projects\/([^/]+)\/vidgets\/inbox(?:\/([^/]+))?\/?$/,
+  );
+  if (!match?.[1]) return null;
+  return {
+    projectId: decodePathSegment(match[1]),
+    sessionId: match[2] ? decodePathSegment(match[2]) : null,
+  };
+}
+
 export function parseAccessLevelsPath(pathname: string): boolean {
   return /^\/organization\/access-levels\/?$/.test(pathname);
 }
@@ -365,6 +397,7 @@ export type LuxiaResolvedPath =
   }
   | { kind: "project-members"; projectId: string }
   | { kind: "project-vidgets"; projectId: string }
+  | { kind: "vidget-inbox"; projectId: string; sessionId: string | null }
   | { kind: "vidget-settings"; projectId: string; vidgetId: string }
   | { kind: "organization-users" }
   | { kind: "organization-user"; userId: string }
@@ -475,6 +508,15 @@ export function resolveLuxiaPathname(pathname: string): LuxiaResolvedPath {
       kind: "vidget-settings",
       projectId: vidgetSettings.projectId,
       vidgetId: vidgetSettings.vidgetId,
+    };
+  }
+
+  const vidgetInbox = parseVidgetInboxFromPath(pathname);
+  if (vidgetInbox) {
+    return {
+      kind: "vidget-inbox",
+      projectId: vidgetInbox.projectId,
+      sessionId: vidgetInbox.sessionId,
     };
   }
 

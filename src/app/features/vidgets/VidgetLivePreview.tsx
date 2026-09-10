@@ -1,5 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { ThumbsDown, ThumbsUp } from "lucide-react";
 import { LuxiaStarLogo } from "@/app/components/LuxiaStarLogo";
+import {
+  appendCapturedAssistantTurn,
+  appendCapturedVisitorTurn,
+  clearActiveCapturedSession,
+  createCapturedVidgetInboxSession,
+  getActiveCapturedSessionId,
+  getCapturedVidgetInboxSessionById,
+  updateCapturedAssistantFeedback,
+} from "@/app/features/vidget-inbox/sessionStore";
+import type { VidgetInboxFeedback, VidgetInboxTurn } from "@/app/features/vidget-inbox/types";
 import {
   VIDGET_AVATARS,
   VIDGET_THEMES,
@@ -56,11 +67,26 @@ type VidgetTestSession = {
   inputValue: string;
   setInputValue: (value: string) => void;
   send: () => void;
+  reset: () => void;
+  setFeedback: (messageId: string, feedback: VidgetInboxFeedback) => void;
   canSend: boolean;
   testBlockedReason?: string;
   showTestHint: boolean;
   conversationEndRef: React.MutableRefObject<HTMLDivElement | null>;
 };
+
+function previewMessagesFromTurns(turns: readonly VidgetInboxTurn[]): VidgetTestMessage[] {
+  return turns.map((turn) => (
+    turn.role === "visitor"
+      ? { id: turn.id, role: "user" as const, content: turn.content }
+      : {
+          id: turn.id,
+          role: "assistant" as const,
+          content: turn.content,
+          feedback: turn.feedback,
+        }
+  ));
+}
 
 function useVidgetTestSession(
   record: VidgetRecord,
@@ -71,16 +97,42 @@ function useVidgetTestSession(
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const conversationEndRef = useRef<HTMLDivElement>(null);
+  const activeSessionIdRef = useRef<string | null>(null);
+  const previewResetKeyRef = useRef(previewResetKey);
 
   const eligibility = useMemo(
     () => resolveVidgetTestEligibility(record, testContext),
     [record, testContext],
   );
 
-  useEffect(() => {
+  const resetConversation = useCallback((clearActive: boolean) => {
+    if (clearActive) clearActiveCapturedSession(record.id);
+    activeSessionIdRef.current = null;
     setMessages([]);
     setInputValue("");
     setIsLoading(false);
+  }, [record.id]);
+
+  useEffect(() => {
+    const resetTriggered = previewResetKeyRef.current !== previewResetKey;
+    previewResetKeyRef.current = previewResetKey;
+    setInputValue("");
+    setIsLoading(false);
+    if (resetTriggered) {
+      clearActiveCapturedSession(record.id);
+      activeSessionIdRef.current = null;
+      setMessages([]);
+      return;
+    }
+    const activeId = getActiveCapturedSessionId(record.id);
+    const session = activeId ? getCapturedVidgetInboxSessionById(activeId) : undefined;
+    if (session && session.vidgetId === record.id) {
+      activeSessionIdRef.current = session.id;
+      setMessages(previewMessagesFromTurns(session.turns));
+      return;
+    }
+    activeSessionIdRef.current = null;
+    setMessages([]);
   }, [record.id, previewResetKey]);
 
   useEffect(() => {
@@ -91,11 +143,21 @@ function useVidgetTestSession(
     const trimmed = inputValue.trim();
     if (!trimmed || isLoading || !eligibility.canTest) return;
 
+    let sessionId = activeSessionIdRef.current;
+    if (!sessionId) {
+      sessionId = createCapturedVidgetInboxSession({ record }).id;
+      activeSessionIdRef.current = sessionId;
+    }
+
     const userMessage: VidgetTestMessage = {
       id: nextVidgetTestMessageId(),
       role: "user",
       content: trimmed,
     };
+    appendCapturedVisitorTurn(sessionId, {
+      id: userMessage.id,
+      content: trimmed,
+    });
     setMessages((prev) => [...prev, userMessage]);
     setInputValue("");
     setIsLoading(true);
@@ -106,20 +168,53 @@ function useVidgetTestSession(
       context: testContext,
     })
       .then((result) => {
+        const assistantId = nextVidgetTestMessageId();
+        if (result.ok) {
+          appendCapturedAssistantTurn(sessionId, {
+            id: assistantId,
+            content: result.content,
+            sources: result.sources,
+            constellationId: result.constellationId,
+            presentation: "normal",
+          });
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: assistantId,
+              role: "assistant",
+              content: result.content,
+              feedback: "none",
+            },
+          ]);
+          return;
+        }
+        appendCapturedAssistantTurn(sessionId, {
+          id: assistantId,
+          content: result.error,
+          constellationId: null,
+          presentation: "normal",
+        });
         setMessages((prev) => [
           ...prev,
           {
-            id: nextVidgetTestMessageId(),
-            role: result.ok ? "assistant" : "assistant-error",
-            content: result.ok ? result.content : result.error,
+            id: assistantId,
+            role: "assistant-error",
+            content: result.error,
           },
         ]);
       })
       .catch(() => {
+        const assistantId = nextVidgetTestMessageId();
+        appendCapturedAssistantTurn(sessionId, {
+          id: assistantId,
+          content: "Something went wrong while testing this Vidget. Try again.",
+          constellationId: null,
+          presentation: "normal",
+        });
         setMessages((prev) => [
           ...prev,
           {
-            id: nextVidgetTestMessageId(),
+            id: assistantId,
             role: "assistant-error",
             content: "Something went wrong while testing this Vidget. Try again.",
           },
@@ -129,6 +224,16 @@ function useVidgetTestSession(
         setIsLoading(false);
       });
   }, [eligibility.canTest, inputValue, isLoading, record, testContext]);
+
+  const setFeedback = useCallback((messageId: string, feedback: VidgetInboxFeedback) => {
+    setMessages((prev) =>
+      prev.map((message) => (
+        message.id === messageId ? { ...message, feedback } : message
+      )),
+    );
+    const sessionId = activeSessionIdRef.current;
+    if (sessionId) updateCapturedAssistantFeedback(sessionId, messageId, feedback);
+  }, []);
 
   const canSend = eligibility.canTest && !isLoading && inputValue.trim().length > 0;
   const showTestHint =
@@ -140,6 +245,8 @@ function useVidgetTestSession(
     inputValue,
     setInputValue,
     send,
+    reset: () => resetConversation(true),
+    setFeedback,
     canSend,
     testBlockedReason: eligibility.canTest ? undefined : eligibility.reason,
     showTestHint,
@@ -359,6 +466,82 @@ function LandingPageHeader({
   );
 }
 
+function PreviewFeedbackButtons({
+  feedback = "none",
+  onChange,
+  compact = false,
+}: {
+  feedback?: VidgetInboxFeedback;
+  onChange: (next: VidgetInboxFeedback) => void;
+  compact?: boolean;
+}) {
+  const iconSize = compact ? 11 : 13;
+  return (
+    <div className="mt-1 flex items-center gap-0.5">
+      <button
+        type="button"
+        aria-label="Like"
+        aria-pressed={feedback === "positive"}
+        className="inline-flex h-5 w-5 items-center justify-center rounded-[4px] outline-none focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]"
+        onClick={() => onChange(feedback === "positive" ? "none" : "positive")}
+      >
+        <ThumbsUp
+          size={iconSize}
+          strokeWidth={1.8}
+          aria-hidden
+          fill={feedback === "positive" ? "currentColor" : "none"}
+          style={{
+            color: feedback === "positive"
+              ? "var(--luxia-brand-primary)"
+              : "var(--luxia-text-muted)",
+          }}
+        />
+      </button>
+      <button
+        type="button"
+        aria-label="Dislike"
+        aria-pressed={feedback === "negative"}
+        className="inline-flex h-5 w-5 items-center justify-center rounded-[4px] outline-none focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]"
+        onClick={() => onChange(feedback === "negative" ? "none" : "negative")}
+      >
+        <ThumbsDown
+          size={iconSize}
+          strokeWidth={1.8}
+          aria-hidden
+          fill={feedback === "negative" ? "currentColor" : "none"}
+          style={{
+            color: feedback === "negative"
+              ? "var(--luxia-warning-90)"
+              : "var(--luxia-text-muted)",
+          }}
+        />
+      </button>
+    </div>
+  );
+}
+
+function PreviewNewConversationButton({
+  visible,
+  onReset,
+}: {
+  visible: boolean;
+  onReset: () => void;
+}) {
+  if (!visible) return null;
+  return (
+    <div className="flex justify-center px-1">
+      <button
+        type="button"
+        className="luxia-type-caption outline-none hover:underline focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]"
+        style={{ color: "var(--luxia-text-muted)" }}
+        onClick={onReset}
+      >
+        New conversation
+      </button>
+    </div>
+  );
+}
+
 function MessageBubble({
   role,
   children,
@@ -367,6 +550,8 @@ function MessageBubble({
   senderName,
   error = false,
   pending = false,
+  feedback,
+  onFeedback,
 }: {
   role: "assistant" | "user";
   children: string;
@@ -375,6 +560,8 @@ function MessageBubble({
   senderName: string;
   error?: boolean;
   pending?: boolean;
+  feedback?: VidgetInboxFeedback;
+  onFeedback?: (next: VidgetInboxFeedback) => void;
 }) {
   const padY =
     bubbleSize === "lg" ? "py-2.5" : bubbleSize === "sm" ? "py-1.5" : "py-2";
@@ -402,6 +589,9 @@ function MessageBubble({
           {senderName}
         </p>
         <p className="luxia-type-body-dense whitespace-pre-wrap">{children}</p>
+        {onFeedback && !pending && !error ? (
+          <PreviewFeedbackButtons feedback={feedback} onChange={onFeedback} />
+        ) : null}
       </div>
     </div>
   );
@@ -494,6 +684,8 @@ function MobileMessageBubble({
   senderName,
   error = false,
   pending = false,
+  feedback,
+  onFeedback,
 }: {
   role: "assistant" | "user";
   children: string;
@@ -502,6 +694,8 @@ function MobileMessageBubble({
   senderName: string;
   error?: boolean;
   pending?: boolean;
+  feedback?: VidgetInboxFeedback;
+  onFeedback?: (next: VidgetInboxFeedback) => void;
 }) {
   const padY =
     bubbleSize === "lg" ? "py-2" : bubbleSize === "sm" ? "py-1.5" : "py-1.5";
@@ -537,6 +731,9 @@ function MobileMessageBubble({
         >
           {children}
         </p>
+        {onFeedback && !pending && !error ? (
+          <PreviewFeedbackButtons feedback={feedback} onChange={onFeedback} compact />
+        ) : null}
       </div>
     </div>
   );
@@ -715,6 +912,10 @@ function MobileChatConversation({
               Ask a question to test this Vidget.
             </p>
           ) : null}
+          <PreviewNewConversationButton
+            visible={testSession.messages.length > 0}
+            onReset={testSession.reset}
+          />
           {testSession.messages.map((message) => (
             <MobileMessageBubble
               key={message.id}
@@ -723,6 +924,12 @@ function MobileChatConversation({
               bubbleSize={record.bubbleSize}
               senderName={message.role === "user" ? "User" : assistantName}
               error={message.role === "assistant-error"}
+              feedback={message.feedback}
+              onFeedback={
+                message.role === "assistant"
+                  ? (next) => testSession.setFeedback(message.id, next)
+                  : undefined
+              }
             >
               {message.content}
             </MobileMessageBubble>
@@ -931,6 +1138,8 @@ function TotemMessageBubble({
   senderName,
   error = false,
   pending = false,
+  feedback,
+  onFeedback,
 }: {
   role: "assistant" | "user";
   children: string;
@@ -939,6 +1148,8 @@ function TotemMessageBubble({
   senderName: string;
   error?: boolean;
   pending?: boolean;
+  feedback?: VidgetInboxFeedback;
+  onFeedback?: (next: VidgetInboxFeedback) => void;
 }) {
   const padY =
     bubbleSize === "lg" ? "py-2" : bubbleSize === "sm" ? "py-1.5" : "py-1.5";
@@ -965,6 +1176,9 @@ function TotemMessageBubble({
         >
           {children}
         </p>
+        {onFeedback && !pending && !error ? (
+          <PreviewFeedbackButtons feedback={feedback} onChange={onFeedback} compact />
+        ) : null}
         <p
           className="mt-0.5 luxia-type-caption"
           style={{
@@ -1159,6 +1373,10 @@ function TotemChatConversation({
               Ask a question to test this Vidget.
             </p>
           ) : null}
+          <PreviewNewConversationButton
+            visible={testSession.messages.length > 0}
+            onReset={testSession.reset}
+          />
           {testSession.messages.map((message) => (
             <TotemMessageBubble
               key={message.id}
@@ -1167,6 +1385,12 @@ function TotemChatConversation({
               bubbleSize={record.bubbleSize}
               senderName={message.role === "user" ? "User" : assistantName}
               error={message.role === "assistant-error"}
+              feedback={message.feedback}
+              onFeedback={
+                message.role === "assistant"
+                  ? (next) => testSession.setFeedback(message.id, next)
+                  : undefined
+              }
             >
               {message.content}
             </TotemMessageBubble>
@@ -1464,6 +1688,10 @@ function ChatConversation({
               Ask a question to test this Vidget.
             </p>
           ) : null}
+          <PreviewNewConversationButton
+            visible={testSession.messages.length > 0}
+            onReset={testSession.reset}
+          />
           {testSession.messages.map((message) => (
             <MessageBubble
               key={message.id}
@@ -1472,6 +1700,12 @@ function ChatConversation({
               bubbleSize={record.bubbleSize}
               senderName={message.role === "user" ? "User" : assistantName}
               error={message.role === "assistant-error"}
+              feedback={message.feedback}
+              onFeedback={
+                message.role === "assistant"
+                  ? (next) => testSession.setFeedback(message.id, next)
+                  : undefined
+              }
             >
               {message.content}
             </MessageBubble>

@@ -3,6 +3,7 @@ import {
   LuxiaPageFrame,
   type LuxiaPageFrameVariant,
 } from "@/app/components/LuxiaPageFrame";
+import { cn } from "@/app/components/ui/utils";
 import { LUXIA_PAGE_LAYOUT } from "@/app/components/luxiaPageLayout";
 import {
   homePrimaryPreferencesEqual,
@@ -297,12 +298,21 @@ export function HomePageShell({
    * Use for pages that already render their own LuxiaPageFrame.
    */
   framed = true,
+  className = "",
+  /**
+   * Desktop split workspaces (e.g. Vidget Inbox) fill remaining height and
+   * must not be an extra vertical scroller. Below `lg` the shell still
+   * page-scrolls so stacked/narrow layouts keep normal document flow.
+   */
+  containLayout = false,
 }: {
   children: ReactNode;
   scrollRequest?: number;
   contentMax?: string;
   variant?: LuxiaPageFrameVariant;
   framed?: boolean;
+  className?: string;
+  containLayout?: boolean;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -314,8 +324,18 @@ export function HomePageShell({
   return (
     <div
       ref={scrollRef}
-      className="luxia-home-shell luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical min-h-0 flex-1 overflow-x-hidden overflow-y-auto"
-      style={{ background: HS.pageBg, scrollbarGutter: "stable" }}
+      className={cn(
+        "luxia-home-shell min-h-0 min-w-0 flex-1",
+        "luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical",
+        containLayout
+          ? "max-lg:overflow-x-hidden max-lg:overflow-y-auto max-lg:[scrollbar-gutter:stable] lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:overflow-hidden"
+          : "overflow-x-hidden overflow-y-auto",
+        className,
+      )}
+      style={{
+        background: HS.pageBg,
+        ...(containLayout ? undefined : { scrollbarGutter: "stable" }),
+      }}
     >
       {framed ? (
         <LuxiaPageFrame

@@ -57,6 +57,7 @@ export {
   getProjectMembersPath,
   getProjectVidgetsPath,
   getVidgetSettingsPath,
+  getVidgetInboxPath,
   getAccessLevelsPath,
   getAccessLevelPath,
   getOrganizationUsersPath,

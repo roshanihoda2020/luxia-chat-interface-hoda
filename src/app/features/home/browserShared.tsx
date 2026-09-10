@@ -216,13 +216,15 @@ export function FilterGroup({ label, showLabel = false, children }: FilterGroupP
 export function SegmentedFilterGroup({
   label,
   children,
+  className = "",
 }: {
   label: string;
   children: ReactNode;
+  className?: string;
 }) {
   return (
     <div
-      className="inline-flex h-8 max-w-full flex-wrap items-center gap-0.5 rounded-[8px] p-0.5"
+      className={`inline-flex h-8 max-w-full flex-wrap items-center gap-0.5 rounded-[8px] p-0.5 ${className}`.trim()}
       role="group"
       aria-label={label}
       style={{
@@ -352,9 +354,12 @@ const FILTER_SELECT_STYLE = {
   color: "var(--luxia-text-primary)",
 } as const;
 
-interface BrowserFilterSelectProps extends Omit<SelectHTMLAttributes<HTMLSelectElement>, "className"> {
+interface BrowserFilterSelectProps extends Omit<SelectHTMLAttributes<HTMLSelectElement>, "className" | "style"> {
   label: string;
   labelVisible?: boolean;
+  className?: string;
+  selectClassName?: string;
+  selectStyle?: CSSProperties;
 }
 
 export function BrowserFilterSelect({
@@ -362,13 +367,16 @@ export function BrowserFilterSelect({
   labelVisible = true,
   children,
   id,
+  className = "",
+  selectClassName = "",
+  selectStyle,
   ...props
 }: BrowserFilterSelectProps) {
   const generatedId = useId();
   const selectId = id ?? generatedId;
 
   return (
-    <div className="flex min-w-0 flex-col gap-1.5">
+    <div className={`flex min-w-0 flex-col gap-1.5 ${className}`.trim()}>
       <label
         htmlFor={selectId}
         className={labelVisible ? FILTER_LABEL_CLASS : "sr-only"}
@@ -380,8 +388,8 @@ export function BrowserFilterSelect({
         {...props}
         id={selectId}
         aria-label={props["aria-label"] ?? label}
-        className={FILTER_SELECT_CLASS}
-        style={FILTER_SELECT_STYLE}
+        className={`${FILTER_SELECT_CLASS} ${selectClassName}`.trim()}
+        style={{ ...FILTER_SELECT_STYLE, ...selectStyle }}
       >
         {children}
       </select>

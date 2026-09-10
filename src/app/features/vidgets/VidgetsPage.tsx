@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Plus, Search } from "lucide-react";
+import { useMemo, useState, useSyncExternalStore } from "react";
+import { Plus, Search, Share2 } from "lucide-react";
 import {
   LuxiaBreadcrumb,
   type LuxiaBreadcrumbHandlers,
@@ -39,11 +39,22 @@ import {
 import { formatVidgetUpdatedAt, isVidgetDeploymentActive, resolveVidgetSourceDisplay } from "./data";
 import { VidgetChannelMetaIcon, VidgetSourceMetaIcon } from "./vidgetMetaIcons";
 import { VIDGETS_GUIDANCE } from "./ia";
+import { VidgetsCollectionNav } from "./VidgetsCollectionNav";
 import type { VidgetChannel, VidgetRecord, VidgetStatus } from "./types";
 import {
   VIDGET_CHANNEL_LABELS,
   VIDGET_STATUS_LABELS,
 } from "./types";
+import { InboxShareDialog } from "@/app/features/vidget-inbox/InboxShareDialog";
+import { getVidgetInboxSessionsForProject } from "@/app/features/vidget-inbox/fixture";
+import {
+  createVidgetInboxReviewShare,
+  vidgetShareScope,
+} from "@/app/features/vidget-inbox/share";
+import {
+  getVidgetInboxCaptureVersion,
+  subscribeVidgetInboxCapture,
+} from "@/app/features/vidget-inbox/sessionStore";
 
 const SURFACE = `${LUXIA_SETTINGS_CONTENT_SURFACE_CLASS} is-flush`;
 
@@ -59,8 +70,10 @@ export interface VidgetsPageProps {
   constellationNameById: Record<string, string>;
   constellationProjectById: Record<string, string>;
   canManage: boolean;
+  canReviewInbox: boolean;
   onNavigateHome: () => void;
   onOpenProject: (projectId: string) => void;
+  onOpenInbox?: (vidgetId?: string) => void;
   onCreate: () => void;
   onOpen: (vidgetId: string) => void;
   onRename: (vidgetId: string, name: string) => void;
@@ -78,8 +91,10 @@ export function VidgetsPage({
   constellationNameById,
   constellationProjectById,
   canManage,
+  canReviewInbox,
   onNavigateHome,
   onOpenProject,
+  onOpenInbox,
   onCreate,
   onOpen,
   onRename,
@@ -93,6 +108,27 @@ export function VidgetsPage({
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [renameId, setRenameId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const [shareVidgetId, setShareVidgetId] = useState<string | null>(null);
+
+  const captureVersion = useSyncExternalStore(
+    subscribeVidgetInboxCapture,
+    getVidgetInboxCaptureVersion,
+    () => 0,
+  );
+  const accessibleVidgetIds = useMemo(
+    () => new Set(vidgets.map((item) => item.id)),
+    [vidgets],
+  );
+  const accessibleInboxSessions = useMemo(
+    () => getVidgetInboxSessionsForProject(projectId, accessibleVidgetIds),
+    [projectId, accessibleVidgetIds, captureVersion],
+  );
+  const vidgetShare = shareVidgetId
+    ? vidgetShareScope(shareVidgetId, accessibleInboxSessions)
+    : null;
+  const sharingVidgetName = shareVidgetId
+    ? vidgets.find((item) => item.id === shareVidgetId)?.name
+    : undefined;
 
   function sourceFor(item: VidgetRecord) {
     const constellationId = item.constellationId;
@@ -191,14 +227,6 @@ export function VidgetsPage({
           />
         }
         guide={VIDGETS_GUIDANCE.listPageDescription}
-        context={
-          <p
-            className="luxia-type-caption"
-            style={{ color: "var(--luxia-text-secondary)" }}
-          >
-            {VIDGETS_GUIDANCE.listPageRule}
-          </p>
-        }
         primaryAction={
           canManage ? (
             <Button
@@ -215,6 +243,15 @@ export function VidgetsPage({
       />
 
       <LuxiaPageBody>
+        {canReviewInbox ? (
+          <VidgetsCollectionNav
+            active="all"
+            showInbox
+            onChange={(view) => {
+              if (view === "inbox") onOpenInbox?.();
+            }}
+          />
+        ) : null}
         {vidgets.length === 0 ? (
           <div className="py-10">
             <div className="space-y-1.5">
@@ -302,7 +339,7 @@ export function VidgetsPage({
                     return (
                       <li
                         key={item.id}
-                        className="luxia-settings-row is-interactive flex flex-wrap items-start gap-3 px-4 py-4"
+                        className="luxia-settings-row is-interactive group/vidget flex flex-wrap items-start gap-3 px-4 py-4"
                       >
                         <button
                           type="button"
@@ -361,6 +398,23 @@ export function VidgetsPage({
                           </div>
                         </button>
 
+                        {canReviewInbox ? (
+                          <Button
+                            type="button"
+                            variant="tertiary"
+                            size="compact"
+                            className="mt-0.5 shrink-0 opacity-100 lg:opacity-0 lg:group-hover/vidget:opacity-100 lg:group-focus-within/vidget:opacity-100"
+                            aria-label={`Share conversations for ${item.name}`}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setShareVidgetId(item.id);
+                            }}
+                          >
+                            <Share2 size={14} strokeWidth={1.8} aria-hidden className="shrink-0" />
+                            Share
+                          </Button>
+                        ) : null}
+
                         <LuxiaEntityOptionsMenu
                           entityLabel={item.name}
                           entityType="Vidget"
@@ -371,6 +425,20 @@ export function VidgetsPage({
                               label: canManage ? "Edit" : "View details",
                               onSelect: () => onOpen(item.id),
                             },
+                            ...(canReviewInbox && onOpenInbox
+                              ? [
+                                  {
+                                    id: "review-conversations",
+                                    label: "Review conversations",
+                                    onSelect: () => onOpenInbox(item.id),
+                                  },
+                                  {
+                                    id: "share-conversations",
+                                    label: "Share conversations",
+                                    onSelect: () => setShareVidgetId(item.id),
+                                  },
+                                ]
+                              : []),
                             ...(canManage
                               ? [
                                   {
@@ -494,6 +562,23 @@ export function VidgetsPage({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <InboxShareDialog
+        open={vidgetShare !== null}
+        onOpenChange={(open) => {
+          if (!open) setShareVidgetId(null);
+        }}
+        scope={vidgetShare}
+        vidgetNames={sharingVidgetName ? [sharingVidgetName] : []}
+        vidgetName={sharingVidgetName}
+        onShare={(anonymous) => {
+          if (!vidgetShare) return;
+          createVidgetInboxReviewShare({
+            projectId,
+            scope: vidgetShare,
+            anonymous,
+          });
+        }}
+      />
     </LuxiaPageFrame>
   );
 }

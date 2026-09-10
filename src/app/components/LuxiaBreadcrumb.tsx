@@ -10,6 +10,7 @@ export type LuxiaBreadcrumbDestination =
   | { kind: "virtual-assistant"; projectId: string; virtualAssistantId?: string }
   | { kind: "organization-users" }
   | { kind: "vidgets"; projectId: string }
+  | { kind: "vidget-inbox"; projectId: string }
   | { kind: "access-levels" }
   | { kind: "data-sources" }
   | { kind: "members"; projectId: string }
@@ -34,6 +35,7 @@ export interface LuxiaBreadcrumbHandlers {
   onVirtualAssistant?: (projectId: string, virtualAssistantId?: string) => void;
   onOrganizationUsers?: () => void;
   onVidgets?: (projectId: string) => void;
+  onVidgetInbox?: (projectId: string) => void;
   onAccessLevels?: () => void;
   onDataSources?: () => void;
   onMembers?: (projectId: string) => void;
@@ -74,6 +76,10 @@ function resolveNavigate(
     case "vidgets":
       return handlers.onVidgets
         ? () => handlers.onVidgets!(destination.projectId)
+        : undefined;
+    case "vidget-inbox":
+      return handlers.onVidgetInbox
+        ? () => handlers.onVidgetInbox!(destination.projectId)
         : undefined;
     case "data-sources":
       return handlers.onDataSources;

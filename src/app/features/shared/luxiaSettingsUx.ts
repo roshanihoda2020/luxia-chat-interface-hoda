@@ -113,6 +113,8 @@ export const LUXIA_SETTINGS_SECTION_SURFACE_CLASS = "luxia-settings-section-surf
 
 export const LUXIA_SETTINGS_LIST_SURFACE_CLASS = "luxia-settings-list-surface";
 
+export const LUXIA_SETTINGS_TABLE_SURFACE_CLASS = "luxia-settings-table-surface";
+
 export const LUXIA_SETTINGS_ROW_DIVIDER = {
   borderTop: "1px solid var(--luxia-settings-row-divider)",
 } as const;

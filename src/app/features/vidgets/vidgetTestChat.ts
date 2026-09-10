@@ -1,4 +1,5 @@
 import { getConstellationSettingsRecord } from "@/app/features/constellation-settings/data";
+import type { VidgetInboxFeedback } from "@/app/features/vidget-inbox/types";
 import { normalizeGalaxyConstellationIds } from "./data";
 import type { VidgetRecord } from "./types";
 
@@ -8,6 +9,7 @@ export type VidgetTestMessage = {
   id: string;
   role: VidgetTestMessageRole;
   content: string;
+  feedback?: VidgetInboxFeedback;
 };
 
 export type VidgetTestConstellationRef = {
@@ -173,11 +175,39 @@ function buildGalaxyScopedAnswer(
   ].join("\n\n");
 }
 
+export type VidgetTestResponse =
+  | {
+      ok: true;
+      content: string;
+      constellationId: string | null;
+      sources: { id: string; label: string }[];
+    }
+  | { ok: false; error: string };
+
+function sourcesFromConstellation(
+  constellation: VidgetTestConstellationRef,
+): { id: string; label: string }[] {
+  return constellation.connectedSourceNames.map((name, index) => ({
+    id: `${constellation.id}-src-${index}`,
+    label: name,
+  }));
+}
+
+function resolveMatchedConstellation(
+  record: Pick<VidgetRecord, "sourceType">,
+  scoped: VidgetTestConstellationRef[],
+  userMessage: string,
+): VidgetTestConstellationRef | null {
+  if (scoped.length === 0) return null;
+  if (record.sourceType === "constellation") return scoped[0]!;
+  return pickGalaxyMatch(userMessage, scoped);
+}
+
 export async function requestVidgetTestResponse(input: {
   record: VidgetRecord;
   userMessage: string;
   context: VidgetTestContextInput;
-}): Promise<{ ok: true; content: string } | { ok: false; error: string }> {
+}): Promise<VidgetTestResponse> {
   const trimmed = input.userMessage.trim();
   if (!trimmed) {
     return { ok: false, error: "Enter a message to test this Vidget." };
@@ -205,9 +235,18 @@ export async function requestVidgetTestResponse(input: {
 
   await new Promise((resolve) => window.setTimeout(resolve, RESPONSE_DELAY_MS));
 
+  const matched = resolveMatchedConstellation(input.record, scoped, trimmed);
+  if (!matched) {
+    return {
+      ok: false,
+      error:
+        "Source unavailable. This Vidget cannot be tested until its source is available.",
+    };
+  }
+
   let content: string;
   if (input.record.sourceType === "constellation") {
-    content = buildConstellationAnswer(scoped[0]!, trimmed);
+    content = buildConstellationAnswer(matched, trimmed);
   } else {
     content = buildGalaxyScopedAnswer(
       scoped,
@@ -219,5 +258,10 @@ export async function requestVidgetTestResponse(input: {
   content = appendInstructionPrefix(content, input.record.vidgetInstruction);
   content = appendLanguageNote(content, input.record.language);
 
-  return { ok: true, content };
+  return {
+    ok: true,
+    content,
+    constellationId: matched.id,
+    sources: sourcesFromConstellation(matched),
+  };
 }

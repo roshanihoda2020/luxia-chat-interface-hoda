@@ -14,6 +14,16 @@ export const VIDGET_SETTINGS_SECTIONS: {
   { id: "publish", label: "Publish" },
 ];
 
+export type VidgetsCollectionViewId = "all" | "inbox";
+
+export const VIDGETS_COLLECTION_VIEWS: {
+  id: VidgetsCollectionViewId;
+  label: string;
+}[] = [
+  { id: "all", label: "All Vidgets" },
+  { id: "inbox", label: "Inbox" },
+];
+
 export const VIDGETS_GUIDANCE = {
   listPageDescription:
     "Create and manage AI experiences connected to this Project.",
@@ -21,6 +31,8 @@ export const VIDGETS_GUIDANCE = {
     "A Vidget uses this Project’s Galaxy or one Constellation as its AI source.",
   settingsPageDescription:
     "Configure how this external Luxia experience looks and behaves.",
+  inboxPageDescription:
+    "Review, share, and refine Vidget conversations.",
   pageVariant: "wide" as const,
   listPageVariant: "standard" as const,
 } as const;

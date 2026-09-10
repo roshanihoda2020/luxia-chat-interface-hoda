@@ -49,20 +49,25 @@ export type { VidgetSourceContext, VidgetSourceDisplay, VidgetScopeItem, VidgetC
 
 export {
   VIDGET_MANAGE_DENIED_MESSAGE,
+  VIDGET_INBOX_DENIED_MESSAGE,
   canManageVidgets,
+  canReviewVidgetInbox,
 } from "./access";
 
 export {
   VIDGETS_GUIDANCE,
+  VIDGETS_COLLECTION_VIEWS,
   VIDGET_SETTINGS_SECTIONS,
   parseVidgetSettingsTabFromSearch,
   vidgetSettingsSectionToTab,
   normalizeVidgetSettingsSection,
 } from "./ia";
-export type { VidgetSettingsSectionId } from "./ia";
+export type { VidgetSettingsSectionId, VidgetsCollectionViewId } from "./ia";
 
 export { VidgetsPage } from "./VidgetsPage";
 export type { VidgetsPageProps } from "./VidgetsPage";
+
+export { VidgetsCollectionNav } from "./VidgetsCollectionNav";
 
 export { VidgetSettingsPage } from "./VidgetSettingsPage";
 export type { VidgetSettingsPageProps } from "./VidgetSettingsPage";

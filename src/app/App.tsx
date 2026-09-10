@@ -55,6 +55,7 @@ import {
   getProjectMembersPath,
   getProjectVidgetsPath,
   getVidgetSettingsPath,
+  getVidgetInboxPath,
   getAccessLevelsPath,
   getAccessLevelPath,
   getOrganizationUsersPath,
@@ -234,7 +235,9 @@ import {
   getVidgetForProject,
   resolveVidgetSourceDisplay,
   canManageVidgets,
+  canReviewVidgetInbox,
   VIDGET_MANAGE_DENIED_MESSAGE,
+  VIDGET_INBOX_DENIED_MESSAGE,
   resolveVidgetCreateSource,
   withLockedVidgetSource,
   validateVidgetScopeForProject,
@@ -247,6 +250,14 @@ import {
   type VidgetSettingsSectionId,
   type CreateVidgetSubmitPayload,
 } from "@/app/features/vidgets";
+import {
+  VidgetInboxPage,
+  serializeVidgetInboxQuery,
+  parseVidgetInboxQueryFromSearch,
+  vidgetInboxQueryFromPartial,
+  type VidgetInboxQuery,
+  type VidgetInboxRefinePayload,
+} from "@/app/features/vidget-inbox";
 import { parseLuxiaRelativeTimestamp } from "@/app/features/project-overview/projectOverviewPreview";
 import {
   LuxiaBreadcrumb,
@@ -728,6 +739,7 @@ type LuxiaAppView =
   | "galaxy-settings"
   | "project-members"
   | "project-vidgets"
+  | "vidget-inbox"
   | "vidget-settings"
   | "organization-users"
   | "organization-user"
@@ -4134,6 +4146,8 @@ export default function App() {
   );
   const [vidgetsState, setVidgetsState] = useState(() => SEED_VIDGETS.map(cloneVidget));
   const [vidgetId, setVidgetId] = useState<string | null>(null);
+  const [vidgetInboxSessionId, setVidgetInboxSessionId] = useState<string | null>(null);
+  const [vidgetInboxSearch, setVidgetInboxSearch] = useState("");
   const [dashboardFocusOutputId, setDashboardFocusOutputId] = useState<string | null>(null);
   const [activeDashboardOutputId, setActiveDashboardOutputId] = useState<string | null>(null);
   const [dashboardViewResetKey, setDashboardViewResetKey] = useState(0);
@@ -4295,6 +4309,8 @@ export default function App() {
       setSettingsSection("general");
       setGalaxySettingsSection("general");
       setVidgetId(null);
+      setVidgetInboxSessionId(null);
+      setVidgetInboxSearch("");
       setVidgetSettingsSection("general");
       setAccessLevelId(null);
       setOrganizationUserId(null);
@@ -4439,7 +4455,43 @@ export default function App() {
         setDataSourceSettingsId(null);
         setVidgetId(null);
         setVidgetSettingsSection("general");
+        setVidgetInboxSessionId(null);
+        setVidgetInboxSearch("");
         setAppView("project-vidgets");
+        return;
+      }
+
+      if (resolved.kind === "vidget-inbox") {
+        const parsed = parseVidgetInboxQueryFromSearch(search);
+        const sessionId = parsed.sessionId || resolved.sessionId || "";
+        const query = { ...parsed, sessionId };
+        const nextSearch = serializeVidgetInboxQuery(query);
+        setActiveProjectId(resolved.projectId);
+        setSettingsConstellationId(null);
+        setSettingsCapabilityPath(null);
+        setAccessLevelId(null);
+        setOrganizationUserId(null);
+        setDataSourceSettingsId(null);
+        setVidgetId(null);
+        setVidgetSettingsSection("general");
+        setVidgetInboxSessionId(sessionId || null);
+        setVidgetInboxSearch(nextSearch ? `?${nextSearch}` : "");
+        setAppView("vidget-inbox");
+        if (typeof window !== "undefined" && resolved.sessionId) {
+          const canonical = getVidgetInboxPath(resolved.projectId, { search: nextSearch });
+          const current = `${window.location.pathname}${window.location.search}`;
+          if (current !== canonical) {
+            window.history.replaceState(
+              {
+                luxiaView: "vidget-inbox",
+                projectId: resolved.projectId,
+                sessionId: sessionId || null,
+              },
+              "",
+              canonical,
+            );
+          }
+        }
         return;
       }
 
@@ -4698,7 +4750,7 @@ export default function App() {
     || appView === "data-sources"
     || appView === "data-source-settings"
     ? null
-    : appView === "project" || appView === "constellation-create" || appView === "constellation-settings" || appView === "galaxy-settings" || appView === "project-members" || appView === "project-vidgets" || appView === "vidget-settings"
+    : appView === "project" || appView === "constellation-create" || appView === "constellation-settings" || appView === "galaxy-settings" || appView === "project-members" || appView === "project-vidgets" || appView === "vidget-inbox" || appView === "vidget-settings"
       ? activeProjectId
       : (activeData?.projectId ?? activeProjectId);
 
@@ -4719,7 +4771,7 @@ export default function App() {
     if (appView === "galaxy-settings") return "galaxy";
     if (appView === "constellation-create") return "constellations";
     if (appView === "project-members") return "members";
-    if (appView === "project-vidgets" || appView === "vidget-settings") return "vidgets";
+    if (appView === "project-vidgets" || appView === "vidget-inbox" || appView === "vidget-settings") return "vidgets";
     if (appView === "chat") {
       if (activeData?.chatType === "galaxy") return "galaxy";
       return "chats";
@@ -5098,11 +5150,57 @@ export default function App() {
     setActiveProjectId(projectId);
     setVidgetId(null);
     setVidgetSettingsSection("general");
+    setVidgetInboxSessionId(null);
+    setVidgetInboxSearch("");
     setAppView("project-vidgets");
     if (typeof window !== "undefined") {
       const next = getProjectVidgetsPath(projectId);
       if (window.location.pathname !== next) {
         window.history.pushState({ luxiaView: "project-vidgets", projectId }, "", next);
+      }
+    }
+  }
+
+  function handleOpenVidgetInbox(
+    projectId: string,
+    options?: {
+      sessionId?: string | null;
+      query?: Partial<VidgetInboxQuery>;
+      search?: string;
+      history?: "push" | "replace";
+    },
+  ) {
+    if (!canAccessProject(projectId, projectMembershipsState, prototypeUserId)) {
+      handleNavigateHome();
+      return;
+    }
+    if (!canReviewVidgetInbox(projectRoleFor(projectId))) {
+      toast.error(VIDGET_INBOX_DENIED_MESSAGE);
+      handleOpenProjectVidgets(projectId);
+      return;
+    }
+    const parsed = options?.search
+      ? parseVidgetInboxQueryFromSearch(options.search)
+      : vidgetInboxQueryFromPartial(options?.query);
+    const query = options && Object.prototype.hasOwnProperty.call(options, "sessionId")
+      ? { ...parsed, sessionId: options.sessionId?.trim() || "" }
+      : parsed;
+    const search = serializeVidgetInboxQuery(query);
+    const sessionId = query.sessionId || null;
+    setActiveProjectId(projectId);
+    setVidgetId(null);
+    setVidgetInboxSessionId(sessionId);
+    setVidgetInboxSearch(search ? `?${search}` : "");
+    setAppView("vidget-inbox");
+    if (typeof window !== "undefined") {
+      const next = getVidgetInboxPath(projectId, { search });
+      const current = `${window.location.pathname}${window.location.search}`;
+      if (current === next) return;
+      const state = { luxiaView: "vidget-inbox", projectId, sessionId };
+      if (options?.history === "replace") {
+        window.history.replaceState(state, "", next);
+      } else {
+        window.history.pushState(state, "", next);
       }
     }
   }
@@ -5830,6 +5928,7 @@ export default function App() {
       appView === "project"
       || appView === "project-members"
       || appView === "project-vidgets"
+      || appView === "vidget-inbox"
       || appView === "vidget-settings"
       || appView === "constellation-settings"
       || appView === "galaxy-settings"
@@ -5839,6 +5938,19 @@ export default function App() {
     if (!canAccessProject(projectId, projectMembershipsState, userId) && onProjectSurface) {
       handleNavigateHome();
       return;
+    }
+
+    if (appView === "vidget-inbox") {
+      const membership = getActiveProjectMembership(
+        projectId,
+        projectMembershipsState,
+        userId,
+      );
+      if (!canReviewVidgetInbox(membership?.projectRole)) {
+        toast.error(VIDGET_INBOX_DENIED_MESSAGE);
+        handleOpenProjectVidgets(projectId);
+        return;
+      }
     }
 
     if (appView === "chat") {
@@ -7186,6 +7298,55 @@ export default function App() {
     syncWorkspacePathForChat({
       id,
       chatType: payload.chatType,
+      projectId: payload.projectId,
+      constellationId: payload.constellationId,
+    });
+  }
+
+  function handleRefineInboxInteraction(payload: VidgetInboxRefinePayload) {
+    if (!assertConstellationUseAccess(payload.projectId, payload.constellationId)) {
+      return;
+    }
+    const id = `c${Date.now()}`;
+    const n = chats.length + 1;
+    const now = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+    setChats((prev) => [...prev, {
+      id,
+      label: `Chat ${n}`,
+      chatType: "constellation",
+      projectId: payload.projectId,
+      constellationId: payload.constellationId,
+    }]);
+    const seeded: Message[] = [];
+    if (payload.question.trim()) {
+      seeded.push({
+        id: `${id}-user`,
+        role: "user",
+        content: payload.question,
+        timestamp: now,
+      });
+    }
+    if (payload.answer.trim() || payload.presentation === "block") {
+      seeded.push({
+        id: `${id}-ai`,
+        role: "ai",
+        content: payload.answer,
+        timestamp: now,
+        sources: payload.sources,
+        responsePresentation: {
+          state: payload.presentation,
+          notice: payload.notice,
+        },
+      });
+    }
+    setChatMessages((prev) => ({ ...prev, [id]: seeded }));
+    setInputValue(payload.question);
+    setActiveProjectId(payload.projectId);
+    setActiveChat(id);
+    setAppView("chat");
+    syncWorkspacePathForChat({
+      id,
+      chatType: "constellation",
       projectId: payload.projectId,
       constellationId: payload.constellationId,
     });
@@ -8882,8 +9043,14 @@ export default function App() {
                   constellationNameById={constellationNameById}
                   constellationProjectById={constellationProjectById}
                   canManage={canManageVidgets(projectRoleFor(projectId))}
+                  canReviewInbox={canReviewVidgetInbox(projectRoleFor(projectId))}
                   onNavigateHome={handleNavigateHome}
                   onOpenProject={(pid) => handleOpenProjectOverview(pid, "overview")}
+                  onOpenInbox={(id) =>
+                    handleOpenVidgetInbox(projectId, {
+                      query: id ? { vidgetId: id } : undefined,
+                    })
+                  }
                   onCreate={() => handleOpenCreateVidget(projectId, { kind: "choose" })}
                   onOpen={(id) => handleOpenVidgetSettings(projectId, id)}
                   onPreview={(id) =>
@@ -8930,6 +9097,47 @@ export default function App() {
                     );
                     toast.success("Vidget deleted");
                   }}
+                />
+              );
+            })()}
+          </HomePageShell>
+        ) : appView === "vidget-inbox" && activeProjectId ? (
+          <HomePageShell
+            scrollRequest={homeScrollRequest}
+            framed={false}
+            containLayout
+          >
+            {(() => {
+              const projectId = activeProjectId;
+              const constellationTypeById = Object.fromEntries(
+                allConstellations.map((item) => [item.id, item.type]),
+              );
+              return (
+                <VidgetInboxPage
+                  projectId={projectId}
+                  projectName={getProjectNameById(projectId, homeProjects)}
+                  sessionId={vidgetInboxSessionId}
+                  search={vidgetInboxSearch}
+                  vidgets={getVidgetsForProject(projectId, vidgetsState)}
+                  constellationNameById={constellationNameById}
+                  constellationTypeById={constellationTypeById}
+                  canReview={canReviewVidgetInbox(projectRoleFor(projectId))}
+                  canManage={canManageVidgets(projectRoleFor(projectId))}
+                  onNavigateHome={handleNavigateHome}
+                  onOpenProject={(pid) => handleOpenProjectOverview(pid, "overview")}
+                  onOpenVidgets={handleOpenProjectVidgets}
+                  onCreateVidget={
+                    canManageVidgets(projectRoleFor(projectId))
+                      ? () => handleOpenCreateVidget(projectId, { kind: "choose" })
+                      : undefined
+                  }
+                  onNavigateInbox={({ query, history }) =>
+                    handleOpenVidgetInbox(projectId, {
+                      query,
+                      history,
+                    })
+                  }
+                  onRefine={handleRefineInboxInteraction}
                 />
               );
             })()}
