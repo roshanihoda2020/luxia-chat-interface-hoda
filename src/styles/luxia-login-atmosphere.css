@@ -1,0 +1,980 @@
+/*
+ * Login atmosphere depth — far field + mid cloud + brand compose + logo depth.
+ * Same pixel lattice as LUXIA. Soft opacity only (no blur blob / hard mask edge).
+ * Parallax via --luxia-para-x / --luxia-para-y (−1…1), desktop/fine-pointer only.
+ */
+
+.luxia-login-environment {
+  --luxia-para-x: 0;
+  --luxia-para-y: 0;
+}
+
+
+/* Outer falloff — lockup-centered irregular envelopes (no full-screen wallpaper band) */
+.luxia-login-environment-field {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-composite: source-over;
+  mask-composite: add;
+}
+
+/* Far envelope: barely reaches beyond brand; edges dissolve to empty */
+.luxia-login-environment-field--far {
+  z-index: 1;
+  -webkit-mask-image:
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 1.15)
+        calc(var(--luxia-login-lockup-height) * 2.1)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.28)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.55),
+      rgba(0, 0, 0, 0.55) 0%,
+      rgba(0, 0, 0, 0.18) 42%,
+      transparent 78%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.7)
+        calc(var(--luxia-login-lockup-height) * 1.5)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.58)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.4),
+      rgba(0, 0, 0, 0.4) 0%,
+      rgba(0, 0, 0, 0.12) 48%,
+      transparent 80%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.35)
+        calc(var(--luxia-login-lockup-height) * 0.9)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.08)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.72),
+      rgba(0, 0, 0, 0.28) 0%,
+      transparent 82%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.22)
+        calc(var(--luxia-login-lockup-height) * 0.55)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.42)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 1.05),
+      rgba(0, 0, 0, 0.16) 0%,
+      transparent 85%
+    );
+  mask-image:
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 1.15)
+        calc(var(--luxia-login-lockup-height) * 2.1)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.28)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.55),
+      rgba(0, 0, 0, 0.55) 0%,
+      rgba(0, 0, 0, 0.18) 42%,
+      transparent 78%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.7)
+        calc(var(--luxia-login-lockup-height) * 1.5)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.58)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.4),
+      rgba(0, 0, 0, 0.4) 0%,
+      rgba(0, 0, 0, 0.12) 48%,
+      transparent 80%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.35)
+        calc(var(--luxia-login-lockup-height) * 0.9)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.08)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.72),
+      rgba(0, 0, 0, 0.28) 0%,
+      transparent 82%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.22)
+        calc(var(--luxia-login-lockup-height) * 0.55)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.42)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 1.05),
+      rgba(0, 0, 0, 0.16) 0%,
+      transparent 85%
+    );
+}
+
+/* Mid envelope: tighter around lockup; hard dissolve toward card / page edges */
+.luxia-login-environment-field--mid {
+  z-index: 1;
+  -webkit-mask-image:
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.88)
+        calc(var(--luxia-login-lockup-height) * 1.55)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.3)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.56),
+      #000 0%,
+      rgba(0, 0, 0, 0.5) 30%,
+      rgba(0, 0, 0, 0.12) 55%,
+      transparent 78%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.48)
+        calc(var(--luxia-login-lockup-height) * 1.25)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.62)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.38),
+      rgba(0, 0, 0, 0.8) 0%,
+      rgba(0, 0, 0, 0.28) 38%,
+      transparent 74%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.36)
+        calc(var(--luxia-login-lockup-height) * 1.05)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.08)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.62),
+      rgba(0, 0, 0, 0.65) 0%,
+      rgba(0, 0, 0, 0.18) 46%,
+      transparent 76%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.28)
+        calc(var(--luxia-login-lockup-height) * 0.62)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.4)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.95),
+      rgba(0, 0, 0, 0.35) 0%,
+      transparent 78%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.24)
+        calc(var(--luxia-login-lockup-height) * 0.58)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.22)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.18),
+      rgba(0, 0, 0, 0.3) 0%,
+      transparent 76%
+    );
+  mask-image:
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.88)
+        calc(var(--luxia-login-lockup-height) * 1.55)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.3)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.56),
+      #000 0%,
+      rgba(0, 0, 0, 0.5) 30%,
+      rgba(0, 0, 0, 0.12) 55%,
+      transparent 78%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.48)
+        calc(var(--luxia-login-lockup-height) * 1.25)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.62)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.38),
+      rgba(0, 0, 0, 0.8) 0%,
+      rgba(0, 0, 0, 0.28) 38%,
+      transparent 74%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.36)
+        calc(var(--luxia-login-lockup-height) * 1.05)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.08)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.62),
+      rgba(0, 0, 0, 0.65) 0%,
+      rgba(0, 0, 0, 0.18) 46%,
+      transparent 76%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.28)
+        calc(var(--luxia-login-lockup-height) * 0.62)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.4)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.95),
+      rgba(0, 0, 0, 0.35) 0%,
+      transparent 78%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.24)
+        calc(var(--luxia-login-lockup-height) * 0.58)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.22)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.18),
+      rgba(0, 0, 0, 0.3) 0%,
+      transparent 76%
+    );
+}
+
+/* Shared pixel lattice (matches lockup SVG cell / radius) */
+.luxia-login-environment-dots {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--luxia-purple-40) 52%, #0c0614)
+      var(--luxia-login-pixel-radius),
+    transparent calc(var(--luxia-login-pixel-radius) * 1.18)
+  );
+  background-size: var(--luxia-login-pixel-cell) var(--luxia-login-pixel-cell);
+  background-position: var(--luxia-login-lockup-left) var(--luxia-login-lockup-top);
+  background-repeat: repeat;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-composite: source-over;
+  mask-composite: add;
+  will-change: transform;
+}
+
+/*
+ * FAR — no uniform base fill. Only sparse dust; almost gone at distance.
+ * Effective ≈ 0.5–2% near periphery; isolated flecks only farther out.
+ */
+.luxia-login-environment-dots--far {
+  z-index: 1;
+  opacity: 0.045;
+  transform: translate3d(
+    calc(var(--luxia-para-x, 0) * 1.75px),
+    calc(var(--luxia-para-y, 0) * 1.5px),
+    0
+  );
+  -webkit-mask-image:
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.18)
+        calc(var(--luxia-login-lockup-height) * 0.55)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.12)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.48),
+      rgba(0, 0, 0, 0.35) 0%,
+      transparent 88%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.14)
+        calc(var(--luxia-login-lockup-height) * 0.4)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.4)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.3),
+      rgba(0, 0, 0, 0.28) 0%,
+      transparent 90%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.12)
+        calc(var(--luxia-login-lockup-height) * 0.45)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.7)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.58),
+      rgba(0, 0, 0, 0.26) 0%,
+      transparent 90%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.08)
+        calc(var(--luxia-login-lockup-height) * 0.28)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * -0.12)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.35),
+      rgba(0, 0, 0, 0.2) 0%,
+      transparent 86%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.07)
+        calc(var(--luxia-login-lockup-height) * 0.22)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.55)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 1.2),
+      rgba(0, 0, 0, 0.16) 0%,
+      transparent 88%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.06)
+        calc(var(--luxia-login-lockup-height) * 0.2)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.25)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * -0.15),
+      rgba(0, 0, 0, 0.14) 0%,
+      transparent 88%
+    );
+  mask-image:
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.18)
+        calc(var(--luxia-login-lockup-height) * 0.55)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.12)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.48),
+      rgba(0, 0, 0, 0.35) 0%,
+      transparent 88%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.14)
+        calc(var(--luxia-login-lockup-height) * 0.4)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.4)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.3),
+      rgba(0, 0, 0, 0.28) 0%,
+      transparent 90%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.12)
+        calc(var(--luxia-login-lockup-height) * 0.45)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.7)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.58),
+      rgba(0, 0, 0, 0.26) 0%,
+      transparent 90%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.08)
+        calc(var(--luxia-login-lockup-height) * 0.28)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * -0.12)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.35),
+      rgba(0, 0, 0, 0.2) 0%,
+      transparent 86%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.07)
+        calc(var(--luxia-login-lockup-height) * 0.22)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.55)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 1.2),
+      rgba(0, 0, 0, 0.16) 0%,
+      transparent 88%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.06)
+        calc(var(--luxia-login-lockup-height) * 0.2)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.25)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * -0.15),
+      rgba(0, 0, 0, 0.14) 0%,
+      transparent 88%
+    );
+}
+
+/*
+ * MID — irregular atmospheric cloud around LUXIA (pixel density only).
+ * Letter/star pockets + gaps + soft outer dissolve. No uniform base.
+ * Peaks ≈ 12–20% near lockup; sparse isolates outside.
+ */
+.luxia-login-environment-dots--mid {
+  z-index: 1;
+  opacity: 0.42;
+  transform: translate3d(
+    calc(var(--luxia-para-x, 0) * 3.2px),
+    calc(var(--luxia-para-y, 0) * 2.8px),
+    0
+  );
+  -webkit-mask-image:
+    /* L / U denser pocket */
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.28)
+        calc(var(--luxia-login-lockup-height) * 1.2)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.04)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.6),
+      rgba(0, 0, 0, 0.72) 0%,
+      rgba(0, 0, 0, 0.28) 40%,
+      transparent 86%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.2)
+        calc(var(--luxia-login-lockup-height) * 0.95)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.14)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.56),
+      rgba(0, 0, 0, 0.65) 0%,
+      rgba(0, 0, 0, 0.22) 44%,
+      transparent 88%
+    ),
+    /* Gap / thinner U→X */
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.12)
+        calc(var(--luxia-login-lockup-height) * 0.6)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.24)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.68),
+      rgba(0, 0, 0, 0.28) 0%,
+      transparent 86%
+    ),
+    /* X concentration */
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.22)
+        calc(var(--luxia-login-lockup-height) * 0.92)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.34)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.54),
+      rgba(0, 0, 0, 0.78) 0%,
+      rgba(0, 0, 0, 0.3) 38%,
+      transparent 86%
+    ),
+    /* I lighter */
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.09)
+        calc(var(--luxia-login-lockup-height) * 0.8)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.43)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.6),
+      rgba(0, 0, 0, 0.32) 0%,
+      transparent 84%
+    ),
+    /* A varying */
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.2)
+        calc(var(--luxia-login-lockup-height) * 0.85)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.5)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.58),
+      rgba(0, 0, 0, 0.62) 0%,
+      rgba(0, 0, 0, 0.2) 46%,
+      transparent 88%
+    ),
+    /* Irregular A↔star bridge */
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.16)
+        calc(var(--luxia-login-lockup-height) * 0.48)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.58)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.46),
+      rgba(0, 0, 0, 0.48) 0%,
+      rgba(0, 0, 0, 0.12) 50%,
+      transparent 88%
+    ),
+    /* Star — irregular, not round halo */
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.18)
+        calc(var(--luxia-login-lockup-height) * 1.05)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.7)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.34),
+      rgba(0, 0, 0, 0.8) 0%,
+      rgba(0, 0, 0, 0.28) 38%,
+      transparent 86%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.1)
+        calc(var(--luxia-login-lockup-height) * 0.4)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.8)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.52),
+      rgba(0, 0, 0, 0.4) 0%,
+      transparent 84%
+    ),
+    /* Extensions above word */
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.12)
+        calc(var(--luxia-login-lockup-height) * 0.45)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.12)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.24),
+      rgba(0, 0, 0, 0.38) 0%,
+      transparent 86%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.16)
+        calc(var(--luxia-login-lockup-height) * 0.38)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.38)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.16),
+      rgba(0, 0, 0, 0.3) 0%,
+      transparent 88%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.14)
+        calc(var(--luxia-login-lockup-height) * 0.42)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.64)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.1),
+      rgba(0, 0, 0, 0.36) 0%,
+      transparent 86%
+    ),
+    /* Scattered pockets below */
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.14)
+        calc(var(--luxia-login-lockup-height) * 0.35)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.16)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.92),
+      rgba(0, 0, 0, 0.28) 0%,
+      transparent 88%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.18)
+        calc(var(--luxia-login-lockup-height) * 0.32)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.46)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.98),
+      rgba(0, 0, 0, 0.22) 0%,
+      transparent 88%
+    ),
+    /* Isolated flecks outside main cloud */
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.045)
+        calc(var(--luxia-login-lockup-height) * 0.16)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * -0.1)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.42),
+      rgba(0, 0, 0, 0.32) 0%,
+      transparent 80%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.04)
+        calc(var(--luxia-login-lockup-height) * 0.14)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.92)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.7),
+      rgba(0, 0, 0, 0.24) 0%,
+      transparent 78%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.04)
+        calc(var(--luxia-login-lockup-height) * 0.15)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.3)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.02),
+      rgba(0, 0, 0, 0.22) 0%,
+      transparent 78%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.038)
+        calc(var(--luxia-login-lockup-height) * 0.13)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.58)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 1.15),
+      rgba(0, 0, 0, 0.18) 0%,
+      transparent 78%
+    );
+  mask-image:
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.28)
+        calc(var(--luxia-login-lockup-height) * 1.2)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.04)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.6),
+      rgba(0, 0, 0, 0.72) 0%,
+      rgba(0, 0, 0, 0.28) 40%,
+      transparent 86%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.2)
+        calc(var(--luxia-login-lockup-height) * 0.95)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.14)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.56),
+      rgba(0, 0, 0, 0.65) 0%,
+      rgba(0, 0, 0, 0.22) 44%,
+      transparent 88%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.12)
+        calc(var(--luxia-login-lockup-height) * 0.6)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.24)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.68),
+      rgba(0, 0, 0, 0.28) 0%,
+      transparent 86%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.22)
+        calc(var(--luxia-login-lockup-height) * 0.92)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.34)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.54),
+      rgba(0, 0, 0, 0.78) 0%,
+      rgba(0, 0, 0, 0.3) 38%,
+      transparent 86%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.09)
+        calc(var(--luxia-login-lockup-height) * 0.8)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.43)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.6),
+      rgba(0, 0, 0, 0.32) 0%,
+      transparent 84%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.2)
+        calc(var(--luxia-login-lockup-height) * 0.85)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.5)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.58),
+      rgba(0, 0, 0, 0.62) 0%,
+      rgba(0, 0, 0, 0.2) 46%,
+      transparent 88%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.16)
+        calc(var(--luxia-login-lockup-height) * 0.48)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.58)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.46),
+      rgba(0, 0, 0, 0.48) 0%,
+      rgba(0, 0, 0, 0.12) 50%,
+      transparent 88%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.18)
+        calc(var(--luxia-login-lockup-height) * 1.05)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.7)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.34),
+      rgba(0, 0, 0, 0.8) 0%,
+      rgba(0, 0, 0, 0.28) 38%,
+      transparent 86%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.1)
+        calc(var(--luxia-login-lockup-height) * 0.4)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.8)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.52),
+      rgba(0, 0, 0, 0.4) 0%,
+      transparent 84%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.12)
+        calc(var(--luxia-login-lockup-height) * 0.45)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.12)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.24),
+      rgba(0, 0, 0, 0.38) 0%,
+      transparent 86%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.16)
+        calc(var(--luxia-login-lockup-height) * 0.38)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.38)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.16),
+      rgba(0, 0, 0, 0.3) 0%,
+      transparent 88%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.14)
+        calc(var(--luxia-login-lockup-height) * 0.42)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.64)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.1),
+      rgba(0, 0, 0, 0.36) 0%,
+      transparent 86%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.14)
+        calc(var(--luxia-login-lockup-height) * 0.35)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.16)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.92),
+      rgba(0, 0, 0, 0.28) 0%,
+      transparent 88%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.18)
+        calc(var(--luxia-login-lockup-height) * 0.32)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.46)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.98),
+      rgba(0, 0, 0, 0.22) 0%,
+      transparent 88%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.045)
+        calc(var(--luxia-login-lockup-height) * 0.16)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * -0.1)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.42),
+      rgba(0, 0, 0, 0.32) 0%,
+      transparent 80%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.04)
+        calc(var(--luxia-login-lockup-height) * 0.14)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.92)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.7),
+      rgba(0, 0, 0, 0.24) 0%,
+      transparent 78%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.04)
+        calc(var(--luxia-login-lockup-height) * 0.15)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.3)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 0.02),
+      rgba(0, 0, 0, 0.22) 0%,
+      transparent 78%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-login-lockup-width) * 0.038)
+        calc(var(--luxia-login-lockup-height) * 0.13)
+        at
+        calc(var(--luxia-login-lockup-left) + var(--luxia-login-lockup-width) * 0.58)
+        calc(var(--luxia-login-lockup-top) + var(--luxia-login-lockup-height) * 1.15),
+      rgba(0, 0, 0, 0.18) 0%,
+      transparent 78%
+    );
+}
+
+.luxia-login-environment-vignette {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(8, 5, 18, 0.55) 0%,
+      transparent 14%,
+      transparent 56%,
+      rgba(8, 5, 18, 0.38) 74%,
+      rgba(8, 5, 18, 0.62) 100%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(8, 5, 18, 0.48) 0%,
+      transparent 16%,
+      transparent 56%,
+      rgba(8, 5, 18, 0.5) 100%
+    );
+}
+
+/* Brand composition: lockup + tagline (left immersive column) */
+.luxia-login-brand-compose {
+  position: absolute;
+  z-index: 2;
+  left: var(--luxia-login-lockup-left);
+  top: var(--luxia-login-lockup-top);
+  width: var(--luxia-login-lockup-width);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  /* Tablet/default — desktop override adds logo→tagline air */
+  gap: clamp(1.35rem, 3.4vh, 2.85rem);
+  transform: translate3d(
+    calc(var(--luxia-para-x, 0) * 0.55px),
+    calc(var(--luxia-para-y, 0) * 0.45px),
+    0
+  );
+  will-change: transform;
+  pointer-events: none;
+}
+
+@media (min-width: 1200px) {
+  .luxia-login-brand-compose {
+    /* ~+35px breathing room vs prior ~22–45px gap */
+    gap: clamp(3.35rem, 5.4vh, 4.5rem);
+  }
+}
+
+.luxia-login-brand-tagline {
+  margin: 0;
+  max-width: min(22rem, 92%);
+  padding-inline-start: 0.15em;
+  font-family: var(--luxia-font-family, var(--font-family));
+  font-size: clamp(13px, 0.85vw, 15px);
+  line-height: 1.45;
+  font-weight: 400;
+  letter-spacing: 0.015em;
+  color: color-mix(in srgb, var(--luxia-purple-20) 68%, var(--luxia-blue-50));
+  opacity: 0.7;
+}
+
+/* Subtle secondary lockup depth replaced by luxia-login-volume.css */
+
+/* Resting logo tonal depth — opacity/color only; same lattice */
+.luxia-login-dotmark__layer--rest {
+  position: relative;
+  z-index: 1;
+  opacity: 0.26;
+}
+
+.luxia-login-dotmark__layer--rest-m {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  opacity: 0.1;
+  pointer-events: none;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-composite: source-over;
+  mask-composite: add;
+  -webkit-mask-image:
+    radial-gradient(ellipse 18% 42% at 12% 62%, #000 0%, #000 28%, transparent 72%),
+    radial-gradient(ellipse 16% 36% at 36% 54%, #000 0%, #000 24%, transparent 70%),
+    radial-gradient(ellipse 14% 40% at 58% 66%, #000 0%, #000 26%, transparent 72%),
+    radial-gradient(ellipse 12% 48% at 78% 38%, #000 0%, #000 24%, transparent 70%);
+  mask-image:
+    radial-gradient(ellipse 18% 42% at 12% 62%, #000 0%, #000 28%, transparent 72%),
+    radial-gradient(ellipse 16% 36% at 36% 54%, #000 0%, #000 24%, transparent 70%),
+    radial-gradient(ellipse 14% 40% at 58% 66%, #000 0%, #000 26%, transparent 72%),
+    radial-gradient(ellipse 12% 48% at 78% 38%, #000 0%, #000 24%, transparent 70%);
+}
+
+.luxia-login-dotmark__layer--rest-h {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  opacity: 0.07;
+  pointer-events: none;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-composite: source-over;
+  mask-composite: add;
+  -webkit-mask-image:
+    radial-gradient(ellipse 10% 28% at 22% 58%, #000 0%, #000 30%, transparent 68%),
+    radial-gradient(ellipse 9% 24% at 48% 52%, #000 0%, #000 28%, transparent 66%),
+    radial-gradient(ellipse 8% 32% at 70% 44%, #000 0%, #000 28%, transparent 66%);
+  mask-image:
+    radial-gradient(ellipse 10% 28% at 22% 58%, #000 0%, #000 30%, transparent 68%),
+    radial-gradient(ellipse 9% 24% at 48% 52%, #000 0%, #000 28%, transparent 66%),
+    radial-gradient(ellipse 8% 32% at 70% 44%, #000 0%, #000 28%, transparent 66%);
+}
+
+.luxia-login-dotmark__layer--rest-b {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  opacity: 0.045;
+  pointer-events: none;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-composite: source-over;
+  mask-composite: add;
+  -webkit-mask-image:
+    radial-gradient(ellipse 6% 16% at 28% 56%, #000 0%, #000 34%, transparent 64%),
+    radial-gradient(ellipse 5% 14% at 62% 48%, #000 0%, #000 32%, transparent 62%),
+    radial-gradient(ellipse 5.5% 18% at 84% 36%, #000 0%, #000 34%, transparent 64%);
+  mask-image:
+    radial-gradient(ellipse 6% 16% at 28% 56%, #000 0%, #000 34%, transparent 64%),
+    radial-gradient(ellipse 5% 14% at 62% 48%, #000 0%, #000 32%, transparent 62%),
+    radial-gradient(ellipse 5.5% 18% at 84% 36%, #000 0%, #000 34%, transparent 64%);
+}
+
+@media (max-width: 1023px) {
+  .luxia-login-environment-dots--far {
+    opacity: 0.055;
+  }
+
+  .luxia-login-environment-dots--mid {
+    opacity: 0.32;
+  }
+}
+
+@media (max-width: 859px) {
+  .luxia-login-brand-compose {
+    left: 50%;
+    top: auto;
+    bottom: -12%;
+    width: var(--luxia-login-lockup-width);
+    transform: translateX(-50%);
+    align-items: center;
+    gap: 0.85rem;
+  }
+
+  .luxia-login-brand-tagline {
+    text-align: center;
+    max-width: 18rem;
+    font-size: 12px;
+    opacity: 0.58;
+  }
+}
+
+@media (max-width: 719px) {
+  .luxia-login-environment-dots--far {
+    opacity: 0.045;
+  }
+
+  .luxia-login-environment-dots--mid {
+    opacity: 0.22;
+  }
+
+  .luxia-login-brand-tagline {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .luxia-login-environment-dots--far,
+  .luxia-login-environment-dots--mid,
+  .luxia-login-brand-compose {
+    transform: none !important;
+  }
+}

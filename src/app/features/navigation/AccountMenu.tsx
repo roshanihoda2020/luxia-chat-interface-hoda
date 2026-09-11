@@ -2,6 +2,7 @@ import {
   Check,
   ChevronDown,
   CircleHelp,
+  LogOut,
   Settings,
   UserRoundCog,
 } from "lucide-react";
@@ -38,6 +39,7 @@ interface AccountMenuProps {
   onPrototypeUserChange?: (userId: string) => void;
   onSettingsClick?: () => void;
   onSupportHelpClick?: () => void;
+  onLogout?: () => void;
 }
 
 export function AccountMenu({
@@ -51,6 +53,7 @@ export function AccountMenu({
   onPrototypeUserChange,
   onSettingsClick,
   onSupportHelpClick,
+  onLogout,
 }: AccountMenuProps) {
   const showPrototypeTools = Boolean(prototypeUsers?.length && onPrototypeUserChange);
 
@@ -151,6 +154,13 @@ export function AccountMenu({
             <CircleHelp aria-hidden />
             Support & Help
           </DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={() => onLogout?.()}
+            className="text-[var(--luxia-brand-secondary)] focus:bg-[var(--luxia-opacity-brand-secondary-08)] focus:text-[var(--luxia-brand-secondary)]"
+          >
+            <LogOut className="text-[var(--luxia-brand-secondary)]" aria-hidden />
+            Logout
+          </DropdownMenuItem>
 
           {showPrototypeTools ? (
             <>
@@ -195,12 +205,6 @@ export function AccountMenu({
               </DropdownMenuSub>
             </>
           ) : null}
-
-          {/*
-            Reserved production slot (final item after a divider):
-            Settings / Support & Help / Prototype tools → Log out.
-            TODO(auth): Add the final account-menu "Log out" action when the real Luxia authentication/session logout handler is available.
-          */}
         </div>
       </DropdownMenuContent>
     </DropdownMenu>

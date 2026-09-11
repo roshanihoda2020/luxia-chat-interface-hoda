@@ -185,6 +185,7 @@ export type LeftNavProps = {
   onPrototypeUserChange?: (userId: string) => void;
   prototypeUsers?: DemoPrototypeUser[];
   onSettingsClick?: () => void;
+  onLogout?: () => void;
   /** Notifies shell when desktop secondary rail open state changes (for content width). */
   onSecondaryRailOpenChange?: (open: boolean) => void;
 };
@@ -874,6 +875,7 @@ export function LeftNav({
   onPrototypeUserChange,
   prototypeUsers,
   onSettingsClick,
+  onLogout,
   onSecondaryRailOpenChange,
 }: LeftNavProps) {
   const reactId = useId();
@@ -1909,6 +1911,7 @@ export function LeftNav({
             prototypeUsers={prototypeUsers}
             onPrototypeUserChange={onPrototypeUserChange}
             onSettingsClick={onSettingsClick}
+            onLogout={onLogout}
           />
         </div>
       </div>

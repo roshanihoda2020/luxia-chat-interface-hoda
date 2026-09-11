@@ -1,0 +1,319 @@
+/*
+ * Edge-contour glitch — tiny clipped silhouette fragments briefly shift
+ * outward/inward along letter/star edges, then snap back.
+ * Front surface only; volume/extrusion underneath stays stable.
+ */
+
+.luxia-login-dotmark__edge-glitch {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.luxia-login-dotmark__edge-frag {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  overflow: visible;
+  will-change: transform, opacity;
+  -webkit-clip-path: inset(0 100% 100% 0);
+  clip-path: inset(0 100% 100% 0);
+}
+
+.luxia-login-dotmark__edge-frag--1 {
+  -webkit-clip-path: inset(58% 90% 28% 1%);
+  clip-path: inset(58% 90% 28% 1%);
+  animation: luxia-edge-out-l2 2.6s ease-in-out infinite;
+  animation-delay: 0.35s;
+}
+
+.luxia-login-dotmark__edge-frag--2 {
+  -webkit-clip-path: inset(78% 88% 8% 1%);
+  clip-path: inset(78% 88% 8% 1%);
+  animation: luxia-edge-out-l3 3.4s ease-in-out infinite;
+  animation-delay: 1.1s;
+}
+
+.luxia-login-dotmark__edge-frag--3 {
+  -webkit-clip-path: inset(56% 80% 22% 15.5%);
+  clip-path: inset(56% 80% 22% 15.5%);
+  animation: luxia-edge-out-l2 2.9s ease-in-out infinite;
+  animation-delay: 0.7s;
+}
+
+.luxia-login-dotmark__edge-frag--4 {
+  -webkit-clip-path: inset(54% 68% 32% 28%);
+  clip-path: inset(54% 68% 32% 28%);
+  animation: luxia-edge-out-l1 3.1s ease-in-out infinite;
+  animation-delay: 1.85s;
+}
+
+.luxia-login-dotmark__edge-frag--5 {
+  -webkit-clip-path: inset(56% 42% 20% 54%);
+  clip-path: inset(56% 42% 20% 54%);
+  animation: luxia-edge-out-l2 3.7s ease-in-out infinite;
+  animation-delay: 0.2s;
+}
+
+.luxia-login-dotmark__edge-frag--6 {
+  -webkit-clip-path: inset(18% 24% 58% 72%);
+  clip-path: inset(18% 24% 58% 72%);
+  animation: luxia-edge-out-l3 4.1s ease-in-out infinite;
+  animation-delay: 2.4s;
+}
+
+.luxia-login-dotmark__edge-frag--7 {
+  -webkit-clip-path: inset(56% 64% 22% 30%);
+  clip-path: inset(56% 64% 22% 30%);
+  animation: luxia-edge-out-r2 2.7s ease-in-out infinite;
+  animation-delay: 0.95s;
+}
+
+.luxia-login-dotmark__edge-frag--8 {
+  -webkit-clip-path: inset(52% 44% 30% 48%);
+  clip-path: inset(52% 44% 30% 48%);
+  animation: luxia-edge-out-r2 3.3s ease-in-out infinite;
+  animation-delay: 0.15s;
+}
+
+.luxia-login-dotmark__edge-frag--9 {
+  -webkit-clip-path: inset(54% 36% 18% 58.5%);
+  clip-path: inset(54% 36% 18% 58.5%);
+  animation: luxia-edge-out-r1 2.5s ease-in-out infinite;
+  animation-delay: 1.55s;
+}
+
+.luxia-login-dotmark__edge-frag--10 {
+  -webkit-clip-path: inset(54% 14% 22% 78%);
+  clip-path: inset(54% 14% 22% 78%);
+  animation: luxia-edge-out-r3 3.6s ease-in-out infinite;
+  animation-delay: 2.1s;
+}
+
+.luxia-login-dotmark__edge-frag--11 {
+  -webkit-clip-path: inset(12% 2% 62% 88%);
+  clip-path: inset(12% 2% 62% 88%);
+  animation: luxia-edge-out-r2 2.8s ease-in-out infinite;
+  animation-delay: 0.55s;
+}
+
+.luxia-login-dotmark__edge-frag--12 {
+  -webkit-clip-path: inset(84% 82% 4% 8%);
+  clip-path: inset(84% 82% 4% 8%);
+  animation: luxia-edge-out-r1 4s ease-in-out infinite;
+  animation-delay: 1.3s;
+}
+
+.luxia-login-dotmark__edge-frag--13 {
+  -webkit-clip-path: inset(70% 70% 14% 22%);
+  clip-path: inset(70% 70% 14% 22%);
+  animation: luxia-edge-in-r1 4.4s ease-in-out infinite;
+  animation-delay: 2.8s;
+}
+
+.luxia-login-dotmark__edge-frag--14 {
+  -webkit-clip-path: inset(62% 22% 28% 68%);
+  clip-path: inset(62% 22% 28% 68%);
+  animation: luxia-edge-in-l1 3.9s ease-in-out infinite;
+  animation-delay: 0.85s;
+}
+
+.luxia-login-dotmark__edge-frag--15 {
+  -webkit-clip-path: inset(64% 50% 24% 42%);
+  clip-path: inset(64% 50% 24% 42%);
+  animation: luxia-edge-out-r4 4.6s ease-in-out infinite;
+  animation-delay: 3.2s;
+}
+
+.luxia-login-dotmark__edge-frag--16 {
+  -webkit-clip-path: inset(48% 8% 40% 84%);
+  clip-path: inset(48% 8% 40% 84%);
+  animation: luxia-edge-out-r2 3.2s ease-in-out infinite;
+  animation-delay: 1.75s;
+}
+
+@keyframes luxia-edge-out-l1 {
+  0%,
+  92%,
+  100% {
+    opacity: 0;
+    transform: translate(0, 0);
+  }
+  93.2% {
+    opacity: 0.88;
+    transform: translate(-1px, 0);
+  }
+  94.8% {
+    opacity: 0.55;
+    transform: translate(-2px, 0);
+  }
+  96% {
+    opacity: 0;
+    transform: translate(0, 0);
+  }
+}
+
+@keyframes luxia-edge-out-l2 {
+  0%,
+  91%,
+  100% {
+    opacity: 0;
+    transform: translate(0, 0);
+  }
+  92.2% {
+    opacity: 0.9;
+    transform: translate(-2px, 0);
+  }
+  94% {
+    opacity: 0.6;
+    transform: translate(-3px, 0);
+  }
+  95.5% {
+    opacity: 0;
+    transform: translate(0, 0);
+  }
+}
+
+@keyframes luxia-edge-out-l3 {
+  0%,
+  93%,
+  100% {
+    opacity: 0;
+    transform: translate(0, 0);
+  }
+  94% {
+    opacity: 0.85;
+    transform: translate(-3px, 0);
+  }
+  95.2% {
+    opacity: 0.45;
+    transform: translate(-4px, 0);
+  }
+  96.2% {
+    opacity: 0;
+    transform: translate(0, 0);
+  }
+}
+
+@keyframes luxia-edge-out-r1 {
+  0%,
+  92%,
+  100% {
+    opacity: 0;
+    transform: translate(0, 0);
+  }
+  93.2% {
+    opacity: 0.88;
+    transform: translate(1px, 0);
+  }
+  94.8% {
+    opacity: 0.55;
+    transform: translate(2px, 0);
+  }
+  96% {
+    opacity: 0;
+    transform: translate(0, 0);
+  }
+}
+
+@keyframes luxia-edge-out-r2 {
+  0%,
+  91%,
+  100% {
+    opacity: 0;
+    transform: translate(0, 0);
+  }
+  92.2% {
+    opacity: 0.9;
+    transform: translate(2px, 0);
+  }
+  94% {
+    opacity: 0.6;
+    transform: translate(3px, 0);
+  }
+  95.5% {
+    opacity: 0;
+    transform: translate(0, 0);
+  }
+}
+
+@keyframes luxia-edge-out-r3 {
+  0%,
+  93%,
+  100% {
+    opacity: 0;
+    transform: translate(0, 0);
+  }
+  94% {
+    opacity: 0.85;
+    transform: translate(3px, 0);
+  }
+  95.2% {
+    opacity: 0.45;
+    transform: translate(4px, 0);
+  }
+  96.2% {
+    opacity: 0;
+    transform: translate(0, 0);
+  }
+}
+
+@keyframes luxia-edge-out-r4 {
+  0%,
+  94%,
+  100% {
+    opacity: 0;
+    transform: translate(0, 0);
+  }
+  95% {
+    opacity: 0.8;
+    transform: translate(2px, 0.5px);
+  }
+  96.2% {
+    opacity: 0;
+    transform: translate(0, 0);
+  }
+}
+
+@keyframes luxia-edge-in-l1 {
+  0%,
+  92%,
+  100% {
+    opacity: 0;
+    transform: translate(0, 0);
+  }
+  93.5% {
+    opacity: 0.75;
+    transform: translate(1.5px, 0);
+  }
+  95% {
+    opacity: 0;
+    transform: translate(0, 0);
+  }
+}
+
+@keyframes luxia-edge-in-r1 {
+  0%,
+  92%,
+  100% {
+    opacity: 0;
+    transform: translate(0, 0);
+  }
+  93.5% {
+    opacity: 0.75;
+    transform: translate(-1.5px, 0);
+  }
+  95% {
+    opacity: 0;
+    transform: translate(0, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .luxia-login-dotmark__edge-glitch {
+    display: none;
+  }
+}

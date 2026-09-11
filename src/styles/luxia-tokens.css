@@ -431,6 +431,26 @@
     0 0 0 3px var(--luxia-opacity-brand-secondary-32);
 }
 
+.luxia-button.luxia-login-submit {
+  width: 100%;
+  background: var(--luxia-brand-secondary);
+  box-shadow: none;
+}
+
+.luxia-button.luxia-login-submit:hover:not(:disabled):not([aria-disabled="true"]) {
+  background: var(--luxia-purple-60);
+  opacity: 1;
+}
+
+.luxia-button.luxia-login-submit:focus-visible {
+  box-shadow: 0 0 0 3px var(--luxia-opacity-brand-secondary-32);
+}
+
+.luxia-login-input:focus-visible {
+  border-color: var(--luxia-brand-secondary);
+  box-shadow: 0 0 0 3px var(--luxia-opacity-brand-secondary-32);
+}
+
 .luxia-button--secondary {
   color: var(--luxia-brand-primary);
   background: var(--luxia-surface);

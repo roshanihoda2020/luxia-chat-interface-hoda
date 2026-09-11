@@ -1,0 +1,1132 @@
+html:has(.luxia-login-shell),
+body:has(.luxia-login-shell),
+#root:has(.luxia-login-shell) {
+  height: 100%;
+  max-height: 100dvh;
+  overflow: hidden;
+}
+
+.luxia-login-shell {
+  /* Desktop composition — auth column fixed; brand fills left zone */
+  --luxia-login-auth-width: clamp(22rem, 22vw, 26vw);
+  --luxia-login-auth-gutter: clamp(0.75rem, 3.5vw, 4vw);
+  --luxia-login-brand-pad-left: 5vw;
+  --luxia-login-brand-pad-right: 6vw;
+  /* Fallback used by older breakpoints */
+  --luxia-login-brand-width: min(58vw, calc(100vw - 30vw - 4rem));
+
+  /*
+   * Left brand zone: between page margin and card safe gap.
+   * Lockup sized to fill that zone (aspect 120/47), optically centered.
+   * Pixel lattice (0.65 / 0.22) tracks lockup so cloud stays aligned.
+   */
+  --luxia-login-brand-zone-width: calc(
+    100vw - var(--luxia-login-auth-width) - var(--luxia-login-auth-gutter) -
+      var(--luxia-login-brand-pad-left) - var(--luxia-login-brand-pad-right) -
+      max(16px, env(safe-area-inset-left)) - max(24px, env(safe-area-inset-right))
+  );
+  /* Generous top / tagline bottom breathing room */
+  --luxia-login-brand-zone-height: min(70vh, calc(100dvh - 20vh));
+  --luxia-login-lockup-scale: 1;
+  /* Desktop: lift brand compose ~30px; card ~15px up from prior 16px nudge */
+  --luxia-login-lockup-lift: 30px;
+  --luxia-login-auth-nudge: 1px;
+  --luxia-login-lockup-base: min(
+    var(--luxia-login-brand-zone-width),
+    calc(var(--luxia-login-brand-zone-height) * 120 / 47)
+  );
+  --luxia-login-lockup-width: calc(
+    var(--luxia-login-lockup-base) * var(--luxia-login-lockup-scale)
+  );
+  --luxia-login-lockup-height: calc(
+    var(--luxia-login-lockup-width) * 47 / 120
+  );
+  /* Horizontally center lockup inside the left brand zone */
+  --luxia-login-lockup-left: calc(
+    max(16px, env(safe-area-inset-left)) + var(--luxia-login-brand-pad-left) +
+      max(0px, (var(--luxia-login-brand-zone-width) - var(--luxia-login-lockup-width)) / 2)
+  );
+  --luxia-login-lockup-top: calc(
+    50% - (var(--luxia-login-lockup-height) * 0.52) -
+      var(--luxia-login-lockup-lift)
+  );
+  --luxia-login-pixel-cell: calc(var(--luxia-login-lockup-width) * 0.65 / 120);
+  --luxia-login-pixel-radius: calc(var(--luxia-login-lockup-width) * 0.22 / 120);
+
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  overflow: hidden;
+  box-sizing: border-box;
+  padding-block: max(16px, env(safe-area-inset-top)) max(52px, calc(env(safe-area-inset-bottom) + 36px));
+  padding-inline: max(16px, env(safe-area-inset-left)) max(24px, env(safe-area-inset-right));
+  background: var(--luxia-gradient-navigation);
+}
+
+.luxia-login-environment {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.luxia-login-environment-wash {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(
+    168deg,
+    var(--luxia-opacity-brand-secondary-08) 0%,
+    transparent 36%
+  );
+}
+
+/* Ambient pixel fields + vignette + brand compose: see luxia-login-atmosphere.css */
+
+/* =========================================================
+   LARGE DOTTED LUXIA LOCKUP
+   ========================================================= */
+
+.luxia-login-dotmark {
+  --luxia-dot-lit: 0;
+  --luxia-dot-x: 42%;
+  --luxia-dot-y: 72%;
+  --luxia-dot-r: 84px;
+
+  position: relative;
+  z-index: 2;
+  left: auto;
+  top: auto;
+
+  width: 100%;
+
+  max-width: none;
+  aspect-ratio: 120 / 47;
+  height: auto;
+
+  transform: none;
+  pointer-events: none;
+  overflow: visible;
+}
+
+
+/* =========================================================
+   SVG LAYERS
+   ========================================================= */
+
+.luxia-login-dotmark__layer {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+
+/* =========================================================
+   RESTING LOGO
+   ========================================================= */
+
+/* Rest tonal depth: luxia-login-atmosphere.css */
+
+/* Automatic glitch-dot flicker: see luxia-login-flicker.css */
+
+/*
+ * Tiny organic flashlight — 3 soft overlapping spots (~18–28px).
+ * Logo dots only; ambient background does not react.
+ */
+.luxia-login-dotmark__layer--lit {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  opacity: var(--luxia-dot-lit, 0);
+  pointer-events: none;
+  will-change: opacity;
+  color: color-mix(in srgb, #96DBFB 78%, var(--luxia-purple-10));
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-composite: source-over;
+  mask-composite: add;
+  -webkit-mask-image:
+    radial-gradient(
+      circle var(--luxia-dot-r, 84px) at var(--luxia-dot-x, 42%)
+        var(--luxia-dot-y, 72%),
+      rgba(0, 0, 0, 1) 0%,
+      rgba(0, 0, 0, 0.75) 28%,
+      rgba(0, 0, 0, 0.35) 58%,
+      rgba(0, 0, 0, 0.08) 82%,
+      transparent 100%
+    ),
+    radial-gradient(
+      circle calc(var(--luxia-dot-r, 84px) * 0.55) at
+        calc(var(--luxia-dot-x, 42%) - 5px)
+        calc(var(--luxia-dot-y, 72%) + 4px),
+      rgba(0, 0, 0, 0.7) 0%,
+      rgba(0, 0, 0, 0.28) 55%,
+      transparent 100%
+    ),
+    radial-gradient(
+      circle calc(var(--luxia-dot-r, 84px) * 0.42) at
+        calc(var(--luxia-dot-x, 42%) + 6px)
+        calc(var(--luxia-dot-y, 72%) - 5px),
+      rgba(0, 0, 0, 0.55) 0%,
+      rgba(0, 0, 0, 0.2) 55%,
+      transparent 100%
+    );
+  mask-image:
+    radial-gradient(
+      circle var(--luxia-dot-r, 84px) at var(--luxia-dot-x, 42%)
+        var(--luxia-dot-y, 72%),
+      rgba(0, 0, 0, 1) 0%,
+      rgba(0, 0, 0, 0.75) 28%,
+      rgba(0, 0, 0, 0.35) 58%,
+      rgba(0, 0, 0, 0.08) 82%,
+      transparent 100%
+    ),
+    radial-gradient(
+      circle calc(var(--luxia-dot-r, 84px) * 0.55) at
+        calc(var(--luxia-dot-x, 42%) - 5px)
+        calc(var(--luxia-dot-y, 72%) + 4px),
+      rgba(0, 0, 0, 0.7) 0%,
+      rgba(0, 0, 0, 0.28) 55%,
+      transparent 100%
+    ),
+    radial-gradient(
+      circle calc(var(--luxia-dot-r, 84px) * 0.42) at
+        calc(var(--luxia-dot-x, 42%) + 6px)
+        calc(var(--luxia-dot-y, 72%) - 5px),
+      rgba(0, 0, 0, 0.55) 0%,
+      rgba(0, 0, 0, 0.2) 55%,
+      transparent 100%
+    );
+}
+
+.luxia-login-auth {
+  position: relative;
+  z-index: 2;
+  box-sizing: border-box;
+  display: flex;
+  flex: 0 1 auto;
+  /* Viewport-relative auth column — grows with CSS viewport (incl. zoom-out) */
+  width: var(--luxia-login-auth-width, clamp(22rem, 22vw, 26vw));
+  max-width: var(--luxia-login-auth-width, clamp(22rem, 22vw, 26vw));
+  max-height: min(100%, 92vh);
+  min-width: 0;
+  flex-direction: column;
+  justify-content: center;
+  margin-right: var(--luxia-login-auth-gutter, clamp(0.75rem, 3.5vw, 4vw));
+  margin-left: auto;
+  /* Soft composition nudge — keep width / horizontal position */
+  transform: translateY(var(--luxia-login-auth-nudge, 16px));
+  overflow-x: visible;
+  overflow-y: auto;
+  padding: clamp(1rem, 1.5vw, 1.5rem) clamp(0.75rem, 1.2vw, 1.25rem);
+}
+
+.luxia-login-panel {
+  /* Auth card vertical rhythm (8px system / Luxia spacing tokens) */
+  --luxia-login-space-tight: var(--luxia-spacing-8); /* field ↔ error, related */
+  --luxia-login-space-related: var(--luxia-spacing-12); /* title ↔ description */
+  --luxia-login-space-group: var(--luxia-spacing-16); /* fields within a form */
+  --luxia-login-space-section: var(--luxia-spacing-24); /* groups / CTA separation */
+  --luxia-login-space-major: var(--luxia-spacing-32); /* heading→form, form→secondary */
+
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  margin-inline: auto;
+  padding: var(--luxia-spacing-32) var(--luxia-spacing-24) var(--luxia-spacing-24);
+  overflow: visible;
+  color: var(--luxia-text-inverse);
+  /* Deep purple glass — readable, integrated with galaxy, not light */
+  background: color-mix(in srgb, #1C1336 88%, transparent);
+  border: 1px solid color-mix(in srgb, var(--luxia-purple-10) 18%, transparent);
+  border-radius: var(--luxia-radius-16);
+  box-shadow:
+    0 24px 64px rgba(8, 5, 18, 0.42),
+    inset 0 1px 0 color-mix(in srgb, var(--luxia-purple-10) 12%, transparent);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+
+  /* Shared auth control tokens (all auth screens under this panel) */
+  --luxia-auth-field-bg: var(--luxia-opacity-brand-secondary-12);
+  --luxia-auth-field-bg-hover: rgba(142, 99, 235, 0.14);
+  --luxia-auth-field-bg-focus: rgba(142, 99, 235, 0.14);
+  /* Resting: muted purple edge — not bright white-lavender */
+  --luxia-auth-field-border: color-mix(in srgb, var(--luxia-purple-30) 22%, transparent);
+  --luxia-auth-field-border-hover: color-mix(in srgb, var(--luxia-purple-20) 30%, transparent);
+  --luxia-auth-field-border-focus: color-mix(in srgb, var(--luxia-blue-50) 62%, transparent);
+  --luxia-auth-field-ring: color-mix(in srgb, var(--luxia-blue-50) 14%, transparent);
+  /* Soft lavender foreground — readable, not pure white */
+  --luxia-auth-field-text: #ede8f5;
+  --luxia-auth-field-placeholder: color-mix(in srgb, #ede8f5 52%, transparent);
+}
+
+.luxia-login-auth--expanded {
+  width: clamp(22rem, 26vw, 32vw);
+  max-width: clamp(22rem, 26vw, 32vw);
+}
+
+.luxia-login-panel--expanded {
+  max-width: 100%;
+  padding: var(--luxia-spacing-32) var(--luxia-spacing-24) var(--luxia-spacing-24);
+}
+
+.luxia-login-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--luxia-login-space-group);
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Primary CTA: clearer section break after fields / validation */
+.luxia-login-form > .luxia-button.luxia-login-submit {
+  margin-top: var(--luxia-login-space-tight); /* 16 + 8 = 24px from prior block */
+}
+
+/* Field-level stack: control + validation stay close */
+.luxia-login-field,
+.luxia-login-field-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--luxia-login-space-tight);
+  min-width: 0;
+}
+
+.luxia-login-logo-row {
+  display: flex;
+  justify-content: center;
+  overflow: visible;
+  margin-bottom: 32px;
+}
+
+.luxia-login-logo-slot {
+  --luxia-logo-width: 134px;
+  --luxia-wordmark-start: 0.015283;
+  --luxia-wordmark-end: 0.83195;
+  box-sizing: content-box;
+  width: calc(var(--luxia-logo-width) * (var(--luxia-wordmark-end) - var(--luxia-wordmark-start)));
+  height: calc(var(--luxia-logo-width) * 47 / 120);
+  margin-inline: auto;
+  overflow: visible;
+}
+
+.luxia-login-logo {
+  display: block;
+  width: var(--luxia-logo-width);
+  height: auto;
+  max-width: none;
+  object-fit: contain;
+  flex-shrink: 0;
+  margin-left: calc(var(--luxia-logo-width) * var(--luxia-wordmark-start) * -1);
+}
+
+.luxia-login-heading {
+  margin-bottom: var(--luxia-login-space-major);
+}
+
+/* Notice sits between heading and form — tighten heading→notice, keep notice→form */
+.luxia-login-heading:has(+ .luxia-login-notice) {
+  margin-bottom: var(--luxia-login-space-group);
+}
+
+.luxia-login-title {
+  color: var(--luxia-text-inverse);
+  font-size: 26px;
+  line-height: 32px;
+  letter-spacing: -0.01em;
+}
+
+.luxia-login-subtitle {
+  margin-top: var(--luxia-login-space-related);
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.luxia-login-panel [data-slot="label"] {
+  color: rgba(255, 255, 255, 0.92);
+}
+
+/* Dark recessed fields — shared by Sign in, MFA, reset, recovery, etc. */
+.luxia-login-form input[data-slot="input"],
+.luxia-login-panel input[data-slot="input"] {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  height: 42px;
+  min-height: 42px;
+  color-scheme: dark;
+  background: var(--luxia-auth-field-bg);
+  border-color: var(--luxia-auth-field-border);
+  color: var(--luxia-auth-field-text);
+  -webkit-text-fill-color: var(--luxia-auth-field-text);
+  caret-color: var(--luxia-auth-field-text);
+  box-shadow: none;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.luxia-login-form input[data-slot="input"]::placeholder,
+.luxia-login-panel input[data-slot="input"]::placeholder {
+  color: var(--luxia-auth-field-placeholder);
+  -webkit-text-fill-color: var(--luxia-auth-field-placeholder);
+  opacity: 1;
+}
+
+.luxia-login-form input[data-slot="input"]:hover:not(:disabled):not(:focus-visible),
+.luxia-login-panel input[data-slot="input"]:hover:not(:disabled):not(:focus-visible) {
+  background: var(--luxia-auth-field-bg-hover);
+  border-color: var(--luxia-auth-field-border-hover);
+}
+
+.luxia-login-form input[data-slot="input"]:focus-visible,
+.luxia-login-panel input[data-slot="input"]:focus-visible {
+  background: var(--luxia-auth-field-bg-focus);
+  border-color: var(--luxia-auth-field-border-focus);
+  box-shadow: 0 0 0 3px var(--luxia-auth-field-ring);
+  outline: none;
+}
+
+.luxia-login-form input[data-slot="input"][aria-invalid="true"],
+.luxia-login-panel input[data-slot="input"][aria-invalid="true"] {
+  background: var(--luxia-auth-field-bg);
+  border-color: var(--luxia-error);
+  box-shadow: 0 0 0 3px var(--luxia-opacity-error-16);
+}
+
+.luxia-login-form input[data-slot="input"][aria-invalid="true"]:focus-visible,
+.luxia-login-panel input[data-slot="input"][aria-invalid="true"]:focus-visible {
+  background: var(--luxia-auth-field-bg-focus);
+  border-color: var(--luxia-error);
+  box-shadow: 0 0 0 3px var(--luxia-opacity-error-16);
+}
+
+.luxia-login-form input[data-slot="input"]:disabled,
+.luxia-login-panel input[data-slot="input"]:disabled {
+  opacity: 0.55;
+  background: rgba(142, 99, 235, 0.06);
+  border-color: color-mix(in srgb, var(--luxia-purple-30) 12%, transparent);
+  color: color-mix(in srgb, #ede8f5 45%, transparent);
+  -webkit-text-fill-color: color-mix(in srgb, #ede8f5 45%, transparent);
+}
+
+/* Keep Chrome autofill dark — never flash white / light-blue */
+.luxia-login-form input[data-slot="input"]:-webkit-autofill,
+.luxia-login-form input[data-slot="input"]:-webkit-autofill:hover,
+.luxia-login-form input[data-slot="input"]:-webkit-autofill:focus,
+.luxia-login-form input[data-slot="input"]:-webkit-autofill:active,
+.luxia-login-panel input[data-slot="input"]:-webkit-autofill,
+.luxia-login-panel input[data-slot="input"]:-webkit-autofill:hover,
+.luxia-login-panel input[data-slot="input"]:-webkit-autofill:focus,
+.luxia-login-panel input[data-slot="input"]:-webkit-autofill:active {
+  -webkit-text-fill-color: #ede8f5 !important;
+  caret-color: #ede8f5;
+  border-color: var(--luxia-auth-field-border) !important;
+  box-shadow:
+    0 0 0 1000px color-mix(in srgb, #1c1336 86%, #8e63eb 14%) inset,
+    0 0 0 1px transparent !important;
+  transition: background-color 99999s ease-out 0s;
+}
+
+.luxia-login-form input[data-slot="input"]:-webkit-autofill:focus-visible,
+.luxia-login-panel input[data-slot="input"]:-webkit-autofill:focus-visible {
+  border-color: var(--luxia-auth-field-border-focus) !important;
+  box-shadow:
+    0 0 0 1000px color-mix(in srgb, #1c1336 84%, #8e63eb 16%) inset,
+    0 0 0 3px var(--luxia-auth-field-ring) !important;
+}
+
+.luxia-login-panel .luxia-button.luxia-login-submit {
+  height: 42px;
+  min-height: 42px;
+  color: var(--luxia-text-inverse);
+  background: var(--luxia-gradient-button);
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.luxia-login-panel .luxia-button.luxia-login-submit:hover:not(:disabled):not([aria-disabled="true"]) {
+  background: var(--luxia-gradient-button);
+  opacity: 0.94;
+}
+
+.luxia-login-panel .luxia-button.luxia-login-submit--activate {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  transition:
+    background 220ms ease,
+    box-shadow 220ms ease,
+    transform 220ms ease,
+    opacity 220ms ease,
+    border-color 220ms ease,
+    filter 220ms ease;
+}
+
+.luxia-login-panel .luxia-button.luxia-login-submit--activate:hover:not(:disabled):not([aria-disabled="true"]):not([aria-busy="true"]) {
+  opacity: 1;
+  transform: translateY(-2px) scale(1);
+  background: linear-gradient(
+    87.081deg,
+    color-mix(in srgb, var(--luxia-brand-primary) 70%, var(--luxia-brand-secondary)) 36%,
+    var(--luxia-brand-secondary) 84%,
+    color-mix(in srgb, var(--luxia-brand-secondary) 72%, var(--luxia-brand-tertiary)) 112%
+  );
+  box-shadow:
+    0 8px 18px var(--luxia-opacity-brand-primary-32),
+    0 0 18px var(--luxia-opacity-brand-secondary-24),
+    0 0 10px var(--luxia-opacity-brand-tertiary-16);
+}
+
+.luxia-login-panel .luxia-button.luxia-login-submit--activate:focus-visible {
+  background: linear-gradient(
+    87.081deg,
+    color-mix(in srgb, var(--luxia-brand-primary) 70%, var(--luxia-brand-secondary)) 36%,
+    var(--luxia-brand-secondary) 84%,
+    color-mix(in srgb, var(--luxia-brand-secondary) 72%, var(--luxia-brand-tertiary)) 112%
+  );
+  box-shadow:
+    0 0 16px var(--luxia-opacity-brand-secondary-24),
+    0 0 8px var(--luxia-opacity-brand-tertiary-16),
+    0 0 0 3px var(--luxia-opacity-brand-secondary-32);
+}
+
+.luxia-login-panel .luxia-button.luxia-login-submit--activate:hover:not(:disabled):not([aria-disabled="true"]):not([aria-busy="true"]):focus-visible {
+  transform: translateY(-2px) scale(1);
+  box-shadow:
+    0 8px 18px var(--luxia-opacity-brand-primary-32),
+    0 0 18px var(--luxia-opacity-brand-secondary-24),
+    0 0 10px var(--luxia-opacity-brand-tertiary-16),
+    0 0 0 3px var(--luxia-opacity-brand-secondary-32);
+}
+
+.luxia-login-panel .luxia-button.luxia-login-submit--activate:active:not(:disabled):not([aria-disabled="true"]):not([aria-busy="true"]) {
+  opacity: 1;
+  transform: translateY(0) scale(0.985);
+  box-shadow:
+    0 2px 8px var(--luxia-opacity-brand-primary-24),
+    0 0 8px var(--luxia-opacity-brand-secondary-16);
+}
+
+.luxia-login-panel .luxia-button.luxia-login-submit--activate:disabled,
+.luxia-login-panel .luxia-button.luxia-login-submit--activate[aria-disabled="true"] {
+  color: var(--luxia-text-inverse);
+  background: var(--luxia-gradient-button);
+  border-color: transparent;
+  box-shadow: none;
+  opacity: 0.72;
+  transform: none;
+  filter: none;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.luxia-login-password-toggle {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  display: flex;
+  height: 32px;
+  width: 32px;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--luxia-radius-8);
+  color: color-mix(in srgb, var(--luxia-purple-10) 58%, transparent);
+  transform: translateY(-50%);
+  transition: color 160ms ease;
+}
+
+.luxia-login-password-toggle:hover {
+  color: var(--luxia-blue-50);
+}
+
+.luxia-login-password-toggle:focus-visible {
+  outline: none;
+  color: var(--luxia-blue-50);
+  box-shadow: 0 0 0 3px var(--luxia-auth-field-ring);
+}
+
+.luxia-login-text-link {
+  color: var(--luxia-purple-20);
+  transition: color 160ms ease;
+}
+
+.luxia-login-text-link:hover {
+  color: var(--luxia-purple-10);
+}
+
+.luxia-login-text-link:focus-visible {
+  outline: none;
+  text-decoration: underline;
+}
+
+.luxia-login-error {
+  color: var(--luxia-error);
+}
+
+.luxia-login-notice {
+  margin: 0 0 var(--luxia-login-space-section);
+  padding: 10px 12px;
+  border-radius: var(--luxia-radius-8);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--luxia-opacity-brand-secondary-12);
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.luxia-login-otp {
+  width: 100%;
+}
+
+.luxia-login-otp-group {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.luxia-login-otp-slot,
+.luxia-login-panel [data-slot="input-otp-slot"].luxia-login-otp-slot {
+  height: 42px;
+  width: 42px;
+  min-width: 0;
+  flex: 1;
+  color: var(--luxia-auth-field-text, #ede8f5);
+  background: var(--luxia-auth-field-bg, var(--luxia-opacity-brand-secondary-12)) !important;
+  border-color: var(--luxia-auth-field-border, color-mix(in srgb, var(--luxia-purple-30) 22%, transparent)) !important;
+  box-shadow: none;
+  border-radius: var(--luxia-radius-8);
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.luxia-login-otp-slot .animate-caret-blink {
+  background: #ede8f5;
+}
+
+.luxia-login-otp-slot[data-active="true"],
+.luxia-login-panel [data-slot="input-otp-slot"].luxia-login-otp-slot[data-active="true"] {
+  z-index: 1;
+  background: var(--luxia-auth-field-bg-focus, rgba(142, 99, 235, 0.14)) !important;
+  border-color: var(--luxia-auth-field-border-focus, color-mix(in srgb, var(--luxia-blue-50) 62%, transparent)) !important;
+  box-shadow: 0 0 0 3px var(--luxia-auth-field-ring, color-mix(in srgb, var(--luxia-blue-50) 14%, transparent)) !important;
+}
+
+.luxia-login-otp:has([aria-invalid="true"]) .luxia-login-otp-slot,
+.luxia-login-panel .luxia-login-otp:has([aria-invalid="true"]) [data-slot="input-otp-slot"] {
+  border-color: var(--luxia-error) !important;
+  background: var(--luxia-auth-field-bg, var(--luxia-opacity-brand-secondary-12)) !important;
+  box-shadow: 0 0 0 3px var(--luxia-opacity-error-16);
+}
+
+.luxia-login-policy-hint {
+  /* Pull toward password fields (form gap 16 − 8 = 8px effective) */
+  margin: calc(-1 * var(--luxia-login-space-tight)) 0 0;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+/* Secondary / recovery action group below primary CTA */
+.luxia-login-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--luxia-login-space-group);
+  margin-top: var(--luxia-login-space-major);
+}
+
+.luxia-login-actions .luxia-login-help {
+  margin-top: 0;
+}
+
+/* gap 16px ≈ Contact support → Privacy; +6px ≈ 22px before Test accounts */
+.luxia-login-actions .luxia-login-privacy {
+  margin: 0;
+}
+
+.luxia-login-actions .luxia-login-dev-accounts {
+  margin-top: 6px;
+}
+
+.luxia-login-privacy {
+  margin: 0;
+  /* Tertiary: same family as Need help (≈55%), slightly lower emphasis */
+  color: rgba(255, 255, 255, 0.48);
+}
+
+.luxia-login-privacy-link {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--luxia-radius-4);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.luxia-login-privacy-link:hover {
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.luxia-login-privacy-link:focus-visible {
+  outline: none;
+  text-decoration: underline;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.luxia-login-setup-steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--luxia-login-space-section);
+}
+
+.luxia-login-setup-step {
+  margin: 0;
+  min-width: 0;
+}
+
+.luxia-login-setup-step-label {
+  display: block;
+  margin-bottom: var(--luxia-login-space-tight);
+  color: rgba(255, 255, 255, 0.72);
+  font-weight: 600;
+}
+
+.luxia-login-qr-wrap {
+  margin-bottom: 0;
+  text-align: center;
+}
+
+.luxia-login-qr {
+  display: flex;
+  width: 148px;
+  height: 148px;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 10px;
+  color: rgba(255, 255, 255, 0.88);
+  background: var(--luxia-galaxy-btn-secondary-surface);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--luxia-radius-8);
+}
+
+.luxia-login-setup-key,
+.luxia-login-recovery {
+  display: flex;
+  flex-direction: column;
+  gap: var(--luxia-login-space-related);
+  margin-bottom: 0;
+}
+
+.luxia-login-recovery {
+  margin-bottom: var(--luxia-login-space-section);
+}
+
+.luxia-login-secret,
+.luxia-login-setup-key code,
+.luxia-login-recovery code {
+  display: block;
+  overflow-wrap: anywhere;
+  user-select: all;
+  padding: 12px 14px;
+  border-radius: var(--luxia-radius-8);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--luxia-galaxy-btn-secondary-surface);
+  color: var(--luxia-text-inverse);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 13px;
+  line-height: 18px;
+  letter-spacing: 0.02em;
+}
+
+.luxia-login-secret:focus-visible {
+  outline: none;
+  border-color: var(--luxia-auth-field-border-focus, color-mix(in srgb, var(--luxia-blue-50) 62%, transparent));
+  box-shadow: 0 0 0 3px var(--luxia-auth-field-ring, color-mix(in srgb, var(--luxia-blue-50) 14%, transparent));
+}
+
+.luxia-login-form input.luxia-login-input--mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  letter-spacing: 0.02em;
+}
+
+.luxia-login-panel .luxia-button.luxia-login-copy {
+  width: 100%;
+  height: 38px;
+  min-height: 38px;
+  justify-content: center;
+}
+
+.luxia-login-turnstile {
+  display: flex;
+  justify-content: center;
+}
+
+.luxia-login-turnstile:empty {
+  display: none;
+}
+
+.luxia-login-turnstile-host:empty {
+  min-height: 0;
+}
+
+.luxia-login-turnstile-host:not(:empty) {
+  min-height: 65px;
+}
+
+.luxia-login-help {
+  margin: 0;
+  margin-top: var(--luxia-login-space-major);
+  color: rgba(255, 255, 255, 0.55);
+}
+
+/* Primary CTA directly in panel (status / check-email) → secondary */
+.luxia-login-panel > .luxia-button.luxia-login-submit + .luxia-login-actions,
+.luxia-login-panel > .luxia-login-setup-steps + .luxia-login-actions {
+  margin-top: var(--luxia-login-space-major);
+}
+
+.luxia-login-dev-accounts {
+  margin-top: var(--luxia-login-space-group);
+  padding-top: var(--luxia-login-space-related);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  color: rgba(198, 177, 245, 0.42);
+}
+
+.luxia-login-dev-accounts-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 2px 0;
+  border: 0;
+  border-radius: var(--luxia-radius-4);
+  background: transparent;
+  color: rgba(198, 177, 245, 0.48);
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: color 160ms ease;
+}
+
+.luxia-login-dev-accounts-toggle:hover {
+  color: rgba(198, 177, 245, 0.72);
+}
+
+.luxia-login-dev-accounts-toggle:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--luxia-opacity-brand-secondary-32);
+}
+
+.luxia-login-dev-accounts-chevron {
+  font-size: 10px;
+  line-height: 1;
+  opacity: 0.8;
+}
+
+.luxia-login-dev-accounts-panel {
+  margin-top: 8px;
+}
+
+.luxia-login-dev-accounts-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.luxia-login-dev-accounts-row {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 1px;
+  margin: 0;
+  padding: 5px 4px;
+  border: 0;
+  border-radius: var(--luxia-radius-4);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 140ms ease;
+}
+
+.luxia-login-dev-accounts-row:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.luxia-login-dev-accounts-row:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--luxia-opacity-brand-secondary-32);
+}
+
+.luxia-login-dev-accounts-label {
+  font-size: 10px;
+  line-height: 13px;
+  font-weight: 400;
+  color: rgba(198, 177, 245, 0.5);
+}
+
+.luxia-login-dev-accounts-cred {
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.62);
+  overflow-wrap: anywhere;
+}
+
+.luxia-login-dev-accounts-sep {
+  color: rgba(255, 255, 255, 0.28);
+}
+
+/* Narrow phones only */
+@media (max-width: 719px) {
+  .luxia-login-dotmark {
+    opacity: 0.62;
+  }
+
+  .luxia-login-dotmark__layer--lit {
+    display: none;
+  }
+}
+
+/* =========================================================
+   (Legal lives inside the login card — no page footer)
+   ========================================================= */
+
+.luxia-login-panel [data-slot="checkbox"].luxia-login-checkbox {
+  border-color: var(--luxia-auth-field-border);
+  background: var(--luxia-auth-field-bg);
+  box-shadow: none;
+  color: transparent;
+}
+
+.luxia-login-panel [data-slot="checkbox"].luxia-login-checkbox:hover {
+  border-color: var(--luxia-auth-field-border-hover);
+  background: var(--luxia-auth-field-bg-hover);
+}
+
+.luxia-login-panel [data-slot="checkbox"].luxia-login-checkbox[data-state="checked"] {
+  background: #8e63eb;
+  border-color: #8e63eb;
+  color: var(--luxia-text-inverse);
+}
+
+.luxia-login-panel [data-slot="checkbox"].luxia-login-checkbox:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--luxia-auth-field-ring);
+}
+
+@media (max-width: 1199px) {
+  .luxia-login-shell {
+    --luxia-login-auth-width: clamp(22rem, 26vw, 28rem);
+    /* Tighter left brand zone — not the immersive desktop scale */
+    --luxia-login-brand-pad-left: 2vw;
+    --luxia-login-brand-pad-right: 4vw;
+    --luxia-login-brand-zone-height: min(50vh, calc(100dvh - 26vh));
+    --luxia-login-lockup-scale: 0.92;
+    --luxia-login-lockup-lift: 16px;
+  }
+
+  .luxia-login-dotmark__layer--rest {
+    opacity: 0.28;
+  }
+}
+
+@media (max-width: 1023px) {
+  .luxia-login-dotmark {
+    opacity: 0.9;
+  }
+
+  .luxia-login-shell {
+    --luxia-login-auth-width: clamp(21rem, 28vw, 26rem);
+    --luxia-login-auth-gutter: clamp(0.25rem, 2vw, 1.5rem);
+    --luxia-login-lockup-base: min(
+      48vw,
+      calc(100vw - 34vw - 2rem),
+      calc(40vh * 120 / 47)
+    );
+  }
+
+  .luxia-login-auth {
+    margin-right: var(--luxia-login-auth-gutter);
+  }
+
+  .luxia-login-panel {
+    padding: var(--luxia-spacing-32) var(--luxia-spacing-24) var(--luxia-spacing-24);
+  }
+
+  .luxia-login-logo-slot {
+    --luxia-logo-width: 124px;
+  }
+}
+
+@media (max-width: 859px) {
+  .luxia-login-shell {
+    justify-content: center;
+    padding-inline: max(16px, env(safe-area-inset-left)) max(16px, env(safe-area-inset-right));
+    --luxia-login-lockup-base: min(140vw, 72vw);
+    --luxia-login-lockup-left: calc(50% - var(--luxia-login-lockup-width) / 2);
+    --luxia-login-lockup-top: calc(
+      100% + 12% - var(--luxia-login-lockup-height)
+    );
+    --luxia-login-auth-nudge: 0px;
+  }
+
+  .luxia-login-auth {
+    margin-right: auto;
+    margin-left: auto;
+    width: min(100%, 26.5rem);
+    max-width: 26.5rem;
+    transform: none;
+  }
+
+  .luxia-login-dotmark {
+    width: 100%;
+    opacity: 0.38;
+  }
+
+  .luxia-login-panel {
+    padding: var(--luxia-spacing-32) var(--luxia-spacing-24) var(--luxia-spacing-24);
+  }
+
+  .luxia-login-logo-slot {
+    --luxia-logo-width: 124px;
+  }
+}
+
+@media (max-width: 420px) {
+  .luxia-login-logo-slot {
+    --luxia-logo-width: 112px;
+  }
+}
+
+@media (min-width: 1366px) {
+  .luxia-login-shell {
+    --luxia-login-auth-width: clamp(22rem, 22vw, 24vw);
+    --luxia-login-brand-zone-height: min(72vh, calc(100dvh - 18vh));
+  }
+}
+
+@media (min-width: 1536px) {
+  .luxia-login-shell {
+    --luxia-login-auth-width: clamp(22rem, 22vw, 24vw);
+    --luxia-login-brand-zone-height: min(74vh, calc(100dvh - 16vh));
+  }
+
+  .luxia-login-panel {
+    padding: var(--luxia-spacing-40) var(--luxia-spacing-32) var(--luxia-spacing-32);
+  }
+
+  .luxia-login-logo-slot {
+    --luxia-logo-width: clamp(134px, 7.2vw, 168px);
+  }
+
+  .luxia-login-logo-row {
+    margin-bottom: clamp(1.5rem, 1.8vw, 2.125rem);
+  }
+
+  .luxia-login-title {
+    font-size: clamp(26px, 1.45vw, 32px);
+    line-height: 1.25;
+  }
+
+  .luxia-login-form input[data-slot="input"] {
+    height: clamp(42px, 2.3vw, 48px);
+    min-height: clamp(42px, 2.3vw, 48px);
+  }
+
+  .luxia-login-panel .luxia-button.luxia-login-submit {
+    height: clamp(42px, 2.3vw, 48px);
+    min-height: clamp(42px, 2.3vw, 48px);
+  }
+}
+
+@media (min-width: 1800px) {
+  .luxia-login-shell {
+    --luxia-login-auth-width: clamp(22rem, 21vw, 24vw);
+  }
+
+  .luxia-login-logo-slot {
+    --luxia-logo-width: clamp(138px, 7.4vw, 172px);
+  }
+}
+
+@media (max-height: 800px) {
+  .luxia-login-panel {
+    --luxia-login-space-section: var(--luxia-spacing-16);
+    --luxia-login-space-major: var(--luxia-spacing-24);
+    padding: var(--luxia-spacing-24) var(--luxia-spacing-32) var(--luxia-spacing-24);
+  }
+
+  .luxia-login-logo-row {
+    margin-bottom: var(--luxia-spacing-16);
+  }
+
+  .luxia-login-logo-slot {
+    --luxia-logo-width: 120px;
+  }
+
+  .luxia-login-title {
+    font-size: 22px;
+    line-height: 28px;
+  }
+
+  .luxia-login-form input[data-slot="input"] {
+    height: 40px;
+    min-height: 40px;
+  }
+
+  .luxia-login-panel .luxia-button.luxia-login-submit {
+    height: 40px;
+    min-height: 40px;
+  }
+}
+
+@media (max-width: 719px) {
+  .luxia-login-auth {
+    padding-bottom: 48px;
+  }
+}
+
+@media (max-height: 560px) {
+  .luxia-login-auth {
+    padding-bottom: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .luxia-login-panel .luxia-button.luxia-login-submit--activate {
+    transition: none;
+  }
+
+  .luxia-login-panel .luxia-button.luxia-login-submit--activate:hover:not(:disabled):not([aria-disabled="true"]):not([aria-busy="true"]),
+  .luxia-login-panel .luxia-button.luxia-login-submit--activate:hover:not(:disabled):not([aria-disabled="true"]):not([aria-busy="true"]):focus-visible,
+  .luxia-login-panel .luxia-button.luxia-login-submit--activate:active:not(:disabled):not([aria-disabled="true"]):not([aria-busy="true"]) {
+    transform: none;
+  }
+
+  .luxia-login-dotmark__flicker,
+  .luxia-login-dotmark__edge-glitch,
+  .luxia-login-dotmark__layer--lit {
+    display: none;
+  }
+}

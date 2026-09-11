@@ -1,0 +1,625 @@
+/*
+ * Dense changing-location micro-glitch.
+ * 18 irregular distributions + async opacity gates + spatial offset jumps.
+ * Soft amplitude; no sparkles; rare optional 1–2px micro shift.
+ * Weaker than mouse flashlight. Background/cloud stay static.
+ */
+@property --luxia-fx-ox {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 0%;
+}
+@property --luxia-fx-oy {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 0%;
+}
+
+.luxia-login-dotmark__flicker {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 2;
+}
+
+.luxia-login-dotmark__flicker-g {
+  --luxia-fx-ox: 0%;
+  --luxia-fx-oy: 0%;
+  position: absolute;
+  inset: 0;
+  opacity: 0.06;
+  pointer-events: none;
+  overflow: visible;
+  will-change: opacity;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-composite: source-over;
+  mask-composite: add;
+}
+
+/* Distribution A — L / U weight */
+.luxia-login-dotmark__flicker-g--1 {
+  -webkit-mask-image:
+    radial-gradient(ellipse 16% 38% at calc(8% + var(--luxia-fx-ox)) calc(68% + var(--luxia-fx-oy)), #000 0%, #000 26%, transparent 72%),
+    radial-gradient(ellipse 14% 32% at calc(18% + var(--luxia-fx-ox)) calc(56% + var(--luxia-fx-oy)), #000 0%, #000 24%, transparent 70%),
+    radial-gradient(ellipse 12% 28% at calc(12% + var(--luxia-fx-ox)) calc(78% + var(--luxia-fx-oy)), #000 0%, #000 22%, transparent 68%),
+    radial-gradient(ellipse 10% 22% at calc(26% + var(--luxia-fx-ox)) calc(64% + var(--luxia-fx-oy)), #000 0%, #000 24%, transparent 70%);
+  mask-image:
+    radial-gradient(ellipse 16% 38% at calc(8% + var(--luxia-fx-ox)) calc(68% + var(--luxia-fx-oy)), #000 0%, #000 26%, transparent 72%),
+    radial-gradient(ellipse 14% 32% at calc(18% + var(--luxia-fx-ox)) calc(56% + var(--luxia-fx-oy)), #000 0%, #000 24%, transparent 70%),
+    radial-gradient(ellipse 12% 28% at calc(12% + var(--luxia-fx-ox)) calc(78% + var(--luxia-fx-oy)), #000 0%, #000 22%, transparent 68%),
+    radial-gradient(ellipse 10% 22% at calc(26% + var(--luxia-fx-ox)) calc(64% + var(--luxia-fx-oy)), #000 0%, #000 24%, transparent 70%);
+  animation:
+    luxia-fx-gate-a 280ms ease-in-out infinite,
+    luxia-fx-space-a 320ms steps(1, end) infinite;
+  animation-delay: 0ms, 40ms;
+}
+
+/* Distribution B — U / X */
+.luxia-login-dotmark__flicker-g--2 {
+  -webkit-mask-image:
+    radial-gradient(ellipse 15% 36% at calc(30% + var(--luxia-fx-ox)) calc(66% + var(--luxia-fx-oy)), #000 0%, #000 26%, transparent 72%),
+    radial-gradient(ellipse 13% 30% at calc(38% + var(--luxia-fx-ox)) calc(52% + var(--luxia-fx-oy)), #000 0%, #000 24%, transparent 70%),
+    radial-gradient(ellipse 11% 26% at calc(34% + var(--luxia-fx-ox)) calc(76% + var(--luxia-fx-oy)), #000 0%, #000 22%, transparent 68%),
+    radial-gradient(ellipse 9% 20% at calc(44% + var(--luxia-fx-ox)) calc(60% + var(--luxia-fx-oy)), #000 0%, #000 24%, transparent 70%);
+  mask-image:
+    radial-gradient(ellipse 15% 36% at calc(30% + var(--luxia-fx-ox)) calc(66% + var(--luxia-fx-oy)), #000 0%, #000 26%, transparent 72%),
+    radial-gradient(ellipse 13% 30% at calc(38% + var(--luxia-fx-ox)) calc(52% + var(--luxia-fx-oy)), #000 0%, #000 24%, transparent 70%),
+    radial-gradient(ellipse 11% 26% at calc(34% + var(--luxia-fx-ox)) calc(76% + var(--luxia-fx-oy)), #000 0%, #000 22%, transparent 68%),
+    radial-gradient(ellipse 9% 20% at calc(44% + var(--luxia-fx-ox)) calc(60% + var(--luxia-fx-oy)), #000 0%, #000 24%, transparent 70%);
+  animation:
+    luxia-fx-gate-b 180ms ease-in-out infinite,
+    luxia-fx-space-b 260ms steps(1, end) infinite;
+  animation-delay: 70ms, 20ms;
+}
+
+/* Distribution C — X / I */
+.luxia-login-dotmark__flicker-g--3 {
+  -webkit-mask-image:
+    radial-gradient(ellipse 14% 34% at calc(48% + var(--luxia-fx-ox)) calc(64% + var(--luxia-fx-oy)), #000 0%, #000 26%, transparent 72%),
+    radial-gradient(ellipse 12% 28% at calc(54% + var(--luxia-fx-ox)) calc(50% + var(--luxia-fx-oy)), #000 0%, #000 24%, transparent 70%),
+    radial-gradient(ellipse 10% 24% at calc(50% + var(--luxia-fx-ox)) calc(76% + var(--luxia-fx-oy)), #000 0%, #000 22%, transparent 68%),
+    radial-gradient(ellipse 9% 22% at calc(60% + var(--luxia-fx-ox)) calc(58% + var(--luxia-fx-oy)), #000 0%, #000 24%, transparent 70%);
+  mask-image:
+    radial-gradient(ellipse 14% 34% at calc(48% + var(--luxia-fx-ox)) calc(64% + var(--luxia-fx-oy)), #000 0%, #000 26%, transparent 72%),
+    radial-gradient(ellipse 12% 28% at calc(54% + var(--luxia-fx-ox)) calc(50% + var(--luxia-fx-oy)), #000 0%, #000 24%, transparent 70%),
+    radial-gradient(ellipse 10% 24% at calc(50% + var(--luxia-fx-ox)) calc(76% + var(--luxia-fx-oy)), #000 0%, #000 22%, transparent 68%),
+    radial-gradient(ellipse 9% 22% at calc(60% + var(--luxia-fx-ox)) calc(58% + var(--luxia-fx-oy)), #000 0%, #000 24%, transparent 70%);
+  animation:
+    luxia-fx-gate-c 340ms ease-in-out infinite,
+    luxia-fx-space-c 400ms steps(1, end) infinite;
+  animation-delay: 40ms, 110ms;
+}
+
+/* Distribution D — I / A */
+.luxia-login-dotmark__flicker-g--4 {
+  -webkit-mask-image:
+    radial-gradient(ellipse 14% 34% at calc(62% + var(--luxia-fx-ox)) calc(62% + var(--luxia-fx-oy)), #000 0%, #000 26%, transparent 72%),
+    radial-gradient(ellipse 12% 30% at calc(70% + var(--luxia-fx-ox)) calc(52% + var(--luxia-fx-oy)), #000 0%, #000 24%, transparent 70%),
+    radial-gradient(ellipse 11% 26% at calc(66% + var(--luxia-fx-ox)) calc(74% + var(--luxia-fx-oy)), #000 0%, #000 22%, transparent 68%);
+  mask-image:
+    radial-gradient(ellipse 14% 34% at calc(62% + var(--luxia-fx-ox)) calc(62% + var(--luxia-fx-oy)), #000 0%, #000 26%, transparent 72%),
+    radial-gradient(ellipse 12% 30% at calc(70% + var(--luxia-fx-ox)) calc(52% + var(--luxia-fx-oy)), #000 0%, #000 24%, transparent 70%),
+    radial-gradient(ellipse 11% 26% at calc(66% + var(--luxia-fx-ox)) calc(74% + var(--luxia-fx-oy)), #000 0%, #000 22%, transparent 68%);
+  animation:
+    luxia-fx-gate-d 220ms ease-in-out infinite,
+    luxia-fx-space-d 360ms steps(1, end) infinite;
+  animation-delay: 90ms, 50ms;
+}
+
+/* Distribution E — star + A bridge */
+.luxia-login-dotmark__flicker-g--5 {
+  -webkit-mask-image:
+    radial-gradient(ellipse 12% 36% at calc(78% + var(--luxia-fx-ox)) calc(44% + var(--luxia-fx-oy)), #000 0%, #000 24%, transparent 70%),
+    radial-gradient(ellipse 11% 32% at calc(86% + var(--luxia-fx-ox)) calc(36% + var(--luxia-fx-oy)), #000 0%, #000 22%, transparent 68%),
+    radial-gradient(ellipse 10% 28% at calc(74% + var(--luxia-fx-ox)) calc(56% + var(--luxia-fx-oy)), #000 0%, #000 24%, transparent 70%),
+    radial-gradient(ellipse 9% 24% at calc(90% + var(--luxia-fx-ox)) calc(48% + var(--luxia-fx-oy)), #000 0%, #000 22%, transparent 68%);
+  mask-image:
+    radial-gradient(ellipse 12% 36% at calc(78% + var(--luxia-fx-ox)) calc(44% + var(--luxia-fx-oy)), #000 0%, #000 24%, transparent 70%),
+    radial-gradient(ellipse 11% 32% at calc(86% + var(--luxia-fx-ox)) calc(36% + var(--luxia-fx-oy)), #000 0%, #000 22%, transparent 68%),
+    radial-gradient(ellipse 10% 28% at calc(74% + var(--luxia-fx-ox)) calc(56% + var(--luxia-fx-oy)), #000 0%, #000 24%, transparent 70%),
+    radial-gradient(ellipse 9% 24% at calc(90% + var(--luxia-fx-ox)) calc(48% + var(--luxia-fx-oy)), #000 0%, #000 22%, transparent 68%);
+  animation:
+    luxia-fx-gate-e 450ms ease-in-out infinite,
+    luxia-fx-space-e 300ms steps(1, end) infinite;
+  animation-delay: 30ms, 80ms;
+}
+
+/* Distribution F — scattered full lockup set 1 */
+.luxia-login-dotmark__flicker-g--6 {
+  -webkit-mask-image:
+    radial-gradient(ellipse 8% 16% at calc(10% + var(--luxia-fx-ox)) calc(58% + var(--luxia-fx-oy)), #000 0%, #000 28%, transparent 68%),
+    radial-gradient(ellipse 7% 14% at calc(28% + var(--luxia-fx-ox)) calc(70% + var(--luxia-fx-oy)), #000 0%, #000 26%, transparent 66%),
+    radial-gradient(ellipse 8% 18% at calc(46% + var(--luxia-fx-ox)) calc(52% + var(--luxia-fx-oy)), #000 0%, #000 28%, transparent 68%),
+    radial-gradient(ellipse 7% 15% at calc(64% + var(--luxia-fx-ox)) calc(66% + var(--luxia-fx-oy)), #000 0%, #000 26%, transparent 66%),
+    radial-gradient(ellipse 8% 20% at calc(82% + var(--luxia-fx-ox)) calc(40% + var(--luxia-fx-oy)), #000 0%, #000 28%, transparent 68%);
+  mask-image:
+    radial-gradient(ellipse 8% 16% at calc(10% + var(--luxia-fx-ox)) calc(58% + var(--luxia-fx-oy)), #000 0%, #000 28%, transparent 68%),
+    radial-gradient(ellipse 7% 14% at calc(28% + var(--luxia-fx-ox)) calc(70% + var(--luxia-fx-oy)), #000 0%, #000 26%, transparent 66%),
+    radial-gradient(ellipse 8% 18% at calc(46% + var(--luxia-fx-ox)) calc(52% + var(--luxia-fx-oy)), #000 0%, #000 28%, transparent 68%),
+    radial-gradient(ellipse 7% 15% at calc(64% + var(--luxia-fx-ox)) calc(66% + var(--luxia-fx-oy)), #000 0%, #000 26%, transparent 66%),
+    radial-gradient(ellipse 8% 20% at calc(82% + var(--luxia-fx-ox)) calc(40% + var(--luxia-fx-oy)), #000 0%, #000 28%, transparent 68%);
+  animation:
+    luxia-fx-gate-f 160ms ease-in-out infinite,
+    luxia-fx-space-a 240ms steps(1, end) infinite;
+  animation-delay: 110ms, 0ms;
+}
+
+/* Distribution G — alternate scatter */
+.luxia-login-dotmark__flicker-g--7 {
+  -webkit-mask-image:
+    radial-gradient(ellipse 8% 15% at calc(16% + var(--luxia-fx-ox)) calc(72% + var(--luxia-fx-oy)), #000 0%, #000 28%, transparent 68%),
+    radial-gradient(ellipse 7% 16% at calc(36% + var(--luxia-fx-ox)) calc(48% + var(--luxia-fx-oy)), #000 0%, #000 26%, transparent 66%),
+    radial-gradient(ellipse 8% 14% at calc(52% + var(--luxia-fx-ox)) calc(68% + var(--luxia-fx-oy)), #000 0%, #000 28%, transparent 68%),
+    radial-gradient(ellipse 7% 18% at calc(72% + var(--luxia-fx-ox)) calc(54% + var(--luxia-fx-oy)), #000 0%, #000 26%, transparent 66%),
+    radial-gradient(ellipse 8% 16% at calc(90% + var(--luxia-fx-ox)) calc(36% + var(--luxia-fx-oy)), #000 0%, #000 28%, transparent 68%);
+  mask-image:
+    radial-gradient(ellipse 8% 15% at calc(16% + var(--luxia-fx-ox)) calc(72% + var(--luxia-fx-oy)), #000 0%, #000 28%, transparent 68%),
+    radial-gradient(ellipse 7% 16% at calc(36% + var(--luxia-fx-ox)) calc(48% + var(--luxia-fx-oy)), #000 0%, #000 26%, transparent 66%),
+    radial-gradient(ellipse 8% 14% at calc(52% + var(--luxia-fx-ox)) calc(68% + var(--luxia-fx-oy)), #000 0%, #000 28%, transparent 68%),
+    radial-gradient(ellipse 7% 18% at calc(72% + var(--luxia-fx-ox)) calc(54% + var(--luxia-fx-oy)), #000 0%, #000 26%, transparent 66%),
+    radial-gradient(ellipse 8% 16% at calc(90% + var(--luxia-fx-ox)) calc(36% + var(--luxia-fx-oy)), #000 0%, #000 28%, transparent 68%);
+  animation:
+    luxia-fx-gate-a 400ms ease-in-out infinite,
+    luxia-fx-space-b 420ms steps(1, end) infinite;
+  animation-delay: 20ms, 90ms;
+}
+
+/* Distribution H — broad soft wash (very low peak) */
+.luxia-login-dotmark__flicker-g--8 {
+  -webkit-mask-image:
+    radial-gradient(ellipse 32% 40% at calc(24% + var(--luxia-fx-ox)) calc(62% + var(--luxia-fx-oy)), #000 0%, #000 14%, transparent 78%),
+    radial-gradient(ellipse 30% 36% at calc(58% + var(--luxia-fx-ox)) calc(58% + var(--luxia-fx-oy)), #000 0%, #000 14%, transparent 78%),
+    radial-gradient(ellipse 24% 42% at calc(82% + var(--luxia-fx-ox)) calc(42% + var(--luxia-fx-oy)), #000 0%, #000 14%, transparent 78%);
+  mask-image:
+    radial-gradient(ellipse 32% 40% at calc(24% + var(--luxia-fx-ox)) calc(62% + var(--luxia-fx-oy)), #000 0%, #000 14%, transparent 78%),
+    radial-gradient(ellipse 30% 36% at calc(58% + var(--luxia-fx-ox)) calc(58% + var(--luxia-fx-oy)), #000 0%, #000 14%, transparent 78%),
+    radial-gradient(ellipse 24% 42% at calc(82% + var(--luxia-fx-ox)) calc(42% + var(--luxia-fx-oy)), #000 0%, #000 14%, transparent 78%);
+  animation:
+    luxia-fx-gate-wash 600ms ease-in-out infinite,
+    luxia-fx-space-c 520ms steps(1, end) infinite;
+  animation-delay: 50ms, 140ms;
+}
+
+/* Distribution I — L+star distant pair */
+.luxia-login-dotmark__flicker-g--9 {
+  -webkit-mask-image:
+    radial-gradient(ellipse 14% 30% at calc(10% + var(--luxia-fx-ox)) calc(64% + var(--luxia-fx-oy)), #000 0%, #000 24%, transparent 70%),
+    radial-gradient(ellipse 12% 28% at calc(84% + var(--luxia-fx-ox)) calc(40% + var(--luxia-fx-oy)), #000 0%, #000 24%, transparent 70%),
+    radial-gradient(ellipse 10% 22% at calc(48% + var(--luxia-fx-ox)) calc(70% + var(--luxia-fx-oy)), #000 0%, #000 22%, transparent 68%);
+  mask-image:
+    radial-gradient(ellipse 14% 30% at calc(10% + var(--luxia-fx-ox)) calc(64% + var(--luxia-fx-oy)), #000 0%, #000 24%, transparent 70%),
+    radial-gradient(ellipse 12% 28% at calc(84% + var(--luxia-fx-ox)) calc(40% + var(--luxia-fx-oy)), #000 0%, #000 24%, transparent 70%),
+    radial-gradient(ellipse 10% 22% at calc(48% + var(--luxia-fx-ox)) calc(70% + var(--luxia-fx-oy)), #000 0%, #000 22%, transparent 68%);
+  animation:
+    luxia-fx-gate-b 500ms ease-in-out infinite,
+    luxia-fx-space-d 280ms steps(1, end) infinite;
+  animation-delay: 130ms, 60ms;
+}
+
+/* Distribution J — upper haze letters */
+.luxia-login-dotmark__flicker-g--10 {
+  -webkit-mask-image:
+    radial-gradient(ellipse 18% 22% at calc(20% + var(--luxia-fx-ox)) calc(46% + var(--luxia-fx-oy)), #000 0%, #000 20%, transparent 72%),
+    radial-gradient(ellipse 16% 20% at calc(42% + var(--luxia-fx-ox)) calc(44% + var(--luxia-fx-oy)), #000 0%, #000 20%, transparent 72%),
+    radial-gradient(ellipse 16% 22% at calc(64% + var(--luxia-fx-ox)) calc(46% + var(--luxia-fx-oy)), #000 0%, #000 20%, transparent 72%),
+    radial-gradient(ellipse 14% 26% at calc(82% + var(--luxia-fx-ox)) calc(38% + var(--luxia-fx-oy)), #000 0%, #000 20%, transparent 72%);
+  mask-image:
+    radial-gradient(ellipse 18% 22% at calc(20% + var(--luxia-fx-ox)) calc(46% + var(--luxia-fx-oy)), #000 0%, #000 20%, transparent 72%),
+    radial-gradient(ellipse 16% 20% at calc(42% + var(--luxia-fx-ox)) calc(44% + var(--luxia-fx-oy)), #000 0%, #000 20%, transparent 72%),
+    radial-gradient(ellipse 16% 22% at calc(64% + var(--luxia-fx-ox)) calc(46% + var(--luxia-fx-oy)), #000 0%, #000 20%, transparent 72%),
+    radial-gradient(ellipse 14% 26% at calc(82% + var(--luxia-fx-ox)) calc(38% + var(--luxia-fx-oy)), #000 0%, #000 20%, transparent 72%);
+  animation:
+    luxia-fx-gate-c 750ms ease-in-out infinite,
+    luxia-fx-space-e 440ms steps(1, end) infinite;
+  animation-delay: 80ms, 20ms;
+}
+
+/* Distribution K — lower band irregular */
+.luxia-login-dotmark__flicker-g--11 {
+  -webkit-mask-image:
+    radial-gradient(ellipse 16% 20% at calc(14% + var(--luxia-fx-ox)) calc(78% + var(--luxia-fx-oy)), #000 0%, #000 22%, transparent 70%),
+    radial-gradient(ellipse 14% 18% at calc(34% + var(--luxia-fx-ox)) calc(80% + var(--luxia-fx-oy)), #000 0%, #000 22%, transparent 70%),
+    radial-gradient(ellipse 14% 18% at calc(54% + var(--luxia-fx-ox)) calc(76% + var(--luxia-fx-oy)), #000 0%, #000 22%, transparent 70%),
+    radial-gradient(ellipse 12% 18% at calc(72% + var(--luxia-fx-ox)) calc(72% + var(--luxia-fx-oy)), #000 0%, #000 22%, transparent 70%);
+  mask-image:
+    radial-gradient(ellipse 16% 20% at calc(14% + var(--luxia-fx-ox)) calc(78% + var(--luxia-fx-oy)), #000 0%, #000 22%, transparent 70%),
+    radial-gradient(ellipse 14% 18% at calc(34% + var(--luxia-fx-ox)) calc(80% + var(--luxia-fx-oy)), #000 0%, #000 22%, transparent 70%),
+    radial-gradient(ellipse 14% 18% at calc(54% + var(--luxia-fx-ox)) calc(76% + var(--luxia-fx-oy)), #000 0%, #000 22%, transparent 70%),
+    radial-gradient(ellipse 12% 18% at calc(72% + var(--luxia-fx-ox)) calc(72% + var(--luxia-fx-oy)), #000 0%, #000 22%, transparent 70%);
+  animation:
+    luxia-fx-gate-d 900ms ease-in-out infinite,
+    luxia-fx-space-a 380ms steps(1, end) infinite;
+  animation-delay: 160ms, 100ms;
+}
+
+/* Distribution L — dense mid scatter */
+.luxia-login-dotmark__flicker-g--12 {
+  -webkit-mask-image:
+    radial-gradient(ellipse 6% 12% at calc(8% + var(--luxia-fx-ox)) calc(60% + var(--luxia-fx-oy)), #000 0%, #000 30%, transparent 66%),
+    radial-gradient(ellipse 6% 12% at calc(20% + var(--luxia-fx-ox)) calc(68% + var(--luxia-fx-oy)), #000 0%, #000 30%, transparent 66%),
+    radial-gradient(ellipse 6% 12% at calc(32% + var(--luxia-fx-ox)) calc(54% + var(--luxia-fx-oy)), #000 0%, #000 30%, transparent 66%),
+    radial-gradient(ellipse 6% 12% at calc(44% + var(--luxia-fx-ox)) calc(66% + var(--luxia-fx-oy)), #000 0%, #000 30%, transparent 66%),
+    radial-gradient(ellipse 6% 12% at calc(56% + var(--luxia-fx-ox)) calc(52% + var(--luxia-fx-oy)), #000 0%, #000 30%, transparent 66%),
+    radial-gradient(ellipse 6% 12% at calc(68% + var(--luxia-fx-ox)) calc(64% + var(--luxia-fx-oy)), #000 0%, #000 30%, transparent 66%),
+    radial-gradient(ellipse 6% 14% at calc(80% + var(--luxia-fx-ox)) calc(46% + var(--luxia-fx-oy)), #000 0%, #000 30%, transparent 66%),
+    radial-gradient(ellipse 6% 12% at calc(90% + var(--luxia-fx-ox)) calc(38% + var(--luxia-fx-oy)), #000 0%, #000 30%, transparent 66%);
+  mask-image:
+    radial-gradient(ellipse 6% 12% at calc(8% + var(--luxia-fx-ox)) calc(60% + var(--luxia-fx-oy)), #000 0%, #000 30%, transparent 66%),
+    radial-gradient(ellipse 6% 12% at calc(20% + var(--luxia-fx-ox)) calc(68% + var(--luxia-fx-oy)), #000 0%, #000 30%, transparent 66%),
+    radial-gradient(ellipse 6% 12% at calc(32% + var(--luxia-fx-ox)) calc(54% + var(--luxia-fx-oy)), #000 0%, #000 30%, transparent 66%),
+    radial-gradient(ellipse 6% 12% at calc(44% + var(--luxia-fx-ox)) calc(66% + var(--luxia-fx-oy)), #000 0%, #000 30%, transparent 66%),
+    radial-gradient(ellipse 6% 12% at calc(56% + var(--luxia-fx-ox)) calc(52% + var(--luxia-fx-oy)), #000 0%, #000 30%, transparent 66%),
+    radial-gradient(ellipse 6% 12% at calc(68% + var(--luxia-fx-ox)) calc(64% + var(--luxia-fx-oy)), #000 0%, #000 30%, transparent 66%),
+    radial-gradient(ellipse 6% 14% at calc(80% + var(--luxia-fx-ox)) calc(46% + var(--luxia-fx-oy)), #000 0%, #000 30%, transparent 66%),
+    radial-gradient(ellipse 6% 12% at calc(90% + var(--luxia-fx-ox)) calc(38% + var(--luxia-fx-oy)), #000 0%, #000 30%, transparent 66%);
+  animation:
+    luxia-fx-gate-e 200ms ease-in-out infinite,
+    luxia-fx-space-b 200ms steps(1, end) infinite;
+  animation-delay: 0ms, 30ms;
+}
+
+/* Distribution M — alternate dense */
+.luxia-login-dotmark__flicker-g--13 {
+  -webkit-mask-image:
+    radial-gradient(ellipse 6% 13% at calc(12% + var(--luxia-fx-ox)) calc(52% + var(--luxia-fx-oy)), #000 0%, #000 30%, transparent 66%),
+    radial-gradient(ellipse 6% 12% at calc(24% + var(--luxia-fx-ox)) calc(74% + var(--luxia-fx-oy)), #000 0%, #000 30%, transparent 66%),
+    radial-gradient(ellipse 6% 12% at calc(40% + var(--luxia-fx-ox)) calc(58% + var(--luxia-fx-oy)), #000 0%, #000 30%, transparent 66%),
+    radial-gradient(ellipse 6% 12% at calc(52% + var(--luxia-fx-ox)) calc(72% + var(--luxia-fx-oy)), #000 0%, #000 30%, transparent 66%),
+    radial-gradient(ellipse 6% 12% at calc(66% + var(--luxia-fx-ox)) calc(50% + var(--luxia-fx-oy)), #000 0%, #000 30%, transparent 66%),
+    radial-gradient(ellipse 6% 14% at calc(78% + var(--luxia-fx-ox)) calc(62% + var(--luxia-fx-oy)), #000 0%, #000 30%, transparent 66%),
+    radial-gradient(ellipse 6% 12% at calc(92% + var(--luxia-fx-ox)) calc(44% + var(--luxia-fx-oy)), #000 0%, #000 30%, transparent 66%);
+  mask-image:
+    radial-gradient(ellipse 6% 13% at calc(12% + var(--luxia-fx-ox)) calc(52% + var(--luxia-fx-oy)), #000 0%, #000 30%, transparent 66%),
+    radial-gradient(ellipse 6% 12% at calc(24% + var(--luxia-fx-ox)) calc(74% + var(--luxia-fx-oy)), #000 0%, #000 30%, transparent 66%),
+    radial-gradient(ellipse 6% 12% at calc(40% + var(--luxia-fx-ox)) calc(58% + var(--luxia-fx-oy)), #000 0%, #000 30%, transparent 66%),
+    radial-gradient(ellipse 6% 12% at calc(52% + var(--luxia-fx-ox)) calc(72% + var(--luxia-fx-oy)), #000 0%, #000 30%, transparent 66%),
+    radial-gradient(ellipse 6% 12% at calc(66% + var(--luxia-fx-ox)) calc(50% + var(--luxia-fx-oy)), #000 0%, #000 30%, transparent 66%),
+    radial-gradient(ellipse 6% 14% at calc(78% + var(--luxia-fx-ox)) calc(62% + var(--luxia-fx-oy)), #000 0%, #000 30%, transparent 66%),
+    radial-gradient(ellipse 6% 12% at calc(92% + var(--luxia-fx-ox)) calc(44% + var(--luxia-fx-oy)), #000 0%, #000 30%, transparent 66%);
+  animation:
+    luxia-fx-gate-f 320ms ease-in-out infinite,
+    luxia-fx-space-c 360ms steps(1, end) infinite;
+  animation-delay: 100ms, 70ms;
+}
+
+/* Distribution N — diagonal-ish but broken */
+.luxia-login-dotmark__flicker-g--14 {
+  -webkit-mask-image:
+    radial-gradient(ellipse 10% 20% at calc(14% + var(--luxia-fx-ox)) calc(74% + var(--luxia-fx-oy)), #000 0%, #000 26%, transparent 68%),
+    radial-gradient(ellipse 10% 18% at calc(40% + var(--luxia-fx-ox)) calc(58% + var(--luxia-fx-oy)), #000 0%, #000 26%, transparent 68%),
+    radial-gradient(ellipse 10% 20% at calc(66% + var(--luxia-fx-ox)) calc(48% + var(--luxia-fx-oy)), #000 0%, #000 26%, transparent 68%),
+    radial-gradient(ellipse 10% 24% at calc(88% + var(--luxia-fx-ox)) calc(34% + var(--luxia-fx-oy)), #000 0%, #000 26%, transparent 68%);
+  mask-image:
+    radial-gradient(ellipse 10% 20% at calc(14% + var(--luxia-fx-ox)) calc(74% + var(--luxia-fx-oy)), #000 0%, #000 26%, transparent 68%),
+    radial-gradient(ellipse 10% 18% at calc(40% + var(--luxia-fx-ox)) calc(58% + var(--luxia-fx-oy)), #000 0%, #000 26%, transparent 68%),
+    radial-gradient(ellipse 10% 20% at calc(66% + var(--luxia-fx-ox)) calc(48% + var(--luxia-fx-oy)), #000 0%, #000 26%, transparent 68%),
+    radial-gradient(ellipse 10% 24% at calc(88% + var(--luxia-fx-ox)) calc(34% + var(--luxia-fx-oy)), #000 0%, #000 26%, transparent 68%);
+  animation:
+    luxia-fx-gate-a 700ms ease-in-out infinite,
+    luxia-fx-space-d 480ms steps(1, end) infinite;
+  animation-delay: 40ms, 150ms;
+}
+
+/* Distribution O — star-heavy + mid */
+.luxia-login-dotmark__flicker-g--15 {
+  -webkit-mask-image:
+    radial-gradient(ellipse 11% 28% at calc(80% + var(--luxia-fx-ox)) calc(42% + var(--luxia-fx-oy)), #000 0%, #000 24%, transparent 70%),
+    radial-gradient(ellipse 10% 24% at calc(88% + var(--luxia-fx-ox)) calc(34% + var(--luxia-fx-oy)), #000 0%, #000 24%, transparent 70%),
+    radial-gradient(ellipse 9% 20% at calc(36% + var(--luxia-fx-ox)) calc(62% + var(--luxia-fx-oy)), #000 0%, #000 24%, transparent 70%),
+    radial-gradient(ellipse 9% 18% at calc(58% + var(--luxia-fx-ox)) calc(56% + var(--luxia-fx-oy)), #000 0%, #000 24%, transparent 70%);
+  mask-image:
+    radial-gradient(ellipse 11% 28% at calc(80% + var(--luxia-fx-ox)) calc(42% + var(--luxia-fx-oy)), #000 0%, #000 24%, transparent 70%),
+    radial-gradient(ellipse 10% 24% at calc(88% + var(--luxia-fx-ox)) calc(34% + var(--luxia-fx-oy)), #000 0%, #000 24%, transparent 70%),
+    radial-gradient(ellipse 9% 20% at calc(36% + var(--luxia-fx-ox)) calc(62% + var(--luxia-fx-oy)), #000 0%, #000 24%, transparent 70%),
+    radial-gradient(ellipse 9% 18% at calc(58% + var(--luxia-fx-ox)) calc(56% + var(--luxia-fx-oy)), #000 0%, #000 24%, transparent 70%);
+  animation:
+    luxia-fx-gate-b 850ms ease-in-out infinite,
+    luxia-fx-space-e 340ms steps(1, end) infinite;
+  animation-delay: 60ms, 10ms;
+}
+
+/* Distribution P — broad wash alt */
+.luxia-login-dotmark__flicker-g--16 {
+  -webkit-mask-image:
+    radial-gradient(ellipse 28% 34% at calc(18% + var(--luxia-fx-ox)) calc(58% + var(--luxia-fx-oy)), #000 0%, #000 12%, transparent 80%),
+    radial-gradient(ellipse 26% 32% at calc(48% + var(--luxia-fx-ox)) calc(64% + var(--luxia-fx-oy)), #000 0%, #000 12%, transparent 80%),
+    radial-gradient(ellipse 24% 38% at calc(76% + var(--luxia-fx-ox)) calc(48% + var(--luxia-fx-oy)), #000 0%, #000 12%, transparent 80%);
+  mask-image:
+    radial-gradient(ellipse 28% 34% at calc(18% + var(--luxia-fx-ox)) calc(58% + var(--luxia-fx-oy)), #000 0%, #000 12%, transparent 80%),
+    radial-gradient(ellipse 26% 32% at calc(48% + var(--luxia-fx-ox)) calc(64% + var(--luxia-fx-oy)), #000 0%, #000 12%, transparent 80%),
+    radial-gradient(ellipse 24% 38% at calc(76% + var(--luxia-fx-ox)) calc(48% + var(--luxia-fx-oy)), #000 0%, #000 12%, transparent 80%);
+  animation:
+    luxia-fx-gate-wash 520ms ease-in-out infinite,
+    luxia-fx-space-a 560ms steps(1, end) infinite;
+  animation-delay: 180ms, 120ms;
+}
+
+/* Tiny muted blue accents */
+.luxia-login-dotmark__flicker-g--17 {
+  -webkit-mask-image:
+    radial-gradient(ellipse 5% 10% at calc(22% + var(--luxia-fx-ox)) calc(60% + var(--luxia-fx-oy)), #000 0%, #000 34%, transparent 64%),
+    radial-gradient(ellipse 4.5% 11% at calc(54% + var(--luxia-fx-ox)) calc(54% + var(--luxia-fx-oy)), #000 0%, #000 32%, transparent 62%),
+    radial-gradient(ellipse 5% 13% at calc(84% + var(--luxia-fx-ox)) calc(40% + var(--luxia-fx-oy)), #000 0%, #000 34%, transparent 64%);
+  mask-image:
+    radial-gradient(ellipse 5% 10% at calc(22% + var(--luxia-fx-ox)) calc(60% + var(--luxia-fx-oy)), #000 0%, #000 34%, transparent 64%),
+    radial-gradient(ellipse 4.5% 11% at calc(54% + var(--luxia-fx-ox)) calc(54% + var(--luxia-fx-oy)), #000 0%, #000 32%, transparent 62%),
+    radial-gradient(ellipse 5% 13% at calc(84% + var(--luxia-fx-ox)) calc(40% + var(--luxia-fx-oy)), #000 0%, #000 34%, transparent 64%);
+  animation:
+    luxia-fx-gate-blue 650ms ease-in-out infinite,
+    luxia-fx-space-c 300ms steps(1, end) infinite;
+  animation-delay: 200ms, 90ms;
+}
+
+.luxia-login-dotmark__flicker-g--18 {
+  -webkit-mask-image:
+    radial-gradient(ellipse 4% 9% at calc(14% + var(--luxia-fx-ox)) calc(70% + var(--luxia-fx-oy)), #000 0%, #000 34%, transparent 64%),
+    radial-gradient(ellipse 4% 10% at calc(46% + var(--luxia-fx-ox)) calc(58% + var(--luxia-fx-oy)), #000 0%, #000 32%, transparent 62%),
+    radial-gradient(ellipse 4.5% 12% at calc(72% + var(--luxia-fx-ox)) calc(48% + var(--luxia-fx-oy)), #000 0%, #000 34%, transparent 64%);
+  mask-image:
+    radial-gradient(ellipse 4% 9% at calc(14% + var(--luxia-fx-ox)) calc(70% + var(--luxia-fx-oy)), #000 0%, #000 34%, transparent 64%),
+    radial-gradient(ellipse 4% 10% at calc(46% + var(--luxia-fx-ox)) calc(58% + var(--luxia-fx-oy)), #000 0%, #000 32%, transparent 62%),
+    radial-gradient(ellipse 4.5% 12% at calc(72% + var(--luxia-fx-ox)) calc(48% + var(--luxia-fx-oy)), #000 0%, #000 34%, transparent 64%);
+  animation:
+    luxia-fx-gate-blue 800ms ease-in-out infinite,
+    luxia-fx-space-b 420ms steps(1, end) infinite;
+  animation-delay: 280ms, 40ms;
+}
+
+/*
+ * Opacity gates: floor stays on (never hard OFF); peaks stay subtle (~0.12–0.17).
+ * Deep dips (~0.03) yield the stage so other distributions dominate → locations change.
+ */
+@keyframes luxia-fx-gate-a {
+  0%,
+  100% {
+    opacity: 0.07;
+  }
+  18% {
+    opacity: 0.15;
+  }
+  42% {
+    opacity: 0.04;
+  }
+  68% {
+    opacity: 0.13;
+  }
+  84% {
+    opacity: 0.05;
+  }
+}
+
+@keyframes luxia-fx-gate-b {
+  0%,
+  100% {
+    opacity: 0.06;
+  }
+  22% {
+    opacity: 0.14;
+  }
+  48% {
+    opacity: 0.03;
+  }
+  72% {
+    opacity: 0.12;
+  }
+}
+
+@keyframes luxia-fx-gate-c {
+  0%,
+  100% {
+    opacity: 0.08;
+  }
+  30% {
+    opacity: 0.04;
+  }
+  55% {
+    opacity: 0.16;
+  }
+  78% {
+    opacity: 0.05;
+  }
+}
+
+@keyframes luxia-fx-gate-d {
+  0%,
+  100% {
+    opacity: 0.05;
+  }
+  25% {
+    opacity: 0.13;
+  }
+  50% {
+    opacity: 0.07;
+  }
+  75% {
+    opacity: 0.03;
+  }
+}
+
+@keyframes luxia-fx-gate-e {
+  0%,
+  100% {
+    opacity: 0.07;
+  }
+  35% {
+    opacity: 0.03;
+  }
+  60% {
+    opacity: 0.15;
+  }
+  85% {
+    opacity: 0.06;
+  }
+}
+
+@keyframes luxia-fx-gate-f {
+  0%,
+  100% {
+    opacity: 0.06;
+  }
+  20% {
+    opacity: 0.14;
+  }
+  45% {
+    opacity: 0.04;
+  }
+  70% {
+    opacity: 0.12;
+  }
+  90% {
+    opacity: 0.05;
+  }
+}
+
+@keyframes luxia-fx-gate-wash {
+  0%,
+  100% {
+    opacity: 0.05;
+  }
+  40% {
+    opacity: 0.1;
+  }
+  70% {
+    opacity: 0.04;
+  }
+}
+
+@keyframes luxia-fx-gate-blue {
+  0%,
+  100% {
+    opacity: 0.03;
+  }
+  28% {
+    opacity: 0.09;
+  }
+  55% {
+    opacity: 0.02;
+  }
+  80% {
+    opacity: 0.07;
+  }
+}
+
+/* Spatial jumps — unrelated offsets; steps = location changes, not sweeps */
+@keyframes luxia-fx-space-a {
+  0%,
+  100% {
+    --luxia-fx-ox: 0%;
+    --luxia-fx-oy: 0%;
+  }
+  20% {
+    --luxia-fx-ox: 14%;
+    --luxia-fx-oy: -10%;
+  }
+  40% {
+    --luxia-fx-ox: -12%;
+    --luxia-fx-oy: 12%;
+  }
+  60% {
+    --luxia-fx-ox: 8%;
+    --luxia-fx-oy: 6%;
+  }
+  80% {
+    --luxia-fx-ox: -16%;
+    --luxia-fx-oy: -6%;
+  }
+}
+
+@keyframes luxia-fx-space-b {
+  0%,
+  100% {
+    --luxia-fx-ox: 0%;
+    --luxia-fx-oy: 0%;
+  }
+  25% {
+    --luxia-fx-ox: -10%;
+    --luxia-fx-oy: 8%;
+  }
+  50% {
+    --luxia-fx-ox: 16%;
+    --luxia-fx-oy: -4%;
+  }
+  75% {
+    --luxia-fx-ox: 4%;
+    --luxia-fx-oy: -14%;
+  }
+}
+
+@keyframes luxia-fx-space-c {
+  0%,
+  100% {
+    --luxia-fx-ox: 0%;
+    --luxia-fx-oy: 0%;
+  }
+  16% {
+    --luxia-fx-ox: 10%;
+    --luxia-fx-oy: 10%;
+  }
+  33% {
+    --luxia-fx-ox: -14%;
+    --luxia-fx-oy: -8%;
+  }
+  50% {
+    --luxia-fx-ox: 6%;
+    --luxia-fx-oy: -12%;
+  }
+  66% {
+    --luxia-fx-ox: -8%;
+    --luxia-fx-oy: 14%;
+  }
+  83% {
+    --luxia-fx-ox: 12%;
+    --luxia-fx-oy: 2%;
+  }
+}
+
+@keyframes luxia-fx-space-d {
+  0%,
+  100% {
+    --luxia-fx-ox: 0%;
+    --luxia-fx-oy: 0%;
+  }
+  30% {
+    --luxia-fx-ox: -18%;
+    --luxia-fx-oy: 4%;
+  }
+  55% {
+    --luxia-fx-ox: 10%;
+    --luxia-fx-oy: -16%;
+  }
+  80% {
+    --luxia-fx-ox: 2%;
+    --luxia-fx-oy: 10%;
+  }
+}
+
+@keyframes luxia-fx-space-e {
+  0%,
+  100% {
+    --luxia-fx-ox: 0%;
+    --luxia-fx-oy: 0%;
+  }
+  22% {
+    --luxia-fx-ox: 8%;
+    --luxia-fx-oy: 12%;
+  }
+  44% {
+    --luxia-fx-ox: -6%;
+    --luxia-fx-oy: -10%;
+  }
+  66% {
+    --luxia-fx-ox: 14%;
+    --luxia-fx-oy: 0%;
+  }
+  88% {
+    --luxia-fx-ox: -12%;
+    --luxia-fx-oy: 8%;
+  }
+}
+
+/* Edge contour glitch lives in luxia-login-edge-glitch.css */
+

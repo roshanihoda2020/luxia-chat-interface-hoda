@@ -8,6 +8,7 @@ import flagDe from "@/assets/flags/de.svg";
 import flagEs from "@/assets/flags/es.svg";
 import flagCn from "@/assets/flags/cn.svg";
 import { LuxiaStarLogo } from "@/app/components/LuxiaStarLogo";
+import { LoginPage, bootstrapPrototypeSignedIn, writePrototypeSignedIn, clearPrototypeSignedIn } from "@/app/features/login";
 import { ActiveDataTablesSection } from "@/app/features/active-data-tables/ActiveDataTablesSection";
 import { ExtraContextFilesSection } from "@/app/features/extra-context-files/ExtraContextFilesSection";
 import { InstructionSection } from "@/app/features/instruction/InstructionSection";
@@ -4163,6 +4164,7 @@ export default function App() {
     Record<string, ProjectAssistantMessage[]>
   >({});
   const [prototypeUserId, setPrototypeUserId] = useState(CURRENT_USER_ID);
+  const [prototypeSignedIn, setPrototypeSignedIn] = useState(bootstrapPrototypeSignedIn);
   const [constellationAccessBlock, setConstellationAccessBlock] = useState<{
     projectId: string;
     constellationId: string;
@@ -8402,6 +8404,21 @@ export default function App() {
     constellationSettingsById,
   ]);
 
+  if (!prototypeSignedIn) {
+    return (
+      <>
+        <LoginPage
+          onSignedIn={(rememberMe, userId) => {
+            writePrototypeSignedIn(rememberMe);
+            setPrototypeUserId(userId);
+            setPrototypeSignedIn(true);
+          }}
+        />
+        <Toaster richColors closeButton position="top-right" />
+      </>
+    );
+  }
+
   return (
     <div
       className="flex h-dvh max-h-dvh overflow-hidden"
@@ -8487,6 +8504,10 @@ export default function App() {
         prototypeUsers={prototypeUsersForDemo}
         onPrototypeUserChange={handlePrototypeUserChange}
         onSettingsClick={() => handleOpenAccountSettings("profile")}
+        onLogout={() => {
+          clearPrototypeSignedIn();
+          setPrototypeSignedIn(false);
+        }}
         onSecondaryRailOpenChange={setLeftNavSecondaryOpen}
       />
 

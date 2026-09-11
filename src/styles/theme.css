@@ -660,3 +660,10 @@
     color: var(--luxia-text-muted);
   }
 }
+
+/* Auth focus uses restrained Luxia blue — not purple CTA glow */
+.luxia-login-panel input[data-slot="input"].luxia-login-input:focus-visible,
+input[data-slot="input"].luxia-login-input:focus-visible {
+  border-color: color-mix(in srgb, var(--luxia-blue-50) 62%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--luxia-blue-50) 14%, transparent);
+}
