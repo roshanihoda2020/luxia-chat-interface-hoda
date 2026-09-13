@@ -1,8 +1,7 @@
 /*
  * Dense changing-location micro-glitch.
  * 18 irregular distributions + async opacity gates + spatial offset jumps.
- * Soft amplitude; no sparkles; rare optional 1–2px micro shift.
- * Weaker than mouse flashlight. Background/cloud stay static.
+ * Soft amplitude; weaker than mouse flashlight. Background/cloud stay static.
  */
 @property --luxia-fx-ox {
   syntax: "<percentage>";

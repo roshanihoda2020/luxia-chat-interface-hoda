@@ -1,10 +1,7 @@
 import { useEffect, useRef } from "react";
 import { LoginDotBrand } from "@/app/features/login/LoginDotBrand";
 
-/**
- * Login atmosphere: wash + far/mid pixel fields + vignette + brand lockup + tagline.
- * Subtle depth parallax on fine pointers only (does not affect flashlight tracking).
- */
+/** Depth parallax on fine pointers only — does not affect flashlight tracking. */
 export function LoginEnvironment() {
   const envRef = useRef<HTMLDivElement>(null);
 
@@ -113,6 +110,12 @@ export function LoginEnvironment() {
         </div>
         <div className="luxia-login-environment-field luxia-login-environment-field--mid">
           <div className="luxia-login-environment-dots luxia-login-environment-dots--mid" />
+        </div>
+
+        {/* Local wall light — same pointer as logo; reveals pixels, not a flat spotlight */}
+        <div className="luxia-login-environment-wall-light">
+          <div className="luxia-login-environment-wall-light__pixels luxia-login-environment-wall-light__pixels--far" />
+          <div className="luxia-login-environment-wall-light__pixels luxia-login-environment-wall-light__pixels--mid" />
         </div>
 
         <div className="luxia-login-environment-vignette" />

@@ -29,7 +29,7 @@ const VIEW_H = 47;
 const DOT_GRID = 0.65;
 const DOT_ORIGIN = 0.325;
 
-/** Local flashlight — true screen-space px (~4× prior hazelnut size). */
+/** Local flashlight radius in true screen-space px (locked hover size). */
 const RADIUS_MIN = 70;
 const RADIUS_MAX = 100;
 const RADIUS_BASE = 84;
@@ -78,7 +78,7 @@ function LockupDotsSvg({
   );
 }
 
-/** Soft contact silhouette (solid fill — blurred in CSS, not a pixel extrusion). */
+/** Solid silhouette — used for wall shadows + dark volume body (not front dots). */
 function LockupSolidSvg({
   uid,
   fill,
@@ -116,10 +116,7 @@ function clamp(n: number, min: number, max: number) {
   return Math.min(max, Math.max(min, n));
 }
 
-/**
- * Dotted Luxia lockup — depth + rest tonal layers + digital flicker + flashlight.
- * Hover/flashlight mechanics intentionally unchanged.
- */
+/** Pointer tracking drives front lit + wall/body/shadow composition light (same source). */
 export function LoginDotBrand() {
   const rootRef = useRef<HTMLDivElement>(null);
   const uid = useId().replace(/:/g, "");
@@ -140,12 +137,47 @@ export function LoginDotBrand() {
     let currentY = targetY;
     let currentLit = 0;
     const radiusPx = clamp(RADIUS_BASE, RADIUS_MIN, RADIUS_MAX);
+    const envEl = root.closest(".luxia-login-environment") as HTMLElement | null;
+    const shellEl = root.closest(".luxia-login-shell") as HTMLElement | null;
+    const authEl = shellEl?.querySelector(".luxia-login-auth") as HTMLElement | null;
 
     function apply(x: number, y: number, lit: number) {
       root!.style.setProperty("--luxia-dot-x", `${(x * 100).toFixed(2)}%`);
       root!.style.setProperty("--luxia-dot-y", `${(y * 100).toFixed(2)}%`);
       root!.style.setProperty("--luxia-dot-r", `${radiusPx}px`);
       root!.style.setProperty("--luxia-dot-lit", lit.toFixed(4));
+
+      /* Same pointer → composition light (wall / card use env-absolute coords) */
+      const logoRect = root!.getBoundingClientRect();
+      const lightX = logoRect.left + x * logoRect.width;
+      const lightY = logoRect.top + y * logoRect.height;
+
+      if (envEl) {
+        const er = envEl.getBoundingClientRect();
+        envEl.style.setProperty("--luxia-light-x", `${(lightX - er.left).toFixed(1)}px`);
+        envEl.style.setProperty("--luxia-light-y", `${(lightY - er.top).toFixed(1)}px`);
+        envEl.style.setProperty("--luxia-light-r", `${radiusPx}px`);
+        envEl.style.setProperty("--luxia-light-lit", lit.toFixed(4));
+      }
+
+      if (shellEl) {
+        const sr = shellEl.getBoundingClientRect();
+        shellEl.style.setProperty("--luxia-light-x", `${(lightX - sr.left).toFixed(1)}px`);
+        shellEl.style.setProperty("--luxia-light-y", `${(lightY - sr.top).toFixed(1)}px`);
+        shellEl.style.setProperty("--luxia-light-r", `${radiusPx}px`);
+        shellEl.style.setProperty("--luxia-light-lit", lit.toFixed(4));
+
+        if (authEl) {
+          const ar = authEl.getBoundingClientRect();
+          const nx = clamp(lightX, ar.left, ar.right);
+          const ny = clamp(lightY, ar.top, ar.bottom);
+          const dist = Math.hypot(lightX - nx, lightY - ny);
+          const cardLit = lit * Math.max(0, 1 - dist / (radiusPx * 2.8));
+          shellEl.style.setProperty("--luxia-card-light", cardLit.toFixed(4));
+        } else {
+          shellEl.style.setProperty("--luxia-card-light", "0");
+        }
+      }
     }
 
     function interactionAllowed(): boolean {
@@ -286,47 +318,48 @@ export function LoginDotBrand() {
     { id: 16, fill: "var(--luxia-purple-10)" },
   ] as const;
 
+  /*
+   * Front-facing thickness: solid silhouette steps (not dotted copies).
+   * Light upper-left → body offsets down/right. Official LUXIA + star share geometry.
+   * Body fills kept in Luxia purple (not near-black) so extrusion stays refined.
+   */
   const volumeSteps = [
-    {
-      id: 5,
-      fill: "color-mix(in srgb, #0c0612 55%, var(--luxia-purple-70))",
-    },
-    {
-      id: 4,
-      fill: "color-mix(in srgb, #100818 40%, var(--luxia-purple-70))",
-    },
-    {
-      id: 3,
-      fill: "color-mix(in srgb, var(--luxia-purple-70) 85%, #100818)",
-    },
-    {
-      id: 2,
-      fill: "color-mix(in srgb, var(--luxia-purple-70) 70%, var(--luxia-purple-60))",
-    },
-    {
-      id: 1,
-      fill: "color-mix(in srgb, var(--luxia-purple-60) 75%, var(--luxia-purple-70))",
-    },
+    { id: 7, fill: "#1C152E" },
+    { id: 6, fill: "#211833" },
+    { id: 5, fill: "#261C3C" },
+    { id: 4, fill: "#2A1F44" },
+    { id: 3, fill: "#2E234A" },
+    { id: 2, fill: "#322850" },
+    { id: 1, fill: "#3A2E5E" },
   ] as const;
 
   return (
     <div ref={rootRef} className="luxia-login-dotmark" aria-hidden>
       <LockupSolidSvg
+        uid={`${uid}-amb`}
+        className="luxia-login-dotmark__ambient-shadow"
+        fill="color-mix(in srgb, #211735 72%, #100818)"
+      />
+      <LockupSolidSvg
         uid={`${uid}-shadow`}
         className="luxia-login-dotmark__contact-shadow"
-        fill="color-mix(in srgb, #100818 82%, var(--luxia-purple-70))"
+        fill="color-mix(in srgb, #211735 58%, #140D22)"
       />
 
-      <div className="luxia-login-dotmark__volume">
+      <div className="luxia-login-dotmark__volume" aria-hidden>
         {volumeSteps.map((step) => (
-          <LockupDotsSvg
+          <LockupSolidSvg
             key={step.id}
             uid={`${uid}-vol${step.id}`}
             className={`luxia-login-dotmark__volume-step luxia-login-dotmark__volume-step--${step.id}`}
             fill={step.fill}
-            dotR={0.22}
           />
         ))}
+        <LockupSolidSvg
+          uid={`${uid}-vollit`}
+          className="luxia-login-dotmark__volume-lit"
+          fill="color-mix(in srgb, #8E63EB 28%, #30214E)"
+        />
       </div>
 
       <LockupDotsSvg

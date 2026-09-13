@@ -1,8 +1,17 @@
 /*
- * Shallow pixel volume — dotted extrusion + soft contact shadow.
- * Sits between atmosphere and crisp front LUXIA surface.
+ * Front-facing lockup volume — shallow wall-mounted thickness.
+ * No perspective / rotateX / rotateY. Depth = solid silhouette offsets only.
+ * Stack: ambient shadow → contact shadow → dark body → crisp dotted front.
  */
 
+.luxia-login-dotmark {
+  /* Desktop: ~7px total extrusion (7 × 1px steps) */
+  --luxia-vol-step: 1px;
+  --luxia-vol-shadow-x: 4px;
+  --luxia-vol-shadow-y: 4.5px;
+}
+
+.luxia-login-dotmark__ambient-shadow,
 .luxia-login-dotmark__contact-shadow {
   position: absolute;
   inset: 0;
@@ -10,10 +19,24 @@
   display: block;
   width: 100%;
   height: 100%;
-  opacity: 0.18;
-  transform: translate(5px, 6.5px);
-  filter: blur(3.5px);
   pointer-events: none;
+}
+
+/* Soft separation from the pixel atmosphere — diffuse, not a second logo */
+.luxia-login-dotmark__ambient-shadow {
+  opacity: calc(0.1 - var(--luxia-dot-lit, 0) * 0.035);
+  transform: translate(
+    calc(var(--luxia-vol-shadow-x) + 2px),
+    calc(var(--luxia-vol-shadow-y) + 2.5px)
+  );
+  filter: blur(13px);
+}
+
+/* Close contact shadow — softens slightly under local light */
+.luxia-login-dotmark__contact-shadow {
+  opacity: calc(0.24 - var(--luxia-dot-lit, 0) * 0.075);
+  transform: translate(var(--luxia-vol-shadow-x), var(--luxia-vol-shadow-y));
+  filter: blur(calc(9.5px + var(--luxia-dot-lit, 0) * 1.5px));
 }
 
 .luxia-login-dotmark__volume {
@@ -22,6 +45,7 @@
   z-index: 0;
   pointer-events: none;
   overflow: visible;
+  opacity: 0.82;
 }
 
 .luxia-login-dotmark__volume-step {
@@ -34,38 +58,141 @@
   overflow: visible;
 }
 
-/* Deepest → nearest: darker / quieter → slightly clearer dark purple */
+/*
+ * Deepest → nearest (painted back to front).
+ * Offset down/right = thickness from upper-left / front light.
+ * Near-front step slightly clearer so thin strokes (X, A, star arms) still read.
+ */
+.luxia-login-dotmark__volume-step--7 {
+  transform: translate(
+    calc(var(--luxia-vol-step) * 7),
+    calc(var(--luxia-vol-step) * 7)
+  );
+  opacity: 0.78;
+}
+
+.luxia-login-dotmark__volume-step--6 {
+  transform: translate(
+    calc(var(--luxia-vol-step) * 6),
+    calc(var(--luxia-vol-step) * 6)
+  );
+  opacity: 0.8;
+}
+
 .luxia-login-dotmark__volume-step--5 {
-  opacity: 0.03;
-  transform: translate(7.5px, 7.5px);
+  transform: translate(
+    calc(var(--luxia-vol-step) * 5),
+    calc(var(--luxia-vol-step) * 5)
+  );
+  opacity: 0.82;
 }
 
 .luxia-login-dotmark__volume-step--4 {
-  opacity: 0.045;
-  transform: translate(6px, 6px);
+  transform: translate(
+    calc(var(--luxia-vol-step) * 4),
+    calc(var(--luxia-vol-step) * 4)
+  );
+  opacity: 0.84;
 }
 
 .luxia-login-dotmark__volume-step--3 {
-  opacity: 0.07;
-  transform: translate(4.5px, 4.5px);
+  transform: translate(
+    calc(var(--luxia-vol-step) * 3),
+    calc(var(--luxia-vol-step) * 3)
+  );
+  opacity: 0.86;
 }
 
 .luxia-login-dotmark__volume-step--2 {
-  opacity: 0.1;
-  transform: translate(3px, 3px);
+  transform: translate(
+    calc(var(--luxia-vol-step) * 2),
+    calc(var(--luxia-vol-step) * 2)
+  );
+  opacity: 0.88;
 }
 
 .luxia-login-dotmark__volume-step--1 {
-  opacity: 0.13;
-  transform: translate(1.5px, 1.5px);
+  transform: translate(var(--luxia-vol-step), var(--luxia-vol-step));
+  opacity: 0.92;
 }
 
-/* Upper-left rim light — front surface only, no outline stroke */
+/*
+ * Body / extrusion light — ~1.45× front radius, deep purple only.
+ * Much weaker than front #96DBFB face response.
+ */
+.luxia-login-dotmark__volume-lit {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+  opacity: calc(var(--luxia-dot-lit, 0) * 0.22);
+  mix-blend-mode: soft-light;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-composite: source-over;
+  mask-composite: add;
+  -webkit-mask-image:
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-dot-r, 84px) * 1.5)
+        calc(var(--luxia-dot-r, 84px) * 1.35)
+        at
+        var(--luxia-dot-x, 42%)
+        var(--luxia-dot-y, 72%),
+      #000 0%,
+      rgba(0, 0, 0, 0.55) 42%,
+      rgba(0, 0, 0, 0.12) 72%,
+      transparent 100%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-dot-r, 84px) * 0.85)
+        calc(var(--luxia-dot-r, 84px) * 1.05)
+        at
+        calc(var(--luxia-dot-x, 42%) - 8px)
+        calc(var(--luxia-dot-y, 72%) + 6px),
+      rgba(0, 0, 0, 0.65) 0%,
+      rgba(0, 0, 0, 0.18) 58%,
+      transparent 100%
+    );
+  mask-image:
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-dot-r, 84px) * 1.5)
+        calc(var(--luxia-dot-r, 84px) * 1.35)
+        at
+        var(--luxia-dot-x, 42%)
+        var(--luxia-dot-y, 72%),
+      #000 0%,
+      rgba(0, 0, 0, 0.55) 42%,
+      rgba(0, 0, 0, 0.12) 72%,
+      transparent 100%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-dot-r, 84px) * 0.85)
+        calc(var(--luxia-dot-r, 84px) * 1.05)
+        at
+        calc(var(--luxia-dot-x, 42%) - 8px)
+        calc(var(--luxia-dot-y, 72%) + 6px),
+      rgba(0, 0, 0, 0.65) 0%,
+      rgba(0, 0, 0, 0.18) 58%,
+      transparent 100%
+    );
+}
+
+/* Upper-left rim light — front surface only; slight star-arm emphasis (same system) */
 .luxia-login-dotmark__layer--rest-rim {
   position: absolute;
   inset: 0;
   z-index: 1;
-  opacity: 0.055;
+  opacity: 0.065;
   pointer-events: none;
   -webkit-mask-repeat: no-repeat;
   mask-repeat: no-repeat;
@@ -78,11 +205,51 @@
     radial-gradient(ellipse 6% 14% at 22% 48%, #000 0%, #000 30%, transparent 68%),
     radial-gradient(ellipse 5% 16% at 38% 46%, #000 0%, #000 28%, transparent 66%),
     radial-gradient(ellipse 4% 12% at 58% 44%, #000 0%, #000 28%, transparent 66%),
-    radial-gradient(ellipse 5% 20% at 82% 28%, #000 0%, #000 30%, transparent 68%);
+    radial-gradient(ellipse 5.5% 22% at 82% 28%, #000 0%, #000 34%, transparent 66%),
+    radial-gradient(ellipse 4% 16% at 88% 22%, #000 0%, #000 30%, transparent 64%);
   mask-image:
     radial-gradient(ellipse 7% 18% at 8% 52%, #000 0%, #000 32%, transparent 70%),
     radial-gradient(ellipse 6% 14% at 22% 48%, #000 0%, #000 30%, transparent 68%),
     radial-gradient(ellipse 5% 16% at 38% 46%, #000 0%, #000 28%, transparent 66%),
     radial-gradient(ellipse 4% 12% at 58% 44%, #000 0%, #000 28%, transparent 66%),
-    radial-gradient(ellipse 5% 20% at 82% 28%, #000 0%, #000 30%, transparent 68%);
+    radial-gradient(ellipse 5.5% 22% at 82% 28%, #000 0%, #000 34%, transparent 66%),
+    radial-gradient(ellipse 4% 16% at 88% 22%, #000 0%, #000 30%, transparent 64%);
+}
+
+/* Tablet: ~5px total depth */
+@media (max-width: 1023px) {
+  .luxia-login-dotmark {
+    --luxia-vol-step: 0.72px;
+    --luxia-vol-shadow-x: 3px;
+    --luxia-vol-shadow-y: 3.5px;
+  }
+
+  .luxia-login-dotmark__ambient-shadow {
+    opacity: 0.09;
+    filter: blur(11px);
+  }
+
+  .luxia-login-dotmark__contact-shadow {
+    opacity: 0.22;
+    filter: blur(8px);
+  }
+}
+
+/* Mobile: ~3px total depth */
+@media (max-width: 719px) {
+  .luxia-login-dotmark {
+    --luxia-vol-step: 0.42px;
+    --luxia-vol-shadow-x: 2px;
+    --luxia-vol-shadow-y: 2.5px;
+  }
+
+  .luxia-login-dotmark__ambient-shadow {
+    opacity: 0.08;
+    filter: blur(8px);
+  }
+
+  .luxia-login-dotmark__contact-shadow {
+    opacity: 0.2;
+    filter: blur(6.5px);
+  }
 }

@@ -1,12 +1,15 @@
 /*
- * Login atmosphere depth — far field + mid cloud + brand compose + logo depth.
- * Same pixel lattice as LUXIA. Soft opacity only (no blur blob / hard mask edge).
- * Parallax via --luxia-para-x / --luxia-para-y (−1…1), desktop/fine-pointer only.
+ * Login atmosphere: far/mid pixel fields + brand compose + logo depth.
+ * Same lattice as LUXIA. Soft opacity only. Parallax via --luxia-para-x/y (−1…1).
  */
 
 .luxia-login-environment {
   --luxia-para-x: 0;
   --luxia-para-y: 0;
+  --luxia-light-x: 42%;
+  --luxia-light-y: 55%;
+  --luxia-light-r: 84px;
+  --luxia-light-lit: 0;
 }
 
 
@@ -253,8 +256,8 @@
 }
 
 /*
- * FAR — no uniform base fill. Only sparse dust; almost gone at distance.
- * Effective ≈ 0.5–2% near periphery; isolated flecks only farther out.
+ * FAR — sparse dust only; no uniform base fill.
+ * Effective ≈ 0.5–2% near periphery.
  */
 .luxia-login-environment-dots--far {
   z-index: 1;
@@ -390,8 +393,7 @@
 
 /*
  * MID — irregular atmospheric cloud around LUXIA (pixel density only).
- * Letter/star pockets + gaps + soft outer dissolve. No uniform base.
- * Peaks ≈ 12–20% near lockup; sparse isolates outside.
+ * Letter/star pockets + gaps; peaks ≈ 12–20% near lockup.
  */
 .luxia-login-environment-dots--mid {
   z-index: 1;
@@ -820,7 +822,6 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  /* Tablet/default — desktop override adds logo→tagline air */
   gap: clamp(1.35rem, 3.4vh, 2.85rem);
   transform: translate3d(
     calc(var(--luxia-para-x, 0) * 0.55px),
@@ -833,7 +834,6 @@
 
 @media (min-width: 1200px) {
   .luxia-login-brand-compose {
-    /* ~+35px breathing room vs prior ~22–45px gap */
     gap: clamp(3.35rem, 5.4vh, 4.5rem);
   }
 }
@@ -851,13 +851,12 @@
   opacity: 0.7;
 }
 
-/* Subtle secondary lockup depth replaced by luxia-login-volume.css */
-
 /* Resting logo tonal depth — opacity/color only; same lattice */
 .luxia-login-dotmark__layer--rest {
   position: relative;
   z-index: 1;
-  opacity: 0.26;
+  /* Clearer than body so front plane stays the readable surface */
+  opacity: 0.29;
 }
 
 .luxia-login-dotmark__layer--rest-m {
@@ -975,6 +974,141 @@
   .luxia-login-environment-dots--far,
   .luxia-login-environment-dots--mid,
   .luxia-login-brand-compose {
+    transform: none !important;
+  }
+}
+
+/*
+ * Wall composition light — same pointer as logo flashlight.
+ * Broadest / weakest plane: reveals existing pixel lattice (not a flat spotlight).
+ */
+.luxia-login-environment-wall-light {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: var(--luxia-light-lit, 0);
+}
+
+.luxia-login-environment-wall-light__pixels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-size: var(--luxia-login-pixel-cell) var(--luxia-login-pixel-cell);
+  background-position: var(--luxia-login-lockup-left) var(--luxia-login-lockup-top);
+  background-repeat: repeat;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-composite: source-over;
+  mask-composite: add;
+  /* Irregular soft falloff ~2.4× front radius — not a perfect circle */
+  -webkit-mask-image:
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-light-r, 84px) * 2.55)
+        calc(var(--luxia-light-r, 84px) * 2.15)
+        at
+        var(--luxia-light-x, 42%)
+        var(--luxia-light-y, 55%),
+      rgba(0, 0, 0, 0.85) 0%,
+      rgba(0, 0, 0, 0.35) 38%,
+      rgba(0, 0, 0, 0.08) 68%,
+      transparent 100%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-light-r, 84px) * 1.45)
+        calc(var(--luxia-light-r, 84px) * 1.7)
+        at
+        calc(var(--luxia-light-x, 42%) - 22px)
+        calc(var(--luxia-light-y, 55%) + 14px),
+      rgba(0, 0, 0, 0.55) 0%,
+      rgba(0, 0, 0, 0.15) 52%,
+      transparent 100%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-light-r, 84px) * 1.2)
+        calc(var(--luxia-light-r, 84px) * 1.05)
+        at
+        calc(var(--luxia-light-x, 42%) + 28px)
+        calc(var(--luxia-light-y, 55%) - 18px),
+      rgba(0, 0, 0, 0.4) 0%,
+      rgba(0, 0, 0, 0.1) 48%,
+      transparent 100%
+    );
+  mask-image:
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-light-r, 84px) * 2.55)
+        calc(var(--luxia-light-r, 84px) * 2.15)
+        at
+        var(--luxia-light-x, 42%)
+        var(--luxia-light-y, 55%),
+      rgba(0, 0, 0, 0.85) 0%,
+      rgba(0, 0, 0, 0.35) 38%,
+      rgba(0, 0, 0, 0.08) 68%,
+      transparent 100%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-light-r, 84px) * 1.45)
+        calc(var(--luxia-light-r, 84px) * 1.7)
+        at
+        calc(var(--luxia-light-x, 42%) - 22px)
+        calc(var(--luxia-light-y, 55%) + 14px),
+      rgba(0, 0, 0, 0.55) 0%,
+      rgba(0, 0, 0, 0.15) 52%,
+      transparent 100%
+    ),
+    radial-gradient(
+      ellipse
+        calc(var(--luxia-light-r, 84px) * 1.2)
+        calc(var(--luxia-light-r, 84px) * 1.05)
+        at
+        calc(var(--luxia-light-x, 42%) + 28px)
+        calc(var(--luxia-light-y, 55%) - 18px),
+      rgba(0, 0, 0, 0.4) 0%,
+      rgba(0, 0, 0, 0.1) 48%,
+      transparent 100%
+    );
+}
+
+.luxia-login-environment-wall-light__pixels--far {
+  opacity: 0.14;
+  background-image: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--luxia-purple-30) 58%, #0c0614)
+      var(--luxia-login-pixel-radius),
+    transparent calc(var(--luxia-login-pixel-radius) * 1.18)
+  );
+  transform: translate3d(
+    calc(var(--luxia-para-x, 0) * 1.75px),
+    calc(var(--luxia-para-y, 0) * 1.5px),
+    0
+  );
+}
+
+.luxia-login-environment-wall-light__pixels--mid {
+  opacity: 0.2;
+  background-image: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--luxia-purple-20) 62%, #12081c)
+      var(--luxia-login-pixel-radius),
+    transparent calc(var(--luxia-login-pixel-radius) * 1.18)
+  );
+  transform: translate3d(
+    calc(var(--luxia-para-x, 0) * 3.2px),
+    calc(var(--luxia-para-y, 0) * 2.8px),
+    0
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .luxia-login-environment-wall-light__pixels--far,
+  .luxia-login-environment-wall-light__pixels--mid {
     transform: none !important;
   }
 }
