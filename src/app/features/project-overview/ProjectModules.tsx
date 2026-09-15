@@ -103,7 +103,6 @@ export function ChatsModule({
         <ProjectModuleEmptyState
           title="No Chats available for your current access"
           description="Chats appear here when their Constellation is usable with your Data Source permissions."
-          action={<ProjectOutlineButton label="New Chat" onClick={onNewChat} />}
         />
       ) : (
         <div className="flex flex-col">
@@ -199,11 +198,6 @@ export function ConstellationsModule({
         <ProjectModuleEmptyState
           title="No available Constellations"
           description="No Constellations are currently usable with your Data Source permissions."
-          action={
-            onAddConstellation ? (
-              <ProjectOutlineButton label="Add Constellation" onClick={onAddConstellation} />
-            ) : undefined
-          }
         />
       ) : (
         <div className="flex flex-col">

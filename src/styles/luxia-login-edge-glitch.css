@@ -2,6 +2,8 @@
  * Edge-contour glitch — tiny clipped silhouette fragments briefly shift
  * outward/inward along letter/star edges, then snap back.
  * Front surface only; volume/extrusion underneath stays stable.
+ *
+ * Cycle length ≈ rest interval; keyframe window near 100% keeps the snap brief.
  */
 
 .luxia-login-dotmark__edge-glitch {
@@ -26,131 +28,132 @@
 .luxia-login-dotmark__edge-frag--1 {
   -webkit-clip-path: inset(58% 90% 28% 1%);
   clip-path: inset(58% 90% 28% 1%);
-  animation: luxia-edge-out-l2 2.6s ease-in-out infinite;
-  animation-delay: 0.35s;
+  animation: luxia-edge-out-l2 4.55s ease-in-out infinite;
+  animation-delay: 0.61s;
 }
 
 .luxia-login-dotmark__edge-frag--2 {
   -webkit-clip-path: inset(78% 88% 8% 1%);
   clip-path: inset(78% 88% 8% 1%);
-  animation: luxia-edge-out-l3 3.4s ease-in-out infinite;
-  animation-delay: 1.1s;
+  animation: luxia-edge-out-l3 5.95s ease-in-out infinite;
+  animation-delay: 1.93s;
 }
 
 .luxia-login-dotmark__edge-frag--3 {
   -webkit-clip-path: inset(56% 80% 22% 15.5%);
   clip-path: inset(56% 80% 22% 15.5%);
-  animation: luxia-edge-out-l2 2.9s ease-in-out infinite;
-  animation-delay: 0.7s;
+  animation: luxia-edge-out-l2 5.08s ease-in-out infinite;
+  animation-delay: 1.23s;
 }
 
 .luxia-login-dotmark__edge-frag--4 {
   -webkit-clip-path: inset(54% 68% 32% 28%);
   clip-path: inset(54% 68% 32% 28%);
-  animation: luxia-edge-out-l1 3.1s ease-in-out infinite;
-  animation-delay: 1.85s;
+  animation: luxia-edge-out-l1 5.43s ease-in-out infinite;
+  animation-delay: 3.24s;
 }
 
 .luxia-login-dotmark__edge-frag--5 {
   -webkit-clip-path: inset(56% 42% 20% 54%);
   clip-path: inset(56% 42% 20% 54%);
-  animation: luxia-edge-out-l2 3.7s ease-in-out infinite;
-  animation-delay: 0.2s;
+  animation: luxia-edge-out-l2 6.48s ease-in-out infinite;
+  animation-delay: 0.35s;
 }
 
 .luxia-login-dotmark__edge-frag--6 {
   -webkit-clip-path: inset(18% 24% 58% 72%);
   clip-path: inset(18% 24% 58% 72%);
-  animation: luxia-edge-out-l3 4.1s ease-in-out infinite;
-  animation-delay: 2.4s;
+  animation: luxia-edge-out-l3 7.18s ease-in-out infinite;
+  animation-delay: 4.2s;
 }
 
 .luxia-login-dotmark__edge-frag--7 {
   -webkit-clip-path: inset(56% 64% 22% 30%);
   clip-path: inset(56% 64% 22% 30%);
-  animation: luxia-edge-out-r2 2.7s ease-in-out infinite;
-  animation-delay: 0.95s;
+  animation: luxia-edge-out-r2 4.73s ease-in-out infinite;
+  animation-delay: 1.66s;
 }
 
 .luxia-login-dotmark__edge-frag--8 {
   -webkit-clip-path: inset(52% 44% 30% 48%);
   clip-path: inset(52% 44% 30% 48%);
-  animation: luxia-edge-out-r2 3.3s ease-in-out infinite;
-  animation-delay: 0.15s;
+  animation: luxia-edge-out-r2 5.78s ease-in-out infinite;
+  animation-delay: 0.26s;
 }
 
 .luxia-login-dotmark__edge-frag--9 {
   -webkit-clip-path: inset(54% 36% 18% 58.5%);
   clip-path: inset(54% 36% 18% 58.5%);
-  animation: luxia-edge-out-r1 2.5s ease-in-out infinite;
-  animation-delay: 1.55s;
+  animation: luxia-edge-out-r1 4.38s ease-in-out infinite;
+  animation-delay: 2.71s;
 }
 
 .luxia-login-dotmark__edge-frag--10 {
   -webkit-clip-path: inset(54% 14% 22% 78%);
   clip-path: inset(54% 14% 22% 78%);
-  animation: luxia-edge-out-r3 3.6s ease-in-out infinite;
-  animation-delay: 2.1s;
+  animation: luxia-edge-out-r3 6.3s ease-in-out infinite;
+  animation-delay: 3.68s;
 }
 
 .luxia-login-dotmark__edge-frag--11 {
   -webkit-clip-path: inset(12% 2% 62% 88%);
   clip-path: inset(12% 2% 62% 88%);
-  animation: luxia-edge-out-r2 2.8s ease-in-out infinite;
-  animation-delay: 0.55s;
+  animation: luxia-edge-out-r2 4.9s ease-in-out infinite;
+  animation-delay: 0.96s;
 }
 
 .luxia-login-dotmark__edge-frag--12 {
   -webkit-clip-path: inset(84% 82% 4% 8%);
   clip-path: inset(84% 82% 4% 8%);
-  animation: luxia-edge-out-r1 4s ease-in-out infinite;
-  animation-delay: 1.3s;
+  animation: luxia-edge-out-r1 7s ease-in-out infinite;
+  animation-delay: 2.28s;
 }
 
 .luxia-login-dotmark__edge-frag--13 {
   -webkit-clip-path: inset(70% 70% 14% 22%);
   clip-path: inset(70% 70% 14% 22%);
-  animation: luxia-edge-in-r1 4.4s ease-in-out infinite;
-  animation-delay: 2.8s;
+  animation: luxia-edge-in-r1 7.7s ease-in-out infinite;
+  animation-delay: 4.9s;
 }
 
 .luxia-login-dotmark__edge-frag--14 {
   -webkit-clip-path: inset(62% 22% 28% 68%);
   clip-path: inset(62% 22% 28% 68%);
-  animation: luxia-edge-in-l1 3.9s ease-in-out infinite;
-  animation-delay: 0.85s;
+  animation: luxia-edge-in-l1 6.83s ease-in-out infinite;
+  animation-delay: 1.49s;
 }
 
 .luxia-login-dotmark__edge-frag--15 {
   -webkit-clip-path: inset(64% 50% 24% 42%);
   clip-path: inset(64% 50% 24% 42%);
-  animation: luxia-edge-out-r4 4.6s ease-in-out infinite;
-  animation-delay: 3.2s;
+  animation: luxia-edge-out-r4 8.05s ease-in-out infinite;
+  animation-delay: 5.6s;
 }
 
 .luxia-login-dotmark__edge-frag--16 {
   -webkit-clip-path: inset(48% 8% 40% 84%);
   clip-path: inset(48% 8% 40% 84%);
-  animation: luxia-edge-out-r2 3.2s ease-in-out infinite;
-  animation-delay: 1.75s;
+  animation: luxia-edge-out-r2 5.6s ease-in-out infinite;
+  animation-delay: 3.06s;
 }
 
+/* Keyframe windows compressed vs longer cycles so snap duration stays ~70–120ms */
 @keyframes luxia-edge-out-l1 {
   0%,
-  92%,
+  95.4%,
   100% {
     opacity: 0;
     transform: translate(0, 0);
   }
-  93.2% {
+  96.1% {
     opacity: 0.88;
     transform: translate(-1px, 0);
   }
-  94.8% {
+  97% {
     opacity: 0.55;
     transform: translate(-2px, 0);
   }
-  96% {
+  97.7% {
     opacity: 0;
     transform: translate(0, 0);
   }
@@ -158,20 +161,20 @@
 
 @keyframes luxia-edge-out-l2 {
   0%,
-  91%,
+  94.9%,
   100% {
     opacity: 0;
     transform: translate(0, 0);
   }
-  92.2% {
+  95.5% {
     opacity: 0.9;
     transform: translate(-2px, 0);
   }
-  94% {
+  96.6% {
     opacity: 0.6;
     transform: translate(-3px, 0);
   }
-  95.5% {
+  97.4% {
     opacity: 0;
     transform: translate(0, 0);
   }
@@ -179,20 +182,20 @@
 
 @keyframes luxia-edge-out-l3 {
   0%,
-  93%,
+  96%,
   100% {
     opacity: 0;
     transform: translate(0, 0);
   }
-  94% {
+  96.6% {
     opacity: 0.85;
     transform: translate(-3px, 0);
   }
-  95.2% {
+  97.3% {
     opacity: 0.45;
     transform: translate(-4px, 0);
   }
-  96.2% {
+  97.8% {
     opacity: 0;
     transform: translate(0, 0);
   }
@@ -200,20 +203,20 @@
 
 @keyframes luxia-edge-out-r1 {
   0%,
-  92%,
+  95.4%,
   100% {
     opacity: 0;
     transform: translate(0, 0);
   }
-  93.2% {
+  96.1% {
     opacity: 0.88;
     transform: translate(1px, 0);
   }
-  94.8% {
+  97% {
     opacity: 0.55;
     transform: translate(2px, 0);
   }
-  96% {
+  97.7% {
     opacity: 0;
     transform: translate(0, 0);
   }
@@ -221,20 +224,20 @@
 
 @keyframes luxia-edge-out-r2 {
   0%,
-  91%,
+  94.9%,
   100% {
     opacity: 0;
     transform: translate(0, 0);
   }
-  92.2% {
+  95.5% {
     opacity: 0.9;
     transform: translate(2px, 0);
   }
-  94% {
+  96.6% {
     opacity: 0.6;
     transform: translate(3px, 0);
   }
-  95.5% {
+  97.4% {
     opacity: 0;
     transform: translate(0, 0);
   }
@@ -242,20 +245,20 @@
 
 @keyframes luxia-edge-out-r3 {
   0%,
-  93%,
+  96%,
   100% {
     opacity: 0;
     transform: translate(0, 0);
   }
-  94% {
+  96.6% {
     opacity: 0.85;
     transform: translate(3px, 0);
   }
-  95.2% {
+  97.3% {
     opacity: 0.45;
     transform: translate(4px, 0);
   }
-  96.2% {
+  97.8% {
     opacity: 0;
     transform: translate(0, 0);
   }
@@ -263,16 +266,16 @@
 
 @keyframes luxia-edge-out-r4 {
   0%,
-  94%,
+  96.6%,
   100% {
     opacity: 0;
     transform: translate(0, 0);
   }
-  95% {
+  97.1% {
     opacity: 0.8;
     transform: translate(2px, 0.5px);
   }
-  96.2% {
+  97.8% {
     opacity: 0;
     transform: translate(0, 0);
   }
@@ -280,16 +283,16 @@
 
 @keyframes luxia-edge-in-l1 {
   0%,
-  92%,
+  95.4%,
   100% {
     opacity: 0;
     transform: translate(0, 0);
   }
-  93.5% {
+  96.3% {
     opacity: 0.75;
     transform: translate(1.5px, 0);
   }
-  95% {
+  97.1% {
     opacity: 0;
     transform: translate(0, 0);
   }
@@ -297,16 +300,16 @@
 
 @keyframes luxia-edge-in-r1 {
   0%,
-  92%,
+  95.4%,
   100% {
     opacity: 0;
     transform: translate(0, 0);
   }
-  93.5% {
+  96.3% {
     opacity: 0.75;
     transform: translate(-1.5px, 0);
   }
-  95% {
+  97.1% {
     opacity: 0;
     transform: translate(0, 0);
   }
