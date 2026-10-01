@@ -4,7 +4,6 @@ import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
 
 export const SUPPORT_UNAVAILABLE_MESSAGE = "Support is currently unavailable.";
-export const EMAIL_OTP_UNAVAILABLE_MESSAGE = "Email delivery is not available in this prototype.";
 export const LEGAL_UNAVAILABLE_MESSAGE = "This document is not available in the prototype.";
 
 export function afterNextPaint(callback: () => void): void {
@@ -134,6 +133,19 @@ export function PasswordField({
           {error}
         </p>
       ) : null}
+    </div>
+  );
+}
+
+export function AuthBackToSignIn({ onClick }: { onClick: () => void }) {
+  return (
+    <div className="luxia-login-back">
+      <button type="button" className="luxia-login-back-link" onClick={onClick}>
+        <span className="luxia-login-back-arrow" aria-hidden="true">
+          ←
+        </span>
+        Back to sign in
+      </button>
     </div>
   );
 }

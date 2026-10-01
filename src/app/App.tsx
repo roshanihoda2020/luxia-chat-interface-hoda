@@ -8,7 +8,13 @@ import flagDe from "@/assets/flags/de.svg";
 import flagEs from "@/assets/flags/es.svg";
 import flagCn from "@/assets/flags/cn.svg";
 import { LuxiaStarLogo } from "@/app/components/LuxiaStarLogo";
-import { LoginPage, bootstrapPrototypeSignedIn, writePrototypeSignedIn, clearPrototypeSignedIn } from "@/app/features/login";
+import {
+  LoginPage,
+  bootstrapPrototypeSignedIn,
+  clearPrototypeSignedIn,
+  readAuthLocationEntry,
+  writePrototypeSignedIn,
+} from "@/app/features/login";
 import { ActiveDataTablesSection } from "@/app/features/active-data-tables/ActiveDataTablesSection";
 import { ExtraContextFilesSection } from "@/app/features/extra-context-files/ExtraContextFilesSection";
 import { InstructionSection } from "@/app/features/instruction/InstructionSection";
@@ -780,7 +786,16 @@ function readInitialShellFromLocation(): {
 
   // Prototype rule: full page load / refresh / fresh session always start at Home.
   // In-session navigation (pushState / popstate) is unchanged and still resolves deep URLs.
-  window.history.replaceState({ luxiaView: "home" }, "", "/");
+  // Auth-entry query params (invite / account / session / reset / workspace) must survive
+  // until LoginPage and bootstrapPrototypeSignedIn can consume them; clearAuthSearchParams
+  // removes them after the auth flow exits that state.
+  const authEntry = readAuthLocationEntry();
+  if (authEntry.kind === "signin") {
+    window.history.replaceState({ luxiaView: "home" }, "", "/");
+  } else {
+    const search = window.location.search;
+    window.history.replaceState({ luxiaView: "home" }, "", `/${search}`);
+  }
   return defaults;
 }
 

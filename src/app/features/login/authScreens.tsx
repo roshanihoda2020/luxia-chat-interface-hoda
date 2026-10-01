@@ -1,4 +1,4 @@
-import { useId, useState, type FormEvent } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { Button } from "@/app/components/ui/button";
 import { Checkbox } from "@/app/components/ui/checkbox";
@@ -6,9 +6,9 @@ import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/app/components/ui/input-otp";
 import {
+  AuthBackToSignIn,
   AuthBusyLabel,
   AuthField,
-  EMAIL_OTP_UNAVAILABLE_MESSAGE,
   LEGAL_UNAVAILABLE_MESSAGE,
   PasswordField,
   SUPPORT_UNAVAILABLE_MESSAGE,
@@ -17,16 +17,23 @@ import {
 import { DevTestAccountsPanel } from "@/app/features/login/DevTestAccountsPanel";
 import { TurnstileField, isTurnstileRequired } from "@/app/features/login/TurnstileField";
 import {
+  EMAIL_OTP_COOLDOWN_SECONDS,
+  EMAIL_OTP_TTL_SECONDS,
   PASSWORD_MIN_LENGTH,
+  PROTOTYPE_EMAIL_OTP,
   PROTOTYPE_MFA_SETUP_KEY,
   PROTOTYPE_OTP,
+  PROTOTYPE_PASSWORD,
   PROTOTYPE_RECOVERY_KEY,
   credentialsMatch,
   findPrototypeAccount,
+  formatInviteContext,
   isValidEmailFormat,
+  maskEmailAddress,
   validatePasswordPolicy,
   writeAccountSetupComplete,
   writeMfaEnrolled,
+  writeMfaNudgeDismissed,
   writeStoredPassword,
   type PrototypeAuthAccount,
 } from "@/app/features/login/prototypeAuth";
@@ -90,6 +97,23 @@ export function SignInPanel({
         return;
       }
       onAuthenticated(account, rememberMe);
+    });
+  }
+
+  function handleDevLaunchAccount(account: PrototypeAuthAccount) {
+    if (submitting) return;
+    setEmail(account.email);
+    setPassword(PROTOTYPE_PASSWORD);
+    setEmailError(null);
+    setPasswordError(null);
+    setFormError(null);
+    if (!credentialsMatch(account.email, PROTOTYPE_PASSWORD)) {
+      setFormError("Invalid credentials.");
+      return;
+    }
+    setSubmitting(true);
+    afterNextPaint(() => {
+      onAuthenticated(account, false);
     });
   }
 
@@ -230,13 +254,7 @@ export function SignInPanel({
             Privacy Policy
           </button>
         </p>
-        <DevTestAccountsPanel
-          onSelectEmail={(nextEmail) => {
-            setEmail(nextEmail);
-            setEmailError(null);
-            setFormError(null);
-          }}
-        />
+        <DevTestAccountsPanel onLaunchAccount={handleDevLaunchAccount} />
       </div>
     </>
   );
@@ -277,14 +295,7 @@ export function ForgotPasswordPanel({ onBack }: { onBack: () => void }) {
             If an account exists for this email, you&apos;ll receive a password reset link.
           </p>
         </header>
-        <Button
-          type="button"
-          variant="primary"
-          className={AUTH_PRIMARY_CTA}
-          onClick={onBack}
-        >
-          Back to sign in
-        </Button>
+        <AuthBackToSignIn onClick={onBack} />
       </>
     );
   }
@@ -339,13 +350,7 @@ export function ForgotPasswordPanel({ onBack }: { onBack: () => void }) {
           <AuthBusyLabel busy={sending} busyLabel="Sending…" idleLabel="Send reset link" />
         </Button>
       </form>
-      <div className="luxia-login-actions">
-        <p className="luxia-login-help luxia-type-caption">
-          <button type="button" className="luxia-login-text-link" onClick={onBack}>
-            Back to sign in
-          </button>
-        </p>
-      </div>
+      <AuthBackToSignIn onClick={onBack} />
     </>
   );
 }
@@ -353,9 +358,11 @@ export function ForgotPasswordPanel({ onBack }: { onBack: () => void }) {
 export function AccountSetupPanel({
   account,
   onComplete,
+  onBackToSignIn,
 }: {
   account: PrototypeAuthAccount;
   onComplete: () => void;
+  onBackToSignIn: () => void;
 }) {
   const titleId = useId();
   const nameId = useId();
@@ -478,6 +485,7 @@ export function AccountSetupPanel({
           <AuthBusyLabel busy={saving} busyLabel="Saving…" idleLabel="Continue" />
         </Button>
       </form>
+      <AuthBackToSignIn onClick={onBackToSignIn} />
     </>
   );
 }
@@ -576,21 +584,8 @@ export function MfaVerifyPanel({
             Use recovery key
           </button>
         </p>
-        <p className="luxia-login-help luxia-type-caption">
-          <button
-            type="button"
-            className="luxia-login-text-link"
-            onClick={() => toast.message(EMAIL_OTP_UNAVAILABLE_MESSAGE)}
-          >
-            Email OTP unavailable in this prototype
-          </button>
-        </p>
-        <p className="luxia-login-help luxia-type-caption">
-          <button type="button" className="luxia-login-text-link" onClick={onBackToSignIn}>
-            Back to sign in
-          </button>
-        </p>
       </div>
+      <AuthBackToSignIn onClick={onBackToSignIn} />
     </>
   );
 }
@@ -674,12 +669,8 @@ export function MfaRecoveryPanel({
             Back to verification
           </button>
         </p>
-        <p className="luxia-login-help luxia-type-caption">
-          <button type="button" className="luxia-login-text-link" onClick={onBackToSignIn}>
-            Back to sign in
-          </button>
-        </p>
       </div>
+      <AuthBackToSignIn onClick={onBackToSignIn} />
     </>
   );
 }
@@ -712,7 +703,13 @@ function PrototypeQrPlaceholder() {
   );
 }
 
-export function MfaSetupPanel({ onContinue }: { onContinue: () => void }) {
+export function MfaSetupPanel({
+  onContinue,
+  onBackToSignIn,
+}: {
+  onContinue: () => void;
+  onBackToSignIn: () => void;
+}) {
   const [continuing, setContinuing] = useState(false);
 
   function handleContinue() {
@@ -760,18 +757,7 @@ export function MfaSetupPanel({ onContinue }: { onContinue: () => void }) {
           </Button>
         </li>
       </ol>
-
-      <div className="luxia-login-actions">
-        <p className="luxia-login-help luxia-type-caption">
-          <button
-            type="button"
-            className="luxia-login-text-link"
-            onClick={() => toast.message(EMAIL_OTP_UNAVAILABLE_MESSAGE)}
-          >
-            Email OTP unavailable in this prototype
-          </button>
-        </p>
-      </div>
+      <AuthBackToSignIn onClick={onBackToSignIn} />
     </>
   );
 }
@@ -779,9 +765,11 @@ export function MfaSetupPanel({ onContinue }: { onContinue: () => void }) {
 export function RecoveryKeyRevealPanel({
   email,
   onContinue,
+  onBackToSignIn,
 }: {
   email: string;
   onContinue: () => void;
+  onBackToSignIn: () => void;
 }) {
   const ackId = useId();
   const [saved, setSaved] = useState(false);
@@ -861,6 +849,7 @@ export function RecoveryKeyRevealPanel({
           <AuthBusyLabel busy={continuing} busyLabel="Saving…" idleLabel="Continue" />
         </Button>
       </div>
+      <AuthBackToSignIn onClick={onBackToSignIn} />
     </>
   );
 }
@@ -868,9 +857,11 @@ export function RecoveryKeyRevealPanel({
 export function ResetPasswordPanel({
   emailHint,
   onReset,
+  onBackToSignIn,
 }: {
   emailHint: string | null;
   onReset: (password: string) => void;
+  onBackToSignIn: () => void;
 }) {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -944,6 +935,7 @@ export function ResetPasswordPanel({
           <AuthBusyLabel busy={saving} busyLabel="Resetting password…" idleLabel="Reset password" />
         </Button>
       </form>
+      <AuthBackToSignIn onClick={onBackToSignIn} />
     </>
   );
 }
@@ -953,15 +945,13 @@ export function AuthStatusPanel({
   body,
   primaryLabel,
   onPrimary,
-  secondaryLabel,
-  onSecondary,
+  onBackToSignIn,
 }: {
   title: string;
   body: string;
-  primaryLabel: string;
-  onPrimary: () => void;
-  secondaryLabel?: string;
-  onSecondary?: () => void;
+  primaryLabel?: string;
+  onPrimary?: () => void;
+  onBackToSignIn: () => void;
 }) {
   return (
     <>
@@ -969,23 +959,310 @@ export function AuthStatusPanel({
         <h1 className="luxia-type-heading-h3 luxia-login-title">{title}</h1>
         <p className="luxia-type-body-small luxia-login-subtitle">{body}</p>
       </header>
+      {primaryLabel && onPrimary ? (
+        <Button
+          type="button"
+          variant="primary"
+          className={AUTH_PRIMARY_CTA}
+          onClick={onPrimary}
+        >
+          {primaryLabel}
+        </Button>
+      ) : null}
+      <AuthBackToSignIn onClick={onBackToSignIn} />
+    </>
+  );
+}
+
+function formatCooldownClock(totalSeconds: number): string {
+  const safe = Math.max(0, totalSeconds);
+  const minutes = Math.floor(safe / 60);
+  const seconds = safe % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+export function EmailOtpVerifyPanel({
+  email,
+  onVerified,
+  onBackToSignIn,
+}: {
+  email: string;
+  onVerified: () => void;
+  onBackToSignIn: () => void;
+}) {
+  const [code, setCode] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [verifying, setVerifying] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [cooldownRemaining, setCooldownRemaining] = useState(EMAIL_OTP_COOLDOWN_SECONDS);
+  const [issuedAtMs, setIssuedAtMs] = useState(() => Date.now());
+  const [resendNotice, setResendNotice] = useState<string | null>(null);
+  const [resendAvailableNotice, setResendAvailableNotice] = useState<string | null>(null);
+  const errorId = useId();
+  const resendStatusId = useId();
+  const resendAvailableStatusId = useId();
+  const cooldownIntervalRef = useRef<number | null>(null);
+  const previousCooldownRef = useRef(cooldownRemaining);
+
+  useEffect(() => {
+    cooldownIntervalRef.current = window.setInterval(() => {
+      setCooldownRemaining((current) => (current <= 0 ? 0 : current - 1));
+    }, 1000);
+    return () => {
+      if (cooldownIntervalRef.current !== null) {
+        window.clearInterval(cooldownIntervalRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (previousCooldownRef.current > 0 && cooldownRemaining === 0) {
+      setResendAvailableNotice("You can now resend the code.");
+    }
+    previousCooldownRef.current = cooldownRemaining;
+  }, [cooldownRemaining]);
+
+  function restartCooldown() {
+    setIssuedAtMs(Date.now());
+    setCooldownRemaining(EMAIL_OTP_COOLDOWN_SECONDS);
+    previousCooldownRef.current = EMAIL_OTP_COOLDOWN_SECONDS;
+    setResendAvailableNotice(null);
+  }
+
+  function submitCode(value: string) {
+    if (verifying) return;
+    if (value.length !== 6) {
+      setError("Enter the 6-digit code.");
+      return;
+    }
+    setVerifying(true);
+    afterNextPaint(() => {
+      const ageSeconds = (Date.now() - issuedAtMs) / 1000;
+      if (ageSeconds > EMAIL_OTP_TTL_SECONDS) {
+        setError("This code has expired. Request a new code to continue.");
+        setCode("");
+        setVerifying(false);
+        return;
+      }
+      if (value !== PROTOTYPE_EMAIL_OTP) {
+        setError("That code isn't valid. Check the code and try again.");
+        setCode("");
+        setVerifying(false);
+        return;
+      }
+      onVerified();
+    });
+  }
+
+  function handleResend() {
+    if (resending || cooldownRemaining > 0) return;
+    setResending(true);
+    setError(null);
+    setResendNotice(null);
+    setResendAvailableNotice(null);
+    afterNextPaint(() => {
+      // Prototype only — no email delivery.
+      restartCooldown();
+      setCode("");
+      setResendNotice("A new verification code was sent.");
+      setResending(false);
+    });
+  }
+
+  const masked = maskEmailAddress(email);
+  const resendDisabled = resending || cooldownRemaining > 0;
+
+  return (
+    <>
+      <header className="luxia-login-heading">
+        <h1 className="luxia-type-heading-h3 luxia-login-title">Verify your identity</h1>
+        <p className="luxia-type-body-small luxia-login-subtitle">
+          We sent a verification code to {masked}.
+        </p>
+      </header>
+      <form
+        className="luxia-login-form w-full min-w-0"
+        onSubmit={(event) => {
+          event.preventDefault();
+          submitCode(code);
+        }}
+        aria-busy={verifying || undefined}
+      >
+        <div className="luxia-login-field-stack">
+          <div className="luxia-login-otp">
+            <InputOTP
+              maxLength={6}
+              value={code}
+              onChange={(value) => {
+                setCode(value);
+                if (error) setError(null);
+                if (resendNotice) setResendNotice(null);
+              }}
+              onComplete={submitCode}
+              disabled={verifying}
+              autoFocus
+              aria-label="Email verification code"
+              aria-invalid={error ? true : undefined}
+              aria-describedby={error ? errorId : undefined}
+              containerClassName="luxia-login-otp-group"
+            >
+              <InputOTPGroup className="luxia-login-otp-group">
+                {Array.from({ length: 6 }, (_, index) => (
+                  <InputOTPSlot key={index} index={index} className="luxia-login-otp-slot" />
+                ))}
+              </InputOTPGroup>
+            </InputOTP>
+          </div>
+          {error ? (
+            <p id={errorId} className="luxia-type-caption luxia-login-error" role="alert">
+              {error}
+            </p>
+          ) : null}
+          {resendNotice ? (
+            <p id={resendStatusId} className="luxia-type-caption luxia-login-subtitle" role="status">
+              {resendNotice}
+            </p>
+          ) : null}
+          {resendAvailableNotice ? (
+            <p id={resendAvailableStatusId} className="sr-only" role="status" aria-live="polite">
+              {resendAvailableNotice}
+            </p>
+          ) : null}
+        </div>
+        <Button
+          type="submit"
+          variant="primary"
+          className={AUTH_PRIMARY_CTA}
+          disabled={verifying}
+          aria-busy={verifying || undefined}
+        >
+          <AuthBusyLabel busy={verifying} busyLabel="Verifying…" idleLabel="Verify" />
+        </Button>
+      </form>
+      <div className="luxia-login-actions">
+        <p className="luxia-login-help luxia-type-caption">
+          {cooldownRemaining > 0 ? (
+            <span aria-live="off">Resend code in {formatCooldownClock(cooldownRemaining)}</span>
+          ) : (
+            <>
+              Didn&apos;t receive a code?{" "}
+              <button
+                type="button"
+                className="luxia-login-text-link"
+                onClick={handleResend}
+                disabled={resendDisabled}
+                aria-disabled={resendDisabled || undefined}
+                aria-busy={resending || undefined}
+              >
+                {resending ? "Sending…" : "Resend code"}
+              </button>
+            </>
+          )}
+        </p>
+      </div>
+      <AuthBackToSignIn onClick={onBackToSignIn} />
+    </>
+  );
+}
+
+export function InvitationAcceptPanel({
+  account,
+  onAccept,
+  onBackToSignIn,
+}: {
+  account: PrototypeAuthAccount;
+  onAccept: () => void;
+  onBackToSignIn: () => void;
+}) {
+  const [accepting, setAccepting] = useState(false);
+  const context = formatInviteContext(account);
+
+  function handleAccept() {
+    if (accepting) return;
+    setAccepting(true);
+    afterNextPaint(onAccept);
+  }
+
+  return (
+    <>
+      <header className="luxia-login-heading">
+        <h1 className="luxia-type-heading-h3 luxia-login-title">You&apos;re invited to Luxia</h1>
+        <p className="luxia-type-body-small luxia-login-subtitle">
+          You&apos;ve been invited to join {context}.
+        </p>
+      </header>
       <Button
         type="button"
         variant="primary"
         className={AUTH_PRIMARY_CTA}
-        onClick={onPrimary}
+        disabled={accepting}
+        aria-busy={accepting || undefined}
+        onClick={handleAccept}
       >
-        {primaryLabel}
+        <AuthBusyLabel busy={accepting} busyLabel="Continuing…" idleLabel="Accept invitation" />
       </Button>
-      {secondaryLabel && onSecondary ? (
-        <div className="luxia-login-actions">
-          <p className="luxia-login-help luxia-type-caption">
-            <button type="button" className="luxia-login-text-link" onClick={onSecondary}>
-              {secondaryLabel}
-            </button>
-          </p>
-        </div>
-      ) : null}
+      <AuthBackToSignIn onClick={onBackToSignIn} />
+    </>
+  );
+}
+
+export function MfaNudgePanel({
+  email,
+  onSetupMfa,
+  onSkip,
+}: {
+  email: string;
+  onSetupMfa: () => void;
+  onSkip: () => void;
+}) {
+  const [busy, setBusy] = useState<"setup" | "skip" | null>(null);
+
+  function handleSetup() {
+    if (busy) return;
+    setBusy("setup");
+    afterNextPaint(onSetupMfa);
+  }
+
+  function handleSkip() {
+    if (busy) return;
+    setBusy("skip");
+    afterNextPaint(() => {
+      writeMfaNudgeDismissed(email);
+      onSkip();
+    });
+  }
+
+  return (
+    <>
+      <header className="luxia-login-heading">
+        <h1 className="luxia-type-heading-h3 luxia-login-title">Secure your account</h1>
+        <p className="luxia-type-body-small luxia-login-subtitle">
+          Add multi-factor authentication for extra protection when you sign in.
+        </p>
+      </header>
+      <Button
+        type="button"
+        variant="primary"
+        className={AUTH_PRIMARY_CTA}
+        disabled={busy !== null}
+        aria-busy={busy === "setup" || undefined}
+        onClick={handleSetup}
+      >
+        <AuthBusyLabel busy={busy === "setup"} busyLabel="Continuing…" idleLabel="Set up MFA" />
+      </Button>
+      <div className="luxia-login-actions">
+        <p className="luxia-login-help luxia-type-caption">
+          <button
+            type="button"
+            className="luxia-login-text-link"
+            onClick={handleSkip}
+            disabled={busy !== null}
+            aria-disabled={busy !== null || undefined}
+          >
+            {busy === "skip" ? "Continuing…" : "Maybe later"}
+          </button>
+        </p>
+      </div>
     </>
   );
 }

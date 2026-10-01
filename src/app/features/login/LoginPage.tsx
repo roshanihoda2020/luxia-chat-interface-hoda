@@ -3,7 +3,10 @@ import { AuthShell } from "@/app/features/login/AuthShell";
 import {
   AccountSetupPanel,
   AuthStatusPanel,
+  EmailOtpVerifyPanel,
   ForgotPasswordPanel,
+  InvitationAcceptPanel,
+  MfaNudgePanel,
   MfaRecoveryPanel,
   MfaSetupPanel,
   MfaVerifyPanel,
@@ -14,10 +17,13 @@ import {
 } from "@/app/features/login/authScreens";
 import {
   clearAuthSearchParams,
+  getPrototypeInviteAccount,
+  readAccountSetupComplete,
   readAuthLocationEntry,
   resolvePostCredentialBranch,
   writeSharedPassword,
   type PrototypeAuthAccount,
+  type PrototypeInviteStatus,
 } from "@/app/features/login/prototypeAuth";
 
 type AuthScreen =
@@ -25,16 +31,34 @@ type AuthScreen =
   | "forgot"
   | "account-setup"
   | "mfa-verify"
+  | "mfa-verify-email"
   | "mfa-recovery"
   | "mfa-setup"
+  | "mfa-nudge"
   | "recovery-reveal"
   | "reset"
   | "reset-invalid"
-  | "workspace";
+  | "workspace"
+  | "invite-accept"
+  | "invite-expired"
+  | "invite-invalid"
+  | "invite-used"
+  | "account-locked"
+  | "account-disabled";
+
+function inviteScreenForStatus(status: PrototypeInviteStatus): AuthScreen {
+  if (status === "valid") return "invite-accept";
+  if (status === "expired") return "invite-expired";
+  if (status === "used") return "invite-used";
+  return "invite-invalid";
+}
 
 function initialScreen(): AuthScreen {
   const entry = readAuthLocationEntry();
   if (entry.kind === "workspace-unknown") return "workspace";
+  if (entry.kind === "account-locked") return "account-locked";
+  if (entry.kind === "account-disabled") return "account-disabled";
+  if (entry.kind === "invite") return inviteScreenForStatus(entry.status);
   if (entry.kind === "reset") return entry.valid ? "reset" : "reset-invalid";
   return "signin";
 }
@@ -78,6 +102,14 @@ export function LoginPage({
       setAuthScreen("mfa-verify");
       return;
     }
+    if (branch === "mfa-verify-email") {
+      setAuthScreen("mfa-verify-email");
+      return;
+    }
+    if (branch === "mfa-nudge") {
+      setAuthScreen("mfa-nudge");
+      return;
+    }
     enterApp(rememberMe, account);
   }
 
@@ -92,6 +124,18 @@ export function LoginPage({
     setPendingAccount(null);
     setAuthScreen("signin");
     clearAuthSearchParams();
+  }
+
+  function acceptInvitation() {
+    const invited = getPrototypeInviteAccount();
+    setPendingAccount(invited);
+    setPendingRememberMe(false);
+    clearAuthSearchParams();
+    if (!readAccountSetupComplete(invited.email)) {
+      setAuthScreen("account-setup");
+      return;
+    }
+    continueAfterCredentials(invited, false);
   }
 
   const expanded =
@@ -116,6 +160,7 @@ export function LoginPage({
       <AccountSetupPanel
         account={pendingAccount}
         onComplete={() => continueAfterCredentials(pendingAccount)}
+        onBackToSignIn={() => goSignIn()}
       />
     );
   } else if (authScreen === "mfa-verify") {
@@ -123,6 +168,14 @@ export function LoginPage({
       <MfaVerifyPanel
         onVerified={enterApp}
         onUseRecoveryKey={() => setAuthScreen("mfa-recovery")}
+        onBackToSignIn={() => goSignIn()}
+      />
+    );
+  } else if (authScreen === "mfa-verify-email" && pendingAccount) {
+    screen = (
+      <EmailOtpVerifyPanel
+        email={pendingAccount.email}
+        onVerified={enterApp}
         onBackToSignIn={() => goSignIn()}
       />
     );
@@ -135,12 +188,74 @@ export function LoginPage({
       />
     );
   } else if (authScreen === "mfa-setup") {
-    screen = <MfaSetupPanel onContinue={() => setAuthScreen("recovery-reveal")} />;
+    screen = (
+      <MfaSetupPanel
+        onContinue={() => setAuthScreen("recovery-reveal")}
+        onBackToSignIn={() => goSignIn()}
+      />
+    );
+  } else if (authScreen === "mfa-nudge" && pendingAccount) {
+    screen = (
+      <MfaNudgePanel
+        email={pendingAccount.email}
+        onSetupMfa={() => setAuthScreen("mfa-setup")}
+        onSkip={() => enterApp()}
+      />
+    );
   } else if (authScreen === "recovery-reveal" && pendingAccount) {
     screen = (
       <RecoveryKeyRevealPanel
         email={pendingAccount.email}
         onContinue={enterApp}
+        onBackToSignIn={() => goSignIn()}
+      />
+    );
+  } else if (authScreen === "invite-accept") {
+    screen = (
+      <InvitationAcceptPanel
+        account={getPrototypeInviteAccount()}
+        onAccept={acceptInvitation}
+        onBackToSignIn={() => goSignIn()}
+      />
+    );
+  } else if (authScreen === "invite-expired") {
+    screen = (
+      <AuthStatusPanel
+        title="This invitation has expired."
+        body="Ask your administrator for a new invitation, or sign in if you already have an account."
+        onBackToSignIn={() => goSignIn()}
+      />
+    );
+  } else if (authScreen === "invite-invalid") {
+    screen = (
+      <AuthStatusPanel
+        title="This invitation link isn't valid."
+        body="Check the link from your invitation email, or return to sign in."
+        onBackToSignIn={() => goSignIn()}
+      />
+    );
+  } else if (authScreen === "invite-used") {
+    screen = (
+      <AuthStatusPanel
+        title="This invitation has already been used."
+        body="Sign in with your account to continue."
+        onBackToSignIn={() => goSignIn()}
+      />
+    );
+  } else if (authScreen === "account-locked") {
+    screen = (
+      <AuthStatusPanel
+        title="Account locked"
+        body="Your account is currently locked. Please contact your administrator or support for assistance."
+        onBackToSignIn={() => goSignIn()}
+      />
+    );
+  } else if (authScreen === "account-disabled") {
+    screen = (
+      <AuthStatusPanel
+        title="Account unavailable"
+        body="This account is currently disabled. Please contact your administrator or support for assistance."
+        onBackToSignIn={() => goSignIn()}
       />
     );
   } else if (authScreen === "reset") {
@@ -151,6 +266,7 @@ export function LoginPage({
           writeSharedPassword(password);
           goSignIn("password-updated");
         }}
+        onBackToSignIn={() => goSignIn()}
       />
     );
   } else if (authScreen === "reset-invalid") {
@@ -160,8 +276,7 @@ export function LoginPage({
         body="Request a new link or return to sign in."
         primaryLabel="Request a new reset link"
         onPrimary={() => setAuthScreen("forgot")}
-        secondaryLabel="Back to sign in"
-        onSecondary={() => goSignIn()}
+        onBackToSignIn={() => goSignIn()}
       />
     );
   } else if (authScreen === "workspace") {
@@ -169,8 +284,7 @@ export function LoginPage({
       <AuthStatusPanel
         title="Workspace not found"
         body="Check the address or contact support."
-        primaryLabel="Go to sign in"
-        onPrimary={() => goSignIn()}
+        onBackToSignIn={() => goSignIn()}
       />
     );
   } else {

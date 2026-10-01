@@ -559,8 +559,14 @@ body:has(.luxia-login-shell),
   transition: color 160ms ease;
 }
 
-.luxia-login-text-link:hover {
+.luxia-login-text-link:hover:not(:disabled) {
   color: var(--luxia-purple-10);
+}
+
+.luxia-login-text-link:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  color: var(--luxia-purple-20);
 }
 
 .luxia-login-text-link:focus-visible {
@@ -650,8 +656,50 @@ body:has(.luxia-login-shell),
 }
 
 .luxia-login-actions .luxia-login-dev-accounts {
-  /* Extra 6px after actions gap before Test accounts */
   margin-top: 6px;
+}
+
+.luxia-login-back {
+  margin-top: var(--luxia-login-space-major);
+}
+
+.luxia-login-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  margin: 0;
+  padding: 4px 2px;
+  border: 0;
+  border-radius: var(--luxia-radius-4);
+  background: transparent;
+  color: rgba(198, 177, 245, 0.52);
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  text-align: left;
+  cursor: pointer;
+  transition: color 160ms ease;
+}
+
+.luxia-login-back-arrow {
+  flex: none;
+  font-size: 13px;
+  line-height: 1;
+  opacity: 0.9;
+}
+
+.luxia-login-back-link:hover {
+  color: rgba(198, 177, 245, 0.82);
+}
+
+.luxia-login-back-link:focus-visible {
+  outline: none;
+  color: var(--luxia-purple-10);
+  text-decoration: underline;
+  box-shadow: 0 0 0 3px var(--luxia-opacity-brand-secondary-32);
 }
 
 .luxia-login-privacy {
@@ -839,6 +887,25 @@ body:has(.luxia-login-shell),
 
 .luxia-login-dev-accounts-panel {
   margin-top: 8px;
+  max-height: min(240px, 42vh);
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.luxia-login-dev-accounts-group-label {
+  margin: 10px 0 4px;
+  padding: 0 4px;
+  font-size: 9px;
+  line-height: 12px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(198, 177, 245, 0.38);
+}
+
+.luxia-login-dev-accounts-group-label:first-child {
+  margin-top: 0;
 }
 
 .luxia-login-dev-accounts-list {
@@ -892,6 +959,80 @@ body:has(.luxia-login-shell),
 
 .luxia-login-dev-accounts-sep {
   color: rgba(255, 255, 255, 0.28);
+}
+
+.luxia-login-dev-accounts-scenarios {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 4px;
+}
+
+.luxia-login-dev-accounts-scenario {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.luxia-login-dev-accounts-select {
+  width: 100%;
+  margin: 0;
+  padding: 4px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--luxia-radius-4);
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.62);
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 14px;
+  cursor: pointer;
+}
+
+.luxia-login-dev-accounts-select:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--luxia-opacity-brand-secondary-32);
+}
+
+.luxia-login-dev-accounts-select option {
+  color: #1a1228;
+  background: #fff;
+}
+
+.luxia-login-dev-accounts-scenario-action {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 5px 4px;
+  border: 0;
+  border-radius: var(--luxia-radius-4);
+  background: transparent;
+  color: rgba(198, 177, 245, 0.5);
+  font-family: inherit;
+  font-size: 10px;
+  line-height: 13px;
+  font-weight: 400;
+  text-align: left;
+  cursor: pointer;
+  transition: background 140ms ease, color 140ms ease;
+}
+
+.luxia-login-dev-accounts-scenario-action:hover {
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(198, 177, 245, 0.72);
+}
+
+.luxia-login-dev-accounts-scenario-action:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--luxia-opacity-brand-secondary-32);
+}
+
+.luxia-login-dev-accounts-reset {
+  margin-top: 8px;
+  padding: 6px 4px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 @media (max-width: 719px) {

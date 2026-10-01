@@ -1,5 +1,8 @@
-import { useId, useState } from "react";
+import { useId, useState, type ChangeEvent } from "react";
 import {
+  clearPrototypeAuthFlags,
+  findPrototypeAccount,
+  preparePrototypeDevAccountLaunch,
   PROTOTYPE_AUTH_ACCOUNTS,
   PROTOTYPE_PASSWORD,
   type PrototypeAuthAccount,
@@ -14,7 +17,9 @@ type TestAccountRow = {
 function labelForAccount(account: PrototypeAuthAccount): string {
   if (account.kind === "invited") return "First-time setup";
   if (account.needsMfaEnrollment) return "MFA setup";
+  if (account.mfaEnabled && account.mfaMethod === "email-otp") return "Email OTP";
   if (account.mfaEnabled) return "MFA verification";
+  if (account.suggestMfaNudge) return "MFA nudge";
   return "Normal";
 }
 
@@ -24,19 +29,56 @@ const TEST_ACCOUNT_ROWS: TestAccountRow[] = PROTOTYPE_AUTH_ACCOUNTS.map((account
   passwordHint: PROTOTYPE_PASSWORD,
 }));
 
+const INVITE_OPTIONS = [
+  { label: "Valid", href: "?invite=valid" },
+  { label: "Expired", href: "?invite=expired" },
+  { label: "Invalid", href: "?invite=invalid" },
+  { label: "Used", href: "?invite=used" },
+] as const;
+
+const ACCOUNT_STATUS_OPTIONS = [
+  { label: "Locked", href: "?account=locked" },
+  { label: "Disabled", href: "?account=disabled" },
+] as const;
+
+function navigateScenario(href: string) {
+  window.location.assign(href);
+}
+
 /**
- * Development-only helper nested in Sign-in.
  * Vite replaces `import.meta.env.DEV` with `false` in production builds.
  */
 export function DevTestAccountsPanel({
-  onSelectEmail,
+  onLaunchAccount,
 }: {
-  onSelectEmail: (email: string) => void;
+  onLaunchAccount: (account: PrototypeAuthAccount) => void;
 }) {
   const panelId = useId();
+  const inviteSelectId = useId();
+  const accountSelectId = useId();
+  const resetStatusId = useId();
   const [open, setOpen] = useState(false);
+  const [resetNotice, setResetNotice] = useState<string | null>(null);
 
   if (!import.meta.env.DEV) return null;
+
+  function handleScenarioSelect(event: ChangeEvent<HTMLSelectElement>) {
+    const href = event.target.value;
+    event.target.value = "";
+    if (href) navigateScenario(href);
+  }
+
+  function handleResetFlags() {
+    clearPrototypeAuthFlags();
+    setResetNotice("Prototype states reset.");
+  }
+
+  function handleLaunchAccount(email: string) {
+    const account = findPrototypeAccount(email);
+    if (!account) return;
+    preparePrototypeDevAccountLaunch(account);
+    onLaunchAccount(account);
+  }
 
   return (
     <div className="luxia-login-dev-accounts">
@@ -55,13 +97,14 @@ export function DevTestAccountsPanel({
 
       {open ? (
         <div id={panelId} className="luxia-login-dev-accounts-panel">
+          <p className="luxia-login-dev-accounts-group-label">Test accounts</p>
           <ul className="luxia-login-dev-accounts-list">
             {TEST_ACCOUNT_ROWS.map((row) => (
               <li key={row.email}>
                 <button
                   type="button"
                   className="luxia-login-dev-accounts-row"
-                  onClick={() => onSelectEmail(row.email)}
+                  onClick={() => handleLaunchAccount(row.email)}
                 >
                   <span className="luxia-login-dev-accounts-label">{row.label}</span>
                   <span className="luxia-login-dev-accounts-cred">
@@ -76,6 +119,74 @@ export function DevTestAccountsPanel({
               </li>
             ))}
           </ul>
+
+          <p className="luxia-login-dev-accounts-group-label">Auth scenarios</p>
+          <div className="luxia-login-dev-accounts-scenarios">
+            <div className="luxia-login-dev-accounts-scenario">
+              <label className="luxia-login-dev-accounts-label" htmlFor={inviteSelectId}>
+                Invitation
+              </label>
+              <select
+                id={inviteSelectId}
+                className="luxia-login-dev-accounts-select"
+                defaultValue=""
+                onChange={handleScenarioSelect}
+              >
+                <option value="" disabled>
+                  Choose…
+                </option>
+                {INVITE_OPTIONS.map((option) => (
+                  <option key={option.href} value={option.href}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="luxia-login-dev-accounts-scenario">
+              <label className="luxia-login-dev-accounts-label" htmlFor={accountSelectId}>
+                Account status
+              </label>
+              <select
+                id={accountSelectId}
+                className="luxia-login-dev-accounts-select"
+                defaultValue=""
+                onChange={handleScenarioSelect}
+              >
+                <option value="" disabled>
+                  Choose…
+                </option>
+                {ACCOUNT_STATUS_OPTIONS.map((option) => (
+                  <option key={option.href} value={option.href}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <button
+              type="button"
+              className="luxia-login-dev-accounts-scenario-action"
+              onClick={() => navigateScenario("?session=expired")}
+            >
+              Session expired
+            </button>
+          </div>
+
+          <div className="luxia-login-dev-accounts-reset">
+            <button
+              type="button"
+              className="luxia-login-dev-accounts-scenario-action"
+              onClick={handleResetFlags}
+            >
+              Reset prototype states
+            </button>
+            {resetNotice ? (
+              <p id={resetStatusId} className="luxia-login-dev-accounts-label" role="status">
+                {resetNotice}
+              </p>
+            ) : null}
+          </div>
         </div>
       ) : null}
     </div>
