@@ -61,6 +61,9 @@ import {
   getConstellationSettingsCapabilityPath,
   getProjectMembersPath,
   getProjectVidgetsPath,
+  getProjectPipelinesPath,
+  getPipelinePath,
+  getPipelineRunPath,
   getVidgetSettingsPath,
   getVidgetInboxPath,
   getAccessLevelsPath,
@@ -69,6 +72,7 @@ import {
   getOrganizationUserPath,
   getDataSourcesPath,
   getDataSourceSettingsPath,
+  getAdminPipelinesPath,
   isHomePath,
   resolveLuxiaPathname,
   homePrimaryPreferencesEqual,
@@ -189,6 +193,7 @@ import {
   canArchiveProject,
   canAccessProject,
   canAdministerProjectConfiguration,
+  isOrganizationAdmin,
   canEditConstellationKnowledge,
   canEditGalaxySettings,
   canCreateOrganizationalDataSource,
@@ -257,6 +262,44 @@ import {
   type VidgetSettingsSectionId,
   type CreateVidgetSubmitPayload,
 } from "@/app/features/vidgets";
+import {
+  PipelinesPage,
+  PipelineDetailPage,
+  PipelineRunDetailPage,
+  applyPrototypeTaskRetry,
+  canRetryFailedTask,
+  canTriggerPipeline,
+  canUpdatePipelineVariables,
+  canViewProjectPipelines,
+  createPrototypeRunningRun,
+  getPipelineById,
+  getPipelinesForProject,
+  getVisiblePipelineCountForProject,
+  getRunById,
+  getRunsForPipeline,
+  getTasksForRun,
+  getVariablesForPipeline,
+  SEED_PIPELINE_RUNS,
+  SEED_PIPELINE_TASKS,
+  SEED_PIPELINE_VARIABLES,
+  SEED_PROJECT_PIPELINES,
+  PIPELINE_RETRY_DENIED_MESSAGE,
+  PIPELINE_TRIGGER_DENIED_MESSAGE,
+  PIPELINE_VARIABLES_DENIED_MESSAGE,
+} from "@/app/features/pipelines";
+import type {
+  PipelineRunRecord,
+  PipelineTaskRecord,
+  PipelineVariableRecord,
+  ProjectPipelineRecord,
+} from "@/app/features/pipelines";
+import { AdminPipelinesPage } from "@/app/features/admin-pipelines";
+import {
+  getAdminPipelinesSnapshot,
+  mergeAdminIntoCustomerPipelines,
+  mergeAdminIntoCustomerVariables,
+  subscribeAdminPipelines,
+} from "@/app/features/admin-pipelines";
 import {
   VidgetInboxPage,
   serializeVidgetInboxQuery,
@@ -746,6 +789,9 @@ type LuxiaAppView =
   | "galaxy-settings"
   | "project-members"
   | "project-vidgets"
+  | "project-pipelines"
+  | "pipeline-detail"
+  | "pipeline-run-detail"
   | "vidget-inbox"
   | "vidget-settings"
   | "organization-users"
@@ -753,7 +799,8 @@ type LuxiaAppView =
   | "access-levels"
   | "access-level"
   | "data-sources"
-  | "data-source-settings";
+  | "data-source-settings"
+  | "admin-pipelines";
 
 function readInitialShellFromLocation(): {
   appView: LuxiaAppView;
@@ -4162,6 +4209,42 @@ export default function App() {
   );
   const [vidgetsState, setVidgetsState] = useState(() => SEED_VIDGETS.map(cloneVidget));
   const [vidgetId, setVidgetId] = useState<string | null>(null);
+  const [pipelineId, setPipelineId] = useState<string | null>(null);
+  const [pipelineRunId, setPipelineRunId] = useState<string | null>(null);
+  const [pipelineRunFocusTaskKey, setPipelineRunFocusTaskKey] = useState<
+    string | null
+  >(null);
+  const [pipelinesState, setPipelinesState] = useState<ProjectPipelineRecord[]>(() => {
+    const seeded = SEED_PROJECT_PIPELINES.map((item) => ({
+      ...item,
+      enabledActions: { ...item.enabledActions },
+    }));
+    const admin = getAdminPipelinesSnapshot();
+    return mergeAdminIntoCustomerPipelines(seeded, admin.mappings);
+  });
+  const [pipelineRunsState, setPipelineRunsState] = useState<PipelineRunRecord[]>(() =>
+    SEED_PIPELINE_RUNS.map((item) => ({ ...item })),
+  );
+  const [pipelineTasksState, setPipelineTasksState] = useState<PipelineTaskRecord[]>(() =>
+    SEED_PIPELINE_TASKS.map((item) => ({
+      ...item,
+      upstreamKeys: [...item.upstreamKeys],
+    })),
+  );
+  const [pipelineVariablesState, setPipelineVariablesState] = useState<
+    PipelineVariableRecord[]
+  >(() => {
+    const seeded = SEED_PIPELINE_VARIABLES.map((item) => ({
+      ...item,
+      allowedValues: item.allowedValues ? [...item.allowedValues] : undefined,
+    }));
+    const admin = getAdminPipelinesSnapshot();
+    return mergeAdminIntoCustomerVariables(
+      seeded,
+      admin.mappings,
+      admin.variables,
+    );
+  });
   const [vidgetInboxSessionId, setVidgetInboxSessionId] = useState<string | null>(null);
   const [vidgetInboxSearch, setVidgetInboxSearch] = useState("");
   const [dashboardFocusOutputId, setDashboardFocusOutputId] = useState<string | null>(null);
@@ -4318,6 +4401,20 @@ export default function App() {
   useEffect(() => {
     setOrganizationUsersRuntime(organizationUsersState);
   }, [organizationUsersState]);
+
+  useEffect(() => {
+    function syncAdminPipelinesIntoCustomer() {
+      const admin = getAdminPipelinesSnapshot();
+      setPipelinesState((prev) =>
+        mergeAdminIntoCustomerPipelines(prev, admin.mappings),
+      );
+      setPipelineVariablesState((prev) =>
+        mergeAdminIntoCustomerVariables(prev, admin.mappings, admin.variables),
+      );
+    }
+    syncAdminPipelinesIntoCustomer();
+    return subscribeAdminPipelines(syncAdminPipelinesIntoCustomer);
+  }, []);
 
   useEffect(() => {
     function clearSettingsRouteState() {
@@ -4478,6 +4575,137 @@ export default function App() {
         return;
       }
 
+      if (resolved.kind === "project-pipelines") {
+        if (!canViewProjectPipelines()) {
+          setActiveProjectId(resolved.projectId);
+          setProjectBrowseMode("overview");
+          setAppView("project");
+          if (typeof window !== "undefined") {
+            const next = getProjectPath(resolved.projectId);
+            if (window.location.pathname !== next) {
+              window.history.replaceState(
+                { luxiaView: "project", projectId: resolved.projectId },
+                "",
+                next,
+              );
+            }
+          }
+          return;
+        }
+        setActiveProjectId(resolved.projectId);
+        setSettingsConstellationId(null);
+        setSettingsCapabilityPath(null);
+        setAccessLevelId(null);
+        setOrganizationUserId(null);
+        setDataSourceSettingsId(null);
+        setVidgetId(null);
+        setPipelineId(null);
+        setPipelineRunId(null);
+        setAppView("project-pipelines");
+        return;
+      }
+
+      if (resolved.kind === "pipeline-detail") {
+        if (!canViewProjectPipelines()) {
+          setActiveProjectId(resolved.projectId);
+          setProjectBrowseMode("overview");
+          setAppView("project");
+          if (typeof window !== "undefined") {
+            const next = getProjectPath(resolved.projectId);
+            if (window.location.pathname !== next) {
+              window.history.replaceState(
+                { luxiaView: "project", projectId: resolved.projectId },
+                "",
+                next,
+              );
+            }
+          }
+          return;
+        }
+        const pipeline = getPipelineById(
+          resolved.projectId,
+          resolved.pipelineId,
+        );
+        if (!pipeline) {
+          setActiveProjectId(resolved.projectId);
+          setPipelineId(null);
+          setPipelineRunId(null);
+          setAppView("project-pipelines");
+          if (typeof window !== "undefined") {
+            const next = getProjectPipelinesPath(resolved.projectId);
+            window.history.replaceState(
+              { luxiaView: "project-pipelines", projectId: resolved.projectId },
+              "",
+              next,
+            );
+          }
+          return;
+        }
+        setActiveProjectId(resolved.projectId);
+        setSettingsConstellationId(null);
+        setSettingsCapabilityPath(null);
+        setAccessLevelId(null);
+        setOrganizationUserId(null);
+        setDataSourceSettingsId(null);
+        setVidgetId(null);
+        setPipelineId(resolved.pipelineId);
+        setPipelineRunId(null);
+        setAppView("pipeline-detail");
+        return;
+      }
+
+      if (resolved.kind === "pipeline-run") {
+        if (!canViewProjectPipelines()) {
+          setActiveProjectId(resolved.projectId);
+          setProjectBrowseMode("overview");
+          setAppView("project");
+          if (typeof window !== "undefined") {
+            const next = getProjectPath(resolved.projectId);
+            if (window.location.pathname !== next) {
+              window.history.replaceState(
+                { luxiaView: "project", projectId: resolved.projectId },
+                "",
+                next,
+              );
+            }
+          }
+          return;
+        }
+        const pipeline = getPipelineById(
+          resolved.projectId,
+          resolved.pipelineId,
+        );
+        if (!pipeline) {
+          setActiveProjectId(resolved.projectId);
+          setPipelineId(null);
+          setPipelineRunId(null);
+          setAppView("project-pipelines");
+          if (typeof window !== "undefined") {
+            const next = getProjectPipelinesPath(resolved.projectId);
+            window.history.replaceState(
+              { luxiaView: "project-pipelines", projectId: resolved.projectId },
+              "",
+              next,
+            );
+          }
+          return;
+        }
+        // Run existence is validated at render time against prototype state
+        // (including runs created during the session).
+        setActiveProjectId(resolved.projectId);
+        setSettingsConstellationId(null);
+        setSettingsCapabilityPath(null);
+        setAccessLevelId(null);
+        setOrganizationUserId(null);
+        setDataSourceSettingsId(null);
+        setVidgetId(null);
+        setPipelineId(resolved.pipelineId);
+        setPipelineRunId(resolved.runId);
+        setPipelineRunFocusTaskKey(null);
+        setAppView("pipeline-run-detail");
+        return;
+      }
+
       if (resolved.kind === "vidget-inbox") {
         const parsed = parseVidgetInboxQueryFromSearch(search);
         const sessionId = parsed.sessionId || resolved.sessionId || "";
@@ -4566,6 +4794,22 @@ export default function App() {
         setOrganizationUserId(null);
         setDataSourceSettingsId(null);
         setAppView("data-sources");
+        return;
+      }
+
+      if (resolved.kind === "admin-pipelines") {
+        if (!canAdministerAccessLevels()) {
+          toast.error("Only Organization Admins can manage Pipelines administration.");
+          goHome(true);
+          return;
+        }
+        setActiveProjectId(null);
+        setSettingsConstellationId(null);
+        setSettingsCapabilityPath(null);
+        setAccessLevelId(null);
+        setOrganizationUserId(null);
+        setDataSourceSettingsId(null);
+        setAppView("admin-pipelines");
         return;
       }
 
@@ -4766,8 +5010,9 @@ export default function App() {
     || appView === "access-level"
     || appView === "data-sources"
     || appView === "data-source-settings"
+    || appView === "admin-pipelines"
     ? null
-    : appView === "project" || appView === "constellation-create" || appView === "constellation-settings" || appView === "galaxy-settings" || appView === "project-members" || appView === "project-vidgets" || appView === "vidget-inbox" || appView === "vidget-settings"
+    : appView === "project" || appView === "constellation-create" || appView === "constellation-settings" || appView === "galaxy-settings" || appView === "project-members" || appView === "project-vidgets" || appView === "project-pipelines" || appView === "pipeline-detail" || appView === "pipeline-run-detail" || appView === "vidget-inbox" || appView === "vidget-settings"
       ? activeProjectId
       : (activeData?.projectId ?? activeProjectId);
 
@@ -4789,6 +5034,7 @@ export default function App() {
     if (appView === "constellation-create") return "constellations";
     if (appView === "project-members") return "members";
     if (appView === "project-vidgets" || appView === "vidget-inbox" || appView === "vidget-settings") return "vidgets";
+    if (appView === "project-pipelines" || appView === "pipeline-detail" || appView === "pipeline-run-detail") return "pipelines";
     if (appView === "chat") {
       if (activeData?.chatType === "galaxy") return "galaxy";
       return "chats";
@@ -5178,6 +5424,181 @@ export default function App() {
     }
   }
 
+  function handleOpenProjectPipelines(projectId: string) {
+    if (!canViewProjectPipelines()) {
+      handleOpenProjectOverview(projectId, "overview");
+      return;
+    }
+    setActiveProjectId(projectId);
+    setVidgetId(null);
+    setPipelineId(null);
+    setPipelineRunId(null);
+    setAppView("project-pipelines");
+    if (typeof window !== "undefined") {
+      const next = getProjectPipelinesPath(projectId);
+      if (window.location.pathname !== next) {
+        window.history.pushState({ luxiaView: "project-pipelines", projectId }, "", next);
+      }
+    }
+  }
+
+  function handleOpenPipelineDetail(projectId: string, nextPipelineId: string) {
+    if (!canViewProjectPipelines()) {
+      handleOpenProjectOverview(projectId, "overview");
+      return;
+    }
+    const pipeline = getPipelineById(projectId, nextPipelineId, pipelinesState);
+    if (!pipeline) {
+      handleOpenProjectPipelines(projectId);
+      return;
+    }
+    setActiveProjectId(projectId);
+    setVidgetId(null);
+    setPipelineId(nextPipelineId);
+    setPipelineRunId(null);
+    setPipelineRunFocusTaskKey(null);
+    setAppView("pipeline-detail");
+    if (typeof window !== "undefined") {
+      const next = getPipelinePath(projectId, nextPipelineId);
+      if (window.location.pathname !== next) {
+        window.history.pushState(
+          { luxiaView: "pipeline-detail", projectId, pipelineId: nextPipelineId },
+          "",
+          next,
+        );
+      }
+    }
+  }
+
+  function handleOpenPipelineRun(
+    projectId: string,
+    nextPipelineId: string,
+    nextRunId: string,
+    taskKey?: string,
+  ) {
+    if (!canViewProjectPipelines()) {
+      handleOpenProjectOverview(projectId, "overview");
+      return;
+    }
+    const pipeline = getPipelineById(projectId, nextPipelineId, pipelinesState);
+    const run = pipeline
+      ? getRunById(projectId, nextPipelineId, nextRunId, pipelineRunsState)
+      : null;
+    if (!pipeline || !run) {
+      if (pipeline) handleOpenPipelineDetail(projectId, nextPipelineId);
+      else handleOpenProjectPipelines(projectId);
+      return;
+    }
+    setActiveProjectId(projectId);
+    setVidgetId(null);
+    setPipelineId(nextPipelineId);
+    setPipelineRunId(nextRunId);
+    setPipelineRunFocusTaskKey(taskKey ?? null);
+    setAppView("pipeline-run-detail");
+    if (typeof window !== "undefined") {
+      const next = getPipelineRunPath(projectId, nextPipelineId, nextRunId);
+      if (window.location.pathname !== next) {
+        window.history.pushState(
+          {
+            luxiaView: "pipeline-run-detail",
+            projectId,
+            pipelineId: nextPipelineId,
+            runId: nextRunId,
+          },
+          "",
+          next,
+        );
+      }
+    }
+  }
+
+  function handlePrototypeRunPipeline(projectId: string, nextPipelineId: string) {
+    const pipeline = getPipelineById(projectId, nextPipelineId, pipelinesState);
+    if (!pipeline) return;
+    const role = projectRoleFor(projectId);
+    const orgAdmin = isOrganizationAdmin(prototypeUserId);
+    if (!canTriggerPipeline(pipeline, role, orgAdmin)) {
+      toast.error(PIPELINE_TRIGGER_DENIED_MESSAGE);
+      return;
+    }
+    const { run, tasks } = createPrototypeRunningRun({ projectId, pipeline });
+    setPipelineRunsState((prev) => [run, ...prev]);
+    setPipelineTasksState((prev) => [...tasks, ...prev]);
+    setPipelinesState((prev) =>
+      prev.map((item) =>
+        item.id === pipeline.id && item.projectId === projectId
+          ? { ...item, status: "running", lastRunAt: run.startedAt }
+          : item,
+      ),
+    );
+    toast.success("Pipeline run started");
+  }
+
+  function handlePrototypeSavePipelineVariables(
+    projectId: string,
+    nextPipelineId: string,
+    nextVariables: PipelineVariableRecord[],
+  ) {
+    const pipeline = getPipelineById(projectId, nextPipelineId, pipelinesState);
+    if (!pipeline) return;
+    const role = projectRoleFor(projectId);
+    const orgAdmin = isOrganizationAdmin(prototypeUserId);
+    if (!canUpdatePipelineVariables(pipeline, role, orgAdmin)) {
+      toast.error(PIPELINE_VARIABLES_DENIED_MESSAGE);
+      return;
+    }
+    setPipelineVariablesState((prev) => {
+      const ids = new Set(nextVariables.map((item) => item.id));
+      return [
+        ...prev.filter((item) => !ids.has(item.id)),
+        ...nextVariables.map((item) => ({
+          ...item,
+          allowedValues: item.allowedValues ? [...item.allowedValues] : undefined,
+        })),
+      ];
+    });
+    toast.success("Changes saved.");
+  }
+
+  function handlePrototypeRetryPipelineTask(
+    projectId: string,
+    nextPipelineId: string,
+    nextRunId: string,
+    taskId: string,
+  ) {
+    const pipeline = getPipelineById(projectId, nextPipelineId, pipelinesState);
+    if (!pipeline) return;
+    const task = pipelineTasksState.find((item) => item.id === taskId);
+    if (!task) return;
+    const role = projectRoleFor(projectId);
+    const orgAdmin = isOrganizationAdmin(prototypeUserId);
+    if (!canRetryFailedTask(pipeline, task.status, role, orgAdmin)) {
+      toast.error(PIPELINE_RETRY_DENIED_MESSAGE);
+      return;
+    }
+    setPipelineTasksState((prev) => applyPrototypeTaskRetry(prev, taskId));
+    setPipelineRunsState((prev) =>
+      prev.map((item) =>
+        item.id === nextRunId
+          ? {
+              ...item,
+              status: "running",
+              durationSeconds: null,
+              failedTaskCount: undefined,
+            }
+          : item,
+      ),
+    );
+    setPipelinesState((prev) =>
+      prev.map((item) =>
+        item.id === nextPipelineId && item.projectId === projectId
+          ? { ...item, status: "running", lastRunAt: new Date().toISOString() }
+          : item,
+      ),
+    );
+    toast.success("Retry requested");
+  }
+
   function handleOpenVidgetInbox(
     projectId: string,
     options?: {
@@ -5446,6 +5867,26 @@ export default function App() {
       const next = getDataSourcesPath();
       if (window.location.pathname !== next) {
         window.history.pushState({ luxiaView: "data-sources" }, "", next);
+      }
+    }
+  }
+
+  function handleOpenAdminPipelines() {
+    if (!canAdministerAccessLevels(prototypeUserId)) {
+      toast.error("Only Organization Admins can manage Pipelines administration.");
+      return;
+    }
+    setActiveProjectId(null);
+    setSettingsConstellationId(null);
+    setSettingsCapabilityPath(null);
+    setAccessLevelId(null);
+    setOrganizationUserId(null);
+    setDataSourceSettingsId(null);
+    setAppView("admin-pipelines");
+    if (typeof window !== "undefined") {
+      const next = getAdminPipelinesPath();
+      if (window.location.pathname !== next) {
+        window.history.pushState({ luxiaView: "admin-pipelines" }, "", next);
       }
     }
   }
@@ -5935,6 +6376,7 @@ export default function App() {
         || appView === "access-level"
         || appView === "data-sources"
         || appView === "data-source-settings"
+        || appView === "admin-pipelines"
         ? null
         : (activeProjectId
           ?? chats.find((chat) => chat.id === activeChat)?.projectId
@@ -5945,6 +6387,9 @@ export default function App() {
       appView === "project"
       || appView === "project-members"
       || appView === "project-vidgets"
+      || appView === "project-pipelines"
+      || appView === "pipeline-detail"
+      || appView === "pipeline-run-detail"
       || appView === "vidget-inbox"
       || appView === "vidget-settings"
       || appView === "constellation-settings"
@@ -7194,6 +7639,10 @@ export default function App() {
     }
     if (section === "vidgets" || section === "virtual-assistant") {
       handleOpenProjectVidgets(projectId);
+      return;
+    }
+    if (section === "pipelines") {
+      handleOpenProjectPipelines(projectId);
     }
   }
 
@@ -8143,6 +8592,23 @@ export default function App() {
     }));
   }, [contextProjectId, contextProjectMembership, vidgetsState]);
 
+  const sidebarProjectPipelines = useMemo(() => {
+    if (!contextProjectId || !contextProjectMembership) return [];
+    if (!canViewProjectPipelines()) return [];
+    return getPipelinesForProject(contextProjectId, pipelinesState).map((item) => ({
+      id: item.id,
+      label: item.name,
+      dagId: item.dagId,
+      updatedAtTimestamp: item.lastRunAt ? Date.parse(item.lastRunAt) || 0 : 0,
+    }));
+  }, [contextProjectId, contextProjectMembership, pipelinesState]);
+
+  const sidebarPipelineCount = useMemo(() => {
+    if (!contextProjectId || !contextProjectMembership) return 0;
+    if (!canViewProjectPipelines()) return 0;
+    return getVisiblePipelineCountForProject(contextProjectId, pipelinesState);
+  }, [contextProjectId, contextProjectMembership, pipelinesState]);
+
   useEffect(() => {
     setDashboardFocusOutputId(null);
     setActiveDashboardOutputId(null);
@@ -8467,6 +8933,12 @@ export default function App() {
         }
         accessLevelsActive={appView === "access-levels" || appView === "access-level"}
         dataSourcesActive={appView === "data-sources" || appView === "data-source-settings"}
+        adminPipelinesActive={appView === "admin-pipelines"}
+        canAdministerPipelines={canAdministerAccessLevels(prototypeUserId)}
+        collapsePipelinesCollector={
+          viewportWidth < 1280
+          && (appView === "pipeline-detail" || appView === "pipeline-run-detail")
+        }
         projectId={contextProjectId}
         projectLabel={contextProjectLabel}
         showProjectContext={showProjectContext}
@@ -8484,19 +8956,27 @@ export default function App() {
             : null
         }
         activeVidgetId={appView === "vidget-settings" ? vidgetId : null}
+        activePipelineId={
+          appView === "pipeline-detail" || appView === "pipeline-run-detail"
+            ? pipelineId
+            : null
+        }
         projectChats={sidebarProjectChats}
         projectConstellations={sidebarProjectConstellations}
         projectDashboardOutputs={sidebarProjectDashboardOutputs}
         projectVidgets={sidebarProjectVidgets}
+        projectPipelines={sidebarProjectPipelines}
         switchableProjects={sidebarSwitchableProjects}
         chatTotalCount={sidebarProjectChats.length}
         constellationTotalCount={sidebarProjectConstellations.length}
         dashboardTotalCount={sidebarProjectDashboardOutputs.length}
         vidgetTotalCount={sidebarProjectVidgets.length}
+        pipelineTotalCount={sidebarPipelineCount}
         onHomeClick={handleNavigateHome}
         onOrganizationUsersClick={handleOpenOrganizationUsers}
         onAccessLevelsClick={handleOpenAccessLevels}
         onDataSourcesClick={handleOpenDataSources}
+        onAdminPipelinesClick={handleOpenAdminPipelines}
         onProjectSectionClick={handleProjectNavSection}
         onSwitchProject={(projectId) => {
           handleOpenProjectOverview(projectId, "overview");
@@ -8508,6 +8988,9 @@ export default function App() {
         onOpenDashboardOutput={handleOpenDashboardOutput}
         onOpenVidget={(projectId, nextVidgetId) => {
           handleOpenVidgetSettings(projectId, nextVidgetId);
+        }}
+        onOpenPipeline={(projectId, nextPipelineId) => {
+          handleOpenPipelineDetail(projectId, nextPipelineId);
         }}
         prototypeUser={prototypeUser}
         prototypeProjectRole={prototypeProjectRole}
@@ -9137,6 +9620,107 @@ export default function App() {
               );
             })()}
           </HomePageShell>
+        ) : appView === "project-pipelines" && activeProjectId ? (
+          <HomePageShell scrollRequest={homeScrollRequest} framed={false}>
+            <PipelinesPage
+              projectId={activeProjectId}
+              projectName={getProjectNameById(activeProjectId, homeProjects)}
+              pipelines={getPipelinesForProject(activeProjectId, pipelinesState)}
+              onNavigateHome={handleNavigateHome}
+              onOpenProject={(pid) => handleOpenProjectOverview(pid, "overview")}
+              onOpenPipeline={(id) => handleOpenPipelineDetail(activeProjectId, id)}
+            />
+          </HomePageShell>
+        ) : appView === "pipeline-detail" && activeProjectId && pipelineId ? (
+          <HomePageShell scrollRequest={homeScrollRequest} framed={false}>
+            {(() => {
+              const projectId = activeProjectId;
+              const pipeline = getPipelineById(projectId, pipelineId, pipelinesState);
+              if (!pipeline) {
+                return null;
+              }
+              const feedsName = pipeline.feedsConstellationId
+                ? constellationNameById[pipeline.feedsConstellationId] ?? null
+                : null;
+              const role = projectRoleFor(projectId);
+              const orgAdmin = isOrganizationAdmin(prototypeUserId);
+              return (
+                <PipelineDetailPage
+                  projectId={projectId}
+                  projectName={getProjectNameById(projectId, homeProjects)}
+                  pipeline={pipeline}
+                  runs={getRunsForPipeline(projectId, pipelineId, pipelineRunsState)}
+                  tasks={pipelineTasksState.filter(
+                    (task) =>
+                      task.projectId === projectId && task.pipelineId === pipelineId,
+                  )}
+                  variables={getVariablesForPipeline(
+                    projectId,
+                    pipelineId,
+                    pipelineVariablesState,
+                  )}
+                  feedsConstellationName={feedsName}
+                  projectRole={role}
+                  isOrgAdmin={orgAdmin}
+                  onNavigateHome={handleNavigateHome}
+                  onOpenProject={(pid) => handleOpenProjectOverview(pid, "overview")}
+                  onOpenPipelines={handleOpenProjectPipelines}
+                  onOpenRun={(runId, taskKey) =>
+                    handleOpenPipelineRun(projectId, pipelineId, runId, taskKey)
+                  }
+                  onRunPipeline={() =>
+                    handlePrototypeRunPipeline(projectId, pipelineId)
+                  }
+                  onSaveVariables={(next) =>
+                    handlePrototypeSavePipelineVariables(projectId, pipelineId, next)
+                  }
+                />
+              );
+            })()}
+          </HomePageShell>
+        ) : appView === "pipeline-run-detail"
+          && activeProjectId
+          && pipelineId
+          && pipelineRunId ? (
+          <HomePageShell scrollRequest={homeScrollRequest} framed={false}>
+            {(() => {
+              const projectId = activeProjectId;
+              const pipeline = getPipelineById(projectId, pipelineId, pipelinesState);
+              const run = pipeline
+                ? getRunById(projectId, pipelineId, pipelineRunId, pipelineRunsState)
+                : null;
+              if (!pipeline || !run) {
+                return null;
+              }
+              const role = projectRoleFor(projectId);
+              const orgAdmin = isOrganizationAdmin(prototypeUserId);
+              return (
+                <PipelineRunDetailPage
+                  key={`${pipelineRunId}:${pipelineRunFocusTaskKey ?? ""}`}
+                  projectId={projectId}
+                  projectName={getProjectNameById(projectId, homeProjects)}
+                  pipeline={pipeline}
+                  run={run}
+                  tasks={getTasksForRun(pipelineRunId, pipelineTasksState)}
+                  initialSelectedTaskKey={pipelineRunFocusTaskKey}
+                  projectRole={role}
+                  isOrgAdmin={orgAdmin}
+                  onNavigateHome={handleNavigateHome}
+                  onOpenProject={(pid) => handleOpenProjectOverview(pid, "overview")}
+                  onOpenPipelines={handleOpenProjectPipelines}
+                  onOpenPipeline={(id) => handleOpenPipelineDetail(projectId, id)}
+                  onRetryTask={(taskId) =>
+                    handlePrototypeRetryPipelineTask(
+                      projectId,
+                      pipelineId,
+                      pipelineRunId,
+                      taskId,
+                    )
+                  }
+                />
+              );
+            })()}
+          </HomePageShell>
         ) : appView === "vidget-inbox" && activeProjectId ? (
           <HomePageShell
             scrollRequest={homeScrollRequest}
@@ -9573,6 +10157,10 @@ export default function App() {
               onNavigateHome={handleNavigateHome}
               onNewDataSource={() => setDataSourceCreationOpen(true)}
             />
+          </HomePageShell>
+        ) : appView === "admin-pipelines" ? (
+          <HomePageShell scrollRequest={homeScrollRequest} framed={false}>
+            <AdminPipelinesPage onNavigateHome={handleNavigateHome} />
           </HomePageShell>
         ) : appView === "access-level" ? (
           <HomePageShell scrollRequest={homeScrollRequest} framed={false}>

@@ -90,6 +90,22 @@ export function getProjectVidgetsPath(projectId: string): string {
   return `/projects/${encodeURIComponent(projectId)}/vidgets`;
 }
 
+export function getProjectPipelinesPath(projectId: string): string {
+  return `/projects/${encodeURIComponent(projectId)}/pipelines`;
+}
+
+export function getPipelinePath(projectId: string, pipelineId: string): string {
+  return `/projects/${encodeURIComponent(projectId)}/pipelines/${encodeURIComponent(pipelineId)}`;
+}
+
+export function getPipelineRunPath(
+  projectId: string,
+  pipelineId: string,
+  runId: string,
+): string {
+  return `/projects/${encodeURIComponent(projectId)}/pipelines/${encodeURIComponent(pipelineId)}/runs/${encodeURIComponent(runId)}`;
+}
+
 export function getVidgetSettingsPath(
   projectId: string,
   vidgetId: string,
@@ -142,6 +158,10 @@ export function getDataSourcesPath(): string {
 
 export function getDataSourceSettingsPath(dataSourceId: string): string {
   return `/data-sources/${encodeURIComponent(dataSourceId)}/settings`;
+}
+
+export function getAdminPipelinesPath(): string {
+  return "/organization/pipelines";
 }
 
 export type PersonalSettingsTabQuery = "profile" | "my-data";
@@ -293,6 +313,40 @@ export function parseProjectVidgetsFromPath(pathname: string): string | null {
   return decodePathSegment(match[1]);
 }
 
+export function parseProjectPipelinesFromPath(pathname: string): string | null {
+  const match = pathname.match(/^\/projects\/([^/]+)\/pipelines\/?$/);
+  if (!match?.[1]) return null;
+  return decodePathSegment(match[1]);
+}
+
+export function parsePipelineDetailFromPath(pathname: string): {
+  projectId: string;
+  pipelineId: string;
+} | null {
+  const match = pathname.match(/^\/projects\/([^/]+)\/pipelines\/([^/]+)\/?$/);
+  if (!match?.[1] || !match[2]) return null;
+  return {
+    projectId: decodePathSegment(match[1]),
+    pipelineId: decodePathSegment(match[2]),
+  };
+}
+
+export function parsePipelineRunFromPath(pathname: string): {
+  projectId: string;
+  pipelineId: string;
+  runId: string;
+} | null {
+  const match = pathname.match(
+    /^\/projects\/([^/]+)\/pipelines\/([^/]+)\/runs\/([^/]+)\/?$/,
+  );
+  if (!match?.[1] || !match[2] || !match[3]) return null;
+  return {
+    projectId: decodePathSegment(match[1]),
+    pipelineId: decodePathSegment(match[2]),
+    runId: decodePathSegment(match[3]),
+  };
+}
+
 export function parseVidgetSettingsFromPath(pathname: string): {
   projectId: string;
   vidgetId: string;
@@ -351,6 +405,10 @@ export function parseDataSourceSettingsFromPath(pathname: string): string | null
   return decodePathSegment(match[1]);
 }
 
+export function parseAdminPipelinesPath(pathname: string): boolean {
+  return /^\/organization\/pipelines\/?$/.test(pathname);
+}
+
 export function parseChatIdFromPath(pathname: string): string | null {
   const nested = parseConstellationChatFromPath(pathname);
   if (nested) return nested.chatId;
@@ -397,6 +455,14 @@ export type LuxiaResolvedPath =
   }
   | { kind: "project-members"; projectId: string }
   | { kind: "project-vidgets"; projectId: string }
+  | { kind: "project-pipelines"; projectId: string }
+  | { kind: "pipeline-detail"; projectId: string; pipelineId: string }
+  | {
+    kind: "pipeline-run";
+    projectId: string;
+    pipelineId: string;
+    runId: string;
+  }
   | { kind: "vidget-inbox"; projectId: string; sessionId: string | null }
   | { kind: "vidget-settings"; projectId: string; vidgetId: string }
   | { kind: "organization-users" }
@@ -405,6 +471,7 @@ export type LuxiaResolvedPath =
   | { kind: "access-level"; accessLevelId: string }
   | { kind: "data-sources" }
   | { kind: "data-source-settings"; dataSourceId: string }
+  | { kind: "admin-pipelines" }
   | { kind: "personal-settings" }
   | { kind: "organization-settings" }
   | { kind: "chat"; chatId: string; projectId?: string; constellationId?: string }
@@ -443,6 +510,10 @@ export function resolveLuxiaPathname(pathname: string): LuxiaResolvedPath {
   const dataSourceId = parseDataSourceSettingsFromPath(pathname);
   if (dataSourceId) {
     return { kind: "data-source-settings", dataSourceId };
+  }
+
+  if (parseAdminPipelinesPath(pathname)) {
+    return { kind: "admin-pipelines" };
   }
 
   if (parsePersonalSettingsPath(pathname)) {
@@ -523,6 +594,30 @@ export function resolveLuxiaPathname(pathname: string): LuxiaResolvedPath {
   const vidgetsProjectId = parseProjectVidgetsFromPath(pathname);
   if (vidgetsProjectId) {
     return { kind: "project-vidgets", projectId: vidgetsProjectId };
+  }
+
+  const pipelineRun = parsePipelineRunFromPath(pathname);
+  if (pipelineRun) {
+    return {
+      kind: "pipeline-run",
+      projectId: pipelineRun.projectId,
+      pipelineId: pipelineRun.pipelineId,
+      runId: pipelineRun.runId,
+    };
+  }
+
+  const pipelineDetail = parsePipelineDetailFromPath(pathname);
+  if (pipelineDetail) {
+    return {
+      kind: "pipeline-detail",
+      projectId: pipelineDetail.projectId,
+      pipelineId: pipelineDetail.pipelineId,
+    };
+  }
+
+  const pipelinesProjectId = parseProjectPipelinesFromPath(pathname);
+  if (pipelinesProjectId) {
+    return { kind: "project-pipelines", projectId: pipelinesProjectId };
   }
 
   const constellationCreateProjectId = parseConstellationCreateProjectIdFromPath(pathname);

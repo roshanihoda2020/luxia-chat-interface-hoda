@@ -25,6 +25,7 @@ import type { ProjectNavSection } from "@/app/features/project-overview/types";
 import { formatOrganizationRoleLabel, NO_PROJECT_ROLE_LABEL } from "@/app/features/permissions/currentUser";
 import {
   getAccessLevelsPath,
+  getAdminPipelinesPath,
   getConstellationSettingsPath,
   getConstellationsPath,
   getDashboardPath,
@@ -33,12 +34,15 @@ import {
   getOrganizationUsersPath,
   getProjectChatsPath,
   getProjectMembersPath,
+  getProjectPipelinesPath,
+  getPipelinePath,
   getProjectVidgetsPath,
   getProjectPath,
   getChatPath,
   getConstellationChatPath,
   getVidgetSettingsPath,
 } from "@/app/features/project/projectPaths";
+import { canViewProjectPipelines } from "@/app/features/pipelines/access";
 import {
   LuxiaChatIcon,
   LuxiaConstellationIcon,
@@ -46,6 +50,7 @@ import {
   LuxiaDatasourceIcon,
   LuxiaGalaxyIcon,
   LuxiaHomeIcon,
+  LuxiaPipelineIcon,
   LuxiaProjectsIcon,
   LuxiaSettingsIcon,
   LuxiaUserPermissionsIcon,
@@ -96,7 +101,13 @@ function LuxiaOrgUsersIcon({
     </span>
   );
 }
-type FlyoutKind = "constellations" | "chats" | "dashboard" | "vidgets" | "projects";
+type FlyoutKind =
+  | "constellations"
+  | "chats"
+  | "dashboard"
+  | "vidgets"
+  | "pipelines"
+  | "projects";
 
 export type LeftNavDashboardPreview = {
   id: string;
@@ -107,6 +118,14 @@ export type LeftNavDashboardPreview = {
 export type LeftNavVidgetPreview = {
   id: string;
   label: string;
+  updatedAtTimestamp: number;
+};
+
+export type LeftNavPipelinePreview = {
+  id: string;
+  label: string;
+  /** Optional technical id — used for search matching only, not shown in the row. */
+  dagId?: string;
   updatedAtTimestamp: number;
 };
 
@@ -151,6 +170,14 @@ export type LeftNavProps = {
   organizationUsersActive?: boolean;
   accessLevelsActive?: boolean;
   dataSourcesActive?: boolean;
+  adminPipelinesActive?: boolean;
+  /** When false, Pipeline Admin nav item is hidden (non–Org Admin). */
+  canAdministerPipelines?: boolean;
+  /**
+   * When true, auto-closes the Pipelines secondary collector rail so
+   * Main Nav + Detail are not squeezed on mid-width viewports.
+   */
+  collapsePipelinesCollector?: boolean;
   projectId?: string | null;
   projectLabel?: string | null;
   showProjectContext?: boolean;
@@ -160,25 +187,30 @@ export type LeftNavProps = {
   activeConstellationId?: string | null;
   activeDashboardOutputId?: string | null;
   activeVidgetId?: string | null;
+  activePipelineId?: string | null;
   projectChats?: LeftNavChatPreview[];
   projectConstellations?: LeftNavConstellationPreview[];
   projectDashboardOutputs?: LeftNavDashboardPreview[];
   projectVidgets?: LeftNavVidgetPreview[];
+  projectPipelines?: LeftNavPipelinePreview[];
   switchableProjects?: LeftNavProjectPreview[];
   chatTotalCount?: number;
   constellationTotalCount?: number;
   dashboardTotalCount?: number;
   vidgetTotalCount?: number;
+  pipelineTotalCount?: number;
   onHomeClick?: () => void;
   onOrganizationUsersClick?: () => void;
   onAccessLevelsClick?: () => void;
   onDataSourcesClick?: () => void;
+  onAdminPipelinesClick?: () => void;
   onProjectSectionClick?: (section: ProjectNavSection) => void;
   onSwitchProject?: (projectId: string) => void;
   onOpenChat?: (chatId: string) => void;
   onOpenConstellation?: (projectId: string, constellationId: string) => void;
   onOpenDashboardOutput?: (projectId: string, outputId: string) => void;
   onOpenVidget?: (projectId: string, vidgetId: string) => void;
+  onOpenPipeline?: (projectId: string, pipelineId: string) => void;
   prototypeUser?: { id: string; name: string; email: string; orgRole: string };
   prototypeProjectRole?: ProjectRole | null;
   activeProjectLabel?: string | null;
@@ -204,6 +236,12 @@ const NAV_TOP_ITEMS: {
     id: "datasources",
     icon: LuxiaDatasourceIcon,
     label: "Data Sources",
+    available: true,
+  },
+  {
+    id: "adminpipelines",
+    icon: LuxiaPipelineIcon,
+    label: "Pipeline Admin",
     available: true,
   },
 ];
@@ -841,6 +879,9 @@ export function LeftNav({
   organizationUsersActive,
   accessLevelsActive,
   dataSourcesActive,
+  adminPipelinesActive,
+  canAdministerPipelines = true,
+  collapsePipelinesCollector = false,
   projectId,
   projectLabel,
   showProjectContext = true,
@@ -850,25 +891,30 @@ export function LeftNav({
   activeConstellationId,
   activeDashboardOutputId,
   activeVidgetId,
+  activePipelineId,
   projectChats = [],
   projectConstellations = [],
   projectDashboardOutputs = [],
   projectVidgets = [],
+  projectPipelines = [],
   switchableProjects = [],
   chatTotalCount,
   constellationTotalCount,
   dashboardTotalCount,
   vidgetTotalCount,
+  pipelineTotalCount,
   onHomeClick,
   onOrganizationUsersClick,
   onAccessLevelsClick,
   onDataSourcesClick,
+  onAdminPipelinesClick,
   onProjectSectionClick,
   onSwitchProject,
   onOpenChat,
   onOpenConstellation,
   onOpenDashboardOutput,
   onOpenVidget,
+  onOpenPipeline,
   prototypeUser,
   prototypeProjectRole,
   activeProjectLabel,
@@ -883,6 +929,7 @@ export function LeftNav({
   const chatsPanelId = `${reactId}-chats-rail`;
   const dashboardPanelId = `${reactId}-dashboard-rail`;
   const vidgetsPanelId = `${reactId}-vidgets-rail`;
+  const pipelinesPanelId = `${reactId}-pipelines-rail`;
   const projectsPanelId = `${reactId}-projects-rail`;
 
   const asideRef = useRef<HTMLElement>(null);
@@ -893,12 +940,15 @@ export function LeftNav({
   const chatsDisclosureRef = useRef<HTMLButtonElement>(null);
   const dashboardAnchorRef = useRef<HTMLDivElement>(null);
   const vidgetsAnchorRef = useRef<HTMLDivElement>(null);
+  const pipelinesAnchorRef = useRef<HTMLDivElement>(null);
   const dashboardDisclosureRef = useRef<HTMLButtonElement>(null);
   const vidgetsDisclosureRef = useRef<HTMLButtonElement>(null);
+  const pipelinesDisclosureRef = useRef<HTMLButtonElement>(null);
   const collapsedConstellationsRef = useRef<HTMLButtonElement>(null);
   const collapsedChatsRef = useRef<HTMLButtonElement>(null);
   const collapsedDashboardRef = useRef<HTMLButtonElement>(null);
   const collapsedVidgetsRef = useRef<HTMLButtonElement>(null);
+  const collapsedPipelinesRef = useRef<HTMLButtonElement>(null);
   const projectSwitcherRef = useRef<HTMLButtonElement>(null);
   const collapsedProjectSwitcherRef = useRef<HTMLButtonElement>(null);
   const restoreFocusKindRef = useRef<FlyoutKind | null>(null);
@@ -908,6 +958,7 @@ export function LeftNav({
   const [chatQuery, setChatQuery] = useState("");
   const [dashboardQuery, setDashboardQuery] = useState("");
   const [vidgetQuery, setVidgetQuery] = useState("");
+  const [pipelineQuery, setPipelineQuery] = useState("");
   const [projectQuery, setProjectQuery] = useState("");
 
   const navPadding = collapsed ? "px-2" : "px-3";
@@ -919,6 +970,7 @@ export function LeftNav({
   const constellationsHref = projectId ? getConstellationsPath(projectId) : undefined;
   const chatsHref = projectId ? getProjectChatsPath(projectId) : undefined;
   const vidgetsHref = projectId ? getProjectVidgetsPath(projectId) : undefined;
+  const pipelinesHref = projectId ? getProjectPipelinesPath(projectId) : undefined;
   const membersHref = projectId ? getProjectMembersPath(projectId) : undefined;
 
   const profileName = prototypeUser?.name ?? SIDEBAR_PROFILE_NAME;
@@ -930,12 +982,14 @@ export function LeftNav({
   const constellationsCount = constellationTotalCount ?? projectConstellations.length;
   const dashboardCount = dashboardTotalCount ?? projectDashboardOutputs.length;
   const vidgetsCount = vidgetTotalCount ?? projectVidgets.length;
+  const pipelinesCount = pipelineTotalCount ?? projectPipelines.length;
   const railCollapsed = isMobileDrawer ? false : collapsed;
   const widthStyle = isMobileDrawer
     ? SIDEBAR_WIDTH_EXPANDED
     : (collapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_EXPANDED);
   const showProjectSettings = PROJECT_SETTINGS_DESTINATION_AVAILABLE
     && canAccessProjectSettingsForUser(prototypeUser?.id, prototypeProjectRole);
+  const showPipelines = canViewProjectPipelines();
 
   const quickChats = useMemo(
     () =>
@@ -981,6 +1035,17 @@ export function LeftNav({
     [projectVidgets, activeVidgetId],
   );
 
+  const quickPipelines = useMemo(
+    () =>
+      pickQuickFlyoutItems(
+        projectPipelines,
+        activePipelineId,
+        SECONDARY_QUICK_LIMIT,
+        (item) => item.updatedAtTimestamp,
+      ),
+    [projectPipelines, activePipelineId],
+  );
+
   const constellationSearchRows = useMemo(
     () => filterFlyoutSearch(projectConstellations, constellationQuery, SECONDARY_SEARCH_RESULT_LIMIT),
     [projectConstellations, constellationQuery],
@@ -1000,6 +1065,18 @@ export function LeftNav({
     () => filterFlyoutSearch(projectVidgets, vidgetQuery, SECONDARY_SEARCH_RESULT_LIMIT),
     [projectVidgets, vidgetQuery],
   );
+
+  const pipelineSearchRows = useMemo(() => {
+    const q = pipelineQuery.trim().toLowerCase();
+    if (!q) return [];
+    return projectPipelines
+      .filter(
+        (item) =>
+          item.label.toLowerCase().includes(q)
+          || (item.dagId?.toLowerCase().includes(q) ?? false),
+      )
+      .slice(0, SECONDARY_SEARCH_RESULT_LIMIT);
+  }, [projectPipelines, pipelineQuery]);
 
   const projectBrowseRows = useMemo(() => {
     const sorted = [...switchableProjects].sort((a, b) => {
@@ -1025,6 +1102,7 @@ export function LeftNav({
       if (railCollapsed) {
         if (kind === "dashboard") return collapsedDashboardRef.current;
         if (kind === "vidgets") return collapsedVidgetsRef.current;
+        if (kind === "pipelines") return collapsedPipelinesRef.current;
         return kind === "constellations"
           ? collapsedConstellationsRef.current
           : collapsedChatsRef.current;
@@ -1034,6 +1112,9 @@ export function LeftNav({
       }
       if (kind === "vidgets") {
         return vidgetsDisclosureRef.current ?? vidgetsAnchorRef.current;
+      }
+      if (kind === "pipelines") {
+        return pipelinesDisclosureRef.current ?? pipelinesAnchorRef.current;
       }
       return kind === "constellations"
         ? (constellationsDisclosureRef.current ?? constellationsAnchorRef.current)
@@ -1054,6 +1135,7 @@ export function LeftNav({
       setChatQuery("");
       setDashboardQuery("");
       setVidgetQuery("");
+      setPipelineQuery("");
       setProjectQuery("");
     },
     [flyout],
@@ -1066,6 +1148,7 @@ export function LeftNav({
     setChatQuery("");
     setDashboardQuery("");
     setVidgetQuery("");
+    setPipelineQuery("");
     setProjectQuery("");
   }, []);
 
@@ -1085,6 +1168,7 @@ export function LeftNav({
         setChatQuery("");
         setDashboardQuery("");
         setVidgetQuery("");
+        setPipelineQuery("");
         setProjectQuery("");
         return null;
       }
@@ -1093,6 +1177,7 @@ export function LeftNav({
       setChatQuery("");
       setDashboardQuery("");
       setVidgetQuery("");
+      setPipelineQuery("");
       setProjectQuery("");
       return kind;
     });
@@ -1135,6 +1220,12 @@ export function LeftNav({
   useEffect(() => {
     onSecondaryRailOpenChange?.(!isMobileDrawer && flyout !== null);
   }, [flyout, isMobileDrawer, onSecondaryRailOpenChange]);
+
+  useEffect(() => {
+    if (collapsePipelinesCollector) {
+      clearSecondaryRail();
+    }
+  }, [collapsePipelinesCollector, clearSecondaryRail]);
 
   useEffect(() => {
     clearSecondaryRail();
@@ -1257,6 +1348,24 @@ export function LeftNav({
     );
   }
 
+  function renderPipelineRow(item: LeftNavPipelinePreview) {
+    return (
+      <FlyoutNavRow
+        key={item.id}
+        icon={LuxiaPipelineIcon}
+        label={item.label}
+        active={activePipelineId === item.id}
+        href={projectId ? getPipelinePath(projectId, item.id) : undefined}
+        onClick={() => {
+          if (!projectId) return;
+          navigateChildEntity(() => {
+            onOpenPipeline?.(projectId, item.id);
+          });
+        }}
+      />
+    );
+  }
+
   const constellationRows = constellationQuery.trim()
     ? constellationSearchRows.map(renderConstellationRow)
     : quickConstellations.map(renderConstellationRow);
@@ -1273,6 +1382,10 @@ export function LeftNav({
     ? vidgetSearchRows.map(renderVidgetRow)
     : quickVidgets.map(renderVidgetRow);
 
+  const pipelineRows = pipelineQuery.trim()
+    ? pipelineSearchRows.map(renderPipelineRow)
+    : quickPipelines.map(renderPipelineRow);
+
   const constellationListEmpty = constellationQuery.trim()
     ? constellationSearchRows.length === 0
     : quickConstellations.length === 0;
@@ -1288,6 +1401,10 @@ export function LeftNav({
   const vidgetListEmpty = vidgetQuery.trim()
     ? vidgetSearchRows.length === 0
     : quickVidgets.length === 0;
+
+  const pipelineListEmpty = pipelineQuery.trim()
+    ? pipelineSearchRows.length === 0
+    : quickPipelines.length === 0;
 
   function renderProjectRow(item: LeftNavProjectPreview) {
     const roleLabel = item.projectRole ?? NO_PROJECT_ROLE_LABEL;
@@ -1383,6 +1500,20 @@ export function LeftNav({
         isEmptyList={vidgetListEmpty}
         onClose={closeSecondaryRail}
         closeLabel="Close Vidgets navigation"
+      />
+    ) : !isMobileDrawer && flyout === "pipelines" ? (
+      <SidebarSecondaryRail
+        id={pipelinesPanelId}
+        mode="desktop"
+        title="Pipelines"
+        searchPlaceholder="Search Pipelines"
+        noMatchLabel="No matching Pipelines"
+        query={pipelineQuery}
+        onQueryChange={setPipelineQuery}
+        rows={pipelineRows}
+        isEmptyList={pipelineListEmpty}
+        onClose={closeSecondaryRail}
+        closeLabel="Close Pipelines navigation"
       />
     ) : null;
 
@@ -1508,6 +1639,26 @@ export function LeftNav({
               />
             </div>
           ) : null}
+          {isMobileDrawer && mobileFlyoutActive && flyout === "pipelines" ? (
+            <div
+              className="absolute inset-0 z-[4] flex flex-col overflow-hidden"
+              style={{ background: LX.gradient.nav }}
+            >
+              <SidebarSecondaryRail
+                id={pipelinesPanelId}
+                mode="mobile"
+                title="Pipelines"
+                searchPlaceholder="Search Pipelines"
+                noMatchLabel="No matching Pipelines"
+                query={pipelineQuery}
+                onQueryChange={setPipelineQuery}
+                rows={pipelineRows}
+                isEmptyList={pipelineListEmpty}
+                onClose={closeSecondaryRail}
+                closeLabel="Close Pipelines navigation"
+              />
+            </div>
+          ) : null}
 
           <>
             <div
@@ -1527,7 +1678,9 @@ export function LeftNav({
               className="relative z-[2] min-h-0 flex-1 overflow-x-hidden overflow-y-auto luxia-scrollbar luxia-scrollbar-dark luxia-scrollbar-vertical luxia-scrollbar-sidebar"
             >
               <nav className={`${navPadding} space-y-px`} aria-label="Global workspace">
-                {NAV_TOP_ITEMS.map(({ id, icon, label, available, unavailableHint }) => (
+                {NAV_TOP_ITEMS.filter(
+                  (item) => item.id !== "adminpipelines" || canAdministerPipelines,
+                ).map(({ id, icon, label, available, unavailableHint }) => (
                   <NavItem
                     key={id}
                     icon={icon}
@@ -1542,6 +1695,8 @@ export function LeftNav({
                             ? accessLevelsActive
                             : id === "datasources"
                               ? dataSourcesActive
+                              : id === "adminpipelines"
+                                ? adminPipelinesActive
                               : false
                     }
                     disabled={!available}
@@ -1555,6 +1710,8 @@ export function LeftNav({
                             ? getAccessLevelsPath()
                             : id === "datasources" && available
                               ? getDataSourcesPath()
+                              : id === "adminpipelines" && available
+                                ? getAdminPipelinesPath()
                               : undefined
                     }
                     onClick={
@@ -1580,6 +1737,12 @@ export function LeftNav({
                             ? () => {
                               closeFlyout();
                               onDataSourcesClick?.();
+                              onMobileClose?.();
+                            }
+                          : id === "adminpipelines"
+                            ? () => {
+                              closeFlyout();
+                              onAdminPipelinesClick?.();
                               onMobileClose?.();
                             }
                             : undefined
@@ -1773,6 +1936,24 @@ export function LeftNav({
                             buttonRef={collapsedVidgetsRef}
                             onClick={() => toggleFlyout("vidgets")}
                           />
+                          {showPipelines ? (
+                            <NavItem
+                              icon={LuxiaPipelineIcon}
+                              label="Pipelines"
+                              tooltip="Pipelines"
+                              active={
+                                activeProjectSection === "pipelines"
+                                || flyout === "pipelines"
+                                || Boolean(activePipelineId)
+                              }
+                              collapsed
+                              count={pipelinesCount}
+                              ariaExpanded={flyout === "pipelines"}
+                              ariaControls={pipelinesPanelId}
+                              buttonRef={collapsedPipelinesRef}
+                              onClick={() => toggleFlyout("pipelines")}
+                            />
+                          ) : null}
                         </>
                       ) : (
                         <>
@@ -1861,6 +2042,30 @@ export function LeftNav({
                               });
                             }}
                           />
+                          {showPipelines ? (
+                            <ProjectDisclosureSection
+                              label="Pipelines"
+                              icon={LuxiaPipelineIcon}
+                              count={pipelinesCount}
+                              href={pipelinesHref}
+                              active={
+                                activeProjectSection === "pipelines"
+                                || Boolean(activePipelineId)
+                              }
+                              childActive={Boolean(activePipelineId)}
+                              expanded={flyout === "pipelines"}
+                              panelId={pipelinesPanelId}
+                              anchorRef={pipelinesAnchorRef}
+                              disclosureRef={pipelinesDisclosureRef}
+                              onToggleExpand={() => toggleFlyout("pipelines")}
+                              onNavigate={() => {
+                                navigateAndCloseFlyout(() => {
+                                  onProjectSectionClick?.("pipelines");
+                                  onMobileClose?.();
+                                });
+                              }}
+                            />
+                          ) : null}
                         </>
                       )}
 
