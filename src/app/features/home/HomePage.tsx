@@ -325,7 +325,9 @@ export function HomePageShell({
     <div
       ref={scrollRef}
       className={cn(
-        "luxia-home-shell min-h-0 min-w-0 flex-1",
+        /* relative: contain abspos descendants (e.g. .sr-only) inside the
+           page scrollport so they cannot inflate document height. */
+        "luxia-home-shell relative min-h-0 min-w-0 flex-1",
         "luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical",
         containLayout
           ? "max-lg:overflow-x-hidden max-lg:overflow-y-auto max-lg:[scrollbar-gutter:stable] lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:overflow-hidden"

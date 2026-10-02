@@ -218,7 +218,14 @@
     box-sizing: border-box;
   }
 
+  /*
+   * Luxia scroll contract: the App shell (h-dvh overflow-hidden) owns the
+   * viewport. html/body/#root must not become a second vertical scrollport.
+   * Login already reinforces this via html:has(.luxia-login-shell).
+   */
   html {
+    height: 100%;
+    overflow: hidden;
     font-family: var(--font-family);
     font-size: var(--font-size);
   }
@@ -227,7 +234,9 @@
     @apply bg-background text-foreground;
     margin: 0;
     min-width: 320px;
-    min-height: 100vh;
+    height: 100%;
+    min-height: 100%;
+    overflow: hidden;
     font-family: var(--font-family);
     font-weight: var(--font-weight-regular);
     font-size: 1rem;
@@ -235,6 +244,11 @@
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  #root {
+    height: 100%;
+    overflow: hidden;
   }
 
   h1 {
@@ -658,6 +672,30 @@
     font-weight: 400;
     font-style: normal;
     color: var(--luxia-text-muted);
+  }
+}
+
+/*
+ * Tailwind `.sr-only` uses position:absolute without inset. When no positioned
+ * ancestor exists, the containing block is the initial containing block / body,
+ * and the element's static position (deep in page content) inflates
+ * document.scrollHeight — producing a huge blank scroll region below the App
+ * shell. Pin to the CB origin so accessibility clipping is preserved without
+ * expanding document height.
+ */
+@layer utilities {
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+    top: 0;
+    left: 0;
   }
 }
 
