@@ -16,6 +16,7 @@ export type ProjectNavSection =
   | "constellations"
   | "dashboard"
   | "vidgets"
+  | "pipelines"
   | "members"
   | "virtual-assistant";
 

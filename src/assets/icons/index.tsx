@@ -74,6 +74,109 @@ function createLuxiaIcon(src: string, displayName: string) {
   return Icon;
 }
 
+/**
+ * Inline Pipeline icon — exact geometry from former Pipeline.svg.
+ * Self-contained for Figma Make (no SVG URL / asset import).
+ */
+export function LuxiaPipelineIcon({
+  size = 20,
+  color,
+  className,
+  style,
+  title,
+  "aria-hidden": ariaHidden = true,
+  "aria-label": ariaLabel,
+  role,
+  ...rest
+}: LuxiaIconProps) {
+  const resolvedColor = color ?? style?.color ?? "currentColor";
+  const isDecorative =
+    ariaHidden === true || ariaHidden === "true" || (!ariaLabel && !title && !role);
+
+  return (
+    <span
+      className={className}
+      role={isDecorative ? undefined : (role ?? (ariaLabel || title ? "img" : undefined))}
+      aria-hidden={isDecorative ? true : ariaHidden}
+      aria-label={isDecorative ? undefined : ariaLabel}
+      title={title}
+      style={{
+        display: "inline-flex",
+        width: size,
+        height: size,
+        flexShrink: 0,
+        alignItems: "center",
+        justifyContent: "center",
+        color: resolvedColor,
+        lineHeight: 0,
+        ...(style as CSSProperties | undefined),
+      }}
+      {...rest}
+    >
+      <svg
+        width="100%"
+        height="100%"
+        viewBox="0 0 25 20"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        aria-hidden
+        preserveAspectRatio="xMidYMid meet"
+      >
+        <rect
+          x="2.02"
+          y="7.25"
+          width="5.5"
+          height="5.5"
+          rx="1.4"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <rect
+          x="17.48"
+          y="1.65"
+          width="5.5"
+          height="5.5"
+          rx="1.4"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <rect
+          x="17.48"
+          y="12.85"
+          width="5.5"
+          height="5.5"
+          rx="1.4"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M7.52 10H12.1L17.48 4.4"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M12.1 10L17.48 15.6"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </span>
+  );
+}
+LuxiaPipelineIcon.displayName = "LuxiaPipelineIcon";
+
+export const PipelineIcon = LuxiaPipelineIcon;
+
 export const LuxiaHomeIcon = createLuxiaIcon(homePageUrl, "LuxiaHomeIcon");
 export const LuxiaNotificationsIcon = createLuxiaIcon(notificationsUrl, "LuxiaNotificationsIcon");
 export const LuxiaProjectsIcon = createLuxiaIcon(projectsUrl, "LuxiaProjectsIcon");
