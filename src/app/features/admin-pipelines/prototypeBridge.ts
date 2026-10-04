@@ -40,14 +40,23 @@ export function toCustomerEnabledActions(
   };
 }
 
+/**
+ * Map Admin mapping → customer pipeline.
+ * Returns null when Display name is missing — never invent a title from dagId.
+ */
 export function mappingToCustomerPipeline(
   mapping: AdminDagMapping,
-): ProjectPipelineRecord {
+  previousName?: string,
+): ProjectPipelineRecord | null {
+  const name = mapping.displayName.trim() || previousName?.trim() || "";
+  if (!name) return null;
+
   return {
     id: customerPipelineIdFromMapping(mapping.id),
     projectId: mapping.projectId,
-    name: mapping.displayName.trim() || mapping.dagId,
+    name,
     dagId: mapping.dagId,
+    description: mapping.description,
     status: "paused",
     lastRunAt: null,
     scheduleLabel: "Manual",
@@ -71,13 +80,15 @@ export function attachedVariablesToCustomerRecords(
     ) {
       return [];
     }
+    const label = declaration.label.trim();
+    if (!label) return [];
     return [
       {
         id: `${ADMIN_CUSTOMER_VARIABLE_PREFIX}${mapping.id}-${declaration.id}`,
         pipelineId: customerPipelineIdFromMapping(mapping.id),
         projectId: mapping.projectId,
         key: declaration.key,
-        label: declaration.label || declaration.key,
+        label,
         description: declaration.description,
         type: declaration.type,
         value: declaration.sensitive
@@ -87,12 +98,24 @@ export function attachedVariablesToCustomerRecords(
             : declaration.type === "number"
               ? 0
               : declaration.type === "select"
-                ? (declaration.allowedValues?.[0] ?? "")
+                ? (declaration.selectOptions?.[0]?.value
+                  ?? declaration.allowedValues?.[0]
+                  ?? "")
                 : "",
         sensitive: declaration.sensitive,
+        selectOptions: declaration.selectOptions
+          ? declaration.selectOptions.map((option) => ({ ...option }))
+          : declaration.allowedValues
+            ? declaration.allowedValues.map((value) => ({
+                value,
+                label: value,
+              }))
+            : undefined,
         allowedValues: declaration.allowedValues
           ? [...declaration.allowedValues]
-          : undefined,
+          : declaration.selectOptions
+            ? declaration.selectOptions.map((option) => option.value)
+            : undefined,
       } satisfies PipelineVariableRecord,
     ];
   });
@@ -108,16 +131,20 @@ export function mergeAdminIntoCustomerPipelines(
       .filter((item) => isAdminOriginatedPipeline(item.id))
       .map((item) => [item.id, item]),
   );
-  const fromAdmin = mappings.map((mapping) => {
-    const next = mappingToCustomerPipeline(mapping);
-    const previous = existingAdmin.get(next.id);
-    if (!previous) return next;
-    return {
-      ...next,
-      status: previous.status,
-      lastRunAt: previous.lastRunAt,
-      scheduleLabel: previous.scheduleLabel || next.scheduleLabel,
-    };
+  const fromAdmin = mappings.flatMap((mapping) => {
+    const previous = existingAdmin.get(customerPipelineIdFromMapping(mapping.id));
+    const next = mappingToCustomerPipeline(mapping, previous?.name);
+    if (!next) return [];
+    if (!previous) return [next];
+    return [
+      {
+        ...next,
+        // Refresh Luxia mapping-owned fields from `next`; preserve runtime facts.
+        status: previous.status,
+        lastRunAt: previous.lastRunAt,
+        scheduleLabel: previous.scheduleLabel || next.scheduleLabel,
+      },
+    ];
   });
   return [...kept, ...fromAdmin];
 }

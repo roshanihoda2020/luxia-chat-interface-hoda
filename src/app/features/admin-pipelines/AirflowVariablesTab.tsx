@@ -1,5 +1,3 @@
-import { Badge } from "@/app/components/ui/badge";
-import { Button } from "@/app/components/ui/button";
 import { ResultsCount } from "@/app/features/home/browserShared";
 import type {
   AdminAirflowLoadState,
@@ -7,17 +5,33 @@ import type {
   AdminVariableDeclaration,
 } from "./types";
 import {
+  ADMIN_COL_ID,
+  ADMIN_COL_STATUS_META,
+  ADMIN_COL_TEXT,
+  ADMIN_TABLE_MIN_WIDTH_INVENTORY,
+  ADMIN_TABLE_ROW_ACTION_COL,
   AdminEmptyState,
   AdminErrorState,
   AdminLoadingState,
+  isAirflowInventoryEmpty,
+  AdminTableBadgeCell,
   AdminTableHeader,
   AdminTableHeaderCell,
   AdminTableRow,
+  AdminTableRowAction,
+  AdminTableRowActionCell,
+  AdminTableRowActionHeaderCell,
   AdminTableShell,
+  AdminTableStatusMeta,
   AdminTruncateText,
 } from "./adminTable";
 
-const COLS = "minmax(10rem,1.5fr) minmax(10rem,2fr) minmax(6rem,1fr) minmax(8rem,auto)";
+const COLS = [
+  ADMIN_COL_ID,
+  ADMIN_COL_TEXT,
+  ADMIN_COL_STATUS_META,
+  ADMIN_TABLE_ROW_ACTION_COL,
+].join(" ");
 
 export function AirflowVariablesTab({
   airflowVariables,
@@ -35,28 +49,31 @@ export function AirflowVariablesTab({
   onRetry: () => void;
 }) {
   if (airflowState === "loading") {
-    return <AdminLoadingState label="Loading Airflow variable inventory…" />;
+    return <AdminLoadingState label="Loading Airflow variables…" />;
   }
 
   if (airflowState === "unavailable") {
     return (
       <AdminErrorState
         title="Airflow inventory unavailable"
-        description="Variable keys could not be loaded from Airflow via Luxia. Values are never exposed in this UI."
+        description={
+          <>
+            <p>Variable keys couldn&apos;t be loaded from Airflow via Luxia.</p>
+            <p>Airflow variable values are never exposed here.</p>
+          </>
+        }
         action={
-          <Button type="button" size="sm" variant="outline" onClick={onRetry}>
-            Retry
-          </Button>
+          <AdminTableRowAction onClick={onRetry}>Retry</AdminTableRowAction>
         }
       />
     );
   }
 
-  if (airflowState === "empty" || airflowVariables.length === 0) {
+  if (isAirflowInventoryEmpty(airflowState, airflowVariables.length)) {
     return (
       <AdminEmptyState
         title="No Airflow variables discovered"
-        description="When Airflow reports variable keys to Luxia, they appear here so you can declare them for tenant projects."
+        description="When Airflow reports variable keys to Luxia, they’ll appear here so you can declare them for tenant projects."
       />
     );
   }
@@ -75,7 +92,7 @@ export function AirflowVariablesTab({
     return (
       <AdminEmptyState
         title="No undeclared variables"
-        description="Every discovered Airflow variable key already has at least one Luxia declaration. Turn off the filter to review all keys."
+        description="All discovered Airflow variables have already been declared. Turn off “Show only undeclared” to review the full inventory."
       />
     );
   }
@@ -83,18 +100,18 @@ export function AirflowVariablesTab({
   return (
     <div className="space-y-3">
       <p className="luxia-type-body-small text-[var(--luxia-text-secondary)]">
-        Keys and metadata only — Airflow variable values are never shown in Pipelines
-        administration. The same key may be declared for more than one project.
+        Keys and metadata only — Airflow variable values are never shown in Pipeline
+        Admin. The same key may be declared for more than one project.
       </p>
       <ResultsCount>
         {rows.length} {rows.length === 1 ? "variable key" : "variable keys"}
       </ResultsCount>
-      <AdminTableShell columns={COLS} minWidth="44rem">
+      <AdminTableShell columns={COLS} minWidth={ADMIN_TABLE_MIN_WIDTH_INVENTORY}>
         <AdminTableHeader>
           <AdminTableHeaderCell>Key</AdminTableHeaderCell>
           <AdminTableHeaderCell>Description</AdminTableHeaderCell>
           <AdminTableHeaderCell>Declaration</AdminTableHeaderCell>
-          <AdminTableHeaderCell className="text-right">Action</AdminTableHeaderCell>
+          <AdminTableRowActionHeaderCell>Action</AdminTableRowActionHeaderCell>
         </AdminTableHeader>
         {rows.map((row) => {
           const count = declarationCounts.get(row.key) ?? 0;
@@ -117,27 +134,27 @@ export function AirflowVariablesTab({
                   </span>
                 )}
               </div>
-              <div>
+              <AdminTableBadgeCell>
                 {declared ? (
-                  <Badge variant="outline" className="font-normal">
+                  <AdminTableStatusMeta
+                    tone="success"
+                    title={
+                      count === 1
+                        ? "Declared for one project"
+                        : `Declared for ${count} projects`
+                    }
+                  >
                     {count === 1 ? "Declared" : `Declared ×${count}`}
-                  </Badge>
+                  </AdminTableStatusMeta>
                 ) : (
-                  <Badge variant="secondary" className="font-normal">
-                    Undeclared
-                  </Badge>
+                  <AdminTableStatusMeta tone="neutral">Undeclared</AdminTableStatusMeta>
                 )}
-              </div>
-              <div className="flex justify-end">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => onDeclare(row.key)}
-                >
+              </AdminTableBadgeCell>
+              <AdminTableRowActionCell>
+                <AdminTableRowAction onClick={() => onDeclare(row.key)}>
                   {declared ? "Declare for another project" : "Declare for project"}
-                </Button>
-              </div>
+                </AdminTableRowAction>
+              </AdminTableRowActionCell>
             </AdminTableRow>
           );
         })}

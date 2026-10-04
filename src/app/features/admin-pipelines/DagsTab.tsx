@@ -1,30 +1,38 @@
-import { LuxiaEntityOptionsMenu } from "@/app/components/LuxiaEntityOptionsMenu";
-import { Badge } from "@/app/components/ui/badge";
+import { Link2, PencilLine, Trash2 } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/app/components/ui/tooltip";
 import { ResultsCount } from "@/app/features/home/browserShared";
 import { getEnabledActionTableLabels } from "./format";
 import {
+  ADMIN_COL_CHIPS,
+  ADMIN_COL_COUNT,
+  ADMIN_COL_ENTITY,
+  ADMIN_COL_ID,
+  ADMIN_COL_TEXT_SECONDARY,
+  ADMIN_TABLE_INLINE_ACTIONS_COL,
+  ADMIN_TABLE_MIN_WIDTH_MAPPINGS,
   AdminEmptyState,
+  AdminTableBadgeCell,
+  AdminTableCapabilityMeta,
+  AdminTableCountMeta,
   AdminTableHeader,
   AdminTableHeaderCell,
+  AdminTableIconAction,
+  AdminTableInlineActions,
   AdminTableRow,
   AdminTableShell,
   AdminTruncateText,
 } from "./adminTable";
 import type { AdminDagMapping } from "./types";
 
-/** Enabled Actions column is sized for up to three capability labels on one line. */
-const COLS =
-  "minmax(8.5rem,1.1fr) minmax(7.5rem,0.95fr) minmax(7rem,0.9fr) minmax(6.5rem,0.85fr) minmax(14rem,1.75fr) 3.25rem 2.5rem";
-
-/** Informational capability tags — not interactive controls. */
-const CAPABILITY_LABEL_CLASS =
-  "h-5 max-w-full min-h-5 shrink-0 truncate rounded-[var(--luxia-radius-6)] border-0 bg-[var(--luxia-opacity-brand-secondary-08)] px-1.5 py-0 luxia-type-caption font-normal text-[var(--luxia-purple-70)] shadow-none";
+const COLS = [
+  ADMIN_COL_ID,
+  ADMIN_COL_TEXT_SECONDARY,
+  ADMIN_COL_ENTITY,
+  ADMIN_COL_ENTITY,
+  ADMIN_COL_CHIPS,
+  ADMIN_COL_COUNT,
+  ADMIN_TABLE_INLINE_ACTIONS_COL,
+].join(" ");
 
 export function DagsTab({
   rows,
@@ -75,27 +83,24 @@ export function DagsTab({
       <ResultsCount>
         {rows.length} {rows.length === 1 ? "mapping" : "mappings"}
       </ResultsCount>
-      <AdminTableShell columns={COLS} minWidth="56rem">
-        <AdminTableHeader className="py-2">
+      <AdminTableShell columns={COLS} minWidth={ADMIN_TABLE_MIN_WIDTH_MAPPINGS}>
+        <AdminTableHeader>
           <AdminTableHeaderCell>DAG ID</AdminTableHeaderCell>
           <AdminTableHeaderCell>Display name</AdminTableHeaderCell>
           <AdminTableHeaderCell>Organization</AdminTableHeaderCell>
           <AdminTableHeaderCell>Project</AdminTableHeaderCell>
           <AdminTableHeaderCell>Enabled actions</AdminTableHeaderCell>
-          <AdminTableHeaderCell className="text-center">Variables</AdminTableHeaderCell>
-          <AdminTableHeaderCell className="text-right">
-            <span className="sr-only">Actions</span>
-          </AdminTableHeaderCell>
+          <AdminTableHeaderCell>Variables</AdminTableHeaderCell>
+          <AdminTableHeaderCell className="text-right">Actions</AdminTableHeaderCell>
         </AdminTableHeader>
         {rows.map((row) => {
-          const label = row.displayName || row.dagId;
           const orgName = getOrganizationName(row.organizationId);
           const projectName = getProjectName(row.projectId);
           const variableCount = row.attachedVariableIds.length;
           const actionLabels = getEnabledActionTableLabels(row.enabledActions);
 
           return (
-            <AdminTableRow key={row.id} className="py-2">
+            <AdminTableRow key={row.id}>
               <div className="min-w-0">
                 <AdminTruncateText className="luxia-type-body-small font-semibold text-[var(--luxia-text-primary)]">
                   {row.dagId}
@@ -104,7 +109,14 @@ export function DagsTab({
 
               <div className="min-w-0">
                 {row.displayName ? (
-                  <AdminTruncateText className="luxia-type-body-small font-normal text-[var(--luxia-text-primary)]">
+                  <AdminTruncateText
+                    className="luxia-type-body-small font-normal text-[var(--luxia-text-primary)]"
+                    tooltip={
+                      row.description?.trim()
+                        ? row.description.trim()
+                        : undefined
+                    }
+                  >
                     {row.displayName}
                   </AdminTruncateText>
                 ) : (
@@ -126,69 +138,57 @@ export function DagsTab({
                 </AdminTruncateText>
               </div>
 
-              <div className="min-w-0">
+              <AdminTableBadgeCell>
                 {actionLabels.length === 0 ? (
                   <span className="luxia-type-caption text-[var(--luxia-text-muted)]">
                     None
                   </span>
                 ) : (
-                  <div className="flex max-h-[2.75rem] flex-wrap content-center gap-1 overflow-hidden">
+                  <div className="flex max-h-[2.75rem] min-w-0 flex-wrap content-center gap-1 overflow-hidden">
                     {actionLabels.map((actionLabel) => (
-                      <Badge
+                      <AdminTableCapabilityMeta
                         key={actionLabel}
-                        variant="secondary"
-                        className={CAPABILITY_LABEL_CLASS}
-                      >
-                        {actionLabel}
-                      </Badge>
+                        label={actionLabel}
+                      />
                     ))}
                   </div>
                 )}
-              </div>
+              </AdminTableBadgeCell>
 
-              <div className="flex justify-center">
-                <Tooltip delayDuration={300}>
-                  <TooltipTrigger asChild>
-                    <span className="inline-block min-w-[1.25rem] text-center luxia-type-body-small tabular-nums text-[var(--luxia-text-secondary)]">
-                      {variableCount}
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" sideOffset={6}>
-                    {variableCount === 0
-                      ? "No variables attached"
-                      : variableCount === 1
-                        ? "1 attached variable"
-                        : `${variableCount} attached variables`}
-                  </TooltipContent>
-                </Tooltip>
-              </div>
-
-              <div className="flex justify-end">
-                <LuxiaEntityOptionsMenu
-                  entityLabel={label}
-                  entityType="DAG mapping"
-                  ariaLabel={`Actions for ${label}`}
-                  items={[
-                    {
-                      id: "manage-variables",
-                      label: "Manage variables",
-                      onSelect: () => onManageVariables(row),
-                    },
-                    {
-                      id: "edit",
-                      label: "Edit mapping",
-                      onSelect: () => onEdit(row),
-                    },
-                    {
-                      id: "delete",
-                      label: "Delete mapping",
-                      destructive: true,
-                      separatorBefore: true,
-                      onSelect: () => onDelete(row),
-                    },
-                  ]}
+              <div>
+                <AdminTableCountMeta
+                  count={variableCount}
+                  emptyLabel="0"
+                  emptyTooltip="No variables attached"
+                  tooltip={
+                    variableCount === 1
+                      ? "1 attached variable"
+                      : `${variableCount} attached variables`
+                  }
                 />
               </div>
+
+              <AdminTableInlineActions>
+                <AdminTableIconAction
+                  label="Manage variables"
+                  onClick={() => onManageVariables(row)}
+                >
+                  <Link2 size={16} strokeWidth={1.75} aria-hidden />
+                </AdminTableIconAction>
+                <AdminTableIconAction
+                  label="Edit mapping"
+                  onClick={() => onEdit(row)}
+                >
+                  <PencilLine size={16} strokeWidth={1.75} aria-hidden />
+                </AdminTableIconAction>
+                <AdminTableIconAction
+                  label="Delete mapping"
+                  destructive
+                  onClick={() => onDelete(row)}
+                >
+                  <Trash2 size={16} strokeWidth={1.75} aria-hidden />
+                </AdminTableIconAction>
+              </AdminTableInlineActions>
             </AdminTableRow>
           );
         })}

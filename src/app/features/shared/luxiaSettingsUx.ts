@@ -87,8 +87,20 @@ export const LUXIA_DIRTY_STATE_COPY = {
 export const LUXIA_DIRTY_INLINE_STATUS_CLASS =
   "luxia-type-caption whitespace-nowrap shrink-0";
 
+/**
+ * Default FORM Save|Cancel footer for padded settings content surfaces
+ * (parent already supplies horizontal + bottom inset via surface padding).
+ */
 export const LUXIA_SETTINGS_FORM_ACTIONS_CLASS =
-  "mt-6 flex min-h-10 flex-nowrap items-center justify-end gap-2 pt-4";
+  "luxia-settings-form-actions mt-6 flex min-h-10 flex-nowrap items-center justify-end gap-2 pt-4";
+
+/**
+ * Flush list/settings cards (`is-flush`) zero out surface padding, so the footer
+ * must carry its own inset — match row `px-4 sm:px-5`, keep `pt-4` from the base
+ * class, add bottom padding, and drop the large pre-divider `mt-6` band.
+ */
+export const LUXIA_SETTINGS_FORM_ACTIONS_FLUSH_CLASS =
+  "luxia-settings-form-actions--flush mt-0 px-4 pb-4 sm:px-5";
 
 export const LUXIA_CREATE_VS_EDIT = {
   accessLevel: {

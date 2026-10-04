@@ -24,11 +24,17 @@ import { HS } from "@/app/features/home/homeSurfaces";
 import { LUXIA_SETTINGS_CONTENT_SURFACE_CLASS } from "@/app/features/shared/luxiaSettingsUx";
 import { LuxiaPipelineIcon } from "@/assets/icons";
 import {
+  formatPipelineCountLabel,
   formatPipelineLastRunExact,
   formatPipelineLastRunRelative,
   pipelineStatusBadgeVariant,
 } from "./format";
-import { PIPELINES_LIST_CONTENT_MAX_WIDTH_CLASS } from "./pipelinesLayout";
+import {
+  PIPELINE_STRUCTURED_LIST,
+  PIPELINE_TABLE_HEADER_SURFACE,
+  PIPELINE_TASK_SELECTED,
+  PIPELINES_LIST_CONTENT_MAX_WIDTH_CLASS,
+} from "./pipelinesLayout";
 import type { PipelineStatus, ProjectPipelineRecord } from "./types";
 import { PIPELINE_STATUS_LABELS } from "./types";
 
@@ -41,7 +47,6 @@ const SURFACE = `${LUXIA_SETTINGS_CONTENT_SURFACE_CLASS} is-flush`;
 const PIPELINES_COLLECTOR_COLS =
   "minmax(0, 4.8fr) minmax(5.5rem, 1.2fr) minmax(6.25rem, 1.6fr) minmax(7.25rem, 2fr) 2.5rem";
 
-/** Cap search so it stays a primary control without stretching across ultra-wide viewports. */
 const SEARCH_MAX_WIDTH_CLASS = "max-w-xl";
 
 const PIPELINES_GUIDANCE =
@@ -93,9 +98,10 @@ export function PipelinesPage({
     return pipelines.filter((item) => {
       if (statusFilter !== "all" && item.status !== statusFilter) return false;
       if (!q) return true;
+      const description = item.description?.trim().toLowerCase() ?? "";
       return (
         item.name.toLowerCase().includes(q)
-        || item.dagId.toLowerCase().includes(q)
+        || (description.length > 0 && description.includes(q))
         || item.scheduleLabel.toLowerCase().includes(q)
       );
     });
@@ -177,7 +183,7 @@ export function PipelinesPage({
                       <Input
                         value={query}
                         onChange={(event) => setQuery(event.target.value)}
-                        placeholder="Search by name, ID, or schedule"
+                        placeholder="Search by name, description, or schedule"
                         aria-label="Search Pipelines"
                         className="h-10 w-full pl-9"
                         style={{
@@ -209,7 +215,7 @@ export function PipelinesPage({
 
               <div className="mt-3 space-y-1.5">
                 <ResultsCount>
-                  {filtered.length} pipeline{filtered.length === 1 ? "" : "s"}
+                  {formatPipelineCountLabel(filtered.length)}
                 </ResultsCount>
 
                 {filtered.length === 0 ? (
@@ -224,37 +230,40 @@ export function PipelinesPage({
                     style={
                       {
                         ["--pipelines-collector-cols"]: PIPELINES_COLLECTOR_COLS,
+                        boxShadow: PIPELINE_TASK_SELECTED.panelElevation,
                       } as CSSProperties
                     }
                   >
                     <div
-                      className="hidden min-w-[40rem] gap-x-3 px-4 py-2 sm:grid sm:items-center sm:[grid-template-columns:var(--pipelines-collector-cols)]"
+                      className={`${PIPELINE_STRUCTURED_LIST.headerClass} min-w-[40rem] sm:[grid-template-columns:var(--pipelines-collector-cols)]`}
                       style={{
-                        borderBottom:
-                          "1px solid var(--luxia-settings-row-divider)",
-                        background:
-                          "var(--luxia-surface-subtle, var(--luxia-neutral-50, #F8FAFC))",
+                        borderBottom: PIPELINE_STRUCTURED_LIST.headerBorder,
+                        background: PIPELINE_TABLE_HEADER_SURFACE,
                         color: "var(--luxia-text-muted)",
                       }}
                       role="row"
                     >
-                      <span className="luxia-type-caption" role="columnheader">
-                        Pipeline
-                      </span>
-                      <span className="luxia-type-caption" role="columnheader">
-                        Status
-                      </span>
-                      <span className="luxia-type-caption" role="columnheader">
-                        Last run
-                      </span>
-                      <span className="luxia-type-caption" role="columnheader">
-                        Schedule
-                      </span>
+                      {(
+                        [
+                          "Pipeline",
+                          "Status",
+                          "Last run",
+                          "Schedule",
+                        ] as const
+                      ).map((label) => (
+                        <span
+                          key={label}
+                          className={PIPELINE_STRUCTURED_LIST.headerLabelClass}
+                          role="columnheader"
+                        >
+                          {label}
+                        </span>
+                      ))}
                       <span className="sr-only" role="columnheader">
                         Documentation
                       </span>
                     </div>
-                    <ul>
+                    <ul className={PIPELINE_STRUCTURED_LIST.bodyClass}>
                       {filtered.map((item) => (
                         <PipelineRow
                           key={item.id}
@@ -293,27 +302,56 @@ function PipelineRow({
     event.stopPropagation();
   }
 
+  function applyIdleSurface(target: HTMLElement) {
+    target.style.background = PIPELINE_TASK_SELECTED.rowIdle;
+    target.style.borderColor = PIPELINE_STRUCTURED_LIST.rowBorderIdle;
+    target.style.boxShadow = "none";
+  }
+
+  function applyHoverSurface(target: HTMLElement) {
+    target.style.background = PIPELINE_TASK_SELECTED.rowHover;
+    target.style.borderColor = PIPELINE_STRUCTURED_LIST.rowBorderHover;
+    target.style.boxShadow = PIPELINE_TASK_SELECTED.rowElevation;
+  }
+
   return (
-    <li
-      className="luxia-settings-row is-interactive"
-      style={{ borderColor: "var(--luxia-settings-row-divider)" }}
-    >
-      <div className="relative sm:min-w-[40rem]">
+    <li>
+      <div
+        className={`relative min-w-[40rem] ${PIPELINE_STRUCTURED_LIST.rowClass}`}
+        style={{
+          borderColor: PIPELINE_STRUCTURED_LIST.rowBorderIdle,
+          background: PIPELINE_TASK_SELECTED.rowIdle,
+          boxShadow: "none",
+        }}
+        onMouseEnter={(event) => applyHoverSurface(event.currentTarget)}
+        onMouseLeave={(event) => applyIdleSurface(event.currentTarget)}
+      >
         <button
           type="button"
-          className="absolute inset-0 z-0 cursor-pointer outline-none focus-visible:bg-[var(--luxia-settings-hover-bg)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--luxia-border-focus)]"
+          className="absolute inset-0 z-0 cursor-pointer rounded-[10px] outline-none focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)] focus-visible:ring-offset-1"
           onClick={onOpen}
           aria-label={`Open pipeline ${item.name}, status ${statusLabel}`}
+          onFocus={(event) => {
+            const shell = event.currentTarget.parentElement;
+            if (shell) applyHoverSurface(shell);
+          }}
+          onBlur={(event) => {
+            const shell = event.currentTarget.parentElement;
+            if (shell) applyIdleSurface(shell);
+          }}
         />
 
-        <div className="pointer-events-none relative z-[1] grid grid-cols-1 gap-2.5 px-4 py-2.5 sm:grid sm:items-center sm:gap-x-3 sm:[grid-template-columns:var(--pipelines-collector-cols)]">
+        <div className="pointer-events-none relative z-[1] grid grid-cols-1 gap-2.5 sm:grid sm:items-center sm:gap-x-3 sm:[grid-template-columns:var(--pipelines-collector-cols)]">
           <span className="flex min-w-0 items-center gap-2.5">
             <span
-              className="inline-flex shrink-0"
-              style={{ color: "var(--luxia-purple-60)" }}
+              className="inline-flex size-8 shrink-0 items-center justify-center rounded-[9px]"
+              style={{
+                color: "var(--luxia-purple-60)",
+                background: "var(--luxia-opacity-purple-08)",
+              }}
               aria-hidden
             >
-              <LuxiaPipelineIcon size={16} color="currentColor" />
+              <LuxiaPipelineIcon size={15} color="currentColor" />
             </span>
             <span className="min-w-0">
               <span
@@ -323,13 +361,15 @@ function PipelineRow({
               >
                 {item.name}
               </span>
-              <span
-                className="mt-px block truncate luxia-type-caption"
-                style={{ color: "var(--luxia-text-muted)" }}
-                title={item.dagId}
-              >
-                {item.dagId}
-              </span>
+              {item.description?.trim() ? (
+                <span
+                  className="mt-0.5 block truncate luxia-type-caption"
+                  style={{ color: "var(--luxia-text-muted)" }}
+                  title={item.description.trim()}
+                >
+                  {item.description.trim()}
+                </span>
+              ) : null}
             </span>
           </span>
 
@@ -360,12 +400,7 @@ function PipelineRow({
                 <TooltipTrigger asChild>
                   <span
                     className="luxia-type-body-dense"
-                    style={{
-                      color:
-                        item.status === "failed"
-                          ? "var(--luxia-error-70)"
-                          : "var(--luxia-text-secondary)",
-                    }}
+                    style={{ color: "var(--luxia-text-secondary)" }}
                     title={exact}
                   >
                     {relative}

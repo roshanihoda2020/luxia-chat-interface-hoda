@@ -24,14 +24,12 @@ export type TaskGraphLayout = {
   height: number;
 };
 
-/** Compact operational cards — readable size stays fixed as the DAG grows. */
-const NODE_WIDTH = 168;
-const NODE_HEIGHT = 56;
-const COL_GAP = 48;
-const ROW_GAP = 32;
-const PAD = 20;
-/** Keep edges from sitting flush against the node border. */
-const EDGE_INSET = 0;
+const NODE_WIDTH = 204;
+const NODE_HEIGHT = 60;
+const COL_GAP = 60;
+const ROW_GAP = 40;
+const PAD = 24;
+const EDGE_INSET = 2;
 
 /**
  * Layered DAG layout from structured task upstream relationships.

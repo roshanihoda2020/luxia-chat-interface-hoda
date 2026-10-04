@@ -1,9 +1,9 @@
 import {
+  ACTIONS_CLEAR_ONLY,
   ACTIONS_FULL,
   ACTIONS_NO_RETRY,
   ACTIONS_NO_TRIGGER,
   ACTIONS_NO_VARIABLES,
-  ACTIONS_READ_ONLY,
 } from "./access";
 import type {
   PipelineEnabledActions,
@@ -98,6 +98,7 @@ type PipelineSeedTemplate = {
   idSuffix: string;
   name: string;
   dagId: string;
+  description?: string | null;
   status: ProjectPipelineRecord["status"];
   lastRunAt: string | null;
   scheduleLabel: string;
@@ -110,8 +111,10 @@ type PipelineSeedTemplate = {
 const PIPELINE_SEED_TEMPLATES: readonly PipelineSeedTemplate[] = [
   {
     idSuffix: "sales-refresh",
-    name: "Sales facts refresh",
+    name: "Pipeline name 01",
     dagId: "luxia_sales_facts_daily",
+    description:
+      "Refreshes daily sales facts used by reporting and analytics.",
     status: "success",
     lastRunAt: new Date(NOW - MINUTE_MS * 12).toISOString(),
     scheduleLabel: "Daily at 02:00",
@@ -122,8 +125,10 @@ const PIPELINE_SEED_TEMPLATES: readonly PipelineSeedTemplate[] = [
   },
   {
     idSuffix: "customer-sync",
-    name: "Customer profile sync",
+    name: "Pipeline name 02",
     dagId: "luxia_customer_profile_sync",
+    description:
+      "Synchronizes customer profile data used by downstream customer workflows.",
     status: "running",
     lastRunAt: new Date(NOW - MINUTE_MS * 4).toISOString(),
     scheduleLabel: "Every 6 hours",
@@ -133,8 +138,10 @@ const PIPELINE_SEED_TEMPLATES: readonly PipelineSeedTemplate[] = [
   },
   {
     idSuffix: "inventory",
-    name: "Inventory snapshot",
+    name: "Pipeline name 03",
     dagId: "luxia_inventory_snapshot",
+    description:
+      "Creates an inventory snapshot and validates the latest stock state.",
     status: "failed",
     lastRunAt: new Date(NOW - HOUR_MS * 5).toISOString(),
     scheduleLabel: "Every 6 hours",
@@ -144,20 +151,24 @@ const PIPELINE_SEED_TEMPLATES: readonly PipelineSeedTemplate[] = [
   },
   {
     idSuffix: "manual-export",
-    name: "Finance export",
+    name: "Pipeline name 04",
     dagId: "luxia_finance_export",
+    description: "Exports finance data for downstream reporting workflows.",
     status: "paused",
     lastRunAt: new Date(NOW - DAY_MS * 3).toISOString(),
     scheduleLabel: "Manual",
-    enabledActions: ACTIONS_READ_ONLY,
+    // Primary failed-task Retry demo: Assemble file failed; clear/retry enabled only.
+    enabledActions: ACTIONS_CLEAR_ONLY,
     topology: TOPOLOGY_LINEAR,
   },
   {
     idSuffix: "archive-backfill",
-    name: "Archive backfill",
+    name: "Pipeline name 05",
     dagId: "luxia_archive_backfill",
+    description: "Backfills historical archive data for older reporting periods.",
     status: "paused",
-    lastRunAt: null,
+    // Align with seeded failed run used for clear=false mapping-gate Retry demo.
+    lastRunAt: new Date(NOW - DAY_MS * 5).toISOString(),
     scheduleLabel: "Manual",
     enabledActions: ACTIONS_NO_RETRY,
     topology: TOPOLOGY_LINEAR,
@@ -175,6 +186,7 @@ function seedPipelinesForProject(projectId: string): ProjectPipelineRecord[] {
     projectId,
     name: template.name,
     dagId: template.dagId,
+    description: template.description ?? null,
     status: template.status,
     lastRunAt: template.lastRunAt,
     scheduleLabel: template.scheduleLabel,
@@ -241,7 +253,37 @@ function seedRunsForPipeline(
   const pipelineId = pipelineIdFor(projectId, template.idSuffix);
   const { topology, idSuffix } = template;
 
-  if (idSuffix === "archive-backfill") return [];
+  if (idSuffix === "archive-backfill") {
+    // Mapping-gate Retry demo: ACTIONS_NO_RETRY (clear=false) — Owner still cannot Retry.
+    const run1 = `run-archive-1-${projectId}`;
+    const failedMap: Record<string, PipelineTaskStatus> = {
+      prepare: "success",
+      assemble: "failed",
+      deliver: "upstream_failed",
+    };
+    return [
+      {
+        run: {
+          id: run1,
+          pipelineId,
+          projectId,
+          status: "failed",
+          startedAt: new Date(NOW - DAY_MS * 5).toISOString(),
+          durationSeconds: 4 * 60 + 40,
+          taskCount: topology.nodes.length,
+          failedTaskCount: 1,
+        },
+        tasks: buildTasksForRun({
+          projectId,
+          pipelineId,
+          runId: run1,
+          topology,
+          statusByKey: failedMap,
+          durationByKey: { prepare: 90, assemble: 180, deliver: null },
+        }),
+      },
+    ];
+  }
 
   if (idSuffix === "sales-refresh") {
     const transformFailedMap: Record<string, PipelineTaskStatus> = {
@@ -388,11 +430,7 @@ function seedRunsForPipeline(
     const run2 = `run-customer-2-${projectId}`;
     const run3 = `run-customer-3-${projectId}`;
     const run4 = `run-customer-4-${projectId}`;
-    /**
-     * Believable in-progress state for TOPOLOGY_CUSTOMER:
-     * extract → normalize → (match ∥ score) → write
-     * Match is actively running; parallel score + convergent write wait.
-     */
+    // TOPOLOGY_CUSTOMER in-progress demo: match running; score/write queued.
     const runningMap: Record<string, PipelineTaskStatus> = {
       extract: "success",
       normalize: "success",
@@ -710,6 +748,12 @@ function seedVariablesForProject(projectId: string): PipelineVariableRecord[] {
       value: "all",
       sensitive: false,
       allowedValues: ["all", "emea", "americas", "apac"],
+      selectOptions: [
+        { value: "all", label: "All regions" },
+        { value: "emea", label: "EMEA" },
+        { value: "americas", label: "Americas" },
+        { value: "apac", label: "APAC" },
+      ],
     },
     {
       id: `var-notify-${projectId}`,
@@ -766,6 +810,10 @@ function seedVariablesForProject(projectId: string): PipelineVariableRecord[] {
       value: "csv",
       sensitive: false,
       allowedValues: ["csv", "xlsx"],
+      selectOptions: [
+        { value: "csv", label: "CSV" },
+        { value: "xlsx", label: "Excel (.xlsx)" },
+      ],
     },
   ];
 }
@@ -928,36 +976,17 @@ export function applyPrototypeTaskRetry(
 ): PipelineTaskRecord[] {
   const target = tasks.find((item) => item.id === taskId);
   if (!target) return tasks;
-  const retryKeys = new Set<string>([target.taskKey]);
-  // Also reset direct downstream that were upstream_failed
-  let changed = true;
-  while (changed) {
-    changed = false;
-    for (const task of tasks) {
-      if (
-        task.status === "upstream_failed"
-        && task.upstreamKeys.some((key) => retryKeys.has(key))
-        && !retryKeys.has(task.taskKey)
-      ) {
-        retryKeys.add(task.taskKey);
-        changed = true;
-      }
-    }
-  }
+  // Production clear: target task only, within this run — no upstream/downstream expansion.
+  const runId = target.runId;
+  const taskKey = target.taskKey;
   return tasks.map((task) => {
-    if (!retryKeys.has(task.taskKey)) return task;
-    if (task.taskKey === target.taskKey) {
-      return {
-        ...task,
-        status: "queued",
-        durationSeconds: null,
-        attempt: task.attempt + 1,
-      };
-    }
+    if (task.runId !== runId) return task;
+    if (task.taskKey !== taskKey) return task;
     return {
       ...task,
       status: "queued",
       durationSeconds: null,
+      attempt: task.attempt + 1,
     };
   });
 }

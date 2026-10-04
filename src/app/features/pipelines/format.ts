@@ -15,9 +15,11 @@ export function pipelineStatusBadgeVariant(
   return "outline";
 }
 
-/** Soft error surface for Upstream failed — distinct from strong Failed. */
 export const UPSTREAM_FAILED_BADGE_CLASS =
   "border-[var(--luxia-opacity-error-16)] bg-[color-mix(in_srgb,var(--luxia-error-70)_6%,transparent)] text-[var(--luxia-error-70)]";
+
+export const PIPELINE_COMPACT_STATUS_BADGE_CLASS =
+  "min-h-0 max-w-full gap-0.5 px-1.5 py-0 luxia-type-caption [&>svg]:size-[11px]";
 
 export function pipelineTaskStatusBadgeClass(
   status: PipelineTaskStatus,
@@ -72,7 +74,6 @@ export function formatPipelineLastRunExact(iso: string | null): string | null {
   return formatPipelineRunStartedDisplay(then);
 }
 
-/** Stable exact start stamp for tooltips / summary cells (e.g. "Oct 1, 2026, 5:48 PM"). */
 export function formatPipelineRunStartedDisplay(
   value: string | number | Date,
 ): string {
@@ -120,7 +121,6 @@ export function formatTaskDuration(
   return formatPipelineDuration(seconds);
 }
 
-/** Relative label for Recent Runs list scanning (e.g. "9 min ago"). */
 export function formatPipelineRunLabel(startedAt: string): string {
   return formatPipelineLastRunRelative(startedAt);
 }
@@ -133,11 +133,15 @@ export function formatPipelineRunPageTitle(startedAt: string): string {
   return `Run — ${formatPipelineRunStartedDisplay(startedAt)}`;
 }
 
-/** Final breadcrumb segment on Run Detail — object type, not a changing relative. */
+/** Final breadcrumb segment — object type, not a changing relative time. */
 export function formatPipelineRunBreadcrumbLabel(_startedAt?: string): string {
   return "Run";
 }
 
 export function formatTaskStatusLabel(status: PipelineTaskStatus): string {
   return PIPELINE_TASK_STATUS_LABELS[status];
+}
+
+export function formatPipelineCountLabel(count: number): string {
+  return `${count} ${count === 1 ? "pipeline" : "pipelines"}`;
 }

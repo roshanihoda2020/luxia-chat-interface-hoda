@@ -1,4 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useState,
+} from "react";
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
 import {
@@ -11,7 +17,7 @@ import {
 import { Switch } from "@/app/components/ui/switch";
 import { LuxiaSettingsFormActions } from "@/app/features/shared/LuxiaSettingsFormActions";
 import { LUXIA_SETTINGS_CONTENT_SURFACE_CLASS } from "@/app/features/shared/luxiaSettingsUx";
-import type { PipelineVariableRecord } from "./types";
+import type { PipelineSelectOption, PipelineVariableRecord } from "./types";
 
 const SURFACE = `${LUXIA_SETTINGS_CONTENT_SURFACE_CLASS} is-flush`;
 
@@ -22,6 +28,12 @@ const ROW_CLASS =
 
 const CONTROL_COLUMN_CLASS = "min-w-0 w-full max-sm:max-w-none";
 
+export type PipelineVariablesSectionHandle = {
+  saveChanged: () => boolean;
+  isDirty: () => boolean;
+  isValid: () => boolean;
+};
+
 export interface PipelineVariablesSectionProps {
   variables: PipelineVariableRecord[];
   canEdit: boolean;
@@ -31,7 +43,6 @@ export interface PipelineVariablesSectionProps {
    * (`PATCH /variables/:key` with `{ projectId, value }`).
    */
   onSave: (changed: PipelineVariableRecord[]) => void;
-  /** Notifies parent when draft dirty state changes (for leave protection). */
   onDirtyChange?: (dirty: boolean) => void;
 }
 
@@ -42,14 +53,14 @@ type DraftMap = Record<string, string | number | boolean | null>;
  * Exposure is admin-defined; customers only edit allowed values.
  * Sensitive values are replace-only and never revealed.
  */
-export function PipelineVariablesSection({
-  variables,
-  canEdit,
-  onSave,
-  onDirtyChange,
-}: PipelineVariablesSectionProps) {
+export const PipelineVariablesSection = forwardRef<
+  PipelineVariablesSectionHandle,
+  PipelineVariablesSectionProps
+>(function PipelineVariablesSection(
+  { variables, canEdit, onSave, onDirtyChange },
+  ref,
+) {
   const [draft, setDraft] = useState<DraftMap>(() => toDraft(variables));
-  /** Reserved for future per-key PATCH failures — keyed by variable id. */
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -81,11 +92,30 @@ export function PipelineVariablesSection({
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [dirty]);
 
+  useImperativeHandle(
+    ref,
+    () => ({
+      isDirty: () => dirty,
+      isValid: () => valid,
+      saveChanged: () => {
+        if (!canEdit || !dirty || !valid) return false;
+        const changed = collectChangedVariables(variables, draft);
+        if (changed.length === 0) return false;
+        onSave(changed);
+        return true;
+      },
+    }),
+    [canEdit, dirty, valid, variables, draft, onSave],
+  );
+
   if (variables.length === 0) {
     return (
       <div
         className="w-full max-w-2xl rounded-[var(--luxia-radius-12)] border bg-white px-5 py-6"
-        style={{ borderColor: "var(--luxia-border-default)" }}
+        style={{
+          borderColor: "var(--luxia-border-default)",
+          boxShadow: "var(--luxia-shadow-xs)",
+        }}
         role="status"
       >
         <p
@@ -205,17 +235,17 @@ export function PipelineVariablesSection({
 
       {canEdit ? (
         <LuxiaSettingsFormActions
+          flush
           dirty={dirty}
           canSave
           saveDisabled={!valid}
           onSave={handleSave}
           onCancel={handleCancel}
-          className="mt-0 px-4 pb-3.5 sm:px-5"
         />
       ) : null}
     </div>
   );
-}
+});
 
 function VariableField({
   item,
@@ -225,14 +255,16 @@ function VariableField({
   onChange,
 }: {
   item: PipelineVariableRecord;
-  value: string | number | boolean | null;
+  value: string | number | boolean | null | undefined;
   disabled: boolean;
   error?: string;
-  onChange: (value: string | number | boolean | null) => void;
+  onChange: (next: string | number | boolean | null) => void;
 }) {
-  const errorId = error ? `var-${item.id}-error` : undefined;
+  const errorId = error ? `var-error-${item.id}` : undefined;
 
   if (item.sensitive) {
+    const helperId = `var-helper-${item.id}`;
+    const describedBy = [helperId, errorId].filter(Boolean).join(" ");
     return (
       <div className="space-y-1.5">
         <Label htmlFor={`var-${item.id}`} className="sr-only">
@@ -243,33 +275,20 @@ function VariableField({
           type="password"
           autoComplete="new-password"
           disabled={disabled}
-          placeholder="Enter new value"
           className="w-full"
           value={typeof value === "string" ? value : ""}
+          placeholder="Enter a new value to replace"
           aria-invalid={error ? true : undefined}
-          aria-describedby={
-            [!disabled ? `var-${item.id}-sensitive-hint` : null, errorId]
-              .filter(Boolean)
-              .join(" ") || undefined
-          }
+          aria-describedby={describedBy}
           onChange={(event) => onChange(event.target.value)}
         />
-        {!disabled ? (
-          <p
-            id={`var-${item.id}-sensitive-hint`}
-            className="luxia-type-caption"
-            style={{ color: "var(--luxia-text-muted)" }}
-          >
-            Current value is hidden. Leave blank to keep it unchanged.
-          </p>
-        ) : (
-          <p
-            className="luxia-type-caption"
-            style={{ color: "var(--luxia-text-muted)" }}
-          >
-            Current value is hidden.
-          </p>
-        )}
+        <p
+          id={helperId}
+          className="luxia-type-caption"
+          style={{ color: "var(--luxia-text-muted)" }}
+        >
+          Current value is hidden. Leave blank to keep it unchanged.
+        </p>
         {error ? (
           <p
             id={errorId}
@@ -285,22 +304,22 @@ function VariableField({
   }
 
   if (item.type === "boolean") {
+    const checked = Boolean(value);
     return (
-      <div className="space-y-1">
-        <div className="flex h-9 items-center gap-2.5">
+      <div className="space-y-1.5">
+        <div className="flex items-center gap-2.5">
           <Switch
-            checked={Boolean(value)}
+            id={`var-${item.id}`}
+            checked={checked}
             disabled={disabled}
-            onCheckedChange={(checked) => onChange(checked)}
             aria-label={item.label}
-            aria-invalid={error ? true : undefined}
-            aria-describedby={errorId}
+            onCheckedChange={(next) => onChange(next)}
           />
           <span
             className="luxia-type-body-dense"
             style={{ color: "var(--luxia-text-secondary)" }}
           >
-            {value ? "On" : "Off"}
+            {checked ? "On" : "Off"}
           </span>
         </div>
         {error ? (
@@ -317,7 +336,8 @@ function VariableField({
     );
   }
 
-  if (item.type === "select" && item.allowedValues) {
+  const selectOptions = resolveSelectOptions(item);
+  if (item.type === "select" && selectOptions.length > 0) {
     return (
       <div className="space-y-1.5">
         <Label htmlFor={`var-${item.id}`} className="sr-only">
@@ -338,9 +358,9 @@ function VariableField({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {item.allowedValues.map((option) => (
-              <SelectItem key={option} value={option}>
-                {formatSelectOptionLabel(item.key, option)}
+            {selectOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
               </SelectItem>
             ))}
           </SelectContent>
@@ -379,7 +399,8 @@ function VariableField({
               onChange(null);
               return;
             }
-            onChange(Number(raw));
+            const parsed = Number(raw);
+            onChange(Number.isFinite(parsed) ? parsed : null);
           }}
         />
         {error ? (
@@ -406,7 +427,7 @@ function VariableField({
         type="text"
         disabled={disabled}
         className="w-full"
-        value={typeof value === "string" ? value : String(value ?? "")}
+        value={typeof value === "string" ? value : value == null ? "" : String(value)}
         aria-invalid={error ? true : undefined}
         aria-describedby={errorId}
         onChange={(event) => onChange(event.target.value)}
@@ -447,18 +468,13 @@ function collectChangedVariables(
   return changed;
 }
 
-function formatSelectOptionLabel(key: string, option: string): string {
-  if (key === "region_scope") {
-    if (option === "all") return "All regions";
-    if (option === "emea") return "EMEA";
-    if (option === "americas") return "Americas";
-    if (option === "apac") return "APAC";
+function resolveSelectOptions(
+  item: PipelineVariableRecord,
+): PipelineSelectOption[] {
+  if (item.selectOptions && item.selectOptions.length > 0) {
+    return item.selectOptions;
   }
-  if (key === "export_format") {
-    if (option === "csv") return "CSV";
-    if (option === "xlsx") return "Excel (.xlsx)";
-  }
-  return option;
+  return (item.allowedValues ?? []).map((value) => ({ value, label: value }));
 }
 
 function toDraft(variables: PipelineVariableRecord[]): DraftMap {
@@ -489,10 +505,8 @@ function isValidDraft(
     return typeof draftValue === "number" && Number.isFinite(draftValue);
   }
   if (item.type === "select") {
-    return (
-      typeof draftValue === "string"
-      && Boolean(item.allowedValues?.includes(draftValue))
-    );
+    const values = resolveSelectOptions(item).map((option) => option.value);
+    return typeof draftValue === "string" && values.includes(draftValue);
   }
   if (item.type === "boolean") return typeof draftValue === "boolean";
   return typeof draftValue === "string";

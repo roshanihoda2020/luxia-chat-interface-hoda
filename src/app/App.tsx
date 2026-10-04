@@ -266,6 +266,7 @@ import {
   PipelinesPage,
   PipelineDetailPage,
   PipelineRunDetailPage,
+  PipelineRouteMissingState,
   applyPrototypeTaskRetry,
   canRetryFailedTask,
   canTriggerPipeline,
@@ -298,6 +299,8 @@ import {
   getAdminPipelinesSnapshot,
   mergeAdminIntoCustomerPipelines,
   mergeAdminIntoCustomerVariables,
+  isAdminOriginatedPipeline,
+  customerPipelineIdFromMapping,
   subscribeAdminPipelines,
 } from "@/app/features/admin-pipelines";
 import {
@@ -4365,6 +4368,8 @@ export default function App() {
   activeProjectIdRef.current = activeProjectId;
   const projectMembershipsStateRef = useRef(projectMembershipsState);
   projectMembershipsStateRef.current = projectMembershipsState;
+  const prototypeUserIdRef = useRef(prototypeUserId);
+  prototypeUserIdRef.current = prototypeUserId;
   const constellationCreateGuardRef = useRef<ConstellationCreateNavigationGuard | null>(null);
   const accessLevelCreateDraftRef = useRef<AccessLevelRecord | null>(null);
 
@@ -4405,11 +4410,29 @@ export default function App() {
   useEffect(() => {
     function syncAdminPipelinesIntoCustomer() {
       const admin = getAdminPipelinesSnapshot();
+      const liveAdminPipelineIds = new Set(
+        admin.mappings.map((mapping) => customerPipelineIdFromMapping(mapping.id)),
+      );
       setPipelinesState((prev) =>
         mergeAdminIntoCustomerPipelines(prev, admin.mappings),
       );
       setPipelineVariablesState((prev) =>
         mergeAdminIntoCustomerVariables(prev, admin.mappings, admin.variables),
+      );
+      // Remove runs/tasks only for admin-originated pipelines that no longer exist.
+      setPipelineRunsState((runs) =>
+        runs.filter(
+          (run) =>
+            !isAdminOriginatedPipeline(run.pipelineId)
+            || liveAdminPipelineIds.has(run.pipelineId),
+        ),
+      );
+      setPipelineTasksState((tasks) =>
+        tasks.filter(
+          (task) =>
+            !isAdminOriginatedPipeline(task.pipelineId)
+            || liveAdminPipelineIds.has(task.pipelineId),
+        ),
       );
     }
     syncAdminPipelinesIntoCustomer();
@@ -4622,25 +4645,7 @@ export default function App() {
           }
           return;
         }
-        const pipeline = getPipelineById(
-          resolved.projectId,
-          resolved.pipelineId,
-        );
-        if (!pipeline) {
-          setActiveProjectId(resolved.projectId);
-          setPipelineId(null);
-          setPipelineRunId(null);
-          setAppView("project-pipelines");
-          if (typeof window !== "undefined") {
-            const next = getProjectPipelinesPath(resolved.projectId);
-            window.history.replaceState(
-              { luxiaView: "project-pipelines", projectId: resolved.projectId },
-              "",
-              next,
-            );
-          }
-          return;
-        }
+        // Keep the deep-link URL; missing pipeline renders generic not-found.
         setActiveProjectId(resolved.projectId);
         setSettingsConstellationId(null);
         setSettingsCapabilityPath(null);
@@ -4650,6 +4655,7 @@ export default function App() {
         setVidgetId(null);
         setPipelineId(resolved.pipelineId);
         setPipelineRunId(null);
+        setPipelineRunFocusTaskKey(null);
         setAppView("pipeline-detail");
         return;
       }
@@ -4671,27 +4677,8 @@ export default function App() {
           }
           return;
         }
-        const pipeline = getPipelineById(
-          resolved.projectId,
-          resolved.pipelineId,
-        );
-        if (!pipeline) {
-          setActiveProjectId(resolved.projectId);
-          setPipelineId(null);
-          setPipelineRunId(null);
-          setAppView("project-pipelines");
-          if (typeof window !== "undefined") {
-            const next = getProjectPipelinesPath(resolved.projectId);
-            window.history.replaceState(
-              { luxiaView: "project-pipelines", projectId: resolved.projectId },
-              "",
-              next,
-            );
-          }
-          return;
-        }
-        // Run existence is validated at render time against prototype state
-        // (including runs created during the session).
+        // Keep the deep-link URL. Missing parent pipeline → generic Pipeline
+        // not-found; missing run → Run not-found (both decided at render).
         setActiveProjectId(resolved.projectId);
         setSettingsConstellationId(null);
         setSettingsCapabilityPath(null);
@@ -4798,8 +4785,8 @@ export default function App() {
       }
 
       if (resolved.kind === "admin-pipelines") {
-        if (!canAdministerAccessLevels()) {
-          toast.error("Only Organization Admins can manage Pipelines administration.");
+        if (!canAdministerAccessLevels(prototypeUserIdRef.current)) {
+          toast.error("Only Organization Admins can access Pipeline Admin.");
           goHome(true);
           return;
         }
@@ -5447,11 +5434,7 @@ export default function App() {
       handleOpenProjectOverview(projectId, "overview");
       return;
     }
-    const pipeline = getPipelineById(projectId, nextPipelineId, pipelinesState);
-    if (!pipeline) {
-      handleOpenProjectPipelines(projectId);
-      return;
-    }
+    // Always enter the detail route; missing pipeline renders generic not-found.
     setActiveProjectId(projectId);
     setVidgetId(null);
     setPipelineId(nextPipelineId);
@@ -5484,11 +5467,12 @@ export default function App() {
     const run = pipeline
       ? getRunById(projectId, nextPipelineId, nextRunId, pipelineRunsState)
       : null;
-    if (!pipeline || !run) {
-      if (pipeline) handleOpenPipelineDetail(projectId, nextPipelineId);
-      else handleOpenProjectPipelines(projectId);
+    if (pipeline && !run) {
+      // Parent exists but run does not — return to Pipeline Detail.
+      handleOpenPipelineDetail(projectId, nextPipelineId);
       return;
     }
+    // Missing parent pipeline keeps the run URL and shows generic Pipeline not-found.
     setActiveProjectId(projectId);
     setVidgetId(null);
     setPipelineId(nextPipelineId);
@@ -5512,14 +5496,17 @@ export default function App() {
     }
   }
 
-  function handlePrototypeRunPipeline(projectId: string, nextPipelineId: string) {
+  function handlePrototypeRunPipeline(
+    projectId: string,
+    nextPipelineId: string,
+  ): string | null {
     const pipeline = getPipelineById(projectId, nextPipelineId, pipelinesState);
-    if (!pipeline) return;
+    if (!pipeline) return null;
     const role = projectRoleFor(projectId);
     const orgAdmin = isOrganizationAdmin(prototypeUserId);
     if (!canTriggerPipeline(pipeline, role, orgAdmin)) {
       toast.error(PIPELINE_TRIGGER_DENIED_MESSAGE);
-      return;
+      return null;
     }
     const { run, tasks } = createPrototypeRunningRun({ projectId, pipeline });
     setPipelineRunsState((prev) => [run, ...prev]);
@@ -5531,7 +5518,15 @@ export default function App() {
           : item,
       ),
     );
-    toast.success("Pipeline run started");
+    toast.success("Pipeline run started", {
+      action: {
+        label: "View run",
+        onClick: () => {
+          handleOpenPipelineRun(projectId, nextPipelineId, run.id);
+        },
+      },
+    });
+    return run.id;
   }
 
   function handlePrototypeSavePipelineVariables(
@@ -5565,16 +5560,22 @@ export default function App() {
     nextPipelineId: string,
     nextRunId: string,
     taskId: string,
-  ) {
+  ): boolean {
     const pipeline = getPipelineById(projectId, nextPipelineId, pipelinesState);
-    if (!pipeline) return;
-    const task = pipelineTasksState.find((item) => item.id === taskId);
-    if (!task) return;
+    if (!pipeline) return false;
+    const task = pipelineTasksState.find(
+      (item) =>
+        item.id === taskId
+        && item.runId === nextRunId
+        && item.pipelineId === nextPipelineId
+        && item.projectId === projectId,
+    );
+    if (!task) return false;
     const role = projectRoleFor(projectId);
     const orgAdmin = isOrganizationAdmin(prototypeUserId);
     if (!canRetryFailedTask(pipeline, task.status, role, orgAdmin)) {
       toast.error(PIPELINE_RETRY_DENIED_MESSAGE);
-      return;
+      return false;
     }
     setPipelineTasksState((prev) => applyPrototypeTaskRetry(prev, taskId));
     setPipelineRunsState((prev) =>
@@ -5597,6 +5598,7 @@ export default function App() {
       ),
     );
     toast.success("Retry requested");
+    return true;
   }
 
   function handleOpenVidgetInbox(
@@ -5873,7 +5875,7 @@ export default function App() {
 
   function handleOpenAdminPipelines() {
     if (!canAdministerAccessLevels(prototypeUserId)) {
-      toast.error("Only Organization Admins can manage Pipelines administration.");
+      toast.error("Only Organization Admins can access Pipeline Admin.");
       return;
     }
     setActiveProjectId(null);
@@ -6364,6 +6366,26 @@ export default function App() {
         if (window.location.pathname !== listPath) {
           window.history.replaceState({ luxiaView: "access-levels" }, "", listPath);
         }
+      }
+      return;
+    }
+
+    // Pipeline Admin is org-admin only — never leave the mounted admin view after
+    // identity switch just because the nav item is hidden.
+    if (appView === "admin-pipelines" && !canAdministerAccessLevels(userId)) {
+      toast.error("Only Organization Admins can access Pipeline Admin.");
+      setAppView("home");
+      setHomeBrowseMode("overview");
+      setActiveProjectId(null);
+      setProjectBrowseMode("overview");
+      setSettingsConstellationId(null);
+      setSettingsCapabilityPath(null);
+      setAccessLevelId(null);
+      setOrganizationUserId(null);
+      setDataSourceSettingsId(null);
+      setMobileNavOpen(false);
+      if (typeof window !== "undefined") {
+        window.history.replaceState({ luxiaView: "home" }, "", "/");
       }
       return;
     }
@@ -8425,6 +8447,25 @@ export default function App() {
     }
   }, [appView, accessLevelId, prototypeUserId]);
 
+  useEffect(() => {
+    if (appView !== "admin-pipelines") return;
+    if (canAdministerAccessLevels(prototypeUserId)) return;
+    toast.error("Only Organization Admins can access Pipeline Admin.");
+    setAppView("home");
+    setHomeBrowseMode("overview");
+    setActiveProjectId(null);
+    setProjectBrowseMode("overview");
+    setSettingsConstellationId(null);
+    setSettingsCapabilityPath(null);
+    setAccessLevelId(null);
+    setOrganizationUserId(null);
+    setDataSourceSettingsId(null);
+    setMobileNavOpen(false);
+    if (typeof window !== "undefined") {
+      window.history.replaceState({ luxiaView: "home" }, "", "/");
+    }
+  }, [appView, prototypeUserId]);
+
   const editingAccessLevel = useMemo(() => {
     if (appView !== "access-level" || !accessLevelId) {
       accessLevelCreateDraftRef.current = null;
@@ -9637,7 +9678,14 @@ export default function App() {
               const projectId = activeProjectId;
               const pipeline = getPipelineById(projectId, pipelineId, pipelinesState);
               if (!pipeline) {
-                return null;
+                return (
+                  <PipelineRouteMissingState
+                    title="Pipeline not found"
+                    description="This pipeline could not be found or is no longer available."
+                    actionLabel="Back to Pipelines"
+                    onAction={() => handleOpenProjectPipelines(projectId)}
+                  />
+                );
               }
               const feedsName = pipeline.feedsConstellationId
                 ? constellationNameById[pipeline.feedsConstellationId] ?? null
@@ -9689,8 +9737,25 @@ export default function App() {
               const run = pipeline
                 ? getRunById(projectId, pipelineId, pipelineRunId, pipelineRunsState)
                 : null;
-              if (!pipeline || !run) {
-                return null;
+              if (!pipeline) {
+                return (
+                  <PipelineRouteMissingState
+                    title="Pipeline not found"
+                    description="This pipeline could not be found or is no longer available."
+                    actionLabel="Back to Pipelines"
+                    onAction={() => handleOpenProjectPipelines(projectId)}
+                  />
+                );
+              }
+              if (!run) {
+                return (
+                  <PipelineRouteMissingState
+                    title="Run not found"
+                    description="This run is unavailable or no longer exists for this pipeline."
+                    actionLabel="Back to pipeline"
+                    onAction={() => handleOpenPipelineDetail(projectId, pipelineId)}
+                  />
+                );
               }
               const role = projectRoleFor(projectId);
               const orgAdmin = isOrganizationAdmin(prototypeUserId);
@@ -10158,7 +10223,8 @@ export default function App() {
               onNewDataSource={() => setDataSourceCreationOpen(true)}
             />
           </HomePageShell>
-        ) : appView === "admin-pipelines" ? (
+        ) : appView === "admin-pipelines"
+          && canAdministerAccessLevels(prototypeUserId) ? (
           <HomePageShell scrollRequest={homeScrollRequest} framed={false}>
             <AdminPipelinesPage onNavigateHome={handleNavigateHome} />
           </HomePageShell>

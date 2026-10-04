@@ -464,7 +464,6 @@
   color: var(--luxia-brand-primary);
 }
 
-/* Secondary AI actions — sparkles + “AI” label, not primary and not plain secondary. */
 .luxia-button--ai {
   color: var(--luxia-purple-60);
   background: var(--luxia-opacity-brand-secondary-08);
@@ -489,7 +488,6 @@
   background: var(--luxia-opacity-brand-secondary-08);
 }
 
-/* Tertiary / text header actions — transparent, no permanent border. */
 .luxia-button--tertiary {
   color: var(--luxia-brand-primary);
   background: transparent;
@@ -798,6 +796,4 @@
   border-color: transparent !important;
   box-shadow: none !important;
 }
-
-/* Settings tablist active/hover states live in luxia-settings-surfaces.css */
 

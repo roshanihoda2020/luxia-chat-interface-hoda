@@ -1,5 +1,12 @@
-import { ExternalLink } from "lucide-react";
-import { useCallback, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { ChevronRight, ExternalLink } from "lucide-react";
+import {
+  useCallback,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
+import { flushSync } from "react-dom";
 import {
   LuxiaBreadcrumb,
   type LuxiaBreadcrumbHandlers,
@@ -28,10 +35,14 @@ import {
   TooltipTrigger,
 } from "@/app/components/ui/tooltip";
 import type { ProjectRole } from "@/app/features/permissions/types";
-import { HS } from "@/app/features/home/homeSurfaces";
 import { LUXIA_SETTINGS_CONTENT_SURFACE_CLASS } from "@/app/features/shared/luxiaSettingsUx";
 import { LuxiaPipelineIcon } from "@/assets/icons";
-import { canTriggerPipeline, canUpdatePipelineVariables } from "./access";
+import {
+  canUpdatePipelineVariables,
+  getPipelineRunBlockReason,
+  PIPELINE_PAUSED_RUN_MESSAGE,
+  PIPELINE_TRIGGER_DENIED_MESSAGE,
+} from "./access";
 import {
   formatPipelineDuration,
   formatPipelineLastRunExact,
@@ -39,7 +50,11 @@ import {
   formatPipelineRunLabel,
   pipelineStatusBadgeVariant,
 } from "./format";
-import { PipelineVariablesSection } from "./PipelineVariablesSection";
+import {
+  PipelineVariablesSection,
+  type PipelineVariablesSectionHandle,
+} from "./PipelineVariablesSection";
+import { PipelineParentBackLink } from "./PipelineParentBackLink";
 import { PipelineRunHistory } from "./PipelineRunHistory";
 import type {
   PipelineRunRecord,
@@ -52,19 +67,22 @@ import {
   PIPELINE_STATUS_LABELS,
 } from "./types";
 import {
+  PIPELINE_LATEST_SURFACE,
   PIPELINE_RECENT_RUNS_PREVIEW_COUNT,
   PIPELINE_RUNS_GROUP_CLASS,
+  PIPELINE_SECTION_HEADER_GAP_CLASS,
+  PIPELINE_SECTION_HELPER_CLASS,
+  PIPELINE_SECTION_TITLE_CLASS,
+  PIPELINE_STRUCTURED_LIST,
+  PIPELINE_TABLE_HEADER_SURFACE,
+  PIPELINE_TASK_SELECTED,
   PIPELINES_CONTENT_MAX_WIDTH_CLASS,
 } from "./pipelinesLayout";
 
 const SURFACE = `${LUXIA_SETTINGS_CONTENT_SURFACE_CLASS} is-flush`;
 
-/**
- * Recent Runs column tracks — Run dominant, Status/Duration/Tasks compact.
- * Run | Status | Started | Duration | Tasks
- */
 const RECENT_RUNS_COLS =
-  "minmax(0, 2.2fr) 6.5rem minmax(9rem, 1.5fr) 6.5rem 4.5rem";
+  "minmax(0, 2.2fr) 6.75rem minmax(9rem, 1.5fr) 6.5rem 4.5rem 1.25rem";
 
 export interface PipelineDetailPageProps {
   projectId: string;
@@ -80,7 +98,7 @@ export interface PipelineDetailPageProps {
   onOpenProject: (projectId: string) => void;
   onOpenPipelines: (projectId: string) => void;
   onOpenRun: (runId: string, taskKey?: string) => void;
-  onRunPipeline: () => void;
+  onRunPipeline: () => string | null;
   onSaveVariables: (next: PipelineVariableRecord[]) => void;
 }
 
@@ -102,26 +120,31 @@ export function PipelineDetailPage({
   onSaveVariables,
 }: PipelineDetailPageProps) {
   const [confirmRun, setConfirmRun] = useState(false);
+  const [confirmRunUsesSavedOnly, setConfirmRunUsesSavedOnly] = useState(false);
+  const [dirtyRunOpen, setDirtyRunOpen] = useState(false);
   const [variablesDirty, setVariablesDirty] = useState(false);
   const [leaveOpen, setLeaveOpen] = useState(false);
   const [showAllRuns, setShowAllRuns] = useState(false);
   const pendingLeaveRef = useRef<(() => void) | null>(null);
+  const variablesRef = useRef<PipelineVariablesSectionHandle>(null);
 
   const statusLabel = PIPELINE_STATUS_LABELS[pipeline.status];
   const lastRunRelative = formatPipelineLastRunRelative(pipeline.lastRunAt);
   const lastRunExact = formatPipelineLastRunExact(pipeline.lastRunAt);
-  const latestFailed =
-    pipeline.status === "failed"
-      ? runs.find((run) => run.status === "failed")
-      : undefined;
+  const latestRun = runs[0] ?? null;
+  const lastRunFailed = latestRun?.status === "failed";
   const failedTaskHint =
-    latestFailed?.failedTaskCount && latestFailed.failedTaskCount > 0
-      ? `${latestFailed.failedTaskCount} task${
-          latestFailed.failedTaskCount === 1 ? "" : "s"
+    lastRunFailed && latestRun?.failedTaskCount && latestRun.failedTaskCount > 0
+      ? `${latestRun.failedTaskCount} task${
+          latestRun.failedTaskCount === 1 ? "" : "s"
         } failed`
       : null;
 
-  const canRun = canTriggerPipeline(pipeline, projectRole, isOrgAdmin);
+  const runBlockReason = getPipelineRunBlockReason(
+    pipeline,
+    projectRole,
+    isOrgAdmin,
+  );
   const canEditVariables = canUpdatePipelineVariables(
     pipeline,
     projectRole,
@@ -144,6 +167,37 @@ export function PipelineDetailPage({
     },
     [variablesDirty],
   );
+
+  function requestRun() {
+    if (runBlockReason) return;
+    if (variablesDirty) {
+      setDirtyRunOpen(true);
+      return;
+    }
+    setConfirmRunUsesSavedOnly(false);
+    setConfirmRun(true);
+  }
+
+  function startRun() {
+    flushSync(() => {
+      setConfirmRun(false);
+      setConfirmRunUsesSavedOnly(false);
+      setDirtyRunOpen(false);
+    });
+    onRunPipeline();
+  }
+
+  function saveChangesAndRun() {
+    const saved = variablesRef.current?.saveChanged() ?? false;
+    if (!saved) return;
+    // Unmount dirty-run confirmation before trigger — no second Run dialog.
+    flushSync(() => {
+      setDirtyRunOpen(false);
+      setConfirmRun(false);
+      setConfirmRunUsesSavedOnly(false);
+    });
+    onRunPipeline();
+  }
 
   const breadcrumbItems: LuxiaBreadcrumbItem[] = [
     { id: "home", label: "Home", destination: { kind: "home" } },
@@ -170,38 +224,71 @@ export function PipelineDetailPage({
     onPipelines: (pid) => requestLeave(() => onOpenPipelines(pid)),
   };
 
+  const runDisabledMessage =
+    runBlockReason === "paused"
+      ? PIPELINE_PAUSED_RUN_MESSAGE
+      : runBlockReason === "permission"
+        ? PIPELINE_TRIGGER_DENIED_MESSAGE
+        : null;
+
+  const runPrimaryAction =
+    runBlockReason === null ? (
+      <Button
+        type="button"
+        {...LUXIA_PAGE_HEADER_ACTION.primary}
+        onClick={requestRun}
+      >
+        Run pipeline
+      </Button>
+    ) : (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="inline-flex">
+            <Button
+              type="button"
+              {...LUXIA_PAGE_HEADER_ACTION.primary}
+              disabled
+              aria-disabled
+            >
+              Run pipeline
+            </Button>
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="max-w-[16rem]">
+          {runDisabledMessage}
+        </TooltipContent>
+      </Tooltip>
+    );
+
   return (
     <LuxiaPageFrame variant="standard">
       <LuxiaPageHeader
         contentGap="page"
         pageTypeLabel="PIPELINE"
-        title={
-          <div className="min-w-0 max-w-full">
-            <h1
-              className="min-w-0 luxia-type-title-page"
-              style={{
-                color: HS.sectionHeading,
-                overflowWrap: "anywhere",
-              }}
-              title={pipeline.name}
-            >
-              {pipeline.name}
-            </h1>
-            <p
-              className="mt-1 min-w-0 max-w-full truncate luxia-type-caption"
-              style={{ color: "var(--luxia-text-muted)" }}
-              title={pipeline.dagId}
-            >
-              {pipeline.dagId}
-            </p>
-          </div>
-        }
+        title={pipeline.name}
         breadcrumb={
           <LuxiaBreadcrumb
             tone="page"
             items={breadcrumbItems}
             handlers={breadcrumbHandlers}
           />
+        }
+        context={
+          pipeline.description?.trim() ? (
+            <p
+              className="min-w-0 luxia-type-body-small"
+              style={{
+                color: "var(--luxia-text-secondary)",
+                maxWidth: "780px",
+                display: "-webkit-box",
+                WebkitLineClamp: 3,
+                WebkitBoxOrient: "vertical",
+                overflow: "hidden",
+              }}
+            >
+              {pipeline.description.trim()}
+            </p>
+          ) : null
         }
         secondaryAction={
           pipeline.documentationUrl ? (
@@ -217,17 +304,7 @@ export function PipelineDetailPage({
             </Button>
           ) : null
         }
-        primaryAction={
-          canRun ? (
-            <Button
-              type="button"
-              {...LUXIA_PAGE_HEADER_ACTION.primary}
-              onClick={() => setConfirmRun(true)}
-            >
-              Run pipeline
-            </Button>
-          ) : null
-        }
+        primaryAction={runPrimaryAction}
       />
 
       <LuxiaPageBody>
@@ -241,52 +318,66 @@ export function PipelineDetailPage({
           >
             <div
               className={`grid grid-cols-2 gap-x-6 gap-y-3 ${
-                feedsConstellationName ? "sm:grid-cols-4" : "sm:grid-cols-3"
+                feedsConstellationName ? "sm:grid-cols-5" : "sm:grid-cols-4"
               }`}
             >
-              <SummaryItem label="Status">
+              <SummaryItem label="Pipeline status">
                 <span className="inline-flex flex-wrap items-center gap-2">
                   <Badge variant={pipelineStatusBadgeVariant(pipeline.status)}>
                     {statusLabel}
                   </Badge>
-                  {failedTaskHint ? (
+                  {pipeline.status === "paused" ? (
                     <span
                       className="luxia-type-caption"
-                      style={{ color: "var(--luxia-error-70)" }}
+                      style={{ color: "var(--luxia-text-muted)" }}
                     >
-                      {failedTaskHint}
+                      Schedule paused
                     </span>
                   ) : null}
                 </span>
               </SummaryItem>
 
               <SummaryItem label="Last run">
-                {lastRunExact ? (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span
-                        className="luxia-type-body-dense-strong"
-                        style={{
-                          color:
-                            pipeline.status === "failed"
-                              ? "var(--luxia-error-70)"
-                              : "var(--luxia-text-primary)",
-                        }}
-                        tabIndex={0}
-                      >
-                        {lastRunRelative}
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">{lastRunExact}</TooltipContent>
-                  </Tooltip>
-                ) : (
-                  <span
-                    className="luxia-type-body-dense-strong"
-                    style={{ color: "var(--luxia-text-primary)" }}
-                  >
-                    {lastRunRelative}
-                  </span>
-                )}
+                <span className="inline-flex min-w-0 flex-wrap items-center gap-2">
+                  {lastRunExact ? (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span
+                          className="luxia-type-body-dense-strong"
+                          style={{ color: "var(--luxia-text-primary)" }}
+                          tabIndex={0}
+                        >
+                          {lastRunRelative}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">{lastRunExact}</TooltipContent>
+                    </Tooltip>
+                  ) : (
+                    <span
+                      className="luxia-type-body-dense-strong"
+                      style={{ color: "var(--luxia-text-primary)" }}
+                    >
+                      {lastRunRelative}
+                    </span>
+                  )}
+                  {lastRunFailed ? (
+                    <span className="inline-flex flex-wrap items-center gap-1.5">
+                      {pipeline.status !== "failed" ? (
+                        <Badge variant={pipelineStatusBadgeVariant("failed")}>
+                          Failed
+                        </Badge>
+                      ) : null}
+                      {failedTaskHint ? (
+                        <span
+                          className="luxia-type-caption"
+                          style={{ color: "var(--luxia-text-secondary)" }}
+                        >
+                          {failedTaskHint}
+                        </span>
+                      ) : null}
+                    </span>
+                  ) : null}
+                </span>
               </SummaryItem>
 
               <SummaryItem label="Schedule">
@@ -308,6 +399,16 @@ export function PipelineDetailPage({
                   </span>
                 </SummaryItem>
               ) : null}
+
+              <SummaryItem label="DAG ID">
+                <span
+                  className="min-w-0 max-w-full truncate font-mono luxia-type-caption"
+                  style={{ color: "var(--luxia-text-muted)" }}
+                  title={pipeline.dagId}
+                >
+                  {pipeline.dagId}
+                </span>
+              </SummaryItem>
             </div>
           </section>
 
@@ -317,10 +418,12 @@ export function PipelineDetailPage({
             aria-label="Pipeline runs"
           >
             <section aria-labelledby="pipeline-recent-runs-heading">
-              <div className="mb-2.5 flex items-baseline justify-between gap-3">
+              <div
+                className={`${PIPELINE_SECTION_HEADER_GAP_CLASS} flex items-baseline justify-between gap-3`}
+              >
                 <h2
                   id="pipeline-recent-runs-heading"
-                  className="luxia-type-title-section"
+                  className={PIPELINE_SECTION_TITLE_CLASS}
                   style={{ color: "var(--luxia-text-primary)" }}
                 >
                   Recent runs
@@ -374,41 +477,46 @@ export function PipelineDetailPage({
                   style={
                     {
                       ["--pipelines-recent-runs-cols"]: RECENT_RUNS_COLS,
+                      boxShadow: PIPELINE_TASK_SELECTED.panelElevation,
                     } as CSSProperties
                   }
                 >
                   <div
-                    className="hidden min-w-[40rem] gap-x-3 px-4 py-2 sm:grid sm:items-center sm:[grid-template-columns:var(--pipelines-recent-runs-cols)]"
+                    className={`${PIPELINE_STRUCTURED_LIST.headerClass} min-w-[44rem] sm:[grid-template-columns:var(--pipelines-recent-runs-cols)]`}
                     style={{
-                      borderBottom:
-                        "1px solid var(--luxia-settings-row-divider)",
-                      background:
-                        "var(--luxia-surface-subtle, var(--luxia-neutral-50, #F8FAFC))",
+                      borderBottom: PIPELINE_STRUCTURED_LIST.headerBorder,
+                      background: PIPELINE_TABLE_HEADER_SURFACE,
                       color: "var(--luxia-text-muted)",
                     }}
                     role="row"
                   >
-                    <span className="luxia-type-caption" role="columnheader">
-                      Run
-                    </span>
-                    <span className="luxia-type-caption" role="columnheader">
-                      Status
-                    </span>
-                    <span className="luxia-type-caption" role="columnheader">
-                      Started
-                    </span>
-                    <span className="luxia-type-caption" role="columnheader">
-                      Duration
-                    </span>
-                    <span className="luxia-type-caption" role="columnheader">
-                      Tasks
+                    {(
+                      [
+                        "Run",
+                        "Status",
+                        "Started",
+                        "Duration",
+                        "Tasks",
+                      ] as const
+                    ).map((label) => (
+                      <span
+                        key={label}
+                        className={PIPELINE_STRUCTURED_LIST.headerLabelClass}
+                        role="columnheader"
+                      >
+                        {label}
+                      </span>
+                    ))}
+                    <span className="sr-only" role="columnheader">
+                      Open
                     </span>
                   </div>
-                  <ul>
-                    {visibleRuns.map((run) => (
+                  <ul className={PIPELINE_STRUCTURED_LIST.bodyClass}>
+                    {visibleRuns.map((run, index) => (
                       <RunRow
                         key={run.id}
                         run={run}
+                        isLatest={index === 0}
                         onOpen={() =>
                           requestLeave(() => onOpenRun(run.id))
                         }
@@ -420,17 +528,17 @@ export function PipelineDetailPage({
             </section>
 
             <section aria-labelledby="pipeline-run-history-heading">
-              <div className="mb-2.5">
+              <div className={PIPELINE_SECTION_HEADER_GAP_CLASS}>
                 <h2
                   id="pipeline-run-history-heading"
-                  className="luxia-type-title-section"
+                  className={PIPELINE_SECTION_TITLE_CLASS}
                   style={{ color: "var(--luxia-text-primary)" }}
                 >
                   Run history
                 </h2>
                 <p
-                  className="mt-0.5 luxia-type-caption"
-                  style={{ color: "var(--luxia-text-muted)" }}
+                  className={PIPELINE_SECTION_HELPER_CLASS}
+                  style={{ color: "var(--luxia-text-secondary)" }}
                 >
                   How tasks behaved across recent executions
                 </p>
@@ -446,53 +554,111 @@ export function PipelineDetailPage({
           </div>
 
           <section aria-labelledby="pipeline-variables-heading">
-            <div className="mb-2.5">
+            <div className={PIPELINE_SECTION_HEADER_GAP_CLASS}>
               <h2
                 id="pipeline-variables-heading"
-                className="luxia-type-title-section"
+                className={PIPELINE_SECTION_TITLE_CLASS}
                 style={{ color: "var(--luxia-text-primary)" }}
               >
                 Variables
               </h2>
               <p
-                className="mt-0.5 luxia-type-caption"
-                style={{ color: "var(--luxia-text-muted)" }}
+                className={PIPELINE_SECTION_HELPER_CLASS}
+                style={{ color: "var(--luxia-text-secondary)" }}
               >
                 Changes apply to future runs only.
               </p>
             </div>
             <PipelineVariablesSection
+              ref={variablesRef}
               variables={variables}
               canEdit={canEditVariables}
               onSave={onSaveVariables}
               onDirtyChange={setVariablesDirty}
             />
           </section>
+
+          <div className="pt-2">
+            <PipelineParentBackLink
+              parentLabel="Pipelines"
+              onNavigate={() =>
+                requestLeave(() => onOpenPipelines(projectId))
+              }
+            />
+          </div>
         </div>
       </LuxiaPageBody>
 
-      <AlertDialog open={confirmRun} onOpenChange={setConfirmRun}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Run {pipeline.name}?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will start a new run using the pipeline’s current
-              configuration.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                setConfirmRun(false);
-                onRunPipeline();
-              }}
-            >
-              Run pipeline
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {dirtyRunOpen ? (
+        <AlertDialog
+          open
+          onOpenChange={(open) => {
+            setDirtyRunOpen(open);
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Unsaved variable changes</AlertDialogTitle>
+              <AlertDialogDescription>
+                You have unsaved variable changes. Save them before starting the
+                pipeline to use the new values.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter className="flex-col gap-2 sm:flex-col sm:space-x-0">
+              <Button
+                type="button"
+                variant="primary"
+                onClick={() => {
+                  saveChangesAndRun();
+                }}
+              >
+                Save changes and run
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  flushSync(() => {
+                    setDirtyRunOpen(false);
+                  });
+                  setConfirmRunUsesSavedOnly(true);
+                  setConfirmRun(true);
+                }}
+              >
+                Run with saved values
+              </Button>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      ) : null}
+
+      {confirmRun ? (
+        <AlertDialog
+          open
+          onOpenChange={(open) => {
+            setConfirmRun(open);
+            if (!open) setConfirmRunUsesSavedOnly(false);
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Run {pipeline.name}?</AlertDialogTitle>
+              <AlertDialogDescription>
+                {confirmRunUsesSavedOnly
+                  ? "This will start a new run using the last saved variable values. Your unsaved edits on this page will not be used for this run."
+                  : "This will start a new run using the pipeline’s current configuration."}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <Button type="button" variant="primary" onClick={startRun}>
+                Run pipeline
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      ) : null}
 
       <AlertDialog
         open={leaveOpen}
@@ -550,9 +716,11 @@ function SummaryItem({
 
 function RunRow({
   run,
+  isLatest,
   onOpen,
 }: {
   run: PipelineRunRecord;
+  isLatest: boolean;
   onOpen: () => void;
 }) {
   const statusLabel = PIPELINE_RUN_STATUS_LABELS[run.status];
@@ -564,29 +732,59 @@ function RunRow({
           run.failedTaskCount === 1 ? "" : "s"
         }`
       : null;
+  const idleBackground = isLatest
+    ? PIPELINE_LATEST_SURFACE
+    : PIPELINE_TASK_SELECTED.rowIdle;
 
   return (
-    <li
-      className="luxia-settings-row is-interactive"
-      style={{ borderColor: "var(--luxia-settings-row-divider)" }}
-    >
+    <li>
       <button
         type="button"
-        className="grid w-full min-w-[40rem] cursor-pointer grid-cols-1 gap-2.5 px-4 py-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--luxia-border-focus)] sm:grid sm:items-center sm:gap-x-3 sm:[grid-template-columns:var(--pipelines-recent-runs-cols)]"
+        className={`grid w-full min-w-[44rem] cursor-pointer grid-cols-1 gap-2.5 text-left focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)] focus-visible:ring-offset-1 sm:grid sm:items-center sm:gap-x-3 sm:[grid-template-columns:var(--pipelines-recent-runs-cols)] ${PIPELINE_STRUCTURED_LIST.rowClass}`}
+        style={{
+          borderColor: PIPELINE_STRUCTURED_LIST.rowBorderIdle,
+          background: idleBackground,
+          boxShadow: "none",
+        }}
         onClick={onOpen}
-        aria-label={`Open run started ${runLabel}, status ${statusLabel}`}
+        aria-label={`Open run started ${runLabel}, status ${statusLabel}${
+          isLatest ? ", latest" : ""
+        }`}
+        onMouseEnter={(event) => {
+          event.currentTarget.style.background = PIPELINE_TASK_SELECTED.rowHover;
+          event.currentTarget.style.borderColor =
+            PIPELINE_STRUCTURED_LIST.rowBorderHover;
+          event.currentTarget.style.boxShadow =
+            PIPELINE_TASK_SELECTED.rowElevation;
+        }}
+        onMouseLeave={(event) => {
+          event.currentTarget.style.background = idleBackground;
+          event.currentTarget.style.borderColor =
+            PIPELINE_STRUCTURED_LIST.rowBorderIdle;
+          event.currentTarget.style.boxShadow = "none";
+        }}
       >
         <span className="min-w-0">
-          <span
-            className="block truncate luxia-type-body-dense-strong"
-            style={{ color: "var(--luxia-text-primary)" }}
-          >
-            {runLabel}
+          <span className="flex min-w-0 items-baseline gap-2">
+            <span
+              className="block truncate luxia-type-body-dense-strong"
+              style={{ color: "var(--luxia-text-primary)" }}
+            >
+              {runLabel}
+            </span>
+            {isLatest ? (
+              <span
+                className="shrink-0 luxia-type-caption"
+                style={{ color: "var(--luxia-text-muted)" }}
+              >
+                Latest
+              </span>
+            ) : null}
           </span>
           {failedHint ? (
             <span
-              className="mt-px block luxia-type-caption"
-              style={{ color: "var(--luxia-error-70)" }}
+              className="mt-0.5 block luxia-type-caption"
+              style={{ color: "var(--luxia-text-secondary)" }}
             >
               {failedHint}
             </span>
@@ -631,7 +829,7 @@ function RunRow({
             Duration
           </span>
           <span
-            className="luxia-type-body-dense"
+            className="tabular-nums luxia-type-body-dense"
             style={{ color: "var(--luxia-text-secondary)" }}
           >
             {formatPipelineDuration(run.durationSeconds)}
@@ -646,11 +844,19 @@ function RunRow({
             Tasks
           </span>
           <span
-            className="luxia-type-body-dense"
+            className="tabular-nums luxia-type-body-dense"
             style={{ color: "var(--luxia-text-secondary)" }}
           >
             {run.taskCount}
           </span>
+        </span>
+
+        <span
+          className="hidden items-center justify-end sm:flex"
+          style={{ color: "var(--luxia-text-muted)" }}
+          aria-hidden
+        >
+          <ChevronRight size={16} strokeWidth={2} />
         </span>
       </button>
     </li>

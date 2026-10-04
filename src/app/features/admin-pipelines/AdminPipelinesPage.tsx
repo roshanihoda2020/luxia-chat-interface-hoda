@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { MoreHorizontal, Plus, RotateCcw, Search } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Plus, Search } from "lucide-react";
 import {
   LuxiaBreadcrumb,
   type LuxiaBreadcrumbHandlers,
@@ -9,14 +9,7 @@ import { LuxiaPageBody, LuxiaPageFrame } from "@/app/components/LuxiaPageFrame";
 import { LuxiaPageHeader, LUXIA_PAGE_HEADER_ACTION } from "@/app/components/LuxiaPageHeader";
 import { Button } from "@/app/components/ui/button";
 import { Checkbox } from "@/app/components/ui/checkbox";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/app/components/ui/dropdown-menu";
+import { cn } from "@/app/components/ui/utils";
 import { Input } from "@/app/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/app/components/ui/tabs";
 import { FilterToolbar, FilterToolbarRow } from "@/app/features/home/browserShared";
@@ -26,13 +19,19 @@ import {
   LUXIA_SETTINGS_TABLIST_CLASS,
 } from "@/app/features/shared/luxiaSettingsUx";
 import { toast } from "sonner";
-import { ADMIN_PIPELINES_CONTENT_CLASS } from "./adminTable";
+import {
+  ADMIN_PIPELINES_CONTENT_CLASS,
+  isAirflowInventoryFilterDisabled,
+} from "./adminTable";
 import { AirflowDagsTab } from "./AirflowDagsTab";
 import { AirflowVariablesTab } from "./AirflowVariablesTab";
 import { ConfirmDeleteDialog } from "./ConfirmDeleteDialog";
 import { DagMappingDialog } from "./DagMappingDialog";
 import { DagsTab } from "./DagsTab";
-import { ManageVariablesDialog } from "./ManageVariablesDialog";
+import {
+  ManageVariablesDialog,
+  MANAGE_VARIABLES_DIALOG_FOCUS_ID,
+} from "./ManageVariablesDialog";
 import { FilterOrganizationSelect, FilterProjectSelect } from "./OrgProjectFields";
 import { useAdminPipelinesStore } from "./store";
 import type {
@@ -107,9 +106,14 @@ export function AdminPipelinesPage({
     prefillKey?: string | null;
     seedOrgId?: string | null;
     seedProjectId?: string | null;
+    /** Manage variables → New variable: lock org/project to mapping context. */
+    lockPlacementToMapping?: boolean;
   }>({ open: false, mode: "create" });
 
   const [manageMapping, setManageMapping] = useState<AdminDagMapping | null>(null);
+  const [highlightVariableId, setHighlightVariableId] = useState<string | null>(null);
+  /** Restore keyboard focus to Manage variables after nested New Variable closes. */
+  const restoreManageFocusRef = useRef(false);
   const [deleteMapping, setDeleteMapping] = useState<AdminDagMapping | null>(null);
   const [deleteVariable, setDeleteVariable] = useState<AdminVariableDeclaration | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
@@ -122,7 +126,7 @@ export function AdminPipelinesPage({
     { id: "home", label: "Home", destination: { kind: "home" } },
     {
       id: "admin-pipelines",
-      label: "Pipelines administration",
+      label: "Pipeline Admin",
       destination: { kind: "current" },
     },
   ];
@@ -193,6 +197,15 @@ export function AdminPipelinesPage({
     [loadProjectsForOrganization],
   );
 
+  const airflowDagsFilterDisabled = isAirflowInventoryFilterDisabled(
+    store.airflowState,
+    store.airflowDags.length,
+  );
+  const airflowVariablesFilterDisabled = isAirflowInventoryFilterDisabled(
+    store.airflowState,
+    store.airflowVariables.length,
+  );
+
   const openNewMapping = (prefillDagId?: string | null) =>
     setDagDialog({
       open: true,
@@ -201,13 +214,18 @@ export function AdminPipelinesPage({
       prefillDagId: prefillDagId ?? null,
     });
 
-  const openNewVariable = (prefillKey?: string | null) =>
+  const openNewVariable = (prefillKey?: string | null) => {
+    restoreManageFocusRef.current = false;
     setVariableDialog({
       open: true,
       mode: "create",
       variable: null,
       prefillKey: prefillKey ?? null,
+      seedOrgId: null,
+      seedProjectId: null,
+      lockPlacementToMapping: false,
     });
+  };
 
   const primaryAction =
     tab === "dags" || tab === "airflow-dags" ? (
@@ -237,7 +255,7 @@ export function AdminPipelinesPage({
       <LuxiaPageHeader
         contentGap="page"
         pageTypeLabel="ADMINISTRATION"
-        title="Pipelines administration"
+        title="Pipeline Admin"
         titleStyle={{ color: HS.sectionHeading }}
         breadcrumb={
           <LuxiaBreadcrumb
@@ -247,42 +265,6 @@ export function AdminPipelinesPage({
           />
         }
         guide={PAGE_GUIDANCE}
-        actions={
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-[var(--luxia-text-muted)]"
-                aria-label="Prototype state controls"
-                title="Prototype"
-              >
-                <MoreHorizontal size={16} strokeWidth={1.75} aria-hidden />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>Prototype controls</DropdownMenuLabel>
-              <DropdownMenuItem onClick={() => store.setAirflowState("ready")}>
-                Airflow: ready
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => store.simulateAirflowLoad()}>
-                Airflow: loading
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => store.setAirflowState("unavailable")}>
-                Airflow: unavailable
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => store.setAirflowState("empty")}>
-                Airflow: empty inventory
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => store.resetPrototype()}>
-                <RotateCcw size={14} aria-hidden className="mr-2" />
-                Reset prototype data
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        }
         primaryAction={primaryAction}
       />
 
@@ -291,7 +273,7 @@ export function AdminPipelinesPage({
           <Tabs value={tab} onValueChange={handleTabChange} className="gap-4">
             <div className="w-full min-w-0 overflow-x-auto">
               <TabsList
-                aria-label="Pipeline Administration sections"
+                aria-label="Pipeline Admin sections"
                 className={LUXIA_SETTINGS_TABLIST_CLASS}
                 style={{
                   display: "grid",
@@ -411,6 +393,9 @@ export function AdminPipelinesPage({
                     mode: "edit",
                     variable,
                     prefillKey: null,
+                    seedOrgId: null,
+                    seedProjectId: null,
+                    lockPlacementToMapping: false,
                   })
                 }
                 onDelete={setDeleteVariable}
@@ -419,13 +404,36 @@ export function AdminPipelinesPage({
 
             <TabsContent value="airflow-dags" className="space-y-3">
               <div className="flex flex-wrap items-center gap-3">
-                <label className="flex cursor-pointer items-center gap-2 luxia-type-body-small text-[var(--luxia-text-secondary)]">
+                <label
+                  className={cn(
+                    "flex items-center gap-2 luxia-type-body-small text-[var(--luxia-text-secondary)]",
+                    airflowDagsFilterDisabled
+                      ? "cursor-not-allowed opacity-50"
+                      : "cursor-pointer",
+                  )}
+                  title={
+                    airflowDagsFilterDisabled
+                      ? "Available when Airflow DAG inventory is loaded"
+                      : undefined
+                  }
+                >
                   <Checkbox
                     checked={showUnmappedOnly}
+                    disabled={airflowDagsFilterDisabled}
                     onCheckedChange={(next) => setShowUnmappedOnly(next === true)}
+                    aria-describedby={
+                      airflowDagsFilterDisabled
+                        ? "admin-airflow-dags-filter-hint"
+                        : undefined
+                    }
                   />
                   Show only unmapped
                 </label>
+                {airflowDagsFilterDisabled ? (
+                  <span id="admin-airflow-dags-filter-hint" className="sr-only">
+                    Available when Airflow DAG inventory is loaded
+                  </span>
+                ) : null}
               </div>
               <AirflowDagsTab
                 dags={store.airflowDags}
@@ -442,13 +450,36 @@ export function AdminPipelinesPage({
 
             <TabsContent value="airflow-variables" className="space-y-3">
               <div className="flex flex-wrap items-center gap-3">
-                <label className="flex cursor-pointer items-center gap-2 luxia-type-body-small text-[var(--luxia-text-secondary)]">
+                <label
+                  className={cn(
+                    "flex items-center gap-2 luxia-type-body-small text-[var(--luxia-text-secondary)]",
+                    airflowVariablesFilterDisabled
+                      ? "cursor-not-allowed opacity-50"
+                      : "cursor-pointer",
+                  )}
+                  title={
+                    airflowVariablesFilterDisabled
+                      ? "Available when Airflow variable inventory is loaded"
+                      : undefined
+                  }
+                >
                   <Checkbox
                     checked={showUndeclaredOnly}
+                    disabled={airflowVariablesFilterDisabled}
                     onCheckedChange={(next) => setShowUndeclaredOnly(next === true)}
+                    aria-describedby={
+                      airflowVariablesFilterDisabled
+                        ? "admin-airflow-variables-filter-hint"
+                        : undefined
+                    }
                   />
                   Show only undeclared
                 </label>
+                {airflowVariablesFilterDisabled ? (
+                  <span id="admin-airflow-variables-filter-hint" className="sr-only">
+                    Available when Airflow variable inventory is loaded
+                  </span>
+                ) : null}
               </div>
               <AirflowVariablesTab
                 airflowVariables={store.airflowVariables}
@@ -483,48 +514,12 @@ export function AdminPipelinesPage({
           if (dagDialog.mode === "edit" && dagDialog.mapping) {
             const result = await store.updateMapping(dagDialog.mapping.id, input);
             if (!result.ok) return result;
-            if (result.detachedVariables) {
-              toast.message("Variables detached", {
-                description:
-                  "Attached variables were removed because the project changed. Re-attach from Manage variables if needed.",
-              });
-            } else {
-              toast.success("DAG mapping updated");
-            }
+            toast.success("DAG mapping updated");
             return { ok: true };
           }
           const result = await store.createMapping(input);
           if (!result.ok) return result;
           toast.success("DAG mapping created");
-          return { ok: true };
-        }}
-      />
-
-      <VariableDialog
-        open={variableDialog.open}
-        mode={variableDialog.mode}
-        variable={variableDialog.variable}
-        prefillKey={variableDialog.prefillKey}
-        seedOrganizationId={variableDialog.seedOrgId}
-        seedProjectId={variableDialog.seedProjectId}
-        organizations={store.organizations}
-        projects={store.projects}
-        projectsLoad={store.projectsLoad}
-        airflowVariables={store.airflowVariables}
-        onOrganizationChange={onOrgChangeForForms}
-        onOpenChange={(open) => {
-          if (!open) setVariableDialog((prev) => ({ ...prev, open: false }));
-        }}
-        onSubmit={async (input) => {
-          if (variableDialog.mode === "edit" && variableDialog.variable) {
-            const result = await store.updateVariable(variableDialog.variable.id, input);
-            if (!result.ok) return result;
-            toast.success("Variable updated");
-            return { ok: true };
-          }
-          const result = await store.createVariable(input);
-          if (!result.ok) return result;
-          toast.success("Variable declared");
           return { ok: true };
         }}
       />
@@ -543,13 +538,31 @@ export function AdminPipelinesPage({
             : ""
         }
         projectVariables={manageProjectVariables}
+        highlightVariableId={highlightVariableId}
+        suspended={
+          Boolean(manageMappingLive)
+          && variableDialog.open
+          && Boolean(variableDialog.lockPlacementToMapping)
+        }
         onOpenChange={(open) => {
-          if (!open) setManageMapping(null);
+          if (!open) {
+            setManageMapping(null);
+            setHighlightVariableId(null);
+          }
         }}
         onAttach={async (variableId) => {
           if (!manageMappingLive) return;
-          await store.attachVariable(manageMappingLive.id, variableId);
-          toast.success("Variable attached");
+          const result = await store.attachVariable(
+            manageMappingLive.id,
+            variableId,
+          );
+          if (!result.ok) {
+            toast.error(result.error);
+            return;
+          }
+          if (!result.alreadyAttached) {
+            toast.success("Variable attached");
+          }
         }}
         onDetach={async (variableId) => {
           if (!manageMappingLive) return;
@@ -558,16 +571,67 @@ export function AdminPipelinesPage({
         }}
         onCreateVariable={() => {
           const seed = manageMappingLive;
+          restoreManageFocusRef.current = true;
           setVariableDialog({
             open: true,
             mode: "create",
             variable: null,
             prefillKey: null,
-            seedOrgId: seed?.organizationId,
-            seedProjectId: seed?.projectId,
+            seedOrgId: seed?.organizationId ?? null,
+            seedProjectId: seed?.projectId ?? null,
+            lockPlacementToMapping: true,
           });
           if (seed) store.loadProjectsForOrganization(seed.organizationId);
-          setTab("variables");
+        }}
+      />
+
+      <VariableDialog
+        open={variableDialog.open}
+        mode={variableDialog.mode}
+        variable={variableDialog.variable}
+        prefillKey={variableDialog.prefillKey}
+        seedOrganizationId={variableDialog.seedOrgId}
+        seedProjectId={variableDialog.seedProjectId}
+        lockPlacementToMapping={Boolean(variableDialog.lockPlacementToMapping)}
+        existingVariables={store.variables}
+        organizations={store.organizations}
+        projects={store.projects}
+        projectsLoad={store.projectsLoad}
+        airflowVariables={store.airflowVariables}
+        onOrganizationChange={onOrgChangeForForms}
+        onOpenChange={(open) => {
+          if (!open) {
+            setVariableDialog((prev) => ({
+              ...prev,
+              open: false,
+              lockPlacementToMapping: false,
+            }));
+          }
+        }}
+        onCloseAutoFocus={(event) => {
+          if (!restoreManageFocusRef.current) return;
+          restoreManageFocusRef.current = false;
+          event.preventDefault();
+          window.requestAnimationFrame(() => {
+            document.getElementById(MANAGE_VARIABLES_DIALOG_FOCUS_ID)?.focus();
+          });
+        }}
+        onSubmit={async (input) => {
+          if (variableDialog.mode === "edit" && variableDialog.variable) {
+            const result = await store.updateVariable(variableDialog.variable.id, input);
+            if (!result.ok) return result;
+            toast.success("Variable updated");
+            return { ok: true };
+          }
+          const fromManage = Boolean(variableDialog.lockPlacementToMapping);
+          const result = await store.createVariable(input);
+          if (!result.ok) return result;
+          toast.success("Variable declared");
+          if (fromManage && manageMappingLive) {
+            setHighlightVariableId(result.variable.id);
+            window.setTimeout(() => setHighlightVariableId(null), 4000);
+          }
+          return { ok: true };
         }}
       />
 
@@ -577,7 +641,7 @@ export function AdminPipelinesPage({
         description={
           <>
             <p>
-              Removing the Luxia mapping for{" "}
+              Remove the Luxia mapping for{" "}
               <strong>{deleteMapping?.displayName || deleteMapping?.dagId}</strong>
               {deleteMapping ? (
                 <>
@@ -586,18 +650,15 @@ export function AdminPipelinesPage({
                   {" · "}
                   {store.getProjectName(deleteMapping.projectId)})
                 </>
-              ) : null}{" "}
-              removes this Pipeline from the mapped Project&apos;s Pipelines view.
-            </p>
-            <p>
-              The Airflow DAG itself is not deleted — only the Luxia tenant mapping
-              {deleteMapping && deleteMapping.attachedVariableIds.length > 0
-                ? ` and its ${deleteMapping.attachedVariableIds.length} variable attachment${
-                    deleteMapping.attachedVariableIds.length === 1 ? "" : "s"
-                  }`
-                : ""}
+              ) : null}
               .
+              {deleteMapping && deleteMapping.attachedVariableIds.length > 0
+                ? ` Also detaches ${deleteMapping.attachedVariableIds.length} variable${
+                    deleteMapping.attachedVariableIds.length === 1 ? "" : "s"
+                  }.`
+                : ""}
             </p>
+            <p>The Airflow DAG is not deleted.</p>
           </>
         }
         confirmLabel="Delete mapping"
@@ -621,22 +682,16 @@ export function AdminPipelinesPage({
         description={
           <>
             <p>
-              Deleting the Luxia declaration for{" "}
-              <strong>{deleteVariable?.key}</strong> does not delete the Airflow variable.
+              Delete the Luxia declaration for{" "}
+              <strong>{deleteVariable?.key}</strong>. The Airflow variable is not deleted.
             </p>
             {deleteVariable && store.dagsForVariable(deleteVariable.id).length > 0 ? (
               <p>
-                It is currently attached to{" "}
-                {store.dagsForVariable(deleteVariable.id).length} DAG mapping
-                {store.dagsForVariable(deleteVariable.id).length === 1 ? "" : "s"} and will be
-                detached on delete. Customer exposure through those pipelines will disappear.
+                Detaches from {store.dagsForVariable(deleteVariable.id).length}{" "}
+                mapping
+                {store.dagsForVariable(deleteVariable.id).length === 1 ? "" : "s"}.
               </p>
-            ) : (
-              <p>
-                Any future attachments to DAG mappings will no longer be possible until the key
-                is declared again for a project.
-              </p>
-            )}
+            ) : null}
           </>
         }
         confirmLabel="Delete declaration"
