@@ -1,4 +1,3 @@
-/** Customer-facing pipeline / run / task states for the design prototype. */
 export type PipelineStatus = "success" | "running" | "failed" | "paused";
 
 export type PipelineRunStatus = "success" | "running" | "failed";
@@ -13,6 +12,12 @@ export type PipelineTaskStatus =
 
 export type PipelineVariableType = "text" | "number" | "boolean" | "select";
 
+/** Select choice — labels come from data, not hard-coded UI knowledge. */
+export type PipelineSelectOption = {
+  value: string;
+  label: string;
+};
+
 /** Mapping-level action gates (AND with write-capable role). */
 export interface PipelineEnabledActions {
   trigger: boolean;
@@ -23,8 +28,11 @@ export interface PipelineEnabledActions {
 export interface ProjectPipelineRecord {
   id: string;
   projectId: string;
+  /** Luxia Display name — never derive from dagId for customer rendering. */
   name: string;
   dagId: string;
+  /** Optional Luxia customer-facing Pipeline description. */
+  description?: string | null;
   status: PipelineStatus;
   lastRunAt: string | null;
   scheduleLabel: string;
@@ -74,7 +82,10 @@ export interface PipelineVariableRecord {
   value: string | number | boolean | null;
   /** When true, value must not be revealed — only replaceable. */
   sensitive: boolean;
+  /** Select option values (legacy / bridge). Prefer `selectOptions` when labels differ. */
   allowedValues?: string[];
+  /** Preferred select metadata — display labels from data. */
+  selectOptions?: PipelineSelectOption[];
 }
 
 export const PIPELINE_STATUS_LABELS: Record<PipelineStatus, string> = {

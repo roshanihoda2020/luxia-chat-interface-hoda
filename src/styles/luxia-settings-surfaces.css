@@ -37,6 +37,9 @@
 
 .luxia-settings-content-surface.is-flush {
   padding: 0;
+  /* Form Save|Cancel inside flush cards: use LuxiaSettingsFormActions `flush`
+     (LUXIA_SETTINGS_FORM_ACTIONS_FLUSH_CLASS) so the footer carries row-matched
+     inset — padded surfaces keep the default form-actions class only. */
 }
 
 .luxia-settings-content-surface.is-padded-sm {

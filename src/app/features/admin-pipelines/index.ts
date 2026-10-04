@@ -25,4 +25,5 @@ export {
   mergeAdminIntoCustomerPipelines,
   mergeAdminIntoCustomerVariables,
   isAdminOriginatedPipeline,
+  customerPipelineIdFromMapping,
 } from "./prototypeBridge";

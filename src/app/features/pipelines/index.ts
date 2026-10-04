@@ -1,4 +1,5 @@
 export {
+  ACTIONS_CLEAR_ONLY,
   ACTIONS_FULL,
   ACTIONS_NO_RETRY,
   ACTIONS_NO_TRIGGER,
@@ -8,11 +9,14 @@ export {
   PIPELINE_RETRY_DENIED_MESSAGE,
   PIPELINE_TRIGGER_DENIED_MESSAGE,
   PIPELINE_VARIABLES_DENIED_MESSAGE,
+  PIPELINE_PAUSED_RUN_MESSAGE,
   canRetryFailedTask,
   canTriggerPipeline,
   canUpdatePipelineVariables,
   canViewProjectPipelines,
+  getPipelineRunBlockReason,
   hasPipelineWriteRole,
+  isRetryableTaskStatus,
 } from "./access";
 export { PipelinesPage } from "./PipelinesPage";
 export type { PipelinesPageProps } from "./PipelinesPage";
@@ -20,8 +24,10 @@ export { PipelineDetailPage } from "./PipelineDetailPage";
 export type { PipelineDetailPageProps } from "./PipelineDetailPage";
 export { PipelineRunDetailPage } from "./PipelineRunDetailPage";
 export type { PipelineRunDetailPageProps } from "./PipelineRunDetailPage";
+export { PipelineRouteMissingState } from "./PipelineRouteMissingState";
 export { PipelineRunHistory } from "./PipelineRunHistory";
 export { PipelineVariablesSection } from "./PipelineVariablesSection";
+export type { PipelineVariablesSectionHandle } from "./PipelineVariablesSection";
 export { TaskFlowGraph } from "./TaskFlowGraph";
 export {
   countDownstreamBlockedTasks,
@@ -32,12 +38,14 @@ export {
   formatPipelineDuration,
   formatPipelineLastRunExact,
   formatPipelineLastRunRelative,
+  formatPipelineCountLabel,
   formatPipelineRunBreadcrumbLabel,
   formatPipelineRunLabel,
   formatPipelineRunPageTitle,
   formatPipelineRunStartedDisplay,
   formatTaskDuration,
   formatTaskStatusLabel,
+  PIPELINE_COMPACT_STATUS_BADGE_CLASS,
   pipelineStatusBadgeVariant,
   pipelineTaskStatusBadgeClass,
   UPSTREAM_FAILED_BADGE_CLASS,
@@ -63,6 +71,7 @@ export type {
   PipelineEnabledActions,
   PipelineRunRecord,
   PipelineRunStatus,
+  PipelineSelectOption,
   PipelineStatus,
   PipelineTaskRecord,
   PipelineTaskStatus,

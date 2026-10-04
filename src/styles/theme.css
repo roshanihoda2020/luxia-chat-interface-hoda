@@ -423,6 +423,13 @@
     font-weight: 700;
   }
 
+  .luxia-type-title-section {
+    font-family: var(--font-family);
+    font-size: 16px;
+    line-height: 22px;
+    font-weight: 600;
+  }
+
   .luxia-type-title-component {
     font-family: var(--font-family);
     font-size: 14px;

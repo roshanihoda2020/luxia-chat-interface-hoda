@@ -139,6 +139,10 @@ async function createMappingInternal(input: AdminDagMappingInput) {
   if (!input.dagId.trim() || !input.organizationId || !input.projectId) {
     return { ok: false as const, error: "Required fields are missing." };
   }
+  const displayName = input.displayName.trim();
+  if (!displayName) {
+    return { ok: false as const, error: "Display name is required." };
+  }
   const dagId = input.dagId.trim();
   const duplicate = snapshot.mappings.some(
     (row) => row.dagId === dagId && row.projectId === input.projectId,
@@ -153,7 +157,8 @@ async function createMappingInternal(input: AdminDagMappingInput) {
   const mapping: AdminDagMapping = {
     id: newId("map"),
     dagId,
-    displayName: input.displayName.trim() || dagId,
+    displayName,
+    description: input.description.trim() || null,
     organizationId: input.organizationId,
     projectId: input.projectId,
     documentationUrl: input.documentationUrl.trim() || null,
@@ -171,6 +176,24 @@ async function updateMappingInternal(id: string, input: AdminDagMappingInput) {
   if (!input.dagId.trim() || !input.organizationId || !input.projectId) {
     return { ok: false as const, error: "Required fields are missing." };
   }
+  const displayName = input.displayName.trim();
+  if (!displayName) {
+    return { ok: false as const, error: "Display name is required." };
+  }
+  const existing = snapshot.mappings.find((row) => row.id === id);
+  if (!existing) {
+    return { ok: false as const, error: "Mapping not found." };
+  }
+  if (
+    existing.organizationId !== input.organizationId
+    || existing.projectId !== input.projectId
+  ) {
+    return {
+      ok: false as const,
+      error:
+        "Organization and project cannot be changed after mapping. Create another mapping to use this DAG elsewhere.",
+    };
+  }
   const dagId = input.dagId.trim();
   const duplicate = snapshot.mappings.some(
     (row) =>
@@ -185,29 +208,28 @@ async function updateMappingInternal(id: string, input: AdminDagMappingInput) {
     };
   }
   await delay(280);
-  let detachedVariables = false;
   let updated: AdminDagMapping | null = null;
   const mappings = snapshot.mappings.map((row) => {
     if (row.id !== id) return row;
-    const projectChanged = row.projectId !== input.projectId;
-    detachedVariables = projectChanged && row.attachedVariableIds.length > 0;
     updated = {
       ...row,
       dagId,
-      displayName: input.displayName.trim() || dagId,
-      organizationId: input.organizationId,
-      projectId: input.projectId,
+      displayName,
+      description: input.description.trim() || null,
+      // Placement is immutable after create — keep existing org/project.
+      organizationId: row.organizationId,
+      projectId: row.projectId,
       documentationUrl: input.documentationUrl.trim() || null,
       constellationId: input.constellationId.trim() || null,
       enabledActions: [...input.enabledActions],
-      attachedVariableIds: projectChanged ? [] : row.attachedVariableIds,
+      attachedVariableIds: row.attachedVariableIds,
       updatedAt: nowIso(),
     };
     return updated;
   });
   if (!updated) return { ok: false as const, error: "Mapping not found." };
   setSnapshot({ mappings });
-  return { ok: true as const, mapping: updated, detachedVariables };
+  return { ok: true as const, mapping: updated };
 }
 
 async function deleteMappingInternal(id: string) {
@@ -218,6 +240,10 @@ async function deleteMappingInternal(id: string) {
 async function createVariableInternal(input: AdminVariableInput) {
   if (!input.key.trim() || !input.organizationId || !input.projectId || !input.type) {
     return { ok: false as const, error: "Required fields are missing." };
+  }
+  const label = input.label.trim();
+  if (!label) {
+    return { ok: false as const, error: "Label is required." };
   }
   const key = input.key.trim();
   if (input.type === "select" && input.allowedValues.map((v) => v.trim()).filter(Boolean).length === 0) {
@@ -236,7 +262,7 @@ async function createVariableInternal(input: AdminVariableInput) {
   const variable: AdminVariableDeclaration = {
     id: newId("var"),
     key,
-    label: input.label.trim() || input.key.trim(),
+    label,
     description: input.description.trim(),
     type: input.type,
     sensitive: input.sensitive,
@@ -244,6 +270,18 @@ async function createVariableInternal(input: AdminVariableInput) {
       input.type === "select"
         ? input.allowedValues.map((v) => v.trim()).filter(Boolean)
         : undefined,
+    selectOptions:
+      input.type === "select" && input.selectOptions && input.selectOptions.length > 0
+        ? input.selectOptions.map((option) => ({
+            value: option.value.trim(),
+            label: option.label.trim() || option.value.trim(),
+          }))
+        : input.type === "select"
+          ? input.allowedValues
+              .map((v) => v.trim())
+              .filter(Boolean)
+              .map((value) => ({ value, label: value }))
+          : undefined,
     organizationId: input.organizationId,
     projectId: input.projectId,
     createdAt: nowIso(),
@@ -255,8 +293,15 @@ async function createVariableInternal(input: AdminVariableInput) {
 
 async function updateVariableInternal(
   id: string,
-  input: Pick<AdminVariableInput, "label" | "description" | "type" | "sensitive" | "allowedValues">,
+  input: Pick<
+    AdminVariableInput,
+    "label" | "description" | "type" | "sensitive" | "allowedValues" | "selectOptions"
+  >,
 ) {
+  const label = input.label.trim();
+  if (!label) {
+    return { ok: false as const, error: "Label is required." };
+  }
   if (input.type === "select" && input.allowedValues.map((v) => v.trim()).filter(Boolean).length === 0) {
     return { ok: false as const, error: "Select types need at least one allowed value." };
   }
@@ -266,7 +311,7 @@ async function updateVariableInternal(
     if (row.id !== id) return row;
     updated = {
       ...row,
-      label: input.label.trim() || row.key,
+      label,
       description: input.description.trim(),
       type: input.type,
       sensitive: input.sensitive,
@@ -274,6 +319,18 @@ async function updateVariableInternal(
         input.type === "select"
           ? input.allowedValues.map((v) => v.trim()).filter(Boolean)
           : undefined,
+      selectOptions:
+        input.type === "select" && input.selectOptions && input.selectOptions.length > 0
+          ? input.selectOptions.map((option) => ({
+              value: option.value.trim(),
+              label: option.label.trim() || option.value.trim(),
+            }))
+          : input.type === "select"
+            ? input.allowedValues
+                .map((v) => v.trim())
+                .filter(Boolean)
+                .map((value) => ({ value, label: value }))
+            : undefined,
       updatedAt: nowIso(),
     };
     return updated;
@@ -295,6 +352,26 @@ async function deleteVariableInternal(id: string) {
 }
 
 async function attachVariableInternal(mappingId: string, variableId: string) {
+  const mapping = snapshot.mappings.find((row) => row.id === mappingId);
+  if (!mapping) {
+    return { ok: false as const, error: "Mapping not found." };
+  }
+  const variable = snapshot.variables.find((row) => row.id === variableId);
+  if (!variable) {
+    return { ok: false as const, error: "Variable not found." };
+  }
+  if (
+    variable.organizationId !== mapping.organizationId
+    || variable.projectId !== mapping.projectId
+  ) {
+    return {
+      ok: false as const,
+      error: "Variable must belong to the same organization and project as the mapping.",
+    };
+  }
+  if (mapping.attachedVariableIds.includes(variableId)) {
+    return { ok: true as const, alreadyAttached: true as const };
+  }
   await delay(160);
   setSnapshot({
     mappings: snapshot.mappings.map((row) => {
@@ -307,6 +384,7 @@ async function attachVariableInternal(mappingId: string, variableId: string) {
       };
     }),
   });
+  return { ok: true as const, alreadyAttached: false as const };
 }
 
 async function detachVariableInternal(mappingId: string, variableId: string) {
@@ -363,15 +441,24 @@ export interface AdminPipelinesStore {
   updateMapping: (
     id: string,
     input: AdminDagMappingInput,
-  ) => Promise<{ ok: true; mapping: AdminDagMapping; detachedVariables: boolean } | { ok: false; error: string }>;
+  ) => Promise<{ ok: true; mapping: AdminDagMapping } | { ok: false; error: string }>;
   deleteMapping: (id: string) => Promise<void>;
   createVariable: (input: AdminVariableInput) => Promise<{ ok: true; variable: AdminVariableDeclaration } | { ok: false; error: string }>;
   updateVariable: (
     id: string,
-    input: Pick<AdminVariableInput, "label" | "description" | "type" | "sensitive" | "allowedValues">,
+    input: Pick<
+      AdminVariableInput,
+      "label" | "description" | "type" | "sensitive" | "allowedValues" | "selectOptions"
+    >,
   ) => Promise<{ ok: true; variable: AdminVariableDeclaration } | { ok: false; error: string }>;
   deleteVariable: (id: string) => Promise<void>;
-  attachVariable: (mappingId: string, variableId: string) => Promise<void>;
+  attachVariable: (
+    mappingId: string,
+    variableId: string,
+  ) => Promise<
+    | { ok: true; alreadyAttached: boolean }
+    | { ok: false; error: string }
+  >;
   detachVariable: (mappingId: string, variableId: string) => Promise<void>;
   resetPrototype: () => void;
 }

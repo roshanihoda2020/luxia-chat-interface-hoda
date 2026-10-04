@@ -5,16 +5,13 @@ import type {
 } from "./types";
 import { PIPELINE_TASK_STATUS_LABELS } from "./types";
 
-/** Prefer a compact recent window for the history matrix. */
 export const RUN_HISTORY_MAX_COLUMNS = 10;
 
 export type RunHistoryColumn = {
   run: PipelineRunRecord;
-  /** Compact primary label (day, or time when same-day duplicates). */
   label: string;
   dayLabel: string;
   timeLabel: string;
-  /** False when this column shares a calendar day with the previous column. */
   showDayLabel: boolean;
   exactLabel: string;
   isLatest: boolean;
@@ -37,9 +34,6 @@ export type RunHistoryCell = {
   exactRunLabel: string;
 };
 
-/**
- * Short customer-friendly column label for a run start time.
- */
 export function formatRunHistoryColumnLabel(
   iso: string,
   nowMs: number = Date.now(),
@@ -65,7 +59,6 @@ export function formatRunHistoryColumnLabel(
   });
 }
 
-/** Concise time for disambiguating multiple runs on the same calendar day. */
 export function formatRunHistoryTimeLabel(iso: string): string {
   const then = Date.parse(iso);
   if (Number.isNaN(then)) return "Run";

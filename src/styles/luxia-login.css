@@ -11,10 +11,8 @@ body:has(.luxia-login-shell),
   --luxia-login-auth-gutter: clamp(0.75rem, 3.5vw, 4vw);
   --luxia-login-brand-pad-left: 5vw;
   --luxia-login-brand-pad-right: 6vw;
-  /* Composition light from logo pointer — optional card edge only */
   --luxia-light-lit: 0;
   --luxia-card-light: 0;
-  /* Fallback used by older breakpoints */
   --luxia-login-brand-width: min(58vw, calc(100vw - 30vw - 4rem));
 
   /*
@@ -250,7 +248,6 @@ body:has(.luxia-login-shell),
   --luxia-auth-field-placeholder: color-mix(in srgb, #ede8f5 52%, transparent);
 }
 
-/* Card edge reflection from wall light — content untouched */
 .luxia-login-panel::before {
   content: "";
   position: absolute;

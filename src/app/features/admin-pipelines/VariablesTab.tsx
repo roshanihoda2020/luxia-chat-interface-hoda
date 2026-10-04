@@ -1,25 +1,40 @@
-import { LuxiaEntityOptionsMenu } from "@/app/components/LuxiaEntityOptionsMenu";
-import { Badge } from "@/app/components/ui/badge";
+import { PencilLine, Trash2 } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/app/components/ui/tooltip";
 import { ResultsCount } from "@/app/features/home/browserShared";
 import { ADMIN_VARIABLE_TYPE_LABELS } from "./format";
 import {
+  ADMIN_COL_COUNT,
+  ADMIN_COL_ENTITY,
+  ADMIN_COL_ID,
+  ADMIN_COL_META,
+  ADMIN_COL_TEXT,
+  ADMIN_TABLE_INLINE_ACTIONS_COL,
+  ADMIN_TABLE_MIN_WIDTH_MAPPINGS,
   AdminEmptyState,
+  AdminTableBadgeCell,
+  AdminTableCountMeta,
   AdminTableHeader,
   AdminTableHeaderCell,
+  AdminTableIconAction,
+  AdminTableInlineActions,
   AdminTableRow,
+  AdminTableSensitiveMeta,
   AdminTableShell,
+  AdminTableTypeMeta,
   AdminTruncateText,
 } from "./adminTable";
 import type { AdminDagMapping, AdminVariableDeclaration } from "./types";
 
-const COLS =
-  "minmax(9rem,1.45fr) minmax(7rem,1.1fr) 5.5rem 5rem minmax(7rem,1.1fr) minmax(6rem,1fr) minmax(4.5rem,0.85fr) minmax(3.5rem,auto)";
+const COLS = [
+  ADMIN_COL_ID,
+  ADMIN_COL_TEXT,
+  ADMIN_COL_META,
+  ADMIN_COL_META,
+  ADMIN_COL_ENTITY,
+  ADMIN_COL_ENTITY,
+  ADMIN_COL_COUNT,
+  ADMIN_TABLE_INLINE_ACTIONS_COL,
+].join(" ");
 
 export function VariablesTab({
   rows,
@@ -46,7 +61,7 @@ export function VariablesTab({
     return (
       <AdminEmptyState
         title="No variables declared"
-        description="Declare variables customers may read or change. Sensitive Airflow values are never shown in administration."
+        description="Declare variables customers may read or change. Sensitive Airflow values are never shown in Pipeline Admin."
         action={
           <Button type="button" size="sm" onClick={onNew}>
             + New variable
@@ -70,7 +85,7 @@ export function VariablesTab({
       <ResultsCount>
         {rows.length} {rows.length === 1 ? "variable" : "variables"}
       </ResultsCount>
-      <AdminTableShell columns={COLS} minWidth="58rem">
+      <AdminTableShell columns={COLS} minWidth={ADMIN_TABLE_MIN_WIDTH_MAPPINGS}>
         <AdminTableHeader>
           <AdminTableHeaderCell>Key</AdminTableHeaderCell>
           <AdminTableHeaderCell>Label</AdminTableHeaderCell>
@@ -79,14 +94,18 @@ export function VariablesTab({
           <AdminTableHeaderCell>Organization</AdminTableHeaderCell>
           <AdminTableHeaderCell>Project</AdminTableHeaderCell>
           <AdminTableHeaderCell>DAGs</AdminTableHeaderCell>
-          <AdminTableHeaderCell className="text-right">
-            <span className="sr-only">Actions</span>
-          </AdminTableHeaderCell>
+          <AdminTableHeaderCell className="text-right">Actions</AdminTableHeaderCell>
         </AdminTableHeader>
         {rows.map((row) => {
           const attachedDags = dagsForVariable(row.id);
           const orgName = getOrganizationName(row.organizationId);
           const projectName = getProjectName(row.projectId);
+          const dagTooltip =
+            attachedDags.length === 0
+              ? undefined
+              : attachedDags.length === 1
+                ? "1 attached DAG"
+                : `${attachedDags.length} attached DAGs`;
           return (
             <AdminTableRow key={row.id}>
               <div className="min-w-0">
@@ -96,27 +115,26 @@ export function VariablesTab({
               </div>
               <div className="min-w-0">
                 {row.label ? (
-                  <AdminTruncateText className="luxia-type-body-small text-[var(--luxia-text-secondary)]">
+                  <AdminTruncateText
+                    className="luxia-type-body-small text-[var(--luxia-text-secondary)]"
+                    tooltip={
+                      row.description?.trim()
+                        ? row.description.trim()
+                        : undefined
+                    }
+                  >
                     {row.label}
                   </AdminTruncateText>
                 ) : (
                   <span className="luxia-type-body-small text-[var(--luxia-text-muted)]">—</span>
                 )}
               </div>
-              <div>
-                <Badge variant="outline" className="font-normal">
-                  {ADMIN_VARIABLE_TYPE_LABELS[row.type]}
-                </Badge>
-              </div>
-              <div>
-                {row.sensitive ? (
-                  <Badge variant="secondary" className="font-normal">
-                    Yes
-                  </Badge>
-                ) : (
-                  <span className="luxia-type-caption text-[var(--luxia-text-muted)]">No</span>
-                )}
-              </div>
+              <AdminTableBadgeCell>
+                <AdminTableTypeMeta label={ADMIN_VARIABLE_TYPE_LABELS[row.type]} />
+              </AdminTableBadgeCell>
+              <AdminTableBadgeCell>
+                <AdminTableSensitiveMeta sensitive={row.sensitive} />
+              </AdminTableBadgeCell>
               <div className="min-w-0">
                 <AdminTruncateText className="luxia-type-body-small text-[var(--luxia-text-secondary)]">
                   {orgName}
@@ -127,43 +145,31 @@ export function VariablesTab({
                   {projectName}
                 </AdminTruncateText>
               </div>
-              <div className="min-w-0">
-                {attachedDags.length === 0 ? (
-                  <span className="luxia-type-caption text-[var(--luxia-text-muted)]">—</span>
-                ) : (
-                  <Tooltip delayDuration={300}>
-                    <TooltipTrigger asChild>
-                      <Badge variant="outline" className="cursor-default font-normal tabular-nums">
-                        {attachedDags.length}
-                      </Badge>
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-xs">
-                      {attachedDags.map((d) => d.displayName || d.dagId).join(", ")}
-                    </TooltipContent>
-                  </Tooltip>
-                )}
-              </div>
-              <div className="flex justify-end">
-                <LuxiaEntityOptionsMenu
-                  entityLabel={row.key}
-                  entityType="variable"
-                  ariaLabel={`Actions for ${row.key}`}
-                  items={[
-                    {
-                      id: "edit",
-                      label: "Edit variable",
-                      onSelect: () => onEdit(row),
-                    },
-                    {
-                      id: "delete",
-                      label: "Delete variable",
-                      destructive: true,
-                      separatorBefore: true,
-                      onSelect: () => onDelete(row),
-                    },
-                  ]}
+              <div>
+                <AdminTableCountMeta
+                  count={attachedDags.length}
+                  tooltip={
+                    dagTooltip
+                      ? `${dagTooltip}: ${attachedDags.map((d) => d.displayName || d.dagId).join(", ")}`
+                      : undefined
+                  }
                 />
               </div>
+              <AdminTableInlineActions>
+                <AdminTableIconAction
+                  label="Edit variable"
+                  onClick={() => onEdit(row)}
+                >
+                  <PencilLine size={16} strokeWidth={1.75} aria-hidden />
+                </AdminTableIconAction>
+                <AdminTableIconAction
+                  label="Delete variable"
+                  destructive
+                  onClick={() => onDelete(row)}
+                >
+                  <Trash2 size={16} strokeWidth={1.75} aria-hidden />
+                </AdminTableIconAction>
+              </AdminTableInlineActions>
             </AdminTableRow>
           );
         })}

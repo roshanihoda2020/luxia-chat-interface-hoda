@@ -1,6 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link2, Link2Off, Plus } from "lucide-react";
-import { Badge } from "@/app/components/ui/badge";
 import { Button } from "@/app/components/ui/button";
 import {
   Dialog,
@@ -10,8 +9,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/app/components/ui/dialog";
+import { cn } from "@/app/components/ui/utils";
 import { ADMIN_VARIABLE_TYPE_LABELS } from "./format";
+import { AdminTableStatusMeta, AdminTableTypeMeta } from "./adminTable";
 import type { AdminDagMapping, AdminVariableDeclaration } from "./types";
+
+export const MANAGE_VARIABLES_DIALOG_FOCUS_ID = "admin-manage-variables-dialog";
 
 export interface ManageVariablesDialogProps {
   open: boolean;
@@ -20,6 +23,13 @@ export interface ManageVariablesDialogProps {
   projectName: string;
   /** Variables declared for the same org + project only. */
   projectVariables: AdminVariableDeclaration[];
+  /** Briefly emphasize a newly created variable row. */
+  highlightVariableId?: string | null;
+  /**
+   * When New Variable is open above this dialog: keep the context visible but
+   * inactive (no focus trap / no Escape close / no pointer interaction).
+   */
+  suspended?: boolean;
   onOpenChange: (open: boolean) => void;
   onAttach: (variableId: string) => Promise<void>;
   onDetach: (variableId: string) => Promise<void>;
@@ -39,12 +49,25 @@ export function ManageVariablesDialog({
   organizationName,
   projectName,
   projectVariables,
+  highlightVariableId = null,
+  suspended = false,
   onOpenChange,
   onAttach,
   onDetach,
   onCreateVariable,
 }: ManageVariablesDialogProps) {
   const [busyId, setBusyId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open || !highlightVariableId) return;
+    const frame = window.requestAnimationFrame(() => {
+      const row = document.querySelector(
+        `[data-highlighted="true"][role="row"]`,
+      );
+      row?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [open, highlightVariableId, projectVariables]);
 
   const rows = useMemo(() => {
     if (!mapping) return [];
@@ -71,18 +94,47 @@ export function ManageVariablesDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[min(92vh,42rem)] w-[min(100%,42rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
+    <Dialog
+      open={open}
+      modal={!suspended}
+      onOpenChange={(next) => {
+        // Child New Variable owns Escape / outside dismiss while suspended.
+        if (suspended && !next) return;
+        onOpenChange(next);
+      }}
+    >
+      <DialogContent
+        id={MANAGE_VARIABLES_DIALOG_FOCUS_ID}
+        tabIndex={-1}
+        aria-hidden={suspended || undefined}
+        overlayClassName={
+          suspended ? "pointer-events-none opacity-40" : undefined
+        }
+        className={cn(
+          "flex max-h-[min(92vh,42rem)] w-[min(100%,42rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl outline-none",
+          suspended && "pointer-events-none",
+        )}
+        {...(suspended ? ({ inert: "" } as Record<string, string>) : {})}
+        onEscapeKeyDown={(event) => {
+          if (suspended) event.preventDefault();
+        }}
+        onPointerDownOutside={(event) => {
+          if (suspended) event.preventDefault();
+        }}
+        onInteractOutside={(event) => {
+          if (suspended) event.preventDefault();
+        }}
+        onOpenAutoFocus={(event) => {
+          // Avoid stealing focus when returning from New Variable.
+          if (suspended) event.preventDefault();
+        }}
+      >
         <DialogHeader className="shrink-0 space-y-1 text-left">
           <DialogTitle>Manage variables</DialogTitle>
           <DialogDescription asChild>
-            <div className="space-y-1">
-              <p className="luxia-type-body-dense text-[var(--luxia-purple-10)]">
-                Attach declared variables from this project to{" "}
-                <span className="font-medium text-[var(--luxia-text-inverse)]">
-                  {pipelineLabel}
-                </span>
-                .
+            <div className="space-y-0.5">
+              <p className="luxia-type-body-dense font-medium text-[var(--luxia-text-inverse)]">
+                {pipelineLabel}
               </p>
               <p className="luxia-type-caption text-[var(--luxia-purple-20)] opacity-90">
                 {organizationName} · {projectName}
@@ -99,13 +151,12 @@ export function ManageVariablesDialog({
                 No variables available
               </p>
               <p className="max-w-md luxia-type-body-small text-[var(--luxia-text-secondary)]">
-                Declare a variable for this project before attaching it to this pipeline.
+                Declare a variable for this project first.
               </p>
               <Button
                 type="button"
                 size="sm"
                 onClick={() => {
-                  onOpenChange(false);
                   onCreateVariable();
                 }}
               >
@@ -119,7 +170,6 @@ export function ManageVariablesDialog({
               role="table"
               aria-label="Project variables"
             >
-              {/* Sticky header while the variable list scrolls */}
               <div
                 className="sticky top-0 z-[1] hidden border-b border-[var(--luxia-border-subtle)] bg-[var(--luxia-settings-section-bg)] px-3.5 py-2 sm:grid sm:items-center sm:gap-x-3"
                 style={{ gridTemplateColumns: DESKTOP_COLS }}
@@ -167,7 +217,14 @@ export function ManageVariablesDialog({
                     <div
                       key={variable.id}
                       role="row"
-                      className="border-b border-[var(--luxia-border-subtle)] px-3.5 py-3 last:border-b-0 hover:bg-[var(--luxia-surface-subtle)] sm:grid sm:items-center sm:gap-x-3"
+                      data-highlighted={
+                        highlightVariableId === variable.id ? "true" : undefined
+                      }
+                      className={
+                        highlightVariableId === variable.id
+                          ? "border-b border-[var(--luxia-border-subtle)] bg-[var(--luxia-surface-subtle)] px-3.5 py-3 last:border-b-0 sm:grid sm:items-center sm:gap-x-3"
+                          : "border-b border-[var(--luxia-border-subtle)] px-3.5 py-3 last:border-b-0 hover:bg-[var(--luxia-surface-subtle)] sm:grid sm:items-center sm:gap-x-3"
+                      }
                       style={{ gridTemplateColumns: DESKTOP_COLS }}
                     >
                       <div className="min-w-0" role="cell">
@@ -191,12 +248,7 @@ export function ManageVariablesDialog({
                           <span className="luxia-type-caption text-[var(--luxia-text-muted)] sm:hidden">
                             Type:
                           </span>
-                          <Badge
-                            variant="secondary"
-                            className="h-6 max-w-full truncate px-2 font-normal text-[var(--luxia-text-secondary)]"
-                          >
-                            {typeLabel}
-                          </Badge>
+                          <AdminTableTypeMeta label={typeLabel} />
                         </div>
                       </div>
 
@@ -205,16 +257,11 @@ export function ManageVariablesDialog({
                           <span className="luxia-type-caption text-[var(--luxia-text-muted)] sm:hidden">
                             Status:
                           </span>
-                          <Badge
-                            variant={attached ? "default" : "outline"}
-                            className={
-                              attached
-                                ? "h-6 border border-[var(--luxia-settings-tab-active-border)] bg-[var(--luxia-settings-tab-active-bg)] px-2 font-normal text-[var(--luxia-settings-tab-active-text)] hover:bg-[var(--luxia-settings-tab-active-bg)]"
-                                : "h-6 px-2 font-normal text-[var(--luxia-text-secondary)]"
-                            }
+                          <AdminTableStatusMeta
+                            tone={attached ? "success" : "neutral"}
                           >
                             {attached ? "Attached" : "Not attached"}
-                          </Badge>
+                          </AdminTableStatusMeta>
                         </div>
                       </div>
 
@@ -262,7 +309,11 @@ export function ManageVariablesDialog({
           )}
         </div>
 
-        <DialogFooter className="shrink-0 border-t border-[var(--luxia-border-subtle)] px-6 py-4 sm:justify-end">
+        <DialogFooter className="shrink-0 border-t border-[var(--luxia-border-subtle)] px-6 py-4 sm:justify-between">
+          <Button type="button" variant="outline" size="sm" onClick={onCreateVariable}>
+            <Plus size={14} strokeWidth={2} aria-hidden className="shrink-0" />
+            New variable
+          </Button>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Done
           </Button>

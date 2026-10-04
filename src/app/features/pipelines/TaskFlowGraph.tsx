@@ -1,24 +1,20 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
   type WheelEvent as ReactWheelEvent,
 } from "react";
 import {
-  AlertCircle,
-  Check,
-  Circle,
-  Clock,
   Maximize2,
   Minus,
   Plus,
   RotateCcw,
-  TriangleAlert,
 } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
 import { Badge } from "@/app/components/ui/badge";
 import { Button } from "@/app/components/ui/button";
 import {
@@ -26,16 +22,26 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/app/components/ui/tooltip";
+import { cn } from "@/app/components/ui/utils";
 import {
   formatTaskDuration,
   formatTaskStatusLabel,
+  PIPELINE_COMPACT_STATUS_BADGE_CLASS,
   pipelineStatusBadgeVariant,
   pipelineTaskStatusBadgeClass,
 } from "./format";
 import {
+  TASK_FLOW_CANVAS_DOT,
+  TASK_FLOW_NODE_SHADOW,
+  resolveTaskTypeIcon,
+  taskFlowNodeVisual,
+  taskFlowSelectedVisual,
+} from "./taskFlowNodeVisuals";
+import {
   layoutTaskGraph,
   TASK_GRAPH_NODE_SIZE,
 } from "./taskGraphLayout";
+import { PipelineTaskStatusBadgeIcon } from "./taskStatusIcons";
 import type { PipelineTaskRecord, PipelineTaskStatus } from "./types";
 
 export interface TaskFlowGraphProps {
@@ -44,23 +50,20 @@ export interface TaskFlowGraphProps {
   onSelectTask: (taskId: string) => void;
 }
 
-const STATUS_ICON: Record<PipelineTaskStatus, LucideIcon> = {
-  success: Check,
-  running: Circle,
-  failed: TriangleAlert,
-  queued: Clock,
-  skipped: Minus,
-  upstream_failed: AlertCircle,
-};
-
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 1.75;
-/** Lower bound when the graph exceeds the viewport on Fit (large DAGs). */
 const FIT_MIN_ZOOM = 0.62;
+const FIT_MAX_ZOOM = 1.45;
 const ZOOM_STEP = 1.15;
 const PAN_CLICK_THRESHOLD_PX = 5;
-const VIEWPORT_MIN_PX = 280;
-const VIEWPORT_MAX_CSS = "min(36rem, 65vh)";
+const VIEWPORT_MIN_PX = 176;
+const VIEWPORT_MAX_CSS = "min(30rem, 54vh)";
+const VIEWPORT_GRAPH_PAD_PX = 36;
+const VIEWPORT_CONTROLS_RESERVE_PX = 40;
+
+const EDGE_STROKE = "var(--luxia-neutral-600)";
+const EDGE_STROKE_FAILED =
+  "color-mix(in srgb, var(--luxia-error) 22%, var(--luxia-neutral-600))";
 
 type PanState = { x: number; y: number };
 
@@ -73,6 +76,12 @@ export function TaskFlowGraph({
   const { width: nw, height: nh } = TASK_GRAPH_NODE_SIZE;
   const canvasW = Math.max(layout.width, 280);
   const canvasH = Math.max(layout.height, 96);
+
+  const statusByKey = useMemo(() => {
+    const map = new Map<string, PipelineTaskStatus>();
+    for (const task of tasks) map.set(task.taskKey, task.status);
+    return map;
+  }, [tasks]);
 
   const viewportRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
@@ -89,25 +98,36 @@ export function TaskFlowGraph({
   } | null>(null);
 
   const measureViewportHeight = useCallback(() => {
-    const maxPx = Math.min(36 * 16, Math.round(window.innerHeight * 0.65));
-    const padY = 40;
-    const contentSized = canvasH * 1.05 + padY;
-    const next = Math.min(Math.max(contentSized, VIEWPORT_MIN_PX), maxPx);
+    const maxPx = Math.min(28 * 16, Math.round(window.innerHeight * 0.52));
+    const padY = VIEWPORT_GRAPH_PAD_PX + VIEWPORT_CONTROLS_RESERVE_PX;
+    const contentSized = canvasH + padY;
+    const widthGuess =
+      viewportRef.current?.clientWidth
+      ?? Math.min(window.innerWidth - 64, 1200);
+    const widthDrivenZoom = Math.min(
+      FIT_MAX_ZOOM,
+      Math.max(1, (widthGuess - 48) / Math.max(canvasW, 1)),
+    );
+    const widthDrivenH = Math.round(canvasH * widthDrivenZoom + padY);
+    const next = Math.min(
+      maxPx,
+      Math.max(VIEWPORT_MIN_PX, contentSized, Math.min(widthDrivenH, maxPx)),
+    );
     setViewportPx(next);
-  }, [canvasH]);
+  }, [canvasH, canvasW]);
 
   const applyFit = useCallback(() => {
     const viewport = viewportRef.current;
     if (!viewport) return;
-    const pad = 20;
-    const availW = Math.max(80, viewport.clientWidth - pad * 2);
-    const availH = Math.max(80, viewport.clientHeight - pad * 2);
+    const padX = 20;
+    const padTop = 16;
+    const padBottom = 16 + VIEWPORT_CONTROLS_RESERVE_PX;
+    const availW = Math.max(80, viewport.clientWidth - padX * 2);
+    const availH = Math.max(80, viewport.clientHeight - padTop - padBottom);
 
-    const fits =
-      canvasW <= availW && canvasH <= availH;
-    let nextZoom = Math.min(availW / canvasW, availH / canvasH, 1);
-    if (fits) {
-      nextZoom = 1;
+    let nextZoom = Math.min(availW / canvasW, availH / canvasH);
+    if (nextZoom >= 1) {
+      nextZoom = Math.min(nextZoom, FIT_MAX_ZOOM);
     } else if (canvasW < 520 && canvasH < 320) {
       nextZoom = Math.max(0.82, nextZoom);
     } else {
@@ -119,9 +139,10 @@ export function TaskFlowGraph({
     const contentH = canvasH * nextZoom;
     userAdjustedRef.current = false;
     setZoom(nextZoom);
+    const usableH = viewport.clientHeight - VIEWPORT_CONTROLS_RESERVE_PX;
     setPan({
       x: (viewport.clientWidth - contentW) / 2,
-      y: (viewport.clientHeight - contentH) / 2,
+      y: Math.max(padTop, (usableH - contentH) / 2),
     });
   }, [canvasW, canvasH]);
 
@@ -134,9 +155,10 @@ export function TaskFlowGraph({
       return;
     }
     setZoom(1);
+    const usableH = viewport.clientHeight - VIEWPORT_CONTROLS_RESERVE_PX;
     setPan({
       x: (viewport.clientWidth - canvasW) / 2,
-      y: (viewport.clientHeight - canvasH) / 2,
+      y: Math.max(12, (usableH - canvasH) / 2),
     });
   }, [canvasW, canvasH]);
 
@@ -260,9 +282,7 @@ export function TaskFlowGraph({
     setIsPanning(false);
     try {
       event.currentTarget.releasePointerCapture(event.pointerId);
-    } catch {
-      // Already released.
-    }
+    } catch {}
   }
 
   function handleWheel(event: ReactWheelEvent<HTMLDivElement>) {
@@ -299,8 +319,11 @@ export function TaskFlowGraph({
         height: viewportPx,
         maxHeight: VIEWPORT_MAX_CSS,
         borderColor: "var(--luxia-border-default)",
-        background:
-          "linear-gradient(180deg, var(--luxia-opacity-purple-04, rgba(118,82,196,0.04)) 0%, var(--luxia-surface) 48%)",
+        backgroundColor:
+          "color-mix(in srgb, var(--luxia-neutral-50) 80%, var(--luxia-surface))",
+        backgroundImage: TASK_FLOW_CANVAS_DOT,
+        backgroundSize: "14px 14px",
+        boxShadow: "var(--luxia-shadow-xs)",
         // Prevent transformed canvas from expanding ancestor scrollHeight.
         contain: "paint",
         overflow: "clip",
@@ -326,39 +349,71 @@ export function TaskFlowGraph({
           <defs>
             <marker
               id="pipelines-task-arrow"
-              markerWidth="8"
-              markerHeight="8"
-              refX="7"
-              refY="4"
+              markerWidth="9"
+              markerHeight="9"
+              refX="7.5"
+              refY="4.5"
               orient="auto"
               markerUnits="userSpaceOnUse"
             >
               <path
-                d="M0,0.75 L6.5,4 L0,7.25 Z"
-                fill="var(--luxia-text-muted, #6B7280)"
-                fillOpacity={0.85}
+                d="M0.5,0.6 L7.2,4.5 L0.5,8.4 Z"
+                fill={EDGE_STROKE}
+                fillOpacity={0.95}
+              />
+            </marker>
+            <marker
+              id="pipelines-task-arrow-failed"
+              markerWidth="9"
+              markerHeight="9"
+              refX="7.5"
+              refY="4.5"
+              orient="auto"
+              markerUnits="userSpaceOnUse"
+            >
+              <path
+                d="M0.5,0.6 L7.2,4.5 L0.5,8.4 Z"
+                fill={EDGE_STROKE_FAILED}
+                fillOpacity={0.95}
               />
             </marker>
           </defs>
           <g transform={`translate(${pan.x}, ${pan.y}) scale(${zoom})`}>
-            {layout.edges.map((edge) => (
-              <path
-                key={`${edge.fromKey}-${edge.toKey}`}
-                d={edgePath(edge.x1, edge.y1, edge.x2, edge.y2)}
-                fill="none"
-                stroke="var(--luxia-text-muted, #6B7280)"
-                strokeWidth={1.5 / zoom}
-                strokeOpacity={0.55}
-                markerEnd="url(#pipelines-task-arrow)"
-              />
-            ))}
+            {layout.edges.map((edge) => {
+              const targetStatus = statusByKey.get(edge.toKey);
+              const failedBranch =
+                targetStatus === "failed"
+                || targetStatus === "upstream_failed";
+              return (
+                <path
+                  key={`${edge.fromKey}-${edge.toKey}`}
+                  d={edgePath(edge.x1, edge.y1, edge.x2, edge.y2)}
+                  fill="none"
+                  stroke={failedBranch ? EDGE_STROKE_FAILED : EDGE_STROKE}
+                  strokeWidth={2 / zoom}
+                  strokeOpacity={failedBranch ? 0.9 : 0.86}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  markerEnd={
+                    failedBranch
+                      ? "url(#pipelines-task-arrow-failed)"
+                      : "url(#pipelines-task-arrow)"
+                  }
+                />
+              );
+            })}
           </g>
         </svg>
 
         {layout.nodes.map((node) => {
           const selected = node.task.id === selectedTaskId;
           const statusLabel = formatTaskStatusLabel(node.task.status);
-          const StatusIcon = STATUS_ICON[node.task.status];
+          const TaskTypeIcon = resolveTaskTypeIcon(
+            node.task.taskKey,
+            node.task.name,
+          );
+          const visual = taskFlowNodeVisual(node.task.status);
+          const selectedVisual = taskFlowSelectedVisual(node.task.status);
           const duration =
             node.task.status === "running" && node.task.durationSeconds == null
               ? "…"
@@ -376,6 +431,15 @@ export function TaskFlowGraph({
           ].filter(Boolean);
           const nodeW = nw * zoom;
           const nodeH = nh * zoom;
+          const idleBorder = visual.border;
+          const selectedBorder = selectedVisual.border;
+          const idleShadow = TASK_FLOW_NODE_SHADOW;
+          const nodeStyle: CSSProperties = {
+            background: selected ? selectedVisual.background : visual.background,
+            borderColor: selected ? selectedBorder : idleBorder,
+            borderWidth: selected ? 2 : 1,
+            boxShadow: selected ? selectedVisual.elevation : idleShadow,
+          };
 
           return (
             <div
@@ -390,62 +454,65 @@ export function TaskFlowGraph({
             >
               <button
                 type="button"
-                className="box-border flex h-full w-full cursor-pointer flex-col justify-center gap-1 rounded-[10px] border px-2.5 py-1.5 text-left outline-none transition-[border-color,background-color,box-shadow] focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)] focus-visible:ring-offset-1"
-                style={{
-                  background: selected
-                    ? "var(--luxia-opacity-purple-08)"
-                    : "var(--luxia-surface)",
-                  borderColor: selected
-                    ? "var(--luxia-purple-40)"
-                    : "var(--luxia-border-default)",
-                  boxShadow: selected
-                    ? "0 0 0 1px var(--luxia-purple-40)"
-                    : "none",
-                }}
+                className="box-border flex h-full w-full min-w-0 cursor-pointer items-center gap-2 rounded-[10px] border px-2 py-1.5 text-left outline-none transition-[border-color,background-color,box-shadow] focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)] focus-visible:ring-offset-1"
+                style={nodeStyle}
                 aria-pressed={selected}
                 aria-label={ariaParts.join(", ")}
                 onClick={() => onSelectTask(node.task.id)}
                 onMouseEnter={(event) => {
                   if (selected) return;
                   event.currentTarget.style.borderColor =
-                    "var(--luxia-border-strong)";
+                    "var(--luxia-neutral-400)";
+                  event.currentTarget.style.boxShadow =
+                    "0 2px 4px rgba(15, 23, 42, 0.08)";
                 }}
                 onMouseLeave={(event) => {
-                  if (selected) return;
-                  event.currentTarget.style.borderColor =
-                    "var(--luxia-border-default)";
+                  event.currentTarget.style.borderColor = selected
+                    ? selectedBorder
+                    : idleBorder;
+                  event.currentTarget.style.boxShadow = selected
+                    ? selectedVisual.elevation
+                    : idleShadow;
                 }}
               >
                 <span
-                  className="block truncate luxia-type-body-dense-strong"
-                  style={{ color: "var(--luxia-text-primary)" }}
+                  className="inline-flex size-7 shrink-0 items-center justify-center rounded-[8px]"
+                  style={{
+                    background: visual.iconSurface,
+                    color: visual.iconColor,
+                  }}
+                  aria-hidden
                 >
-                  {node.task.name}
+                  <TaskTypeIcon size={14} strokeWidth={2} />
                 </span>
-                <span className="flex min-w-0 items-center gap-1.5">
+                <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span className="flex min-w-0 items-start justify-between gap-2">
+                    <span
+                      className="min-w-0 truncate luxia-type-body-dense-strong"
+                      style={{ color: "var(--luxia-text-primary)" }}
+                    >
+                      {node.task.name}
+                    </span>
+                    {duration ? (
+                      <span
+                        className="shrink-0 pt-0.5 tabular-nums luxia-type-caption"
+                        style={{ color: "var(--luxia-text-secondary)" }}
+                      >
+                        {duration}
+                      </span>
+                    ) : null}
+                  </span>
                   <Badge
                     variant={pipelineStatusBadgeVariant(node.task.status)}
-                    className={`min-h-0 max-w-full gap-0.5 px-1.5 py-0 luxia-type-caption [&>svg]:size-[11px] ${
-                      pipelineTaskStatusBadgeClass(node.task.status) ?? ""
-                    }`}
+                    className={cn(
+                      "w-fit max-w-full",
+                      PIPELINE_COMPACT_STATUS_BADGE_CLASS,
+                      pipelineTaskStatusBadgeClass(node.task.status),
+                    )}
                   >
-                    <StatusIcon
-                      aria-hidden
-                      strokeWidth={2.25}
-                      fill={
-                        node.task.status === "running" ? "currentColor" : "none"
-                      }
-                    />
+                    <PipelineTaskStatusBadgeIcon status={node.task.status} />
                     <span className="truncate">{statusLabel}</span>
                   </Badge>
-                  {duration ? (
-                    <span
-                      className="shrink-0 tabular-nums luxia-type-caption"
-                      style={{ color: "var(--luxia-text-muted)" }}
-                    >
-                      {duration}
-                    </span>
-                  ) : null}
                 </span>
               </button>
             </div>
@@ -454,13 +521,13 @@ export function TaskFlowGraph({
       </div>
 
       <div
-        className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-[var(--luxia-surface)] to-transparent opacity-70"
-        aria-hidden
-      />
-
-      <div
-        className="absolute bottom-3 right-3 z-10 flex items-center gap-1 rounded-[10px] border bg-[var(--luxia-surface)] p-1 shadow-[0_1px_2px_rgba(28,19,54,0.06)]"
-        style={{ borderColor: "var(--luxia-border-default)" }}
+        className="absolute bottom-2.5 right-2.5 z-10 flex h-8 items-center gap-0.5 rounded-[var(--luxia-radius-8)] border px-0.5 backdrop-blur-[2px]"
+        style={{
+          borderColor: "var(--luxia-border-default)",
+          background:
+            "color-mix(in srgb, var(--luxia-surface) 88%, transparent)",
+          boxShadow: "var(--luxia-shadow-xs)",
+        }}
         role="toolbar"
         aria-label="Graph navigation"
       >
@@ -469,10 +536,10 @@ export function TaskFlowGraph({
           onClick={() => zoomBy(1 / ZOOM_STEP)}
           disabled={zoom <= MIN_ZOOM + 0.001}
         >
-          <Minus size={14} aria-hidden />
+          <Minus size={14} strokeWidth={2} aria-hidden />
         </GraphControlButton>
         <span
-          className="min-w-[2.75rem] text-center tabular-nums luxia-type-caption"
+          className="min-w-[2.75rem] select-none text-center tabular-nums luxia-type-caption"
           style={{ color: "var(--luxia-text-secondary)" }}
           aria-live="polite"
         >
@@ -483,13 +550,18 @@ export function TaskFlowGraph({
           onClick={() => zoomBy(ZOOM_STEP)}
           disabled={zoom >= MAX_ZOOM - 0.001}
         >
-          <Plus size={14} aria-hidden />
+          <Plus size={14} strokeWidth={2} aria-hidden />
         </GraphControlButton>
+        <span
+          className="mx-0.5 h-4 w-px shrink-0"
+          style={{ background: "var(--luxia-border-default)" }}
+          aria-hidden
+        />
         <GraphControlButton label="Fit to view" onClick={applyFit}>
-          <Maximize2 size={14} aria-hidden />
+          <Maximize2 size={13} strokeWidth={2} aria-hidden />
         </GraphControlButton>
-        <GraphControlButton label="Reset to 100%" onClick={resetZoom}>
-          <RotateCcw size={14} aria-hidden />
+        <GraphControlButton label="Reset view" onClick={resetZoom}>
+          <RotateCcw size={13} strokeWidth={2} aria-hidden />
         </GraphControlButton>
       </div>
     </div>
@@ -514,7 +586,7 @@ function GraphControlButton({
           type="button"
           variant="ghost"
           size="iconCompact"
-          className="pointer-events-auto size-7"
+          className="pointer-events-auto size-7 shrink-0 text-[var(--luxia-text-secondary)] hover:bg-[var(--luxia-neutral-100)] hover:text-[var(--luxia-text-primary)] focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]"
           aria-label={label}
           disabled={disabled}
           onClick={onClick}
@@ -537,11 +609,12 @@ function clamp(value: number, min: number, max: number): number {
  */
 function edgePath(x1: number, y1: number, x2: number, y2: number): string {
   const dx = x2 - x1;
-  const midX = x1 + Math.max(18, dx * 0.45);
+  // Hold the vertical jog near mid-gap so fan-out / join stems align cleanly.
+  const midX = x1 + Math.max(24, dx * 0.5);
   if (Math.abs(y2 - y1) < 1) {
     return `M ${x1} ${y1} H ${x2}`;
   }
-  const r = Math.min(10, Math.abs(y2 - y1) / 2, Math.abs(x2 - midX) / 2);
+  const r = Math.min(12, Math.abs(y2 - y1) / 2, Math.abs(x2 - midX) / 2);
   if (y2 > y1) {
     return [
       `M ${x1} ${y1}`,

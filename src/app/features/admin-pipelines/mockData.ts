@@ -15,35 +15,33 @@ import type {
 const NOW = "2026-09-28T14:22:00.000Z";
 const EARLIER = "2026-09-12T09:10:00.000Z";
 
-/** Long org list to exercise searchable selectors. */
 export const ADMIN_ORGANIZATIONS: AdminOrganization[] = [
-  { id: "org-luxia", name: "Luxia Demo Organization" },
-  { id: "org-northstar", name: "Northstar Retail" },
-  { id: "org-harbor", name: "Harbor Logistics" },
-  { id: "org-lumen", name: "Lumen Health" },
-  { id: "org-vertex", name: "Vertex Manufacturing" },
-  { id: "org-cascade", name: "Cascade Finance" },
-  { id: "org-pinnacle", name: "Pinnacle Media" },
-  { id: "org-orbit", name: "Orbit Mobility" },
-  { id: "org-cedar", name: "Cedar Insurance" },
-  { id: "org-quartz", name: "Quartz Energy" },
-  { id: "org-summit", name: "Summit Education" },
-  { id: "org-river", name: "Riverbank Banking" },
-  { id: "org-atlas", name: "Atlas Public Sector" },
-  { id: "org-nova", name: "Nova Biotech" },
-  { id: "org-ember", name: "Ember Hospitality" },
-  { id: "org-empty", name: "Empty Projects Org" },
+  { id: "org-luxia", name: "Organization name 01" },
+  { id: "org-northstar", name: "Organization name 02" },
+  { id: "org-harbor", name: "Organization name 03" },
+  { id: "org-lumen", name: "Organization name 04" },
+  { id: "org-vertex", name: "Organization name 05" },
+  { id: "org-cascade", name: "Organization name 06" },
+  { id: "org-pinnacle", name: "Organization name 07" },
+  { id: "org-orbit", name: "Organization name 08" },
+  { id: "org-cedar", name: "Organization name 09" },
+  { id: "org-quartz", name: "Organization name 10" },
+  { id: "org-summit", name: "Organization name 11" },
+  { id: "org-river", name: "Organization name 12" },
+  { id: "org-atlas", name: "Organization name 13" },
+  { id: "org-nova", name: "Organization name 14" },
+  { id: "org-ember", name: "Organization name 15" },
+  { id: "org-empty", name: "Organization name 16" },
   {
     id: "org-fail",
-    name: "Tenant DB Unreachable Org",
+    name: "Organization name 17",
     projectsLoadFails: true,
   },
-  { id: "org-willow", name: "Willow Agriculture" },
-  { id: "org-prism", name: "Prism Telecom" },
-  { id: "org-forge", name: "Forge Industrial" },
+  { id: "org-willow", name: "Organization name 18" },
+  { id: "org-prism", name: "Organization name 19" },
+  { id: "org-forge", name: "Organization name 20" },
 ];
 
-/** Customer-linked projects use the same ids as Project Pipelines. */
 export const ADMIN_PROJECTS: AdminProject[] = [
   {
     id: "project-01",
@@ -87,16 +85,16 @@ export const ADMIN_PROJECTS: AdminProject[] = [
     active: true,
     customerLinked: true,
   },
-  { id: "proj-north-sales", organizationId: "org-northstar", name: "Sales Intelligence", active: true },
-  { id: "proj-north-inventory", organizationId: "org-northstar", name: "Inventory Sync", active: true },
-  { id: "proj-harbor-fleet", organizationId: "org-harbor", name: "Fleet Tracking", active: true },
-  { id: "proj-harbor-yard", organizationId: "org-harbor", name: "Yard Operations", active: true },
-  { id: "proj-lumen-claims", organizationId: "org-lumen", name: "Claims Analytics", active: true },
-  { id: "proj-cascade-fraud", organizationId: "org-cascade", name: "Fraud Monitoring", active: true },
-  { id: "proj-vertex-plant", organizationId: "org-vertex", name: "Plant Telemetry", active: true },
-  { id: "proj-orbit-trips", organizationId: "org-orbit", name: "Trip Analytics", active: true },
-  { id: "proj-willow-yield", organizationId: "org-willow", name: "Yield Insights", active: true },
-  { id: "proj-forge-oee", organizationId: "org-forge", name: "OEE Monitoring", active: true },
+  { id: "proj-north-sales", organizationId: "org-northstar", name: "Project name 07", active: true },
+  { id: "proj-north-inventory", organizationId: "org-northstar", name: "Project name 08", active: true },
+  { id: "proj-harbor-fleet", organizationId: "org-harbor", name: "Project name 09", active: true },
+  { id: "proj-harbor-yard", organizationId: "org-harbor", name: "Project name 10", active: true },
+  { id: "proj-lumen-claims", organizationId: "org-lumen", name: "Project name 11", active: true },
+  { id: "proj-cascade-fraud", organizationId: "org-cascade", name: "Project name 12", active: true },
+  { id: "proj-vertex-plant", organizationId: "org-vertex", name: "Project name 13", active: true },
+  { id: "proj-orbit-trips", organizationId: "org-orbit", name: "Project name 14", active: true },
+  { id: "proj-willow-yield", organizationId: "org-willow", name: "Project name 15", active: true },
+  { id: "proj-forge-oee", organizationId: "org-forge", name: "Project name 16", active: true },
 ];
 
 export const ADMIN_AIRFLOW_DAGS: AdminAirflowDag[] = [
@@ -164,7 +162,7 @@ export const ADMIN_AIRFLOW_VARIABLES: AdminAirflowVariable[] = [
   { key: "inventory.wms.endpoint", description: "WMS API endpoint hostname." },
   { key: "fleet.gps.api_token", description: "GPS provider token (sensitive in Airflow)." },
   { key: "fraud.stream.topic", description: "Kafka topic for fraud features." },
-  { key: "undeclared.sandbox.flag", description: "Sandbox flag not declared in Luxia." },
+  { key: "undeclared.sandbox.flag", description: "Sandbox flag with no Luxia declaration yet." },
   { key: "undeclared.ops.notify_email", description: "Ops notify email (metadata only)." },
   { key: "undeclared.secret.api_key", description: "Airflow secret key — never show value." },
 ];
@@ -174,7 +172,8 @@ export function createInitialDagMappings(): AdminDagMapping[] {
     {
       id: "map-finance-p01",
       dagId: "finance_daily_refresh",
-      displayName: "Finance daily refresh",
+      displayName: "Pipeline name 06",
+      description: "Refreshes the finance dataset for Project 01.",
       organizationId: "org-luxia",
       projectId: "project-01",
       documentationUrl: "https://docs.example.com/pipelines/finance-daily",
@@ -187,7 +186,8 @@ export function createInitialDagMappings(): AdminDagMapping[] {
     {
       id: "map-customer-p02",
       dagId: "customer_360_sync",
-      displayName: "Customer 360 sync",
+      displayName: "Pipeline name 08",
+      description: "Builds the Customer 360 dataset for Project 02.",
       organizationId: "org-luxia",
       projectId: "project-02",
       documentationUrl: null,
@@ -200,7 +200,8 @@ export function createInitialDagMappings(): AdminDagMapping[] {
     {
       id: "map-inventory-north",
       dagId: "inventory_delta_load",
-      displayName: "Inventory delta load",
+      displayName: "Pipeline name 09",
+      description: "Loads inventory deltas for the mapped tenant project.",
       organizationId: "org-northstar",
       projectId: "proj-north-inventory",
       documentationUrl: null,
@@ -213,7 +214,8 @@ export function createInitialDagMappings(): AdminDagMapping[] {
     {
       id: "map-inventory-p01",
       dagId: "inventory_delta_load",
-      displayName: "WMS inventory sync",
+      displayName: "Pipeline name 07",
+      description: "Synchronizes warehouse inventory data for Project 01.",
       organizationId: "org-luxia",
       projectId: "project-01",
       documentationUrl: "https://docs.example.com/pipelines/wms-inventory",
@@ -226,7 +228,8 @@ export function createInitialDagMappings(): AdminDagMapping[] {
     {
       id: "map-fraud-cascade",
       dagId: "fraud_stream_features",
-      displayName: "Fraud stream features",
+      displayName: "Pipeline name 10",
+      description: "Produces fraud-stream features used by downstream risk workflows.",
       organizationId: "org-cascade",
       projectId: "proj-cascade-fraud",
       documentationUrl: null,

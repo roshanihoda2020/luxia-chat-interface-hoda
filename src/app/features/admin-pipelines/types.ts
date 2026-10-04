@@ -3,7 +3,6 @@
  * Prototype-only; values never talk to Airflow from the browser.
  */
 
-/** Backend-compatible action keys. UI labels live in format.ts. */
 export type AdminDagActionKey = "trigger" | "clear_task" | "update_variables";
 
 export type AdminVariableType = "text" | "number" | "boolean" | "select";
@@ -42,7 +41,10 @@ export interface AdminDagMapping {
   /** Luxia mapping UUID (maps to :dagUuid in API). */
   id: string;
   dagId: string;
+  /** Required Luxia customer-facing Pipeline title. Never fall back to dagId for customers. */
   displayName: string;
+  /** Optional Luxia customer-facing Pipeline description. */
+  description: string | null;
   organizationId: string;
   projectId: string;
   documentationUrl: string | null;
@@ -61,6 +63,8 @@ export interface AdminVariableDeclaration {
   type: AdminVariableType;
   sensitive: boolean;
   allowedValues?: string[];
+  /** Optional richer select metadata (value + display label). */
+  selectOptions?: Array<{ value: string; label: string }>;
   organizationId: string;
   projectId: string;
   createdAt: string;
@@ -109,6 +113,7 @@ export function parseAdminPipelinesTab(
 export interface AdminDagMappingInput {
   dagId: string;
   displayName: string;
+  description: string;
   organizationId: string;
   projectId: string;
   documentationUrl: string;
@@ -123,6 +128,7 @@ export interface AdminVariableInput {
   type: AdminVariableType;
   sensitive: boolean;
   allowedValues: string[];
+  selectOptions?: Array<{ value: string; label: string }>;
   organizationId: string;
   projectId: string;
 }

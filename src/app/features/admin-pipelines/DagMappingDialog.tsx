@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
 import { Button } from "@/app/components/ui/button";
 import { Checkbox } from "@/app/components/ui/checkbox";
 import {
@@ -10,11 +10,13 @@ import {
   DialogTitle,
 } from "@/app/components/ui/dialog";
 import { Input } from "@/app/components/ui/input";
+import { Textarea } from "@/app/components/ui/textarea";
 import { SearchableSelect } from "@/app/components/ui/searchable-select";
 import { getProjectConstellations } from "@/app/features/constellation";
 import {
-  ADMIN_DAG_ACTION_HELPERS,
   ADMIN_DAG_ACTION_LABELS,
+  ADMIN_PIPELINE_DESCRIPTION_MAX,
+  ADMIN_PIPELINE_DISPLAY_NAME_MAX,
   isValidHttpUrl,
 } from "./format";
 import { DiscardAdminChangesDialog } from "./DiscardAdminChangesDialog";
@@ -52,6 +54,30 @@ function normalizeConstellation(value: string | null | undefined): string {
   return value && value.trim() ? value.trim() : NONE_CONSTELLATION;
 }
 
+function MappingSection({
+  title,
+  cue,
+  children,
+}: {
+  title: string;
+  cue?: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="space-y-3">
+      <header className="space-y-0.5 border-b border-[var(--luxia-border-subtle)] pb-2">
+        <h3 className="luxia-type-body-small font-semibold text-[var(--luxia-text-primary)]">
+          {title}
+        </h3>
+        {cue ? (
+          <p className="luxia-type-caption text-[var(--luxia-text-muted)]">{cue}</p>
+        ) : null}
+      </header>
+      <div className="space-y-4">{children}</div>
+    </section>
+  );
+}
+
 export interface DagMappingDialogProps {
   open: boolean;
   mode: "create" | "edit";
@@ -87,6 +113,7 @@ export function DagMappingDialog({
   const [organizationId, setOrganizationId] = useState("");
   const [projectId, setProjectId] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [description, setDescription] = useState("");
   const [documentationUrl, setDocumentationUrl] = useState("");
   const [constellationId, setConstellationId] = useState(NONE_CONSTELLATION);
   const [enabledActions, setEnabledActions] = useState<AdminDagActionKey[]>(EMPTY_ACTIONS);
@@ -101,10 +128,10 @@ export function DagMappingDialog({
       organizationId: mapping.organizationId,
       projectId: mapping.projectId,
       displayName: mapping.displayName,
+      description: mapping.description ?? "",
       documentationUrl: mapping.documentationUrl ?? "",
       constellationId: normalizeConstellation(mapping.constellationId),
       enabledActions: [...mapping.enabledActions],
-      attachedVariableIds: [...mapping.attachedVariableIds],
       dagId: mapping.dagId,
     };
   }, [mode, mapping]);
@@ -115,9 +142,8 @@ export function DagMappingDialog({
       setDagId(mapping.dagId);
       setOrganizationId(mapping.organizationId);
       setProjectId(mapping.projectId);
-      setDisplayName(
-        mapping.displayName === mapping.dagId ? "" : mapping.displayName,
-      );
+      setDisplayName(mapping.displayName);
+      setDescription(mapping.description ?? "");
       setDocumentationUrl(mapping.documentationUrl ?? "");
       setConstellationId(normalizeConstellation(mapping.constellationId));
       setEnabledActions([...mapping.enabledActions]);
@@ -127,6 +153,7 @@ export function DagMappingDialog({
       setOrganizationId("");
       setProjectId("");
       setDisplayName("");
+      setDescription("");
       setDocumentationUrl("");
       setConstellationId(NONE_CONSTELLATION);
       setEnabledActions(["trigger", "update_variables"]);
@@ -152,6 +179,9 @@ export function DagMappingDialog({
     () => airflowDags.find((dag) => dag.dagId === dagId) ?? null,
     [airflowDags, dagId],
   );
+
+  const airflowDescription = selectedAirflowDag?.description?.trim() || "";
+  const hasAirflowDescription = Boolean(airflowDescription);
 
   const dagOptions = useMemo(
     () =>
@@ -183,39 +213,43 @@ export function DagMappingDialog({
   const projectReady = Boolean(projectId) && projectsLoad.status === "ready";
   const urlInvalid =
     documentationUrl.trim().length > 0 && !isValidHttpUrl(documentationUrl.trim());
+  const displayNameTrimmed = displayName.trim();
+  const displayNameMissing = !displayNameTrimmed;
+  const displayNameTooLong = displayName.length > ADMIN_PIPELINE_DISPLAY_NAME_MAX;
+  const descriptionTooLong = description.length > ADMIN_PIPELINE_DESCRIPTION_MAX;
+
   const requiredOk = Boolean(
-    dagId && organizationId && projectId && projectsLoad.status === "ready",
+    dagId
+    && organizationId
+    && projectId
+    && projectsLoad.status === "ready"
+    && displayNameTrimmed
+    && !displayNameTooLong
+    && !descriptionTooLong,
   );
 
-  const effectiveDisplayName = displayName.trim() || dagId;
   const effectiveDocs = documentationUrl.trim();
   const effectiveConstellation = constellationId;
+  const effectiveDescription = description;
 
   const isDirty = useMemo(() => {
     if (!baseline) return true;
+    // Placement (org/project) is immutable in edit mode — omit from dirty checks.
     return (
-      organizationId !== baseline.organizationId
-      || projectId !== baseline.projectId
-      || effectiveDisplayName !== (baseline.displayName.trim() || baseline.dagId)
+      displayNameTrimmed !== baseline.displayName.trim()
+      || effectiveDescription !== baseline.description
       || effectiveDocs !== baseline.documentationUrl.trim()
       || effectiveConstellation !== baseline.constellationId
       || sortActions(enabledActions) !== sortActions(baseline.enabledActions)
     );
   }, [
     baseline,
-    organizationId,
-    projectId,
-    effectiveDisplayName,
+    displayNameTrimmed,
+    effectiveDescription,
     effectiveDocs,
     effectiveConstellation,
     enabledActions,
   ]);
-
-  const projectChangedFromOriginal =
-    Boolean(baseline)
-    && Boolean(projectId)
-    && projectId !== baseline!.projectId
-    && baseline!.attachedVariableIds.length > 0;
 
   const canSubmit =
     requiredOk
@@ -226,25 +260,12 @@ export function DagMappingDialog({
   function handleOrganizationChange(next: string) {
     setOrganizationId(next);
     onOrganizationChange(next);
-    if (baseline && next === baseline.organizationId) {
-      setProjectId(baseline.projectId);
-      setConstellationId(baseline.constellationId);
-      return;
-    }
     setProjectId("");
     setConstellationId(NONE_CONSTELLATION);
   }
 
   function handleProjectChange(next: string) {
     setProjectId(next);
-    if (
-      baseline
-      && organizationId === baseline.organizationId
-      && next === baseline.projectId
-    ) {
-      setConstellationId(baseline.constellationId);
-      return;
-    }
     setConstellationId(NONE_CONSTELLATION);
   }
 
@@ -255,13 +276,34 @@ export function DagMappingDialog({
     });
   }
 
+  function useAirflowDescription() {
+    if (!hasAirflowDescription) return;
+    const next =
+      airflowDescription.length > ADMIN_PIPELINE_DESCRIPTION_MAX
+        ? airflowDescription.slice(0, ADMIN_PIPELINE_DESCRIPTION_MAX)
+        : airflowDescription;
+    setDescription(next);
+  }
+
   function requestClose() {
     if (saving) return;
     if (mode === "edit" && isDirty) {
       setDiscardOpen(true);
       return;
     }
-    if (mode === "create" && isDirty && (dagId || organizationId || projectId || displayName.trim() || documentationUrl.trim() || constellationId !== NONE_CONSTELLATION)) {
+    if (
+      mode === "create"
+      && isDirty
+      && (
+        dagId
+        || organizationId
+        || projectId
+        || displayName.trim()
+        || description.trim()
+        || documentationUrl.trim()
+        || constellationId !== NONE_CONSTELLATION
+      )
+    ) {
       setDiscardOpen(true);
       return;
     }
@@ -275,7 +317,8 @@ export function DagMappingDialog({
     setSubmitError(null);
     const result = await onSubmit({
       dagId,
-      displayName: displayName.trim(),
+      displayName: displayNameTrimmed,
+      description: description.trim(),
       organizationId,
       projectId,
       documentationUrl: documentationUrl.trim(),
@@ -301,6 +344,13 @@ export function DagMappingDialog({
     constellationPlaceholder = "No constellations available";
   }
 
+  const airflowStatusLabel =
+    selectedAirflowDag?.status === "paused"
+      ? "Paused"
+      : selectedAirflowDag
+        ? "Active"
+        : "—";
+
   return (
     <>
       <Dialog
@@ -314,182 +364,232 @@ export function DagMappingDialog({
             <DialogTitle>
               {mode === "edit" ? "Edit DAG mapping" : "New DAG mapping"}
             </DialogTitle>
-            <DialogDescription>
-              {mode === "edit"
-                ? "Update how this Airflow DAG appears in the customer Project Pipelines view."
-                : "Map an Airflow DAG to a tenant project so customers can see and run it."}
+            <DialogDescription className="sr-only">
+              Map an Airflow DAG to a Project.
             </DialogDescription>
           </DialogHeader>
 
           <div
             id={formId}
-            className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-4 luxia-scrollbar"
+            className="min-h-0 flex-1 space-y-6 overflow-y-auto px-6 py-4 luxia-scrollbar"
           >
-            {mode === "edit" ? (
-              <ReadOnlyField
-                id={`${formId}-dag`}
-                label="DAG ID"
-                value={dagId}
-                required
-                secondary={selectedAirflowDag?.description ?? undefined}
-                helper="DAG ID cannot change after mapping is created."
-              />
-            ) : (
-              <div>
-                <FieldLabel htmlFor={`${formId}-dag`} required>
-                  DAG ID
-                </FieldLabel>
-                <SearchableSelect
+            <MappingSection title="Pipeline identity" cue="Airflow · read-only">
+              {mode === "edit" ? (
+                <ReadOnlyField
                   id={`${formId}-dag`}
+                  label="DAG ID"
                   value={dagId}
-                  onValueChange={setDagId}
-                  options={dagOptions}
-                  placeholder="Select Airflow DAG"
-                  searchPlaceholder="Search DAG IDs…"
-                  emptyText="No Airflow DAGs available"
-                  noResultsText="No matching DAGs"
+                  required
+                  mono
+                  helper="Cannot change after mapping."
                 />
-                {prefillDagId ? (
-                  <FieldHelper>Prefilled from Airflow inventory.</FieldHelper>
-                ) : (
-                  <FieldHelper>
-                    Choose from the live Airflow inventory available to Luxia.
-                  </FieldHelper>
-                )}
-                {touched && !dagId ? <FieldError>DAG ID is required.</FieldError> : null}
-              </div>
-            )}
-
-            <OrganizationSelect
-              id={`${formId}-org`}
-              value={organizationId}
-              organizations={organizations}
-              onChange={handleOrganizationChange}
-            />
-            {touched && !organizationId ? (
-              <FieldError>Organization is required.</FieldError>
-            ) : null}
-
-            <ProjectSelect
-              id={`${formId}-project`}
-              value={projectId}
-              onChange={handleProjectChange}
-              projects={projects}
-              projectsLoad={projectsLoad}
-              organizationSelected={Boolean(organizationId)}
-            />
-            {touched && organizationId && !projectId && projectsLoad.status === "ready" ? (
-              <FieldError>Project is required.</FieldError>
-            ) : null}
-
-            {projectChangedFromOriginal ? (
-              <div
-                className="rounded-[var(--luxia-radius-8)] border border-[var(--luxia-warning-border,rgba(180,120,20,0.35))] bg-[var(--luxia-warning-soft,rgba(255,200,80,0.12))] px-3 py-2.5"
-                role="status"
-              >
-                <p className="luxia-type-body-small font-medium text-[var(--luxia-text-primary)]">
-                  Changing the project will detach attached variables
-                </p>
-                <p className="mt-1 luxia-type-caption text-[var(--luxia-text-secondary)]">
-                  {baseline!.attachedVariableIds.length} variable
-                  {baseline!.attachedVariableIds.length === 1 ? "" : "s"} currently
-                  attached to this mapping will be removed when you save. Re-attach them
-                  from Manage variables after saving if needed.
-                </p>
-              </div>
-            ) : null}
-
-            <div>
-              <FieldLabel htmlFor={`${formId}-name`}>Display name</FieldLabel>
-              <Input
-                id={`${formId}-name`}
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                placeholder={dagId || "Optional customer-facing name"}
-                autoComplete="off"
-              />
-              <FieldHelper>
-                Optional. If blank, customers see the DAG ID as the pipeline name.
-              </FieldHelper>
-            </div>
-
-            <div>
-              <FieldLabel htmlFor={`${formId}-docs`}>Documentation URL</FieldLabel>
-              <Input
-                id={`${formId}-docs`}
-                value={documentationUrl}
-                onChange={(e) => setDocumentationUrl(e.target.value)}
-                placeholder="https://"
-                inputMode="url"
-                type="url"
-                autoComplete="off"
-                name={`${formId}-documentation-url`}
-                aria-invalid={urlInvalid || undefined}
-              />
-              {urlInvalid ? (
-                <FieldError>Enter a valid http(s) URL.</FieldError>
               ) : (
-                <FieldHelper>Optional link shown to customers.</FieldHelper>
+                <div>
+                  <FieldLabel htmlFor={`${formId}-dag`} required>
+                    DAG ID
+                  </FieldLabel>
+                  <SearchableSelect
+                    id={`${formId}-dag`}
+                    value={dagId}
+                    onValueChange={setDagId}
+                    options={dagOptions}
+                    placeholder="Select Airflow DAG"
+                    searchPlaceholder="Search DAG IDs…"
+                    emptyText="No Airflow DAGs available"
+                    noResultsText="No matching DAGs"
+                  />
+                  {touched && !dagId ? <FieldError>DAG ID is required.</FieldError> : null}
+                </div>
               )}
-            </div>
 
-            <div>
-              <FieldLabel htmlFor={`${formId}-constellation`}>Constellation</FieldLabel>
-              <SearchableSelect
-                id={`${formId}-constellation`}
-                value={constellationId}
-                onValueChange={setConstellationId}
-                options={[
-                  { value: NONE_CONSTELLATION, label: "No constellation" },
-                  ...constellationOptions,
-                ]}
-                placeholder={constellationPlaceholder}
-                searchPlaceholder="Search constellations…"
-                emptyText="No constellations available"
-                noResultsText="No matching constellations"
-                disabled={constellationDisabled}
-                clearValue={NONE_CONSTELLATION}
-                clearAriaLabel="Clear selection"
+              <div>
+                <FieldLabel>Airflow description</FieldLabel>
+                <div
+                  className="rounded-[var(--luxia-radius-8)] border border-[var(--luxia-border-subtle)] bg-[var(--luxia-settings-section-bg)] px-3.5 py-2.5"
+                  role="text"
+                  aria-readonly="true"
+                >
+                  <p className="luxia-type-body-small text-[var(--luxia-text-secondary)]">
+                    {hasAirflowDescription
+                      ? airflowDescription
+                      : dagId
+                        ? "No description from Airflow"
+                        : "Select a DAG to see its Airflow description."}
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <FieldLabel>Airflow status</FieldLabel>
+                <div
+                  className="flex h-10 min-h-10 items-center rounded-[var(--luxia-radius-8)] border border-[var(--luxia-border-subtle)] bg-[var(--luxia-settings-section-bg)] px-3.5 luxia-type-body-small font-medium text-[var(--luxia-text-primary)]"
+                  role="text"
+                  aria-readonly="true"
+                >
+                  {airflowStatusLabel}
+                </div>
+                <FieldHelper>Not controlled in Luxia.</FieldHelper>
+              </div>
+            </MappingSection>
+
+            <MappingSection title="Customer-facing information">
+              <div>
+                <FieldLabel htmlFor={`${formId}-name`} required>
+                  Display name
+                </FieldLabel>
+                <Input
+                  id={`${formId}-name`}
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  placeholder="e.g. Pipeline name 01"
+                  autoComplete="off"
+                  maxLength={ADMIN_PIPELINE_DISPLAY_NAME_MAX}
+                  aria-invalid={
+                    (touched && displayNameMissing) || displayNameTooLong || undefined
+                  }
+                />
+                {touched && displayNameMissing ? (
+                  <FieldError>Display name is required.</FieldError>
+                ) : null}
+                {displayNameTooLong ? (
+                  <FieldError>
+                    Display name must be {ADMIN_PIPELINE_DISPLAY_NAME_MAX} characters or fewer.
+                  </FieldError>
+                ) : null}
+              </div>
+
+              <div>
+                <FieldLabel htmlFor={`${formId}-desc`}>Description</FieldLabel>
+                <Textarea
+                  id={`${formId}-desc`}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Optional"
+                  rows={3}
+                  maxLength={ADMIN_PIPELINE_DESCRIPTION_MAX}
+                  aria-invalid={descriptionTooLong || undefined}
+                />
+                {hasAirflowDescription ? (
+                  <div className="mt-1.5">
+                    <button
+                      type="button"
+                      className="luxia-type-caption font-medium text-[var(--luxia-purple-60)] underline-offset-2 hover:underline"
+                      onClick={useAirflowDescription}
+                    >
+                      Use Airflow description
+                    </button>
+                  </div>
+                ) : null}
+                {descriptionTooLong ? (
+                  <FieldError>
+                    Description must be {ADMIN_PIPELINE_DESCRIPTION_MAX} characters or fewer.
+                  </FieldError>
+                ) : null}
+              </div>
+
+              <div>
+                <FieldLabel htmlFor={`${formId}-docs`}>Documentation URL</FieldLabel>
+                <Input
+                  id={`${formId}-docs`}
+                  value={documentationUrl}
+                  onChange={(e) => setDocumentationUrl(e.target.value)}
+                  placeholder="https://"
+                  inputMode="url"
+                  type="url"
+                  autoComplete="off"
+                  name={`${formId}-documentation-url`}
+                  aria-invalid={urlInvalid || undefined}
+                />
+                {urlInvalid ? (
+                  <FieldError>Enter a valid http(s) URL.</FieldError>
+                ) : null}
+              </div>
+            </MappingSection>
+
+            <MappingSection title="Project placement">
+              <OrganizationSelect
+                id={`${formId}-org`}
+                value={organizationId}
+                organizations={organizations}
+                onChange={handleOrganizationChange}
+                locked={mode === "edit"}
+                lockedHelper=""
               />
-              <FieldHelper>
-                Optional. Clear selection or choose “No constellation”.
-              </FieldHelper>
-            </div>
+              {mode === "create" && touched && !organizationId ? (
+                <FieldError>Organization is required.</FieldError>
+              ) : null}
 
-            <fieldset className="space-y-2.5">
-              <legend className="mb-1 luxia-type-caption font-medium text-[var(--luxia-text-secondary)]">
-                Enabled actions
-              </legend>
-              <FieldHelper>
-                Controls what customers with write access can do for this mapping.
-              </FieldHelper>
-              {ALL_ACTIONS.map((key) => {
-                const checked = enabledActions.includes(key);
-                const checkboxId = `${formId}-action-${key}`;
-                return (
-                  <label
-                    key={key}
-                    htmlFor={checkboxId}
-                    className="flex cursor-pointer items-start gap-2.5 rounded-[var(--luxia-radius-8)] border border-[var(--luxia-border-subtle)] px-3 py-2.5 hover:bg-[var(--luxia-surface-subtle)] focus-within:ring-2 focus-within:ring-[var(--luxia-opacity-brand-secondary-32)]"
-                  >
-                    <Checkbox
-                      id={checkboxId}
-                      checked={checked}
-                      onCheckedChange={(next) => toggleAction(key, next === true)}
-                      className="mt-0.5"
-                    />
-                    <span className="min-w-0">
-                      <span className="block luxia-type-body-small font-medium text-[var(--luxia-text-primary)]">
+              <ProjectSelect
+                id={`${formId}-project`}
+                value={projectId}
+                onChange={handleProjectChange}
+                projects={projects}
+                projectsLoad={projectsLoad}
+                organizationSelected={Boolean(organizationId)}
+                locked={mode === "edit"}
+                lockedHelper=""
+              />
+              {mode === "create"
+              && touched
+              && organizationId
+              && !projectId
+              && projectsLoad.status === "ready" ? (
+                <FieldError>Project is required.</FieldError>
+              ) : null}
+
+              {mode === "edit" ? (
+                <FieldHelper>
+                  Placement cannot be changed after mapping. To use this DAG in another
+                  Project, create another mapping.
+                </FieldHelper>
+              ) : null}
+
+              <div>
+                <FieldLabel htmlFor={`${formId}-constellation`}>Constellation</FieldLabel>
+                <SearchableSelect
+                  id={`${formId}-constellation`}
+                  value={constellationId}
+                  onValueChange={setConstellationId}
+                  options={[
+                    { value: NONE_CONSTELLATION, label: "No constellation" },
+                    ...constellationOptions,
+                  ]}
+                  placeholder={constellationPlaceholder}
+                  searchPlaceholder="Search constellations…"
+                  emptyText="No constellations available"
+                  noResultsText="No matching constellations"
+                  disabled={constellationDisabled}
+                  clearValue={NONE_CONSTELLATION}
+                  clearAriaLabel="Clear selection"
+                />
+              </div>
+            </MappingSection>
+
+            <MappingSection title="Customer capabilities">
+              <fieldset className="space-y-2.5">
+                <legend className="sr-only">Enabled actions</legend>
+                {ALL_ACTIONS.map((key) => {
+                  const checked = enabledActions.includes(key);
+                  const checkboxId = `${formId}-action-${key}`;
+                  return (
+                    <label
+                      key={key}
+                      htmlFor={checkboxId}
+                      className="flex cursor-pointer items-center gap-2.5 rounded-[var(--luxia-radius-8)] border border-[var(--luxia-border-subtle)] px-3 py-2.5 hover:bg-[var(--luxia-surface-subtle)] focus-within:ring-2 focus-within:ring-[var(--luxia-opacity-brand-secondary-32)]"
+                    >
+                      <Checkbox
+                        id={checkboxId}
+                        checked={checked}
+                        onCheckedChange={(next) => toggleAction(key, next === true)}
+                      />
+                      <span className="luxia-type-body-small font-medium text-[var(--luxia-text-primary)]">
                         {ADMIN_DAG_ACTION_LABELS[key]}
                       </span>
-                      <span className="block luxia-type-caption text-[var(--luxia-text-muted)]">
-                        {ADMIN_DAG_ACTION_HELPERS[key]}
-                      </span>
-                    </span>
-                  </label>
-                );
-              })}
-            </fieldset>
+                    </label>
+                  );
+                })}
+              </fieldset>
+            </MappingSection>
 
             {submitError ? <FieldError>{submitError}</FieldError> : null}
           </div>

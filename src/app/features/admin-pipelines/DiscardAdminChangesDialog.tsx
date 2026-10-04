@@ -9,7 +9,6 @@ import {
   AlertDialogTitle,
 } from "@/app/components/ui/alert-dialog";
 
-/** Reuses the established Luxia discard-changes confirmation pattern. */
 export function DiscardAdminChangesDialog({
   open,
   onOpenChange,

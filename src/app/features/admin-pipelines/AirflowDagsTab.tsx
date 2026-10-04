@@ -1,20 +1,35 @@
-import { Badge } from "@/app/components/ui/badge";
-import { Button } from "@/app/components/ui/button";
 import { ResultsCount } from "@/app/features/home/browserShared";
 import type { AdminAirflowDag, AdminAirflowLoadState, AdminDagMapping } from "./types";
 import {
+  ADMIN_COL_ID,
+  ADMIN_COL_META,
+  ADMIN_COL_STATUS_META,
+  ADMIN_COL_TEXT,
+  ADMIN_TABLE_MIN_WIDTH_INVENTORY,
+  ADMIN_TABLE_ROW_ACTION_COL,
   AdminEmptyState,
   AdminErrorState,
   AdminLoadingState,
+  isAirflowInventoryEmpty,
+  AdminTableBadgeCell,
   AdminTableHeader,
   AdminTableHeaderCell,
   AdminTableRow,
+  AdminTableRowAction,
+  AdminTableRowActionCell,
+  AdminTableRowActionHeaderCell,
   AdminTableShell,
+  AdminTableStatusMeta,
   AdminTruncateText,
 } from "./adminTable";
 
-const COLS =
-  "minmax(9rem,1.4fr) minmax(10rem,2fr) 5.5rem minmax(6rem,1fr) minmax(8rem,auto)";
+const COLS = [
+  ADMIN_COL_ID,
+  ADMIN_COL_TEXT,
+  ADMIN_COL_META,
+  ADMIN_COL_STATUS_META,
+  ADMIN_TABLE_ROW_ACTION_COL,
+].join(" ");
 
 export function AirflowDagsTab({
   dags,
@@ -32,28 +47,33 @@ export function AirflowDagsTab({
   onRetry: () => void;
 }) {
   if (airflowState === "loading") {
-    return <AdminLoadingState label="Loading Airflow DAG inventory…" />;
+    return <AdminLoadingState label="Loading Airflow DAGs…" />;
   }
 
   if (airflowState === "unavailable") {
     return (
       <AdminErrorState
         title="Airflow inventory unavailable"
-        description="Luxia could not reach the Airflow inventory service. Browser clients never talk to Airflow directly — retry when the admin API is healthy."
+        description={
+          <>
+            <p>
+              DAG inventory couldn&apos;t be loaded from Airflow via Luxia. Browser clients
+              never talk to Airflow directly — retry when the admin API is healthy.
+            </p>
+          </>
+        }
         action={
-          <Button type="button" size="sm" variant="outline" onClick={onRetry}>
-            Retry
-          </Button>
+          <AdminTableRowAction onClick={onRetry}>Retry</AdminTableRowAction>
         }
       />
     );
   }
 
-  if (airflowState === "empty" || dags.length === 0) {
+  if (isAirflowInventoryEmpty(airflowState, dags.length)) {
     return (
       <AdminEmptyState
         title="No Airflow DAGs discovered"
-        description="When Airflow reports DAGs to Luxia, they appear here for mapping into tenant projects."
+        description="When Airflow reports DAGs to Luxia, they’ll appear here so you can map them to tenant projects."
       />
     );
   }
@@ -72,7 +92,7 @@ export function AirflowDagsTab({
     return (
       <AdminEmptyState
         title="No unmapped DAGs"
-        description="Every discovered DAG already has at least one tenant mapping. Turn off the filter to review mapped inventory."
+        description="All discovered Airflow DAGs are already mapped. Turn off “Show only unmapped” to review the full inventory."
       />
     );
   }
@@ -86,13 +106,13 @@ export function AirflowDagsTab({
       <ResultsCount>
         {rows.length} {rows.length === 1 ? "DAG" : "DAGs"}
       </ResultsCount>
-      <AdminTableShell columns={COLS} minWidth="52rem">
+      <AdminTableShell columns={COLS} minWidth={ADMIN_TABLE_MIN_WIDTH_INVENTORY}>
         <AdminTableHeader>
           <AdminTableHeaderCell>DAG ID</AdminTableHeaderCell>
           <AdminTableHeaderCell>Description</AdminTableHeaderCell>
           <AdminTableHeaderCell>Status</AdminTableHeaderCell>
           <AdminTableHeaderCell>Mapping</AdminTableHeaderCell>
-          <AdminTableHeaderCell className="text-right">Action</AdminTableHeaderCell>
+          <AdminTableRowActionHeaderCell>Action</AdminTableRowActionHeaderCell>
         </AdminTableHeader>
         {rows.map((dag) => {
           const count = counts.get(dag.dagId) ?? 0;
@@ -115,35 +135,35 @@ export function AirflowDagsTab({
                   </span>
                 )}
               </div>
-              <div>
-                <Badge
-                  variant={dag.status === "active" ? "default" : "secondary"}
-                  className="font-normal capitalize"
+              <AdminTableBadgeCell>
+                <AdminTableStatusMeta
+                  tone={dag.status === "active" ? "success" : "warning"}
+                  title={dag.status === "active" ? "Active in Airflow" : "Paused in Airflow"}
                 >
                   {dag.status === "active" ? "Active" : "Paused"}
-                </Badge>
-              </div>
-              <div>
+                </AdminTableStatusMeta>
+              </AdminTableBadgeCell>
+              <AdminTableBadgeCell>
                 {mapped ? (
-                  <Badge variant="outline" className="font-normal">
+                  <AdminTableStatusMeta
+                    tone="config"
+                    title={
+                      count === 1
+                        ? "Mapped to one tenant project"
+                        : `Mapped to ${count} tenant projects`
+                    }
+                  >
                     {count === 1 ? "Mapped" : `Mapped ×${count}`}
-                  </Badge>
+                  </AdminTableStatusMeta>
                 ) : (
-                  <Badge variant="secondary" className="font-normal">
-                    Unmapped
-                  </Badge>
+                  <AdminTableStatusMeta tone="neutral">Unmapped</AdminTableStatusMeta>
                 )}
-              </div>
-              <div className="flex justify-end">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => onMapToProject(dag.dagId)}
-                >
+              </AdminTableBadgeCell>
+              <AdminTableRowActionCell>
+                <AdminTableRowAction onClick={() => onMapToProject(dag.dagId)}>
                   {mapped ? "Map to another project" : "Map to project"}
-                </Button>
-              </div>
+                </AdminTableRowAction>
+              </AdminTableRowActionCell>
             </AdminTableRow>
           );
         })}

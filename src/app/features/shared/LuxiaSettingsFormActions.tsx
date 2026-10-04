@@ -5,6 +5,7 @@ import { LUXIA_PAGE_HEADER_ACTION } from "@/app/components/LuxiaPageHeader";
 import {
   LUXIA_DIRTY_STATE_COPY,
   LUXIA_SETTINGS_FORM_ACTIONS_CLASS,
+  LUXIA_SETTINGS_FORM_ACTIONS_FLUSH_CLASS,
   LUXIA_SETTINGS_ROW_DIVIDER,
 } from "@/app/features/shared/luxiaSettingsUx";
 
@@ -12,6 +13,9 @@ import {
  * Local FORM/DRAFT Save|Cancel footer inside a Settings content frame.
  * Order: Cancel (secondary) → Save (primary, rightmost).
  * Reserved geometry: always render the row when `visible`; disable Save when clean.
+ *
+ * Use `flush` when the parent is a flush (`is-flush`) content surface so the
+ * footer supplies its own horizontal/bottom inset (padded surfaces already do).
  */
 export function LuxiaSettingsFormActions({
   dirty,
@@ -24,6 +28,7 @@ export function LuxiaSettingsFormActions({
   leading,
   className,
   divided = true,
+  flush = false,
   saveDisabled = false,
 }: {
   dirty: boolean;
@@ -36,6 +41,8 @@ export function LuxiaSettingsFormActions({
   leading?: ReactNode;
   className?: string;
   divided?: boolean;
+  /** Footer inset for flush list cards — does not change padded-surface defaults. */
+  flush?: boolean;
   /** Extra Save disable (e.g. invalid draft). Cancel still shows when dirty. */
   saveDisabled?: boolean;
 }) {
@@ -43,7 +50,11 @@ export function LuxiaSettingsFormActions({
 
   return (
     <div
-      className={cn(LUXIA_SETTINGS_FORM_ACTIONS_CLASS, className)}
+      className={cn(
+        LUXIA_SETTINGS_FORM_ACTIONS_CLASS,
+        flush && LUXIA_SETTINGS_FORM_ACTIONS_FLUSH_CLASS,
+        className,
+      )}
       style={divided ? LUXIA_SETTINGS_ROW_DIVIDER : undefined}
       role="group"
       aria-label="Settings form actions"

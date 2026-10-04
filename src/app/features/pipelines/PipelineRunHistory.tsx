@@ -1,14 +1,5 @@
 import { useMemo } from "react";
 import {
-  AlertCircle,
-  Check,
-  Circle,
-  Clock,
-  Minus,
-  TriangleAlert,
-} from "lucide-react";
-import type { LucideIcon } from "lucide-react";
-import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -16,6 +7,13 @@ import {
 import { LuxiaPipelineIcon } from "@/assets/icons";
 import { LUXIA_SETTINGS_CONTENT_SURFACE_CLASS } from "@/app/features/shared/luxiaSettingsUx";
 import { formatPipelineDuration } from "./format";
+import {
+  PIPELINE_LATEST_SURFACE,
+  PIPELINE_MATRIX_ROW_DIVIDER,
+  PIPELINE_MATRIX_TASK_EDGE,
+  PIPELINE_TABLE_HEADER_SURFACE,
+  PIPELINE_TASK_SELECTED,
+} from "./pipelinesLayout";
 import {
   RUN_HISTORY_MAX_COLUMNS,
   buildRunHistoryColumns,
@@ -26,6 +24,11 @@ import {
   type RunHistoryCell,
   type RunHistoryColumn,
 } from "./runHistory";
+import {
+  resolveTaskTypeIcon,
+  taskFlowNodeVisual,
+} from "./taskFlowNodeVisuals";
+import { PIPELINE_TASK_STATUS_ICON } from "./taskStatusIcons";
 import type {
   PipelineRunRecord,
   PipelineTaskRecord,
@@ -39,38 +42,32 @@ import {
 const SURFACE = `${LUXIA_SETTINGS_CONTENT_SURFACE_CLASS} is-flush`;
 
 /**
- * Content-driven surface: override settings panel `width: 100%` so the card
- * sizes to Task + run columns instead of stretching across the page.
+ * Content-driven surface: sizes to Task + run columns instead of stretching
+ * across the full page. Caps at 100% so wide matrices scroll internally.
  */
 const SURFACE_WIDTH_CLASS = "w-fit max-w-full min-w-[18rem]";
 
-/** ~88px run columns — fixed size; do not grow with spare page width. */
-const RUN_COL_PX = 88;
-const RUN_COL_CLASS = "w-[88px] min-w-[88px] max-w-[96px]";
-
-/** ~160px task column — fits “Quality check”. */
-const TASK_COL_PX = 160;
+const TASK_COL_PX = 200;
 const TASK_COL_CLASS =
-  "sticky left-0 z-[2] w-[160px] min-w-[160px] max-w-[170px] bg-white";
+  "sticky left-0 z-[2] w-[200px] min-w-[200px] max-w-[212px]";
 
-const LATEST_TINT =
-  "var(--luxia-opacity-purple-04, rgba(118,82,196,0.04))";
+const TASK_COL_SURFACE =
+  "color-mix(in srgb, var(--luxia-neutral-50) 48%, var(--luxia-surface))";
+
+const TASK_COL_HEADER_SURFACE =
+  "color-mix(in srgb, var(--luxia-neutral-50) 78%, var(--luxia-surface))";
+
+function runColumnWidthPx(columnCount: number): number {
+  if (columnCount <= 3) return 120;
+  if (columnCount <= 6) return 112;
+  return 104;
+}
 
 export interface PipelineRunHistoryProps {
   runs: PipelineRunRecord[];
   tasks: PipelineTaskRecord[];
-  /** Opens Run Detail; optional taskKey focuses a task when already supported. */
   onOpenRun: (runId: string, taskKey?: string) => void;
 }
-
-const STATUS_ICON: Record<PipelineTaskStatus, LucideIcon> = {
-  success: Check,
-  running: Circle,
-  failed: TriangleAlert,
-  queued: Clock,
-  skipped: Minus,
-  upstream_failed: AlertCircle,
-};
 
 const LEGEND_STATES: PipelineTaskStatus[] = [
   "success",
@@ -103,6 +100,7 @@ export function PipelineRunHistory({
     [columns, tasks],
   );
   const summary = summarizeRunHistory(runs, RUN_HISTORY_MAX_COLUMNS);
+  const runColPx = runColumnWidthPx(columns.length);
 
   const failedTaskByRun = useMemo(() => {
     const map = new Map<string, PipelineTaskRecord>();
@@ -127,12 +125,13 @@ export function PipelineRunHistory({
   if (runs.length === 0) {
     return (
       <div
-        className={`${SURFACE_WIDTH_CLASS} rounded-[var(--luxia-radius-12)] border bg-white px-5 py-8 text-center`}
+        className={`${SURFACE_WIDTH_CLASS} overflow-hidden rounded-[var(--luxia-radius-12)] border bg-white px-5 py-8 text-center`}
         style={{
           borderColor: "var(--luxia-border-default)",
           width: "fit-content",
           minWidth: "min(100%, 22rem)",
           maxWidth: "100%",
+          boxShadow: PIPELINE_TASK_SELECTED.panelElevation,
         }}
         role="status"
       >
@@ -162,6 +161,39 @@ export function PipelineRunHistory({
       </div>
     );
   }
+
+  if (rows.length === 0) {
+    return (
+      <div
+        className={`${SURFACE_WIDTH_CLASS} overflow-hidden rounded-[var(--luxia-radius-12)] border bg-white px-5 py-8 text-center`}
+        style={{
+          borderColor: "var(--luxia-border-default)",
+          width: "fit-content",
+          minWidth: "min(100%, 22rem)",
+          maxWidth: "100%",
+          boxShadow: PIPELINE_TASK_SELECTED.panelElevation,
+        }}
+        role="status"
+      >
+        <p
+          className="luxia-type-body-dense-strong"
+          style={{ color: "var(--luxia-text-primary)" }}
+        >
+          No task history available
+        </p>
+        <p
+          className="mx-auto mt-1 max-w-sm luxia-type-body-dense"
+          style={{ color: "var(--luxia-text-muted)" }}
+        >
+          Recent runs exist, but task-level history is not available for this
+          pipeline yet.
+        </p>
+      </div>
+    );
+  }
+
+  const tableWidth = TASK_COL_PX + columns.length * runColPx;
+  const lastRowIndex = rows.length - 1;
 
   return (
     <div className="space-y-2.5">
@@ -201,22 +233,30 @@ export function PipelineRunHistory({
       </div>
 
       <div
-        className={`${SURFACE_WIDTH_CLASS} ${SURFACE}`}
-        style={{ width: "fit-content", maxWidth: "100%" }}
+        className={`${SURFACE_WIDTH_CLASS} ${SURFACE} overflow-hidden`}
+        style={{
+          width: "fit-content",
+          maxWidth: "100%",
+          borderColor: "var(--luxia-border-default)",
+          boxShadow: PIPELINE_TASK_SELECTED.panelElevation,
+          background: "var(--luxia-surface)",
+        }}
       >
         <div className="max-w-full overflow-x-auto">
           <table
-            className="border-collapse text-left"
+            className="border-separate text-left"
             style={{
-              width: TASK_COL_PX + columns.length * RUN_COL_PX,
+              width: tableWidth,
+              minWidth: tableWidth,
               tableLayout: "fixed",
+              borderSpacing: 0,
             }}
             aria-label="Task health across recent runs"
           >
             <colgroup>
               <col style={{ width: TASK_COL_PX }} />
               {columns.map((column) => (
-                <col key={column.run.id} style={{ width: RUN_COL_PX }} />
+                <col key={column.run.id} style={{ width: runColPx }} />
               ))}
             </colgroup>
             <thead>
@@ -224,10 +264,12 @@ export function PipelineRunHistory({
                 <th
                   scope="col"
                   rowSpan={2}
-                  className={`${TASK_COL_CLASS} px-3.5 pb-2 pt-3 text-left align-bottom luxia-type-caption`}
+                  className={`${TASK_COL_CLASS} px-4 pt-5 text-left align-middle luxia-type-table-header-dense`}
                   style={{
                     color: "var(--luxia-text-muted)",
-                    boxShadow: "1px 0 0 var(--luxia-settings-row-divider)",
+                    background: TASK_COL_HEADER_SURFACE,
+                    borderBottom: PIPELINE_MATRIX_ROW_DIVIDER,
+                    boxShadow: PIPELINE_MATRIX_TASK_EDGE,
                   }}
                 >
                   Task
@@ -237,19 +279,19 @@ export function PipelineRunHistory({
                     key={`day-${group.startIndex}-${group.dayLabel}`}
                     scope="colgroup"
                     colSpan={group.columnCount}
-                    className="px-1 pt-3 pb-0.5 text-center"
+                    className="px-1 pt-3.5 pb-0.5 text-center"
                     style={{
                       background: groupHasLatest(columns, group)
-                        ? LATEST_TINT
-                        : undefined,
+                        ? PIPELINE_LATEST_SURFACE
+                        : PIPELINE_TABLE_HEADER_SURFACE,
                     }}
                   >
                     <span
-                      className="luxia-type-body-dense"
+                      className="luxia-type-table-header-dense"
                       style={{
-                        color: "var(--luxia-text-primary)",
-                        fontWeight: 500,
-                        lineHeight: 1.3,
+                        color: "var(--luxia-text-muted)",
+                        letterSpacing: "0.1em",
+                        opacity: 0.92,
                       }}
                     >
                       {group.dayLabel}
@@ -264,9 +306,15 @@ export function PipelineRunHistory({
                     <th
                       key={column.run.id}
                       scope="col"
-                      className={`${RUN_COL_CLASS} px-1 pb-2.5 pt-0.5 align-top`}
+                      className="px-1 pb-2.5 pt-1 align-top"
                       style={{
-                        background: column.isLatest ? LATEST_TINT : undefined,
+                        width: runColPx,
+                        minWidth: runColPx,
+                        maxWidth: runColPx,
+                        background: column.isLatest
+                          ? PIPELINE_LATEST_SURFACE
+                          : PIPELINE_TABLE_HEADER_SURFACE,
+                        borderBottom: PIPELINE_MATRIX_ROW_DIVIDER,
                       }}
                     >
                       <RunTimeHeader
@@ -280,86 +328,110 @@ export function PipelineRunHistory({
               </tr>
             </thead>
             <tbody>
-              {rows.map((row, rowIndex) => (
-                <tr key={row.taskKey}>
-                  <th
-                    scope="row"
-                    className={`${TASK_COL_CLASS} truncate px-3.5 py-2 text-left luxia-type-body-dense`}
-                    style={{
-                      color: "var(--luxia-text-primary)",
-                      fontWeight: 500,
-                      borderTop:
-                        rowIndex === 0
-                          ? "1px solid var(--luxia-settings-row-divider)"
-                          : "1px solid color-mix(in srgb, var(--luxia-settings-row-divider) 55%, transparent)",
-                      boxShadow: "1px 0 0 var(--luxia-settings-row-divider)",
-                    }}
-                    title={row.taskName}
-                  >
-                    {row.taskName}
-                  </th>
-                  {columns.map((column) => {
-                    const cell = getRunHistoryCell(
-                      tasks,
-                      column.run.id,
-                      row.taskKey,
-                      column,
-                    );
-                    return (
-                      <td
-                        key={`${column.run.id}:${row.taskKey}`}
-                        className={`${RUN_COL_CLASS} px-1 py-2 text-center`}
-                        style={{
-                          borderTop:
-                            rowIndex === 0
-                              ? "1px solid var(--luxia-settings-row-divider)"
-                              : "1px solid color-mix(in srgb, var(--luxia-settings-row-divider) 55%, transparent)",
-                          background: column.isLatest ? LATEST_TINT : undefined,
-                        }}
-                      >
-                        {cell ? (
-                          <StatusCell
-                            cell={cell}
-                            column={column}
-                            onOpen={() =>
-                              onOpenRun(column.run.id, cell.taskKey)
-                            }
-                          />
-                        ) : (
-                          <span
-                            className="inline-flex size-6 items-center justify-center luxia-type-caption"
-                            style={{ color: "var(--luxia-text-muted)" }}
-                            aria-label={`${row.taskName}, ${column.exactLabel}, no data`}
-                          >
-                            ·
-                          </span>
-                        )}
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
+              {rows.map((row, rowIndex) => {
+                const rowDivider =
+                  rowIndex < lastRowIndex
+                    ? PIPELINE_MATRIX_ROW_DIVIDER
+                    : undefined;
+                const TaskTypeIcon = resolveTaskTypeIcon(
+                  row.taskKey,
+                  row.taskName,
+                );
+                return (
+                  <tr key={row.taskKey}>
+                    <th
+                      scope="row"
+                      className={`${TASK_COL_CLASS} px-4 py-3 text-left luxia-type-body-dense-strong`}
+                      style={{
+                        color: "var(--luxia-text-primary)",
+                        fontWeight: 600,
+                        background: TASK_COL_SURFACE,
+                        borderBottom: rowDivider,
+                        boxShadow: PIPELINE_MATRIX_TASK_EDGE,
+                      }}
+                      title={row.taskName}
+                    >
+                      <span className="flex min-w-0 items-center gap-2">
+                        <span
+                          className="inline-flex size-5 shrink-0 items-center justify-center rounded-[5px]"
+                          style={{
+                            background: "var(--luxia-neutral-100)",
+                            color: "var(--luxia-neutral-600)",
+                          }}
+                          aria-hidden
+                        >
+                          <TaskTypeIcon size={12} strokeWidth={2} />
+                        </span>
+                        <span className="min-w-0 truncate">{row.taskName}</span>
+                      </span>
+                    </th>
+                    {columns.map((column) => {
+                      const cell = getRunHistoryCell(
+                        tasks,
+                        column.run.id,
+                        row.taskKey,
+                        column,
+                      );
+                      return (
+                        <td
+                          key={`${column.run.id}:${row.taskKey}`}
+                          className="px-1 py-3 text-center align-middle"
+                          style={{
+                            width: runColPx,
+                            minWidth: runColPx,
+                            maxWidth: runColPx,
+                            borderBottom: rowDivider,
+                            background: column.isLatest
+                              ? PIPELINE_LATEST_SURFACE
+                              : "var(--luxia-surface)",
+                          }}
+                        >
+                          {cell ? (
+                            <StatusCell
+                              cell={cell}
+                              column={column}
+                              onOpen={() =>
+                                onOpenRun(column.run.id, cell.taskKey)
+                              }
+                            />
+                          ) : (
+                            <span
+                              className="mx-auto inline-flex size-8 items-center justify-center luxia-type-caption"
+                              style={{ color: "var(--luxia-text-muted)" }}
+                              aria-label={`${row.taskName}, ${column.exactLabel}, no data`}
+                            >
+                              ·
+                            </span>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
 
         {activeLegend.length > 0 ? (
           <div
-            className="flex w-full flex-wrap items-center gap-x-3 gap-y-1 border-t px-3.5 py-1.5"
-            style={{ borderColor: "var(--luxia-settings-row-divider)" }}
+            className="flex w-full flex-wrap items-center gap-x-5 gap-y-2 px-4 py-3"
+            style={{
+              borderTop: PIPELINE_MATRIX_ROW_DIVIDER,
+              background: PIPELINE_TABLE_HEADER_SURFACE,
+            }}
             aria-label="Status legend"
           >
             {activeLegend.map((status) => (
               <span
                 key={status}
-                className="inline-flex items-center gap-1 luxia-type-caption"
+                className="inline-flex h-5 items-center gap-1.5 luxia-type-caption"
                 style={{
                   color: "var(--luxia-text-muted)",
-                  opacity: 0.85,
                 }}
               >
-                <StatusMarker status={status} decorative />
-                {PIPELINE_TASK_STATUS_LABELS[status]}
+                <StatusMarker status={status} decorative size="sm" />
+                <span>{PIPELINE_TASK_STATUS_LABELS[status]}</span>
               </span>
             ))}
           </div>
@@ -399,28 +471,29 @@ function RunTimeHeader({
       <TooltipTrigger asChild>
         <button
           type="button"
-          className="flex w-full cursor-pointer flex-col items-center gap-0.5 rounded-[6px] px-0.5 py-0.5 text-center outline-none hover:bg-[var(--luxia-settings-hover-bg)] focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]"
+          className="flex w-full min-h-[2.5rem] cursor-pointer flex-col items-center justify-center gap-0.5 rounded-[8px] px-1 py-1 text-center outline-none transition-colors hover:bg-[var(--luxia-settings-hover-bg)] focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]"
           onClick={onOpen}
           aria-label={`Open run ${column.exactLabel}, status ${statusLabel}${
             failureHint ? `, ${failureHint}` : ""
           }${column.isLatest ? ", latest" : ""}`}
         >
           <span
-            className="luxia-type-caption"
+            className="luxia-type-body-dense-strong"
             style={{
-              color: "var(--luxia-text-secondary)",
-              lineHeight: 1.35,
+              color: "var(--luxia-text-primary)",
+              lineHeight: 1.25,
+              fontWeight: 600,
             }}
           >
             {column.timeLabel}
           </span>
           {column.isLatest ? (
             <span
-              className="inline-flex items-center rounded-[3px] px-1 py-px text-[9px] font-medium leading-none"
+              className="luxia-type-caption"
               style={{
-                color: "var(--luxia-purple-60)",
-                background:
-                  "color-mix(in srgb, var(--luxia-purple-60, #7652c4) 10%, transparent)",
+                color: "var(--luxia-text-muted)",
+                lineHeight: 1.2,
+                fontSize: 11,
               }}
             >
               Latest
@@ -466,7 +539,7 @@ function StatusCell({
       <TooltipTrigger asChild>
         <button
           type="button"
-          className="mx-auto inline-flex size-7 cursor-pointer items-center justify-center rounded-[6px] outline-none transition-colors hover:bg-[var(--luxia-opacity-brand-primary-04)] focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]"
+          className="mx-auto inline-flex size-8 cursor-pointer items-center justify-center rounded-[8px] outline-none transition-colors hover:bg-[var(--luxia-settings-hover-bg)] focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]"
           onClick={onOpen}
           aria-label={`${cell.taskName}, ${column.exactLabel}, ${cell.statusLabel}`}
         >
@@ -490,31 +563,35 @@ function StatusCell({
 function StatusMarker({
   status,
   decorative = false,
+  size = "md",
 }: {
   status: PipelineTaskStatus;
   decorative?: boolean;
+  size?: "sm" | "md";
 }) {
-  const Icon = STATUS_ICON[status];
+  const Icon = PIPELINE_TASK_STATUS_ICON[status];
   const tone = statusTone(status);
   const isFailed = status === "failed";
   const isUpstream = status === "upstream_failed";
+  const box = size === "sm" ? "size-4" : "size-[22px]";
+  const iconSize = size === "sm" ? 10 : isFailed ? 12 : 11;
 
   return (
     <span
-      className="inline-flex size-5 items-center justify-center rounded-full"
+      className={`inline-flex ${box} shrink-0 items-center justify-center rounded-full`}
       style={{
         color: tone.color,
         background: tone.background,
         boxShadow: isFailed
-          ? "0 0 0 1px var(--luxia-opacity-error-24)"
+          ? "0 0 0 1px var(--luxia-opacity-error-16)"
           : isUpstream
-            ? "0 0 0 1px color-mix(in srgb, var(--luxia-error-70) 14%, transparent)"
+            ? "0 0 0 1px color-mix(in srgb, var(--luxia-error-70) 12%, transparent)"
             : undefined,
       }}
       aria-hidden={decorative ? true : undefined}
     >
       <Icon
-        size={isFailed ? 12 : 11}
+        size={iconSize}
         strokeWidth={isFailed ? 2.5 : 2.25}
         fill={status === "running" ? "currentColor" : "none"}
       />
@@ -526,42 +603,9 @@ function statusTone(status: PipelineTaskStatus): {
   color: string;
   background: string;
 } {
-  switch (status) {
-    case "failed":
-      return {
-        color: "var(--luxia-error-70)",
-        background: "var(--luxia-opacity-error-08)",
-      };
-    case "upstream_failed":
-      return {
-        color: "color-mix(in srgb, var(--luxia-error-70) 72%, var(--luxia-text-muted))",
-        background: "color-mix(in srgb, var(--luxia-error-70) 5%, transparent)",
-      };
-    case "running":
-      return {
-        color: "var(--luxia-blue-70)",
-        background: "var(--luxia-blue-10)",
-      };
-    case "success":
-      return {
-        color:
-          "color-mix(in srgb, var(--luxia-success-70) 55%, var(--luxia-text-muted))",
-        background: "transparent",
-      };
-    case "queued":
-      return {
-        color: "var(--luxia-text-muted)",
-        background: "var(--luxia-neutral-50, transparent)",
-      };
-    case "skipped":
-      return {
-        color: "var(--luxia-text-muted)",
-        background: "transparent",
-      };
-    default:
-      return {
-        color: "var(--luxia-text-muted)",
-        background: "transparent",
-      };
-  }
+  const visual = taskFlowNodeVisual(status);
+  return {
+    color: visual.iconColor,
+    background: visual.iconSurface,
+  };
 }
