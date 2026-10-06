@@ -16,10 +16,11 @@ type TestAccountRow = {
 
 function labelForAccount(account: PrototypeAuthAccount): string {
   if (account.kind === "invited") return "First-time setup";
-  if (account.needsMfaEnrollment) return "MFA setup";
+  if (account.mustChangePassword) return "Forced password";
+  if (account.needsMfaEnrollment) return "MFA setup (required)";
   if (account.mfaEnabled && account.mfaMethod === "email-otp") return "Email OTP";
   if (account.mfaEnabled) return "MFA verification";
-  if (account.suggestMfaNudge) return "MFA nudge";
+  if (account.suggestMfaNudge) return "MFA nudge (in-app)";
   return "Normal";
 }
 
@@ -31,14 +32,18 @@ const TEST_ACCOUNT_ROWS: TestAccountRow[] = PROTOTYPE_AUTH_ACCOUNTS.map((account
 
 const INVITE_OPTIONS = [
   { label: "Valid", href: "?invite=valid" },
+  { label: "Existing user", href: "?invite=existing" },
   { label: "Expired", href: "?invite=expired" },
   { label: "Invalid", href: "?invite=invalid" },
   { label: "Used", href: "?invite=used" },
+  { label: "Revoked", href: "?invite=revoked" },
 ] as const;
 
 const ACCOUNT_STATUS_OPTIONS = [
-  { label: "Locked", href: "?account=locked" },
-  { label: "Disabled", href: "?account=disabled" },
+  { label: "Locked (form)", href: "?account=locked" },
+  { label: "Deactivated", href: "?account=disabled" },
+  { label: "Rate limited", href: "?auth=rate-limited" },
+  { label: "CAPTCHA failed", href: "?auth=captcha-failed" },
 ] as const;
 
 function navigateScenario(href: string) {
@@ -145,7 +150,7 @@ export function DevTestAccountsPanel({
 
             <div className="luxia-login-dev-accounts-scenario">
               <label className="luxia-login-dev-accounts-label" htmlFor={accountSelectId}>
-                Account status
+                Account / auth state
               </label>
               <select
                 id={accountSelectId}

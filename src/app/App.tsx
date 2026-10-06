@@ -10,9 +10,14 @@ import flagCn from "@/assets/flags/cn.svg";
 import { LuxiaStarLogo } from "@/app/components/LuxiaStarLogo";
 import {
   LoginPage,
+  MfaInAppNudge,
+  InAppMfaSetupHost,
   bootstrapPrototypeSignedIn,
   clearPrototypeSignedIn,
+  consumePendingMfaNudge,
+  findPrototypeAccount,
   readAuthLocationEntry,
+  snoozeMfaNudge,
   writePrototypeSignedIn,
 } from "@/app/features/login";
 import { ActiveDataTablesSection } from "@/app/features/active-data-tables/ActiveDataTablesSection";
@@ -4266,6 +4271,9 @@ export default function App() {
   >({});
   const [prototypeUserId, setPrototypeUserId] = useState(CURRENT_USER_ID);
   const [prototypeSignedIn, setPrototypeSignedIn] = useState(bootstrapPrototypeSignedIn);
+  const [mfaNudgeEmail, setMfaNudgeEmail] = useState<string | null>(null);
+  const [mfaNudgeOpen, setMfaNudgeOpen] = useState(false);
+  const [inAppMfaSetupEmail, setInAppMfaSetupEmail] = useState<string | null>(null);
   const [constellationAccessBlock, setConstellationAccessBlock] = useState<{
     projectId: string;
     constellationId: string;
@@ -8934,6 +8942,33 @@ export default function App() {
             writePrototypeSignedIn(rememberMe);
             setPrototypeUserId(userId);
             setPrototypeSignedIn(true);
+            const pending = consumePendingMfaNudge();
+            if (pending) {
+              const account = findPrototypeAccount(pending);
+              if (account) {
+                setMfaNudgeEmail(pending);
+                setMfaNudgeOpen(true);
+              }
+            }
+          }}
+        />
+        <Toaster richColors closeButton position="top-right" />
+      </>
+    );
+  }
+
+  if (inAppMfaSetupEmail) {
+    return (
+      <>
+        <InAppMfaSetupHost
+          email={inAppMfaSetupEmail}
+          onComplete={() => {
+            setInAppMfaSetupEmail(null);
+            setMfaNudgeOpen(false);
+            setMfaNudgeEmail(null);
+          }}
+          onCancel={() => {
+            setInAppMfaSetupEmail(null);
           }}
         />
         <Toaster richColors closeButton position="top-right" />
@@ -8946,6 +8981,19 @@ export default function App() {
       className="flex h-dvh max-h-dvh overflow-hidden"
       style={{ background: activeData?.chatType === "galaxy" ? "#FAFAFC" : "#FAFDFF" }}
     >
+      <MfaInAppNudge
+        open={mfaNudgeOpen && Boolean(mfaNudgeEmail)}
+        onSetup={() => {
+          if (!mfaNudgeEmail) return;
+          setMfaNudgeOpen(false);
+          setInAppMfaSetupEmail(mfaNudgeEmail);
+        }}
+        onRemindLater={() => {
+          if (mfaNudgeEmail) snoozeMfaNudge(mfaNudgeEmail);
+          setMfaNudgeOpen(false);
+          setMfaNudgeEmail(null);
+        }}
+      />
       {isMobileNav && !mobileNavOpen ? (
         <button
           type="button"

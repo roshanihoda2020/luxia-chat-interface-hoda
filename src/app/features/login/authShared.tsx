@@ -149,3 +149,46 @@ export function AuthBackToSignIn({ onClick }: { onClick: () => void }) {
     </div>
   );
 }
+
+export function AuthCancelToApp({ onClick }: { onClick: () => void }) {
+  return (
+    <div className="luxia-login-back">
+      <button type="button" className="luxia-login-back-link" onClick={onClick}>
+        <span className="luxia-login-back-arrow" aria-hidden="true">
+          ←
+        </span>
+        Cancel
+      </button>
+    </div>
+  );
+}
+
+export function PasswordChecklist({
+  password,
+  confirm,
+  showConfirm,
+}: {
+  password: string;
+  confirm?: string;
+  showConfirm?: boolean;
+}) {
+  const minOk = password.length >= 8;
+  const maxOk = password.length === 0 || password.length <= 128;
+  const matchOk = !showConfirm || (confirm !== undefined && confirm.length > 0 && confirm === password);
+
+  return (
+    <ul className="luxia-login-password-checklist" aria-live="polite">
+      <li className={minOk ? "is-met" : undefined} data-met={minOk || undefined}>
+        At least 8 characters
+      </li>
+      <li className={maxOk ? "is-met" : undefined} data-met={maxOk || undefined}>
+        At most 128 characters
+      </li>
+      {showConfirm ? (
+        <li className={matchOk ? "is-met" : undefined} data-met={matchOk || undefined}>
+          Passwords match
+        </li>
+      ) : null}
+    </ul>
+  );
+}

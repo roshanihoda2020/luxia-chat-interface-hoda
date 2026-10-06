@@ -1259,3 +1259,134 @@ body:has(.luxia-login-shell),
     display: none;
   }
 }
+
+/* --- Auth V2 handoff additions (compact, reuse existing tokens) --- */
+
+.luxia-login-method-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--luxia-spacing-8);
+  width: 100%;
+  margin: 0 0 var(--luxia-spacing-16);
+}
+
+.luxia-login-method-option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  margin: 0;
+  padding: var(--luxia-spacing-12) var(--luxia-spacing-16);
+  border: 1px solid color-mix(in srgb, var(--luxia-purple-10) 22%, transparent);
+  border-radius: var(--luxia-radius-12);
+  background: color-mix(in srgb, #1c1336 72%, transparent);
+  color: var(--luxia-text-inverse);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease;
+}
+
+.luxia-login-method-option:hover {
+  border-color: color-mix(in srgb, var(--luxia-purple-40) 55%, transparent);
+  background: color-mix(in srgb, #241848 78%, transparent);
+}
+
+.luxia-login-method-option:focus-visible {
+  outline: 2px solid var(--luxia-opacity-brand-secondary-32);
+  outline-offset: 2px;
+}
+
+.luxia-login-method-option-title {
+  font-family: var(--luxia-font-family, var(--font-family));
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+}
+
+.luxia-login-method-option-meta {
+  font-family: var(--luxia-font-family, var(--font-family));
+  font-size: 12px;
+  line-height: 16px;
+  color: color-mix(in srgb, var(--luxia-purple-20) 70%, transparent);
+}
+
+.luxia-login-password-checklist {
+  list-style: none;
+  margin: 0 0 var(--luxia-spacing-8);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.luxia-login-password-checklist li {
+  margin: 0;
+  padding-left: 1.1em;
+  position: relative;
+  font-family: var(--luxia-font-family, var(--font-family));
+  font-size: 12px;
+  line-height: 16px;
+  color: color-mix(in srgb, var(--luxia-purple-20) 65%, transparent);
+}
+
+.luxia-login-password-checklist li::before {
+  content: "○";
+  position: absolute;
+  left: 0;
+  opacity: 0.7;
+}
+
+.luxia-login-password-checklist li.is-met {
+  color: color-mix(in srgb, var(--luxia-purple-10) 88%, #7ddea8);
+}
+
+.luxia-login-password-checklist li.is-met::before {
+  content: "●";
+}
+
+.luxia-login-invite-meta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--luxia-spacing-12);
+  width: 100%;
+  margin: 0 0 var(--luxia-spacing-16);
+  padding: 0;
+}
+
+.luxia-login-invite-meta-row {
+  display: grid;
+  grid-template-columns: 6.5rem minmax(0, 1fr);
+  gap: var(--luxia-spacing-8);
+  align-items: baseline;
+}
+
+.luxia-login-invite-meta-row dt {
+  margin: 0;
+  font-family: var(--luxia-font-family, var(--font-family));
+  font-size: 12px;
+  line-height: 16px;
+  color: color-mix(in srgb, var(--luxia-purple-20) 70%, transparent);
+}
+
+.luxia-login-invite-meta-row dd {
+  margin: 0;
+  min-width: 0;
+  font-family: var(--luxia-font-family, var(--font-family));
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--luxia-text-inverse);
+  word-break: break-word;
+}
+
+.luxia-login-invite-email {
+  user-select: all;
+}
+
+.luxia-login-inapp-mfa-host {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+}
