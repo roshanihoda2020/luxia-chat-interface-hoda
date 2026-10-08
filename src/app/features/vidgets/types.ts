@@ -2,6 +2,13 @@ export type VidgetChannel = "web" | "voip" | "whatsapp";
 
 export type VidgetSourceType = "galaxy" | "constellation";
 
+/**
+ * Galaxy Vidget only — who chooses among Knowledge scope assistants.
+ * Constellation Vidgets ignore this field (always single-source).
+ * Missing/legacy values behave as "automatic".
+ */
+export type VidgetRoutingMode = "automatic" | "visitor";
+
 export type VidgetStatus = "draft" | "published" | "paused";
 
 export type VidgetWebPresentation = "embedded" | "hosted" | "totem";
@@ -26,6 +33,8 @@ export interface VidgetRecord {
   galaxyId: string | null;
   constellationId: string | null;
   galaxyConstellationIds: string[];
+  /** Galaxy Vidgets only. Defaults to "automatic" when absent. */
+  routingMode: VidgetRoutingMode;
   status: VidgetStatus;
   updatedAt: string;
   assistantName: string;
@@ -63,6 +72,7 @@ export interface VidgetCreateDraft {
   galaxyId: string | null;
   constellationId: string | null;
   galaxyConstellationIds: string[];
+  routingMode: VidgetRoutingMode;
   channel: VidgetChannel;
 }
 

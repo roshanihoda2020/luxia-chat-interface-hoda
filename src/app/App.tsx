@@ -5727,6 +5727,7 @@ export default function App() {
         galaxyId: resolved.source.galaxyId,
         constellationId: resolved.source.constellationId,
         galaxyConstellationIds: resolved.source.galaxyConstellationIds,
+        routingMode: payload.routingMode,
       });
       setVidgetsState((prev) => [record, ...prev]);
       setCreateVidgetOpen(false);
@@ -9914,7 +9915,11 @@ export default function App() {
                 : null;
               const constellationOptions = allConstellations
                 .filter((item) => item.projectId === projectId)
-                .map((item) => ({ id: item.id, name: item.label }));
+                .map((item) => ({
+                  id: item.id,
+                  name: item.label,
+                  description: item.description,
+                }));
               const projectConstellations = constellationOptions.map((item) => ({
                 id: item.id,
                 projectId,
@@ -10833,6 +10838,7 @@ export default function App() {
                 id: item.id,
                 name: item.label,
                 type: item.type,
+                description: item.description,
               }))
             : []
         }

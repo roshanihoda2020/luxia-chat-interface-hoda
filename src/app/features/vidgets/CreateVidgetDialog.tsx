@@ -13,11 +13,17 @@ import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
 import { RadioGroup } from "@/app/components/ui/radio-group";
 import { SearchableSelect } from "@/app/components/ui/searchable-select";
-import { normalizeGalaxyConstellationIds } from "./data";
+import {
+  DEFAULT_VIDGET_ROUTING_MODE,
+  normalizeGalaxyConstellationIds,
+  normalizeVidgetRoutingMode,
+} from "./data";
 import { KnowledgeScopeSelector } from "./KnowledgeScopeSelector";
+import { VidgetAssistantSelection } from "./VidgetAssistantSelection";
 import type {
   VidgetChannel,
   VidgetCreateSourcePreset,
+  VidgetRoutingMode,
   VidgetSourceType,
 } from "./types";
 import {
@@ -30,6 +36,7 @@ export type CreateVidgetSubmitPayload = {
   galaxyId: string | null;
   constellationId: string | null;
   galaxyConstellationIds: string[];
+  routingMode: VidgetRoutingMode;
   channel: VidgetChannel;
 };
 
@@ -39,7 +46,7 @@ export interface CreateVidgetDialogProps {
   projectName: string;
   galaxyName: string;
   galaxyId: string | null;
-  constellations: { id: string; name: string; type?: string }[];
+  constellations: { id: string; name: string; type?: string; description?: string }[];
   sourcePreset: VidgetCreateSourcePreset;
   onCreate: (payload: CreateVidgetSubmitPayload) => boolean;
 }
@@ -50,6 +57,7 @@ type SourceSnapshot = {
   sourceType: VidgetSourceType;
   constellationId: string | null;
   galaxyConstellationIds: string[];
+  routingMode: VidgetRoutingMode;
 };
 
 function resolvePresetSource(preset: VidgetCreateSourcePreset): {
@@ -105,6 +113,9 @@ export function CreateVidgetDialog({
     presetSource.constellationId,
   );
   const [galaxyConstellationIds, setGalaxyConstellationIds] = useState<string[]>([]);
+  const [routingMode, setRoutingMode] = useState<VidgetRoutingMode>(
+    DEFAULT_VIDGET_ROUTING_MODE,
+  );
   const [sourceSnapshot, setSourceSnapshot] = useState<SourceSnapshot | null>(null);
   const [channel, setChannel] = useState<VidgetChannel>("web");
   const [error, setError] = useState<string | null>(null);
@@ -117,6 +128,7 @@ export function CreateVidgetDialog({
     setSourceType(next.sourceType);
     setConstellationId(next.constellationId);
     setGalaxyConstellationIds([]);
+    setRoutingMode(DEFAULT_VIDGET_ROUTING_MODE);
     setSourceSnapshot(null);
     setChannel("web");
     setError(null);
@@ -179,6 +191,7 @@ export function CreateVidgetDialog({
         sourceType === "galaxy"
           ? normalizeGalaxyConstellationIds(galaxyConstellationIds)
           : [],
+      routingMode: normalizeVidgetRoutingMode(sourceType, routingMode),
     };
   }
 
@@ -195,6 +208,7 @@ export function CreateVidgetDialog({
       constellationId:
         snapshot.sourceType === "constellation" ? snapshot.constellationId : null,
       galaxyConstellationIds: snapshot.galaxyConstellationIds,
+      routingMode: snapshot.routingMode,
       channel,
     });
     if (created) {
@@ -319,6 +333,14 @@ export function CreateVidgetDialog({
                       }}
                       variant="modal"
                     />
+                    <div className="mt-5">
+                      <VidgetAssistantSelection
+                        idPrefix="vidget-create-routing"
+                        value={normalizeVidgetRoutingMode("galaxy", routingMode)}
+                        onChange={setRoutingMode}
+                        variant="modal"
+                      />
+                    </div>
                   </>
                 ) : (
                   <div>
@@ -358,8 +380,10 @@ export function CreateVidgetDialog({
                     if (next === "galaxy") {
                       setConstellationId(null);
                       setGalaxyConstellationIds([]);
+                      setRoutingMode(DEFAULT_VIDGET_ROUTING_MODE);
                     } else {
                       setGalaxyConstellationIds([]);
+                      setRoutingMode(DEFAULT_VIDGET_ROUTING_MODE);
                     }
                     if (error) setError(null);
                   }}
@@ -414,6 +438,14 @@ export function CreateVidgetDialog({
                           setGalaxyConstellationIds(ids);
                           if (error) setError(null);
                         }}
+                        variant="modal"
+                      />
+                    </div>
+                    <div className="mt-5">
+                      <VidgetAssistantSelection
+                        idPrefix="vidget-create-routing"
+                        value={normalizeVidgetRoutingMode("galaxy", routingMode)}
+                        onChange={setRoutingMode}
                         variant="modal"
                       />
                     </div>

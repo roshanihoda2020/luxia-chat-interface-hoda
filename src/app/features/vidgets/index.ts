@@ -6,6 +6,7 @@ export type {
   VidgetExperienceMode,
   VidgetPreviewDevice,
   VidgetRecord,
+  VidgetRoutingMode,
   VidgetSourceType,
   VidgetStatus,
   VidgetWebPresentation,
@@ -23,6 +24,7 @@ export {
 
 export {
   SEED_VIDGETS,
+  DEFAULT_VIDGET_ROUTING_MODE,
   VIDGET_SOURCE_UNAVAILABLE_LABEL,
   buildEmptyVidget,
   cloneVidget,
@@ -32,6 +34,7 @@ export {
   getVidgetsForProject,
   isValidVidgetSource,
   normalizeVidgetSource,
+  normalizeVidgetRoutingMode,
   normalizeGalaxyConstellationIds,
   resolveVidgetSourceDisplay,
   withLockedVidgetSource,
@@ -45,6 +48,18 @@ export {
   applyVidgetChannelChange,
   isVidgetChannelDeploymentReady,
 } from "./data";
+
+export {
+  VidgetAssistantSelection,
+  VIDGET_ROUTING_MODE_COPY,
+} from "./VidgetAssistantSelection";
+export {
+  buildVisitorAssistantOptions,
+  isVisitorAssistantStillEligible,
+  toVisitorAssistantDescription,
+  toVisitorAssistantLabel,
+} from "./visitorAssistants";
+export type { VidgetVisitorAssistantOption } from "./visitorAssistants";
 export type { VidgetSourceContext, VidgetSourceDisplay, VidgetScopeItem, VidgetCreateSourceInput, VidgetCreateSourceContext } from "./data";
 
 export {

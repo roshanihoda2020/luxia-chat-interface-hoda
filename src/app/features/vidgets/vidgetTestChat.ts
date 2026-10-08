@@ -1,7 +1,12 @@
 import { getConstellationSettingsRecord } from "@/app/features/constellation-settings/data";
 import type { VidgetInboxFeedback } from "@/app/features/vidget-inbox/types";
-import { normalizeGalaxyConstellationIds } from "./data";
-import type { VidgetRecord } from "./types";
+import {
+  DEFAULT_VIDGET_ROUTING_MODE,
+  normalizeGalaxyConstellationIds,
+  normalizeVidgetRoutingMode,
+} from "./data";
+import type { VidgetRecord, VidgetRoutingMode } from "./types";
+import { toVisitorAssistantLabel } from "./visitorAssistants";
 
 export type VidgetTestMessageRole = "user" | "assistant" | "assistant-error";
 
@@ -25,7 +30,7 @@ export type VidgetTestEligibility = {
 
 export type VidgetTestContextInput = {
   sourceAvailable: boolean;
-  constellationOptions: { id: string; name: string }[];
+  constellationOptions: { id: string; name: string; description?: string }[];
   galaxyName: string;
   constellationName: string | null;
 };
@@ -139,40 +144,43 @@ function appendLanguageNote(content: string, language: string | undefined): stri
   return `${content}\n\n(Language setting: ${trimmed})`;
 }
 
+/** Visitor-safe constellation answer — no source/file leakage. */
 function buildConstellationAnswer(
   constellation: VidgetTestConstellationRef,
   userMessage: string,
 ): string {
   const query = userMessage.trim();
-  const sourceLine = constellation.connectedSourceNames.length > 0
-    ? `Sources considered: ${constellation.connectedSourceNames.join(", ")}.`
-    : "No connected Data Source labels are available.";
-
+  const assistantLabel = toVisitorAssistantLabel(constellation.name);
   return [
-    `I searched ${constellation.name} for your question.`,
+    `I can help with questions in ${assistantLabel}.`,
     query ? `You asked: "${query}"` : null,
-    sourceLine,
+    "Here’s a prototype response based on the selected assistant.",
   ]
     .filter(Boolean)
     .join("\n\n");
 }
 
-function buildGalaxyScopedAnswer(
-  scoped: VidgetTestConstellationRef[],
-  galaxyName: string,
+/** Visitor-safe automatic Galaxy answer — no constellation/source diagnostics. */
+function buildGalaxyAutomaticAnswer(
+  matched: VidgetTestConstellationRef,
   userMessage: string,
 ): string {
-  const matched = pickGalaxyMatch(userMessage, scoped);
-  const scopeLabels = scoped.map((item) => item.name).join(", ");
-  const sourceLine = matched.connectedSourceNames.length > 0
-    ? `Sources considered: ${matched.connectedSourceNames.join(", ")}.`
-    : "No connected Data Source labels are available.";
-
+  const query = userMessage.trim();
+  const assistantLabel = toVisitorAssistantLabel(matched.name);
   return [
-    `Searching ${galaxyName} within this Vidget's configured scope (${scopeLabels}).`,
-    `Best match: ${matched.name}.`,
-    sourceLine,
-  ].join("\n\n");
+    `I found a helpful answer for you.`,
+    query ? `You asked: "${query}"` : null,
+    `This prototype response was prepared with ${assistantLabel}.`,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+function buildGalaxyVisitorAnswer(
+  selected: VidgetTestConstellationRef,
+  userMessage: string,
+): string {
+  return buildConstellationAnswer(selected, userMessage);
 }
 
 export type VidgetTestResponse =
@@ -180,26 +188,26 @@ export type VidgetTestResponse =
       ok: true;
       content: string;
       constellationId: string | null;
+      /** Empty for visitor-facing prototype replies (no source leakage). */
       sources: { id: string; label: string }[];
     }
   | { ok: false; error: string };
 
-function sourcesFromConstellation(
-  constellation: VidgetTestConstellationRef,
-): { id: string; label: string }[] {
-  return constellation.connectedSourceNames.map((name, index) => ({
-    id: `${constellation.id}-src-${index}`,
-    label: name,
-  }));
-}
-
 function resolveMatchedConstellation(
-  record: Pick<VidgetRecord, "sourceType">,
+  record: Pick<VidgetRecord, "sourceType" | "routingMode">,
   scoped: VidgetTestConstellationRef[],
   userMessage: string,
+  selectedAssistantId?: string | null,
 ): VidgetTestConstellationRef | null {
   if (scoped.length === 0) return null;
   if (record.sourceType === "constellation") return scoped[0]!;
+
+  const mode = normalizeVidgetRoutingMode(record.sourceType, record.routingMode);
+  if (mode === "visitor") {
+    const id = selectedAssistantId?.trim();
+    if (!id) return null;
+    return scoped.find((item) => item.id === id) ?? null;
+  }
   return pickGalaxyMatch(userMessage, scoped);
 }
 
@@ -207,6 +215,8 @@ export async function requestVidgetTestResponse(input: {
   record: VidgetRecord;
   userMessage: string;
   context: VidgetTestContextInput;
+  /** Required when Galaxy routingMode is visitor. */
+  selectedAssistantId?: string | null;
 }): Promise<VidgetTestResponse> {
   const trimmed = input.userMessage.trim();
   if (!trimmed) {
@@ -233,10 +243,37 @@ export async function requestVidgetTestResponse(input: {
     };
   }
 
+  const routingMode: VidgetRoutingMode = normalizeVidgetRoutingMode(
+    input.record.sourceType,
+    input.record.routingMode ?? DEFAULT_VIDGET_ROUTING_MODE,
+  );
+
+  if (
+    input.record.sourceType === "galaxy"
+    && routingMode === "visitor"
+    && !input.selectedAssistantId?.trim()
+  ) {
+    return {
+      ok: false,
+      error: "Choose an assistant before sending a message.",
+    };
+  }
+
   await new Promise((resolve) => window.setTimeout(resolve, RESPONSE_DELAY_MS));
 
-  const matched = resolveMatchedConstellation(input.record, scoped, trimmed);
+  const matched = resolveMatchedConstellation(
+    input.record,
+    scoped,
+    trimmed,
+    input.selectedAssistantId,
+  );
   if (!matched) {
+    if (routingMode === "visitor") {
+      return {
+        ok: false,
+        error: "No assistants are available right now.",
+      };
+    }
     return {
       ok: false,
       error:
@@ -247,12 +284,10 @@ export async function requestVidgetTestResponse(input: {
   let content: string;
   if (input.record.sourceType === "constellation") {
     content = buildConstellationAnswer(matched, trimmed);
+  } else if (routingMode === "visitor") {
+    content = buildGalaxyVisitorAnswer(matched, trimmed);
   } else {
-    content = buildGalaxyScopedAnswer(
-      scoped,
-      input.context.galaxyName,
-      trimmed,
-    );
+    content = buildGalaxyAutomaticAnswer(matched, trimmed);
   }
 
   content = appendInstructionPrefix(content, input.record.vidgetInstruction);
@@ -262,6 +297,6 @@ export async function requestVidgetTestResponse(input: {
     ok: true,
     content,
     constellationId: matched.id,
-    sources: sourcesFromConstellation(matched),
+    sources: [],
   };
 }

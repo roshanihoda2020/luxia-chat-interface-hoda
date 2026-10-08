@@ -1,4 +1,15 @@
-import type { VidgetRecord, VidgetSourceType } from "./types";
+import type { VidgetRecord, VidgetRoutingMode, VidgetSourceType } from "./types";
+
+export const DEFAULT_VIDGET_ROUTING_MODE: VidgetRoutingMode = "automatic";
+
+/** Normalize Galaxy Vidget routing. Constellation Vidgets always resolve to automatic. */
+export function normalizeVidgetRoutingMode(
+  sourceType: VidgetSourceType,
+  routingMode?: VidgetRoutingMode | null,
+): VidgetRoutingMode {
+  if (sourceType !== "galaxy") return DEFAULT_VIDGET_ROUTING_MODE;
+  return routingMode === "visitor" ? "visitor" : DEFAULT_VIDGET_ROUTING_MODE;
+}
 
 function isoHoursAgo(hours: number): string {
   return new Date(Date.now() - hours * 3_600_000).toISOString();
@@ -272,6 +283,10 @@ function baseVidget(
     galaxyId: source.galaxyId,
     constellationId: source.constellationId,
     galaxyConstellationIds: source.galaxyConstellationIds,
+    routingMode: normalizeVidgetRoutingMode(
+      source.sourceType,
+      partial.routingMode,
+    ),
   };
 
   if (record.status === "published" && record.channel === "web") {
@@ -518,12 +533,14 @@ export function getVidgetForProject(
 
 export function cloneVidget(record: VidgetRecord): VidgetRecord {
   const source = normalizeVidgetSource(record);
+  const sourceType = source?.sourceType ?? record.sourceType;
   return {
     ...record,
     galaxyId: source?.galaxyId ?? null,
     constellationId: source?.constellationId ?? null,
     galaxyConstellationIds: source?.galaxyConstellationIds ?? [],
-    sourceType: source?.sourceType ?? record.sourceType,
+    sourceType,
+    routingMode: normalizeVidgetRoutingMode(sourceType, record.routingMode),
   };
 }
 
@@ -570,6 +587,7 @@ export function buildEmptyVidget(input: {
   galaxyId: string | null;
   constellationId: string | null;
   galaxyConstellationIds?: string[];
+  routingMode?: VidgetRoutingMode;
 }): VidgetRecord {
   const source = normalizeVidgetSource({
     sourceType: input.sourceType,
@@ -593,6 +611,7 @@ export function buildEmptyVidget(input: {
       galaxyId: source.galaxyId,
       constellationId: source.constellationId,
       galaxyConstellationIds: source.galaxyConstellationIds,
+      routingMode: normalizeVidgetRoutingMode(source.sourceType, input.routingMode),
       status: "draft",
       updatedAt: now,
     }),
@@ -668,6 +687,10 @@ export function withLockedVidgetSource(
     galaxyId: source.galaxyId,
     constellationId: source.constellationId,
     galaxyConstellationIds: nextScope,
+    routingMode: normalizeVidgetRoutingMode(
+      source.sourceType,
+      source.sourceType === "galaxy" ? draft.routingMode : DEFAULT_VIDGET_ROUTING_MODE,
+    ),
   });
 }
 
