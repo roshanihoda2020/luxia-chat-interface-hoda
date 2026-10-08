@@ -2,6 +2,16 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { ThumbsDown, ThumbsUp } from "lucide-react";
 import { LuxiaStarLogo } from "@/app/components/LuxiaStarLogo";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/app/components/ui/alert-dialog";
+import {
   appendCapturedAssistantTurn,
   appendCapturedVisitorTurn,
   clearActiveCapturedSession,
@@ -11,6 +21,7 @@ import {
   updateCapturedAssistantFeedback,
 } from "@/app/features/vidget-inbox/sessionStore";
 import type { VidgetInboxFeedback, VidgetInboxTurn } from "@/app/features/vidget-inbox/types";
+import { normalizeVidgetRoutingMode } from "./data";
 import {
   VIDGET_AVATARS,
   VIDGET_THEMES,
@@ -25,6 +36,11 @@ import {
   type VidgetTestContextInput,
   type VidgetTestMessage,
 } from "./vidgetTestChat";
+import {
+  buildVisitorAssistantOptions,
+  isVisitorAssistantStillEligible,
+  type VidgetVisitorAssistantOption,
+} from "./visitorAssistants";
 
 const PREVIEW_MODES: { id: VidgetPreviewDevice; label: string }[] = [
   { id: "desktop", label: "Web" },
@@ -73,6 +89,15 @@ type VidgetTestSession = {
   testBlockedReason?: string;
   showTestHint: boolean;
   conversationEndRef: React.MutableRefObject<HTMLDivElement | null>;
+  /** Galaxy visitor routing */
+  visitorMode: boolean;
+  visitorAssistants: VidgetVisitorAssistantOption[];
+  selectedAssistantId: string | null;
+  selectedAssistant: VidgetVisitorAssistantOption | null;
+  needsAssistantSelection: boolean;
+  noAssistantsAvailable: boolean;
+  selectAssistant: (id: string) => void;
+  composerDisabled: boolean;
 };
 
 function previewMessagesFromTurns(turns: readonly VidgetInboxTurn[]): VidgetTestMessage[] {
@@ -96,6 +121,7 @@ function useVidgetTestSession(
   const [messages, setMessages] = useState<VidgetTestMessage[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedAssistantId, setSelectedAssistantId] = useState<string | null>(null);
   const conversationEndRef = useRef<HTMLDivElement>(null);
   const activeSessionIdRef = useRef<string | null>(null);
   const previewResetKeyRef = useRef(previewResetKey);
@@ -105,19 +131,63 @@ function useVidgetTestSession(
     [record, testContext],
   );
 
+  const routingMode = normalizeVidgetRoutingMode(record.sourceType, record.routingMode);
+  const visitorMode = record.sourceType === "galaxy" && routingMode === "visitor";
+
+  const visitorAssistants = useMemo(
+    () =>
+      visitorMode
+        ? buildVisitorAssistantOptions(record, testContext.constellationOptions)
+        : [],
+    [visitorMode, record, testContext.constellationOptions],
+  );
+
+  const selectedAssistant = useMemo(
+    () => visitorAssistants.find((item) => item.id === selectedAssistantId) ?? null,
+    [visitorAssistants, selectedAssistantId],
+  );
+
+  const selectionValid = isVisitorAssistantStillEligible(
+    selectedAssistantId,
+    visitorAssistants,
+  );
+
+  useEffect(() => {
+    if (!visitorMode && selectedAssistantId) {
+      setSelectedAssistantId(null);
+    }
+  }, [visitorMode, selectedAssistantId]);
+
+  const needsAssistantSelection =
+    visitorMode
+    && eligibility.canTest
+    && !selectionValid
+    && visitorAssistants.length > 0;
+  const noAssistantsAvailable =
+    visitorMode && eligibility.canTest && visitorAssistants.length === 0;
+  const composerDisabled =
+    Boolean(!eligibility.canTest)
+    || (visitorMode && (!selectionValid || visitorAssistants.length === 0));
+
   const resetConversation = useCallback((clearActive: boolean) => {
     if (clearActive) clearActiveCapturedSession(record.id);
     activeSessionIdRef.current = null;
     setMessages([]);
     setInputValue("");
     setIsLoading(false);
+    setSelectedAssistantId(null);
   }, [record.id]);
+
+  const scopeKey = record.galaxyConstellationIds.join("|");
+  const routingConfigKey = `${record.sourceType}|${normalizeVidgetRoutingMode(record.sourceType, record.routingMode)}|${scopeKey}`;
+  const prevRoutingConfigRef = useRef({ recordId: record.id, key: routingConfigKey });
 
   useEffect(() => {
     const resetTriggered = previewResetKeyRef.current !== previewResetKey;
     previewResetKeyRef.current = previewResetKey;
     setInputValue("");
     setIsLoading(false);
+    setSelectedAssistantId(null);
     if (resetTriggered) {
       clearActiveCapturedSession(record.id);
       activeSessionIdRef.current = null;
@@ -136,12 +206,42 @@ function useVidgetTestSession(
   }, [record.id, previewResetKey]);
 
   useEffect(() => {
+    const prev = prevRoutingConfigRef.current;
+    prevRoutingConfigRef.current = { recordId: record.id, key: routingConfigKey };
+    if (prev.recordId !== record.id) return;
+    if (prev.key === routingConfigKey) return;
+    setSelectedAssistantId(null);
+    activeSessionIdRef.current = null;
+    setMessages([]);
+    setInputValue("");
+    setIsLoading(false);
+    clearActiveCapturedSession(record.id);
+  }, [record.id, routingConfigKey]);
+
+  useEffect(() => {
+    if (!visitorMode) return;
+    if (!selectedAssistantId || selectionValid) return;
+    setSelectedAssistantId(null);
+    setMessages([]);
+    setInputValue("");
+    setIsLoading(false);
+    activeSessionIdRef.current = null;
+    clearActiveCapturedSession(record.id);
+  }, [visitorMode, selectedAssistantId, selectionValid, record.id]);
+
+  useEffect(() => {
     conversationEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-  }, [messages, isLoading]);
+  }, [messages, isLoading, selectedAssistantId, needsAssistantSelection]);
+
+  const selectAssistant = useCallback((id: string) => {
+    if (!visitorAssistants.some((item) => item.id === id)) return;
+    setSelectedAssistantId(id);
+  }, [visitorAssistants]);
 
   const send = useCallback(() => {
     const trimmed = inputValue.trim();
     if (!trimmed || isLoading || !eligibility.canTest) return;
+    if (visitorMode && !selectionValid) return;
 
     let sessionId = activeSessionIdRef.current;
     if (!sessionId) {
@@ -166,6 +266,7 @@ function useVidgetTestSession(
       record,
       userMessage: trimmed,
       context: testContext,
+      selectedAssistantId: visitorMode ? selectedAssistantId : null,
     })
       .then((result) => {
         const assistantId = nextVidgetTestMessageId();
@@ -223,7 +324,16 @@ function useVidgetTestSession(
       .finally(() => {
         setIsLoading(false);
       });
-  }, [eligibility.canTest, inputValue, isLoading, record, testContext]);
+  }, [
+    eligibility.canTest,
+    inputValue,
+    isLoading,
+    record,
+    testContext,
+    visitorMode,
+    selectionValid,
+    selectedAssistantId,
+  ]);
 
   const setFeedback = useCallback((messageId: string, feedback: VidgetInboxFeedback) => {
     setMessages((prev) =>
@@ -235,9 +345,16 @@ function useVidgetTestSession(
     if (sessionId) updateCapturedAssistantFeedback(sessionId, messageId, feedback);
   }, []);
 
-  const canSend = eligibility.canTest && !isLoading && inputValue.trim().length > 0;
+  const canSend =
+    eligibility.canTest
+    && !composerDisabled
+    && !isLoading
+    && inputValue.trim().length > 0;
   const showTestHint =
-    eligibility.canTest && messages.length === 0 && !isLoading;
+    eligibility.canTest
+    && !visitorMode
+    && messages.length === 0
+    && !isLoading;
 
   return {
     messages,
@@ -251,6 +368,14 @@ function useVidgetTestSession(
     testBlockedReason: eligibility.canTest ? undefined : eligibility.reason,
     showTestHint,
     conversationEndRef,
+    visitorMode,
+    visitorAssistants,
+    selectedAssistantId: selectionValid ? selectedAssistantId : null,
+    selectedAssistant: selectionValid ? selectedAssistant : null,
+    needsAssistantSelection,
+    noAssistantsAvailable,
+    selectAssistant,
+    composerDisabled,
   };
 }
 
@@ -542,6 +667,260 @@ function PreviewNewConversationButton({
   );
 }
 
+function VisitorUnavailableNotice({ compact = false }: { compact?: boolean }) {
+  return (
+    <div
+      className={`rounded-[10px] border px-3 ${compact ? "py-2" : "py-2.5"}`}
+      style={{
+        borderColor: "var(--luxia-border-subtle)",
+        background: "var(--luxia-surface)",
+      }}
+      role="status"
+    >
+      <p
+        className="luxia-type-body-dense"
+        style={{
+          color: "var(--luxia-text-secondary)",
+          fontSize: compact ? "0.75rem" : undefined,
+        }}
+      >
+        No assistants are available right now.
+      </p>
+    </div>
+  );
+}
+
+/** Visitor chooser elevation — Luxia tokens only; no side accents. */
+const VISITOR_ASSISTANT_CARD_STYLE = `
+.visitor-assistant-card {
+  border-color: var(--luxia-border-default);
+  background: var(--luxia-surface);
+  box-shadow: var(--luxia-shadow-sm);
+}
+.visitor-assistant-card:hover {
+  border-color: var(--luxia-brand-primary);
+  background: var(--luxia-surface-subtle);
+  box-shadow: var(--luxia-shadow-md);
+}
+.visitor-assistant-card:active,
+.visitor-assistant-card[aria-selected="true"] {
+  border-color: var(--luxia-brand-primary);
+  background: var(--luxia-opacity-brand-primary-04);
+  box-shadow: var(--luxia-shadow-sm);
+}
+.visitor-assistant-card[aria-selected="true"]:hover,
+.visitor-assistant-card[aria-selected="true"]:active {
+  border-color: var(--luxia-brand-primary);
+  background: var(--luxia-opacity-brand-primary-04);
+  box-shadow: var(--luxia-shadow-md);
+}
+`;
+
+function VisitorAssistantChooser({
+  assistants,
+  accent,
+  onSelect,
+  compact = false,
+}: {
+  assistants: VidgetVisitorAssistantOption[];
+  accent: ThemeAccent;
+  onSelect: (id: string) => void;
+  compact?: boolean;
+}) {
+  void accent;
+  const scrollable = assistants.length > 4;
+
+  return (
+    <div
+      className="min-w-0 space-y-2"
+      role="listbox"
+      aria-label="Choose an assistant"
+    >
+      <style>{VISITOR_ASSISTANT_CARD_STYLE}</style>
+      <p
+        className="px-0.5 luxia-type-caption"
+        style={{
+          color: "var(--luxia-text-muted)",
+          fontSize: compact ? "0.625rem" : undefined,
+          fontWeight: 500,
+        }}
+      >
+        Choose an assistant to continue
+      </p>
+      <div
+        className={`min-w-0 space-y-2 ${scrollable ? "max-h-44 overflow-y-auto pr-0.5" : ""}`}
+      >
+        {assistants.map((assistant) => (
+          <button
+            key={assistant.id}
+            type="button"
+            role="option"
+            aria-selected={false}
+            className={`visitor-assistant-card flex w-full min-w-0 flex-col rounded-[10px] border text-left outline-none transition-[border-color,background-color,box-shadow] focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)] ${
+              compact ? "gap-0.5 px-2.5 py-2" : "gap-1 px-3 py-2.5"
+            }`}
+            onClick={() => onSelect(assistant.id)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onSelect(assistant.id);
+              }
+            }}
+          >
+            <span
+              className="min-w-0 break-words luxia-type-body-dense-strong"
+              style={{
+                color: "var(--luxia-text-primary)",
+                fontSize: compact ? "0.8125rem" : "0.875rem",
+                fontWeight: 600,
+              }}
+            >
+              {assistant.name}
+            </span>
+            <span
+              className="min-w-0 break-words luxia-type-caption"
+              style={{
+                color: "var(--luxia-text-muted)",
+                fontSize: compact ? "0.625rem" : "0.75rem",
+                fontWeight: 400,
+                lineHeight: 1.35,
+              }}
+            >
+              {assistant.description}
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ActiveAssistantIndicator({
+  name,
+  compact = false,
+  hasConversation = false,
+  onChangeAssistant,
+}: {
+  name: string;
+  compact?: boolean;
+  /** True when transcript history would be cleared by changing assistant. */
+  hasConversation?: boolean;
+  onChangeAssistant: () => void;
+}) {
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  const requestChange = () => {
+    if (hasConversation) {
+      setConfirmOpen(true);
+      return;
+    }
+    onChangeAssistant();
+  };
+
+  return (
+    <>
+      <div
+        className={`flex min-w-0 items-center gap-2 border-t px-3 ${compact ? "py-1.5" : "py-2"}`}
+        style={{
+          borderColor: "var(--luxia-border-subtle)",
+          background: "var(--luxia-surface-subtle)",
+        }}
+      >
+        <div
+          className="flex min-w-0 flex-1 items-center gap-1.5"
+          role="status"
+          aria-live="polite"
+          aria-label={`Active assistant: ${name}`}
+        >
+          <span
+            className="shrink-0 luxia-type-caption"
+            style={{
+              color: "var(--luxia-text-muted)",
+              fontSize: compact ? "0.625rem" : undefined,
+              fontWeight: 500,
+            }}
+          >
+            Assistant:
+          </span>
+          <span
+            className="min-w-0 truncate luxia-type-caption"
+            style={{
+              color: "var(--luxia-text-primary)",
+              fontSize: compact ? "0.625rem" : undefined,
+            }}
+            title={name}
+          >
+            {name}
+          </span>
+        </div>
+        <button
+          type="button"
+          className="shrink-0 luxia-type-caption outline-none hover:underline focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]"
+          style={{
+            color: "var(--luxia-brand-primary)",
+            fontSize: compact ? "0.625rem" : undefined,
+            fontWeight: 600,
+          }}
+          onClick={requestChange}
+          aria-label="Change assistant"
+        >
+          Change assistant
+        </button>
+      </div>
+
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Change assistant?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Changing assistant will start a new conversation.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              style={{ background: "var(--luxia-brand-primary)" }}
+              className="text-white hover:opacity-90"
+              onClick={() => {
+                setConfirmOpen(false);
+                onChangeAssistant();
+              }}
+            >
+              Change assistant
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}
+
+function VisitorConversationBlock({
+  testSession,
+  accent,
+  compact = false,
+}: {
+  testSession: VidgetTestSession;
+  accent: ThemeAccent;
+  compact?: boolean;
+}) {
+  if (!testSession.visitorMode) return null;
+  if (testSession.noAssistantsAvailable) {
+    return <VisitorUnavailableNotice compact={compact} />;
+  }
+  if (testSession.needsAssistantSelection) {
+    return (
+      <VisitorAssistantChooser
+        assistants={testSession.visitorAssistants}
+        accent={accent}
+        onSelect={testSession.selectAssistant}
+        compact={compact}
+      />
+    );
+  }
+  return null;
+}
+
 function MessageBubble({
   role,
   children,
@@ -642,8 +1021,9 @@ function PreviewComposer({
           }}
           placeholder={voiceOnly ? "Type to test…" : placeholder}
           disabled={disabled || loading}
-          aria-label="Test message"
-          className="min-w-0 flex-1 border-0 bg-transparent outline-none luxia-type-body-dense placeholder:opacity-70"
+          aria-disabled={disabled || loading}
+          aria-label={disabled ? "Message input disabled" : "Test message"}
+          className="min-w-0 flex-1 border-0 bg-transparent outline-none luxia-type-body-dense placeholder:opacity-70 disabled:opacity-70"
           style={{ color: accent.onPrimary }}
         />
       </div>
@@ -819,8 +1199,9 @@ function MobileComposer({
           }}
           placeholder={voiceOnly ? "Type to test…" : placeholder}
           disabled={disabled || loading}
-          aria-label="Test message"
-          className="min-w-0 flex-1 border-0 bg-transparent outline-none luxia-type-body-dense placeholder:opacity-70"
+          aria-disabled={disabled || loading}
+          aria-label={disabled ? "Message input disabled" : "Test message"}
+          className="min-w-0 flex-1 border-0 bg-transparent outline-none luxia-type-body-dense placeholder:opacity-70 disabled:opacity-70"
           style={{ color: accent.onPrimary, fontSize: "0.75rem" }}
         />
         {(microphoneEnabled || voiceOnly) ? (
@@ -904,6 +1285,11 @@ function MobileChatConversation({
           >
             {welcomeText}
           </MobileMessageBubble>
+          <VisitorConversationBlock
+            testSession={testSession}
+            accent={accent}
+            compact
+          />
           {testSession.showTestHint ? (
             <p
               className="px-1 text-center luxia-type-caption"
@@ -913,7 +1299,10 @@ function MobileChatConversation({
             </p>
           ) : null}
           <PreviewNewConversationButton
-            visible={testSession.messages.length > 0}
+            visible={
+              testSession.messages.length > 0
+              || Boolean(testSession.selectedAssistantId)
+            }
             onReset={testSession.reset}
           />
           {testSession.messages.map((message) => (
@@ -1029,7 +1418,11 @@ function MobileChannelFrame({
   const placeholder = record.tooltipText?.trim() || "Type here";
   const layout = frameLayout("mobile", false);
   const showComposer = !voiceOnly || record.microphoneEnabled;
-  const composerDisabled = Boolean(testSession.testBlockedReason);
+  const composerDisabled = testSession.composerDisabled;
+  const composerPlaceholder = testSession.needsAssistantSelection
+    || testSession.noAssistantsAvailable
+    ? "Choose an assistant to continue"
+    : placeholder;
 
   return (
     <div
@@ -1067,9 +1460,18 @@ function MobileChannelFrame({
           testSession={testSession}
         />
 
+        {testSession.selectedAssistant ? (
+          <ActiveAssistantIndicator
+            name={testSession.selectedAssistant.name}
+            compact
+            hasConversation={testSession.messages.length > 0}
+            onChangeAssistant={testSession.reset}
+          />
+        ) : null}
+
         {showComposer ? (
           <MobileComposer
-            placeholder={placeholder}
+            placeholder={composerPlaceholder}
             accent={accent}
             microphoneEnabled={record.microphoneEnabled}
             voiceOnly={voiceOnly}
@@ -1274,8 +1676,9 @@ function TotemComposer({
           }}
           placeholder={voiceOnly ? "Type to test…" : placeholder}
           disabled={disabled || loading}
-          aria-label="Test message"
-          className="min-w-0 flex-1 border-0 bg-transparent outline-none luxia-type-body-dense placeholder:opacity-70"
+          aria-disabled={disabled || loading}
+          aria-label={disabled ? "Message input disabled" : "Test message"}
+          className="min-w-0 flex-1 border-0 bg-transparent outline-none luxia-type-body-dense placeholder:opacity-70 disabled:opacity-70"
           style={{ color: accent.onPrimary, fontSize: "0.8125rem" }}
         />
         {(microphoneEnabled || voiceOnly) ? (
@@ -1365,6 +1768,11 @@ function TotemChatConversation({
           >
             {welcomeText}
           </TotemMessageBubble>
+          <VisitorConversationBlock
+            testSession={testSession}
+            accent={accent}
+            compact
+          />
           {testSession.showTestHint ? (
             <p
               className="px-1.5 text-center luxia-type-caption"
@@ -1374,7 +1782,10 @@ function TotemChatConversation({
             </p>
           ) : null}
           <PreviewNewConversationButton
-            visible={testSession.messages.length > 0}
+            visible={
+              testSession.messages.length > 0
+              || Boolean(testSession.selectedAssistantId)
+            }
             onReset={testSession.reset}
           />
           {testSession.messages.map((message) => (
@@ -1525,7 +1936,11 @@ function TotemChannelFrame({
   const layout = frameLayout("totem", false);
   const showComposer = !voiceOnly || record.microphoneEnabled;
   const avatarCompact = keyboardActive && showAvatarFrame;
-  const composerDisabled = Boolean(testSession.testBlockedReason);
+  const composerDisabled = testSession.composerDisabled;
+  const composerPlaceholder = testSession.needsAssistantSelection
+    || testSession.noAssistantsAvailable
+    ? "Choose an assistant to continue"
+    : placeholder;
 
   return (
     <div
@@ -1568,9 +1983,18 @@ function TotemChannelFrame({
           testSession={testSession}
         />
 
+        {testSession.selectedAssistant ? (
+          <ActiveAssistantIndicator
+            name={testSession.selectedAssistant.name}
+            compact
+            hasConversation={testSession.messages.length > 0}
+            onChangeAssistant={testSession.reset}
+          />
+        ) : null}
+
         {showComposer ? (
           <TotemComposer
-            placeholder={placeholder}
+            placeholder={composerPlaceholder}
             accent={accent}
             microphoneEnabled={record.microphoneEnabled}
             voiceOnly={voiceOnly}
@@ -1680,6 +2104,10 @@ function ChatConversation({
           >
             {welcomeText}
           </MessageBubble>
+          <VisitorConversationBlock
+            testSession={testSession}
+            accent={accent}
+          />
           {testSession.showTestHint ? (
             <p
               className="px-1 text-center luxia-type-caption"
@@ -1689,7 +2117,10 @@ function ChatConversation({
             </p>
           ) : null}
           <PreviewNewConversationButton
-            visible={testSession.messages.length > 0}
+            visible={
+              testSession.messages.length > 0
+              || Boolean(testSession.selectedAssistantId)
+            }
             onReset={testSession.reset}
           />
           {testSession.messages.map((message) => (
@@ -1757,9 +2188,13 @@ function WebChannelFrame({
   const webSplit = showAvatarFrame;
   const layout = frameLayout("desktop", webSplit);
   const showComposer = !voiceOnly;
-  const composerDisabled = Boolean(testSession.testBlockedReason);
+  const composerDisabled = testSession.composerDisabled;
+  const composerPlaceholder = testSession.needsAssistantSelection
+    || testSession.noAssistantsAvailable
+    ? "Choose an assistant to continue"
+    : placeholder;
   const composerProps = {
-    placeholder,
+    placeholder: composerPlaceholder,
     accent,
     microphoneEnabled: record.microphoneEnabled,
     voiceOnly,
@@ -1769,6 +2204,13 @@ function WebChannelFrame({
     disabled: composerDisabled,
     loading: testSession.isLoading,
   };
+  const activeAssistantBar = testSession.selectedAssistant ? (
+    <ActiveAssistantIndicator
+      name={testSession.selectedAssistant.name}
+      hasConversation={testSession.messages.length > 0}
+      onChangeAssistant={testSession.reset}
+    />
+  ) : null;
 
   return (
     <div
@@ -1801,6 +2243,7 @@ function WebChannelFrame({
               bg={bg}
               testSession={testSession}
             />
+            {activeAssistantBar}
             {showComposer ? (
               <PreviewComposer {...composerProps} />
             ) : null}
@@ -1820,6 +2263,7 @@ function WebChannelFrame({
             bg={bg}
             testSession={testSession}
           />
+          {activeAssistantBar}
           {showComposer ? (
             <PreviewComposer {...composerProps} />
           ) : voiceOnly && record.microphoneEnabled ? (

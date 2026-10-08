@@ -43,6 +43,7 @@ import {
   formatVidgetUpdatedAt,
   galaxyConstellationIdsEqual,
   normalizeGalaxyConstellationIds,
+  normalizeVidgetRoutingMode,
   withLockedVidgetSource,
   applyVidgetChannelChange,
   applyVidgetWebPublish,
@@ -50,6 +51,7 @@ import {
   isVidgetDeploymentActive,
 } from "./data";
 import { KnowledgeScopeSelector } from "./KnowledgeScopeSelector";
+import { VidgetAssistantSelection } from "./VidgetAssistantSelection";
 import {
   VIDGET_SETTINGS_SECTIONS,
   VIDGETS_GUIDANCE,
@@ -89,7 +91,7 @@ export interface VidgetSettingsPageProps {
   projectName: string;
   galaxyName: string;
   constellationName: string | null;
-  constellationOptions: { id: string; name: string }[];
+  constellationOptions: { id: string; name: string; description?: string }[];
   sourceAvailable?: boolean;
   sourceDisplayLabel?: string;
   activeSection: VidgetSettingsSectionId;
@@ -193,6 +195,7 @@ function isDirty(draft: VidgetRecord, baseline: VidgetRecord) {
       draft.galaxyConstellationIds,
       baseline.galaxyConstellationIds,
     )
+    || draft.routingMode !== baseline.routingMode
   );
 }
 
@@ -844,6 +847,18 @@ export function VidgetSettingsPage({
                               variant="settings"
                             />
                           )}
+                        </div>
+                        <div className="mt-6">
+                          <VidgetAssistantSelection
+                            idPrefix="vs-routing"
+                            value={normalizeVidgetRoutingMode(
+                              "galaxy",
+                              draft.routingMode,
+                            )}
+                            onChange={(mode) => patch({ routingMode: mode })}
+                            disabled={readOnly}
+                            variant="settings"
+                          />
                         </div>
                       </>
                     ) : (
