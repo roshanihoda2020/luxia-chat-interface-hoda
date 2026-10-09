@@ -1,6 +1,7 @@
 import { Input } from "@/app/components/ui/input";
 import { Switch } from "@/app/components/ui/switch";
 import { Textarea } from "@/app/components/ui/textarea";
+import { FieldError } from "@/app/features/shared/FieldValidation";
 import { LX } from "./tokens";
 import { isValidCrawlerUrl } from "./utils";
 
@@ -26,8 +27,18 @@ export function CrawlerForm({
     return (
         <div className="space-y-3">
             <div>
-                <Input value={values.url} onChange={(e) => update({ url: e.target.value })} placeholder="https://example.com" className="rounded-[12px]" aria-label="URL" aria-invalid={urlInvalid} />
-                {urlInvalid ? <p className="mt-1 luxia-type-caption" role="alert" style={{ color: LX.error }}>Enter a valid http:// or https:// URL.</p> : null}
+                <Input
+                    value={values.url}
+                    onChange={(e) => update({ url: e.target.value })}
+                    placeholder="https://example.com"
+                    className="rounded-[12px]"
+                    aria-label="URL"
+                    aria-invalid={urlInvalid || undefined}
+                    aria-describedby={urlInvalid ? "crawler-url-error" : undefined}
+                />
+                <FieldError id="crawler-url-error">
+                    {urlInvalid ? "Enter a valid http:// or https:// URL." : null}
+                </FieldError>
             </div>
             <Textarea value={values.description} onChange={(e) => update({ description: e.target.value })} placeholder="Description" rows={3} className="resize-y rounded-[12px] luxia-type-body-dense" aria-label="Description" />
             <div className="flex items-center justify-between rounded-[12px] border px-3 py-2.5" style={{ borderColor: LX.border, background: LX.subtle }}>

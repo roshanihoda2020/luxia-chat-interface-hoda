@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState, type MutableRefObject } from "rea
 import { Button } from "@/app/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/app/components/ui/dialog";
 import { cn } from "@/app/components/ui/utils";
+import { DiscardChangesDialog } from "@/app/features/shared/DiscardChangesDialog";
 import { LUXIA_DIALOG_CLOSE_ON_DARK_CLASS } from "@/app/features/shared/structuredModalChrome";
 import {
     AlertDialog,
@@ -345,31 +346,18 @@ export function ActiveDataTablesManager({
                     </DialogContent>
                 </Dialog>
             )}
-            <AlertDialog open={discardConfirmOpen} onOpenChange={setDiscardConfirmOpen}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Discard changes?</AlertDialogTitle>
-                        <AlertDialogDescription>Unsaved changes will be lost.</AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel onClick={() => setDiscardConfirmOpen(false)}>Keep editing</AlertDialogCancel>
-                        <AlertDialogAction
-                            style={{ background: LX.error }}
-                            className="text-white hover:opacity-90"
-                            onClick={() => {
-                                setDiscardConfirmOpen(false);
-                                if (discardIntent === "reset") {
-                                    setDraft(cloneTables(initialRef.current));
-                                    return;
-                                }
-                                onCancel();
-                            }}
-                        >
-                            Discard
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+            <DiscardChangesDialog
+                open={discardConfirmOpen}
+                onOpenChange={setDiscardConfirmOpen}
+                onDiscard={() => {
+                    setDiscardConfirmOpen(false);
+                    if (discardIntent === "reset") {
+                        setDraft(cloneTables(initialRef.current));
+                        return;
+                    }
+                    onCancel();
+                }}
+            />
             <AlertDialog open={!!confirmRemoveId} onOpenChange={(next) => { if (!next) setConfirmRemoveId(null); }}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
