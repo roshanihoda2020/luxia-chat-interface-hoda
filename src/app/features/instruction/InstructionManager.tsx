@@ -4,8 +4,10 @@ import { Button } from "@/app/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/app/components/ui/dialog";
 import { Textarea } from "@/app/components/ui/textarea";
 import { cn } from "@/app/components/ui/utils";
+import { BusyButton } from "@/app/features/shared/Loading";
 import { LUXIA_DIALOG_CLOSE_ON_DARK_CLASS } from "@/app/features/shared/structuredModalChrome";
 import { LUXIA_DIRTY_STATE_COPY } from "@/app/features/shared/luxiaSettingsUx";
+import { useManagerLeaveRegistration } from "@/app/features/shared/unsavedNavigationGuard";
 import { INSTRUCTION_MAX_CHARS } from "./constants";
 import { DiscardInstructionChangesDialog } from "./DiscardInstructionChangesDialog";
 import { InstructionAttachment } from "./InstructionAttachment";
@@ -28,6 +30,7 @@ export function InstructionManager({
     showAttachment = true,
     presentation = "dialog",
     closeRef,
+    dirtyRef,
     hideChrome,
 }: {
     open: boolean;
@@ -37,6 +40,7 @@ export function InstructionManager({
     showAttachment?: boolean;
     presentation?: "dialog" | "page";
     closeRef?: MutableRefObject<(() => void) | null>;
+    dirtyRef?: MutableRefObject<boolean>;
     hideChrome?: boolean;
 }) {
     const isPage = presentation === "page";
@@ -95,10 +99,7 @@ export function InstructionManager({
         setDiscardOpen(true);
     }
 
-    useEffect(() => {
-        if (closeRef) closeRef.current = requestLeave;
-        return () => { if (closeRef) closeRef.current = null; };
-    });
+    useManagerLeaveRegistration({ closeRef, dirtyRef, dirty, requestLeave });
 
     function handleTextChange(value: string) {
         if (value.length > INSTRUCTION_MAX_CHARS) return;
@@ -198,9 +199,18 @@ export function InstructionManager({
                                 Cancel
                             </Button>
                         ) : null}
-                        <Button type="button" variant="primary" className="min-w-[132px] px-4 !bg-[var(--luxia-purple-70)] !bg-none disabled:!opacity-[0.45]" disabled={!dirty || saving} onClick={save}>
-                            {saving ? "Saving…" : "Save Changes"}
-                        </Button>
+                        <BusyButton
+                            type="button"
+                            variant="primary"
+                            className="min-w-[132px] px-4 !bg-[var(--luxia-purple-70)] !bg-none disabled:!opacity-[0.45]"
+                            disabled={!dirty}
+                            busy={saving}
+                            busyLabel="Saving…"
+                            busyText="Saving…"
+                            onClick={save}
+                        >
+                            Save Changes
+                        </BusyButton>
                     </div>
                 </div>
             </div>

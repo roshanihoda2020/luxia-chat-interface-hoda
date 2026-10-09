@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import {
   LuxiaBreadcrumb,
   buildConstellationCapabilityBreadcrumbItems,
@@ -47,6 +47,7 @@ import type { RelationshipRecord } from "@/app/features/relationship/types";
 import {
   LUXIA_SETTINGS_CONTENT_SURFACE_CLASS,
 } from "@/app/features/shared/luxiaSettingsUx";
+import type { UnsavedNavigationGuard } from "@/app/features/shared/unsavedNavigationGuard";
 import type { ConstellationCapabilityBundle } from "./capabilityState";
 import { CONSTELLATION_SETTINGS_PAGE_VARIANT } from "./ia";
 
@@ -70,6 +71,8 @@ export interface ConstellationCapabilityManagePageProps {
   onOpenConstellations: (id: string) => void;
   onOpenConstellation: (projectId: string, constellationId: string) => void;
   connectedSourceIds?: readonly string[];
+  /** App-level leave guard (sidebar / browser history). */
+  navigationGuardRef?: MutableRefObject<UnsavedNavigationGuard | null>;
 }
 
 export function ConstellationCapabilityManagePage({
@@ -87,11 +90,13 @@ export function ConstellationCapabilityManagePage({
   onOpenConstellations,
   onOpenConstellation,
   connectedSourceIds = [],
+  navigationGuardRef,
 }: ConstellationCapabilityManagePageProps) {
   const capabilityMeta = capabilityMetaForType(capabilityId, constellation.type);
   const CapabilityIcon = capabilityMeta.icon;
   const allowed = isCapsuleCapabilityAllowed(capabilityId, constellation.type);
   const closeRef = useRef<(() => void) | null>(null);
+  const dirtyRef = useRef(false);
   const leaveActionRef = useRef(onBackToSettings);
   leaveActionRef.current = onBackToSettings;
 
@@ -131,6 +136,19 @@ export function ConstellationCapabilityManagePage({
     runLeaveAction();
   }
 
+  useEffect(() => {
+    if (!navigationGuardRef) return;
+    navigationGuardRef.current = {
+      isDirty: () => dirtyRef.current,
+      requestLeaveConfirmation: (onConfirmed) => {
+        requestLeave(onConfirmed);
+      },
+    };
+    return () => {
+      navigationGuardRef.current = null;
+    };
+  }, [navigationGuardRef]);
+
   const breadcrumbHandlers: LuxiaBreadcrumbHandlers = {
     onHome: () => requestLeave(onNavigateHome),
     onProject: (id) => requestLeave(() => onOpenProject(id)),
@@ -162,6 +180,7 @@ export function ConstellationCapabilityManagePage({
               tables={bundle.tables}
               catalog={TABLE_CATALOG}
               closeRef={closeRef}
+              dirtyRef={dirtyRef}
               onCommit={(tables: DataTableRecord[]) => {
                 commitBundle({ ...bundle, tables });
               }}
@@ -226,6 +245,7 @@ export function ConstellationCapabilityManagePage({
             presentation="page"
             entries={bundle.knowledgeBase}
             closeRef={closeRef}
+            dirtyRef={dirtyRef}
             onCommit={(knowledgeBase: KnowledgeBaseEntry[]) => {
               commitBundle({ ...bundle, knowledgeBase });
             }}
@@ -239,6 +259,7 @@ export function ConstellationCapabilityManagePage({
             presentation="page"
             data={bundle.instruction}
             closeRef={closeRef}
+            dirtyRef={dirtyRef}
             onCommit={(instruction: InstructionData) => {
               commitBundle({ ...bundle, instruction });
             }}
@@ -252,6 +273,7 @@ export function ConstellationCapabilityManagePage({
             presentation="page"
             files={bundle.contextFiles}
             closeRef={closeRef}
+            dirtyRef={dirtyRef}
             onCommit={(contextFiles: ExtraContextFile[]) => {
               commitBundle({ ...bundle, contextFiles });
             }}
@@ -265,6 +287,7 @@ export function ConstellationCapabilityManagePage({
             presentation="page"
             relationships={bundle.relationships}
             closeRef={closeRef}
+            dirtyRef={dirtyRef}
             onCommit={(relationships: RelationshipRecord[]) => {
               commitBundle({ ...bundle, relationships });
             }}
@@ -278,6 +301,7 @@ export function ConstellationCapabilityManagePage({
             presentation="page"
             metrics={bundle.metrics}
             closeRef={closeRef}
+            dirtyRef={dirtyRef}
             onCommit={(metrics: MetricRecord[]) => {
               commitBundle({ ...bundle, metrics });
             }}
@@ -308,6 +332,7 @@ export function ConstellationCapabilityManagePage({
               fileKind={constellation.type === "csv" ? "csv" : "pdf"}
               fileTagSourceIds={connectedSourceIds}
               closeRef={closeRef}
+              dirtyRef={dirtyRef}
               onCommit={(pdfFiles: PDFFileRecord[]) => {
                 commitBundle({ ...bundle, pdfFiles });
               }}
@@ -322,6 +347,7 @@ export function ConstellationCapabilityManagePage({
             presentation="page"
             state={bundle.crawler}
             closeRef={closeRef}
+            dirtyRef={dirtyRef}
             onCommit={(crawler: CrawlerState) => {
               commitBundle({ ...bundle, crawler });
             }}

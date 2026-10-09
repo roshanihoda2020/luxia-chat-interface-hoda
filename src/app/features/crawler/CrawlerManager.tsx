@@ -12,15 +12,19 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "@/app/components/ui/input";
 import { Switch } from "@/app/components/ui/switch";
 import { cn } from "@/app/components/ui/utils";
+import { BusyButton } from "@/app/features/shared/Loading";
+import { luxiaToast } from "@/app/features/shared/luxiaToast";
+import { useManagerLeaveRegistration } from "@/app/features/shared/unsavedNavigationGuard";
 import { LUXIA_DIALOG_CLOSE_ON_DARK_CLASS } from "@/app/features/shared/structuredModalChrome";
 import { LX } from "./tokens";
 import type { CrawlerState } from "./types";
 import { activeCrawlerCount, cloneCrawlerState, crawlerSignature } from "./utils";
 
-export function CrawlerManager({ open, state, onCommit, onCancel, presentation = "dialog", closeRef, hideChrome }: {
+export function CrawlerManager({ open, state, onCommit, onCancel, presentation = "dialog", closeRef, dirtyRef, hideChrome }: {
     open: boolean; state: CrawlerState; onCommit: (next: CrawlerState) => void; onCancel: () => void;
     presentation?: "dialog" | "page";
     closeRef?: MutableRefObject<(() => void) | null>;
+    dirtyRef?: MutableRefObject<boolean>;
     hideChrome?: boolean;
 }) {
     const isPage = presentation === "page";
@@ -76,10 +80,7 @@ export function CrawlerManager({ open, state, onCommit, onCancel, presentation =
         setDiscardOpen(true);
     }
 
-    useEffect(() => {
-        if (closeRef) closeRef.current = requestLeave;
-        return () => { if (closeRef) closeRef.current = null; };
-    });
+    useManagerLeaveRegistration({ closeRef, dirtyRef, dirty, requestLeave });
 
     function markRemove(id: string) { setDraft((c) => ({ ...c, entries: c.entries.map((e) => e.id === id ? { ...e, markedForRemoval: true } : e) })); setConfirmRemoveId(null); }
     function addEntry(values: CrawlerFormValues) {
@@ -99,6 +100,7 @@ export function CrawlerManager({ open, state, onCommit, onCancel, presentation =
             initialRef.current = cloneCrawlerState(next);
             setDraft(cloneCrawlerState(next));
             setSaving(false);
+            luxiaToast.success("Crawler settings saved");
             if (!isPage) onCancel();
         }, 500);
     }
@@ -171,7 +173,18 @@ export function CrawlerManager({ open, state, onCommit, onCancel, presentation =
                                 <span className="luxia-type-metadata" style={{ color: LX.textMuted }}>{count} {count === 1 ? "item" : "items"}{dirty ? " · Unsaved changes" : ""}</span>
                                 <div className="flex items-center gap-2">
                                     <Button type="button" variant="secondary" className="px-4" onClick={requestCancelEdits} disabled={isPage && !dirty}>Cancel</Button>
-                                    <Button type="button" variant="primary" className="min-w-[132px] px-4 !bg-[var(--luxia-purple-70)] !bg-none disabled:!opacity-[0.45]" disabled={!dirty || saving} onClick={save}>{saving ? "Saving…" : "Save Changes"}</Button>
+                                    <BusyButton
+                                        type="button"
+                                        variant="primary"
+                                        className="min-w-[132px] px-4 !bg-[var(--luxia-purple-70)] !bg-none disabled:!opacity-[0.45]"
+                                        disabled={!dirty}
+                                        busy={saving}
+                                        busyLabel="Saving…"
+                                        busyText="Saving…"
+                                        onClick={save}
+                                    >
+                                        Save Changes
+                                    </BusyButton>
                                 </div>
                             </div>
                         </div>

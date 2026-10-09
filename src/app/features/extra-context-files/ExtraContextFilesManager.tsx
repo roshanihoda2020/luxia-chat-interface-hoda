@@ -4,6 +4,9 @@ import { Button } from "@/app/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/app/components/ui/dialog";
 import { Input } from "@/app/components/ui/input";
 import { cn } from "@/app/components/ui/utils";
+import { BusyButton } from "@/app/features/shared/Loading";
+import { luxiaToast } from "@/app/features/shared/luxiaToast";
+import { useManagerLeaveRegistration } from "@/app/features/shared/unsavedNavigationGuard";
 import { LUXIA_DIALOG_CLOSE_ON_DARK_CLASS } from "@/app/features/shared/structuredModalChrome";
 import { AddExtraContextFilesDialog } from "./AddExtraContextFilesDialog";
 import { DiscardExtraContextChangesDialog } from "./DiscardExtraContextChangesDialog";
@@ -22,6 +25,7 @@ export function ExtraContextFilesManager({
     onCancel,
     presentation = "dialog",
     closeRef,
+    dirtyRef,
     hideChrome,
 }: {
     open: boolean;
@@ -30,6 +34,7 @@ export function ExtraContextFilesManager({
     onCancel: () => void;
     presentation?: "dialog" | "page";
     closeRef?: MutableRefObject<(() => void) | null>;
+    dirtyRef?: MutableRefObject<boolean>;
     hideChrome?: boolean;
 }) {
     const isPage = presentation === "page";
@@ -89,10 +94,7 @@ export function ExtraContextFilesManager({
         setDiscardOpen(true);
     }
 
-    useEffect(() => {
-        if (closeRef) closeRef.current = requestLeave;
-        return () => { if (closeRef) closeRef.current = null; };
-    });
+    useManagerLeaveRegistration({ closeRef, dirtyRef, dirty, requestLeave });
 
     function markRemove(id: string) {
         setDraft((current) => current.map((file) => file.id === id ? { ...file, markedForRemoval: true } : file));
@@ -128,6 +130,7 @@ export function ExtraContextFilesManager({
             initialRef.current = cloneFiles(committed);
             setDraft(cloneFiles(committed));
             setSaving(false);
+            luxiaToast.success("Extra context files saved");
             if (!isPage) onCancel();
         }, 500);
     }
@@ -223,15 +226,18 @@ export function ExtraContextFilesManager({
                                 </span>
                                 <div className="flex items-center gap-2">
                                     <Button type="button" variant="secondary" className="px-4" onClick={requestCancelEdits} disabled={isPage && !dirty}>Cancel</Button>
-                                    <Button
+                                    <BusyButton
                                         type="button"
                                         variant="primary"
                                         className="min-w-[132px] px-4 !bg-[var(--luxia-purple-70)] !bg-none disabled:!opacity-[0.45]"
-                                        disabled={!dirty || saving}
+                                        disabled={!dirty}
+                                        busy={saving}
+                                        busyLabel="Saving…"
+                                        busyText="Saving…"
                                         onClick={save}
                                     >
-                                        {saving ? "Saving…" : "Save Changes"}
-                                    </Button>
+                                        Save Changes
+                                    </BusyButton>
                                 </div>
                             </div>
                         </div>

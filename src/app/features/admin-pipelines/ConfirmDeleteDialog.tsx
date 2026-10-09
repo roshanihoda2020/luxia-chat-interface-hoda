@@ -9,6 +9,7 @@ export function ConfirmDeleteDialog({
   open,
   title,
   description,
+  impact,
   confirmLabel = "Delete",
   busy,
   onOpenChange,
@@ -17,6 +18,8 @@ export function ConfirmDeleteDialog({
   open: boolean;
   title: string;
   description: ReactNode;
+  /** Optional consequence list; shown below the primary description. */
+  impact?: ReactNode;
   confirmLabel?: string;
   busy?: boolean;
   onOpenChange: (open: boolean) => void;
@@ -28,6 +31,7 @@ export function ConfirmDeleteDialog({
       onOpenChange={onOpenChange}
       title={title}
       description={description}
+      impact={impact}
       confirmLabel={confirmLabel}
       tone="destructive"
       busy={busy}

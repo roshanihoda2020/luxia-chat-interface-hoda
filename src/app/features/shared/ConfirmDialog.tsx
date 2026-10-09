@@ -46,6 +46,8 @@ export function ConfirmDialog({
   onConfirm: () => void | Promise<void>;
 }) {
   const destructive = tone === "destructive";
+  /** When impact is present, primary copy + impact sit in the light body for scan hierarchy. */
+  const bodyWithImpact = Boolean(impact);
 
   return (
     <AlertDialog
@@ -58,24 +60,29 @@ export function ConfirmDialog({
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
-          {description ? (
+          {!bodyWithImpact && description ? (
             <AlertDialogDescription asChild>
               <div className="space-y-2 text-[var(--luxia-purple-10)]">
                 {description}
               </div>
             </AlertDialogDescription>
-          ) : (
+          ) : !bodyWithImpact ? (
             <AlertDialogDescription className="sr-only">
               {title}
             </AlertDialogDescription>
-          )}
+          ) : null}
         </AlertDialogHeader>
-        {impact ? (
-          <div className="border-t border-[var(--luxia-border-default)] bg-[var(--luxia-surface)] px-6 py-3">
-            <div className="luxia-type-caption text-[var(--luxia-text-secondary)]">
-              {impact}
+        {bodyWithImpact ? (
+          <AlertDialogDescription asChild>
+            <div className="space-y-3 border-t border-[var(--luxia-border-default)] bg-[var(--luxia-surface)] px-6 py-4">
+              {description ? (
+                <div className="space-y-1.5 luxia-type-body-dense text-[var(--luxia-text-primary)]">
+                  {description}
+                </div>
+              ) : null}
+              <div className="space-y-1.5">{impact}</div>
             </div>
-          </div>
+          </AlertDialogDescription>
         ) : null}
         <AlertDialogFooter>
           <AlertDialogCancel disabled={busy}>{cancelLabel}</AlertDialogCancel>
