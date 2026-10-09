@@ -20,6 +20,10 @@ import {
   snoozeMfaNudge,
   writePrototypeSignedIn,
 } from "@/app/features/login";
+import {
+  runWithUnsavedNavigationGuard,
+  type UnsavedNavigationGuard,
+} from "@/app/features/shared/unsavedNavigationGuard";
 import { ActiveDataTablesSection } from "@/app/features/active-data-tables/ActiveDataTablesSection";
 import { ExtraContextFilesSection } from "@/app/features/extra-context-files/ExtraContextFilesSection";
 import { InstructionSection } from "@/app/features/instruction/InstructionSection";
@@ -4379,6 +4383,11 @@ export default function App() {
   const prototypeUserIdRef = useRef(prototypeUserId);
   prototypeUserIdRef.current = prototypeUserId;
   const constellationCreateGuardRef = useRef<ConstellationCreateNavigationGuard | null>(null);
+  const capabilityManageGuardRef = useRef<UnsavedNavigationGuard | null>(null);
+  const settingsCapabilityPathRef = useRef(settingsCapabilityPath);
+  settingsCapabilityPathRef.current = settingsCapabilityPath;
+  const settingsConstellationIdRef = useRef(settingsConstellationId);
+  settingsConstellationIdRef.current = settingsConstellationId;
   const accessLevelCreateDraftRef = useRef<AccessLevelRecord | null>(null);
 
   const isMobileNav = viewportWidth < LEFT_NAV_MOBILE_BREAKPOINT;
@@ -4937,10 +4946,10 @@ export default function App() {
     function onPopState() {
       const pathname = window.location.pathname;
       const search = window.location.search;
+      const resolved = resolveLuxiaPathname(pathname);
 
       if (appViewRef.current === "constellation-create") {
         const guard = constellationCreateGuardRef.current;
-        const resolved = resolveLuxiaPathname(pathname);
         if (guard?.isDirty() && resolved.kind !== "constellation-create") {
           const projectId = activeProjectIdRef.current;
           if (projectId) {
@@ -4949,6 +4958,42 @@ export default function App() {
               { luxiaView: "constellation-create", projectId },
               "",
               createPath,
+            );
+          }
+          guard.requestLeaveConfirmation(() => applyPath(pathname, search));
+          return;
+        }
+      }
+
+      const manageCapabilityPath = settingsCapabilityPathRef.current;
+      if (
+        appViewRef.current === "constellation-settings"
+        && manageCapabilityPath
+      ) {
+        const guard = capabilityManageGuardRef.current;
+        const stillOnSameCapability =
+          resolved.kind === "constellation-settings"
+          && resolved.capabilityPath === manageCapabilityPath
+          && resolved.constellationId === settingsConstellationIdRef.current
+          && resolved.projectId === activeProjectIdRef.current;
+        if (guard?.isDirty() && !stillOnSameCapability) {
+          const projectId = activeProjectIdRef.current;
+          const constellationId = settingsConstellationIdRef.current;
+          if (projectId && constellationId) {
+            window.history.pushState(
+              {
+                luxiaView: "constellation-settings",
+                projectId,
+                constellationId,
+                capabilityPath: manageCapabilityPath,
+                section: "configuration",
+              },
+              "",
+              getConstellationSettingsCapabilityPath(
+                projectId,
+                constellationId,
+                manageCapabilityPath,
+              ),
             );
           }
           guard.requestLeaveConfirmation(() => applyPath(pathname, search));
@@ -5251,6 +5296,13 @@ export default function App() {
         window.history.pushState({ luxiaView: "home" }, "", "/");
       }
     }
+  }
+
+  /** Sidebar / chrome navigation while create or capability-manage drafts are dirty. */
+  function whenUnsavedNavigationAllows(proceed: () => void) {
+    runWithUnsavedNavigationGuard(constellationCreateGuardRef.current, () => {
+      runWithUnsavedNavigationGuard(capabilityManageGuardRef.current, proceed);
+    });
   }
 
   function syncConstellationSettingsPath(
@@ -9062,25 +9114,37 @@ export default function App() {
         dashboardTotalCount={sidebarProjectDashboardOutputs.length}
         vidgetTotalCount={sidebarProjectVidgets.length}
         pipelineTotalCount={sidebarPipelineCount}
-        onHomeClick={handleNavigateHome}
-        onOrganizationUsersClick={handleOpenOrganizationUsers}
-        onAccessLevelsClick={handleOpenAccessLevels}
-        onDataSourcesClick={handleOpenDataSources}
-        onAdminPipelinesClick={handleOpenAdminPipelines}
-        onProjectSectionClick={handleProjectNavSection}
+        onHomeClick={() => whenUnsavedNavigationAllows(handleNavigateHome)}
+        onOrganizationUsersClick={() => whenUnsavedNavigationAllows(handleOpenOrganizationUsers)}
+        onAccessLevelsClick={() => whenUnsavedNavigationAllows(handleOpenAccessLevels)}
+        onDataSourcesClick={() => whenUnsavedNavigationAllows(handleOpenDataSources)}
+        onAdminPipelinesClick={() => whenUnsavedNavigationAllows(handleOpenAdminPipelines)}
+        onProjectSectionClick={(section) => {
+          whenUnsavedNavigationAllows(() => handleProjectNavSection(section));
+        }}
         onSwitchProject={(projectId) => {
-          handleOpenProjectOverview(projectId, "overview");
+          whenUnsavedNavigationAllows(() => {
+            handleOpenProjectOverview(projectId, "overview");
+          });
         }}
-        onOpenChat={handleSelectChat}
+        onOpenChat={(chatId) => whenUnsavedNavigationAllows(() => handleSelectChat(chatId))}
         onOpenConstellation={(projectId, constellationId) => {
-          handleOpenConstellationSettings(projectId, constellationId, "general");
+          whenUnsavedNavigationAllows(() => {
+            handleOpenConstellationSettings(projectId, constellationId, "general");
+          });
         }}
-        onOpenDashboardOutput={handleOpenDashboardOutput}
+        onOpenDashboardOutput={(projectId, outputId) => {
+          whenUnsavedNavigationAllows(() => handleOpenDashboardOutput(projectId, outputId));
+        }}
         onOpenVidget={(projectId, nextVidgetId) => {
-          handleOpenVidgetSettings(projectId, nextVidgetId);
+          whenUnsavedNavigationAllows(() => {
+            handleOpenVidgetSettings(projectId, nextVidgetId);
+          });
         }}
         onOpenPipeline={(projectId, nextPipelineId) => {
-          handleOpenPipelineDetail(projectId, nextPipelineId);
+          whenUnsavedNavigationAllows(() => {
+            handleOpenPipelineDetail(projectId, nextPipelineId);
+          });
         }}
         prototypeUser={prototypeUser}
         prototypeProjectRole={prototypeProjectRole}
@@ -9091,10 +9155,14 @@ export default function App() {
         }
         prototypeUsers={prototypeUsersForDemo}
         onPrototypeUserChange={handlePrototypeUserChange}
-        onSettingsClick={() => handleOpenAccountSettings("profile")}
+        onSettingsClick={() => {
+          whenUnsavedNavigationAllows(() => handleOpenAccountSettings("profile"));
+        }}
         onLogout={() => {
-          clearPrototypeSignedIn();
-          setPrototypeSignedIn(false);
+          whenUnsavedNavigationAllows(() => {
+            clearPrototypeSignedIn();
+            setPrototypeSignedIn(false);
+          });
         }}
         onSecondaryRailOpenChange={setLeftNavSecondaryOpen}
       />
@@ -9503,6 +9571,7 @@ export default function App() {
                         ? "This Constellation settings view is unavailable."
                         : "This capability is not available for this Constellation type."
                     }
+                    navigationGuardRef={capabilityManageGuardRef}
                     onBackToSettings={() => {
                       if (!projectId || !constellationId) {
                         handleNavigateHome();

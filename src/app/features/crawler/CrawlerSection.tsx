@@ -5,6 +5,7 @@ import { CrawlerManager } from "./CrawlerManager";
 import { EditCrawlerDialog } from "./EditCrawlerDialog";
 import { RemoveCrawlerDialog } from "./RemoveCrawlerDialog";
 import { ViewCrawlerDialog } from "./ViewCrawlerDialog";
+import { luxiaToast } from "@/app/features/shared/luxiaToast";
 import { INITIAL_CRAWLER_STATE } from "./data";
 import type { CrawlerState } from "./types";
 import { cloneCrawlerState, crawlerSignature } from "./utils";
@@ -51,8 +52,15 @@ export function CrawlerSection({
             {!readOnly ? (
                 <>
                     <CrawlerManager open={managerOpen} state={state} onCommit={setState} onCancel={() => setManagerOpen(false)} />
-                    <AddCrawlerDialog open={addOpen} onOpenChange={setAddOpen} onAdd={(values) => setState((c) => ({ ...c, entries: [...c.entries, { id: `crawl-${Date.now()}`, ...values, url: values.url.trim(), description: values.description.trim() }] }))} />
-                    {editItem ? <EditCrawlerDialog open={!!editId} onOpenChange={(o) => { if (!o) setEditId(null); }} initialValues={{ url: editItem.url, description: editItem.description, exactSearch: editItem.exactSearch }} onUpdate={(values) => { setState((c) => ({ ...c, entries: c.entries.map((e) => e.id === editId ? { ...e, url: values.url.trim(), description: values.description.trim(), exactSearch: values.exactSearch } : e) })); setEditId(null); }} /> : null}
+                    <AddCrawlerDialog open={addOpen} onOpenChange={setAddOpen} onAdd={(values) => {
+                        setState((c) => ({ ...c, entries: [...c.entries, { id: `crawl-${Date.now()}`, ...values, url: values.url.trim(), description: values.description.trim() }] }));
+                        luxiaToast.success("Crawler URL added");
+                    }} />
+                    {editItem ? <EditCrawlerDialog open={!!editId} onOpenChange={(o) => { if (!o) setEditId(null); }} initialValues={{ url: editItem.url, description: editItem.description, exactSearch: editItem.exactSearch }} onUpdate={(values) => {
+                        setState((c) => ({ ...c, entries: c.entries.map((e) => e.id === editId ? { ...e, url: values.url.trim(), description: values.description.trim(), exactSearch: values.exactSearch } : e) }));
+                        setEditId(null);
+                        luxiaToast.success("Crawler URL updated");
+                    }} /> : null}
                     <RemoveCrawlerDialog open={!!confirmRemoveId} onOpenChange={(o) => { if (!o) setConfirmRemoveId(null); }} onConfirm={() => { if (!confirmRemoveId) return; setState((c) => ({ ...c, entries: c.entries.filter((e) => e.id !== confirmRemoveId) })); setConfirmRemoveId(null); }} />
                 </>
             ) : null}

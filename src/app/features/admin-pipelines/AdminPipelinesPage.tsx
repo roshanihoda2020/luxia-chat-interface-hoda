@@ -639,27 +639,38 @@ export function AdminPipelinesPage({
         open={Boolean(deleteMapping)}
         title="Delete DAG mapping?"
         description={
-          <>
-            <p>
-              Remove the Luxia mapping for{" "}
-              <strong>{deleteMapping?.displayName || deleteMapping?.dagId}</strong>
-              {deleteMapping ? (
-                <>
-                  {" "}
-                  (<span className="font-mono text-[0.95em]">{deleteMapping.dagId}</span>
-                  {" · "}
-                  {store.getProjectName(deleteMapping.projectId)})
-                </>
-              ) : null}
-              .
-              {deleteMapping && deleteMapping.attachedVariableIds.length > 0
-                ? ` Also detaches ${deleteMapping.attachedVariableIds.length} variable${
-                    deleteMapping.attachedVariableIds.length === 1 ? "" : "s"
-                  }.`
-                : ""}
-            </p>
-            <p>The Airflow DAG is not deleted.</p>
-          </>
+          deleteMapping ? (
+            <>
+              <p>
+                This will remove the Luxia mapping for “
+                {deleteMapping.displayName || deleteMapping.dagId}”.
+              </p>
+              <p className="luxia-type-caption break-words text-[var(--luxia-text-secondary)]">
+                <span className="font-mono text-[0.95em]">{deleteMapping.dagId}</span>
+                {" · "}
+                {store.getProjectName(deleteMapping.projectId)}
+              </p>
+            </>
+          ) : null
+        }
+        impact={
+          deleteMapping ? (
+            <>
+              <p className="luxia-type-label-small font-semibold text-[var(--luxia-text-primary)]">
+                Impact
+              </p>
+              <ul className="list-disc space-y-1 pl-4 luxia-type-caption text-[var(--luxia-text-secondary)]">
+                {deleteMapping.attachedVariableIds.length > 0 ? (
+                  <li>
+                    {deleteMapping.attachedVariableIds.length === 1
+                      ? "1 mapped variable will be detached."
+                      : `${deleteMapping.attachedVariableIds.length} mapped variables will be detached.`}
+                  </li>
+                ) : null}
+                <li>The Airflow DAG itself will not be deleted.</li>
+              </ul>
+            </>
+          ) : null
         }
         confirmLabel="Delete mapping"
         busy={deleteBusy}

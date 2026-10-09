@@ -5,7 +5,9 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "@/app/components/ui/input";
 import { cn } from "@/app/components/ui/utils";
 import { TagMultiSelectFilter, useFileTagFilter } from "@/app/features/document-tags";
+import { useManagerLeaveRegistration } from "@/app/features/shared/unsavedNavigationGuard";
 import { LUXIA_DIALOG_CLOSE_ON_DARK_CLASS } from "@/app/features/shared/structuredModalChrome";
+
 import { DiscardPDFChangesDialog } from "./DiscardPDFChangesDialog";
 import { ManagePDFFilesDialog } from "./ManagePDFFilesDialog";
 import { PDFFileRow } from "./PDFFileRow";
@@ -24,6 +26,7 @@ export function PDFFilesManager({
     onCancel,
     presentation = "dialog",
     closeRef,
+    dirtyRef,
     hideChrome,
     fileKind = "pdf",
     fileTagSourceIds = [],
@@ -34,6 +37,7 @@ export function PDFFilesManager({
     onCancel: () => void;
     presentation?: "dialog" | "page";
     closeRef?: MutableRefObject<(() => void) | null>;
+    dirtyRef?: MutableRefObject<boolean>;
     hideChrome?: boolean;
     /** Settings label override for CSV Constellations reusing this manager. */
     fileKind?: "pdf" | "csv";
@@ -126,10 +130,7 @@ export function PDFFilesManager({
         setDiscardOpen(true);
     }
 
-    useEffect(() => {
-        if (closeRef) closeRef.current = requestLeave;
-        return () => { if (closeRef) closeRef.current = null; };
-    });
+    useManagerLeaveRegistration({ closeRef, dirtyRef, dirty, requestLeave });
 
     function markRemove(id: string) {
         setDraft((c) => c.map((f) => f.id === id ? { ...f, markedForRemoval: true } : f));

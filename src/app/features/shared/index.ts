@@ -71,3 +71,11 @@ export {
   DiscardChangesDialog,
   UnsavedChangesDialog,
 } from "./DiscardChangesDialog";
+
+export {
+  runWithUnsavedNavigationGuard,
+  useBeforeUnloadWhenDirty,
+  useManagerLeaveRegistration,
+  useSyncDirtyRef,
+  type UnsavedNavigationGuard,
+} from "./unsavedNavigationGuard";

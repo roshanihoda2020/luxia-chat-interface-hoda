@@ -4,6 +4,8 @@ import { Button } from "@/app/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/app/components/ui/dialog";
 import { cn } from "@/app/components/ui/utils";
 import { DiscardChangesDialog } from "@/app/features/shared/DiscardChangesDialog";
+import { luxiaToast } from "@/app/features/shared/luxiaToast";
+import { useManagerLeaveRegistration } from "@/app/features/shared/unsavedNavigationGuard";
 import { LUXIA_DIALOG_CLOSE_ON_DARK_CLASS } from "@/app/features/shared/structuredModalChrome";
 import {
     AlertDialog,
@@ -37,6 +39,7 @@ export function ActiveDataTablesManager({
     onConfigureColumns,
     presentation = "dialog",
     closeRef,
+    dirtyRef,
     hideChrome,
 }: {
     open: boolean;
@@ -49,6 +52,7 @@ export function ActiveDataTablesManager({
     onConfigureColumns: (id: string) => void;
     presentation?: "dialog" | "page";
     closeRef?: MutableRefObject<(() => void) | null>;
+    dirtyRef?: MutableRefObject<boolean>;
     hideChrome?: boolean;
 }) {
     const isPage = presentation === "page";
@@ -140,6 +144,7 @@ export function ActiveDataTablesManager({
         initialRef.current = next;
         setDraft(next);
         setDiscardConfirmOpen(false);
+        luxiaToast.success("Active data tables saved");
         if (!isPage) onCancel();
     }
 
@@ -161,10 +166,7 @@ export function ActiveDataTablesManager({
         setDiscardConfirmOpen(true);
     }
 
-    useEffect(() => {
-        if (closeRef) closeRef.current = requestLeave;
-        return () => { if (closeRef) closeRef.current = null; };
-    });
+    useManagerLeaveRegistration({ closeRef, dirtyRef, dirty, requestLeave });
 
     if (!effectiveOpen) return null;
 

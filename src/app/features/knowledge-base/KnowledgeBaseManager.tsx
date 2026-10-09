@@ -17,6 +17,9 @@ import { Input } from "@/app/components/ui/input";
 import { Textarea } from "@/app/components/ui/textarea";
 import { cn } from "@/app/components/ui/utils";
 import { DiscardChangesDialog } from "@/app/features/shared/DiscardChangesDialog";
+import { BusyButton } from "@/app/features/shared/Loading";
+import { luxiaToast } from "@/app/features/shared/luxiaToast";
+import { useManagerLeaveRegistration } from "@/app/features/shared/unsavedNavigationGuard";
 import { LUXIA_DIALOG_CLOSE_ON_DARK_CLASS } from "@/app/features/shared/structuredModalChrome";
 import { KB_RESPONSE_TYPES, type KnowledgeBaseEntry } from "./data";
 import { LX } from "@/app/features/active-data-tables/tokens";
@@ -163,6 +166,7 @@ export function KnowledgeBaseManager({
     onCancel,
     presentation = "dialog",
     closeRef,
+    dirtyRef,
     hideChrome,
 }: {
     open: boolean;
@@ -171,6 +175,7 @@ export function KnowledgeBaseManager({
     onCancel: () => void;
     presentation?: "dialog" | "page";
     closeRef?: MutableRefObject<(() => void) | null>;
+    dirtyRef?: MutableRefObject<boolean>;
     hideChrome?: boolean;
 }) {
     const isPage = presentation === "page";
@@ -235,10 +240,7 @@ export function KnowledgeBaseManager({
         setDiscardOpen(true);
     }
 
-    useEffect(() => {
-        if (closeRef) closeRef.current = requestLeave;
-        return () => { if (closeRef) closeRef.current = null; };
-    });
+    useManagerLeaveRegistration({ closeRef, dirtyRef, dirty, requestLeave });
 
     function removeById(id: string) {
         setDraft((current) => current.filter((entry) => entry.id !== id));
@@ -264,6 +266,7 @@ export function KnowledgeBaseManager({
             initialRef.current = next;
             setDraft(next);
             setSaving(false);
+            luxiaToast.success("Knowledge base saved");
             if (!isPage) onCancel();
         }, 500);
     }
@@ -392,15 +395,18 @@ export function KnowledgeBaseManager({
                     </span>
                     <div className="flex items-center gap-2">
                         <Button type="button" variant="secondary" className="px-4" onClick={requestCancelEdits} disabled={isPage && !dirty}>Cancel</Button>
-                        <Button
+                        <BusyButton
                             type="button"
                             variant="primary"
                             className="min-w-[132px] px-4 !bg-[var(--luxia-purple-70)] !bg-none disabled:!opacity-[0.45]"
-                            disabled={!dirty || saving}
+                            disabled={!dirty}
+                            busy={saving}
+                            busyLabel="Saving…"
+                            busyText="Saving…"
                             onClick={save}
                         >
-                            {saving ? "Saving…" : "Save Changes"}
-                        </Button>
+                            Save Changes
+                        </BusyButton>
                     </div>
                 </div>
             </div>

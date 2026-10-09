@@ -135,7 +135,7 @@ export function BusyButton({
   return (
     <Button
       {...props}
-      className={cn("relative", className)}
+      className={cn("relative overflow-hidden", className)}
       disabled={disabled || busy}
       aria-busy={busy || undefined}
       aria-label={busy ? label : props["aria-label"]}
@@ -150,14 +150,16 @@ export function BusyButton({
         {children}
       </span>
       {busy ? (
-        <span className="absolute inset-0 inline-flex items-center justify-center gap-2">
+        <span className="absolute inset-0 inline-flex min-w-0 items-center justify-center gap-1.5 px-2">
           <LoaderCircle
             size={16}
             strokeWidth={1.8}
-            className="animate-spin"
+            className="shrink-0 animate-spin"
             aria-hidden
           />
-          {busyText != null ? <span>{busyText}</span> : null}
+          {busyText != null ? (
+            <span className="min-w-0 truncate">{busyText}</span>
+          ) : null}
         </span>
       ) : null}
     </Button>
