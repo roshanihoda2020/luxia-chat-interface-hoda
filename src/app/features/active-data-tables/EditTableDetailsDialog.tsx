@@ -3,17 +3,8 @@ import { X } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/app/components/ui/dialog";
 import { cn } from "@/app/components/ui/utils";
+import { DiscardChangesDialog } from "@/app/features/shared/DiscardChangesDialog";
 import { LUXIA_DIALOG_CLOSE_ON_DARK_CLASS } from "@/app/features/shared/structuredModalChrome";
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from "@/app/components/ui/alert-dialog";
 import { Input } from "@/app/components/ui/input";
 import { Textarea } from "@/app/components/ui/textarea";
 import { LX } from "./tokens";
@@ -107,18 +98,14 @@ export function EditTableDetailsDialog({
                     </div>
                 </DialogContent>
             </Dialog>
-            <AlertDialog open={confirmDiscardOpen} onOpenChange={setConfirmDiscardOpen}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Discard changes?</AlertDialogTitle>
-                        <AlertDialogDescription>Unsaved changes will be lost.</AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel onClick={() => setConfirmDiscardOpen(false)}>Keep editing</AlertDialogCancel>
-                        <AlertDialogAction style={{ background: LX.error }} className="text-white hover:opacity-90" onClick={() => onOpenChange(false)}>Discard</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+            <DiscardChangesDialog
+                open={confirmDiscardOpen}
+                onOpenChange={setConfirmDiscardOpen}
+                onDiscard={() => {
+                    setConfirmDiscardOpen(false);
+                    onOpenChange(false);
+                }}
+            />
         </>
     );
 }

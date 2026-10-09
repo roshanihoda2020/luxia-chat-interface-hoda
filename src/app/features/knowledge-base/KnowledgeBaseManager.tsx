@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "@/app/components/ui/input";
 import { Textarea } from "@/app/components/ui/textarea";
 import { cn } from "@/app/components/ui/utils";
+import { DiscardChangesDialog } from "@/app/features/shared/DiscardChangesDialog";
 import { LUXIA_DIALOG_CLOSE_ON_DARK_CLASS } from "@/app/features/shared/structuredModalChrome";
 import { KB_RESPONSE_TYPES, type KnowledgeBaseEntry } from "./data";
 import { LX } from "@/app/features/active-data-tables/tokens";
@@ -459,27 +460,18 @@ export function KnowledgeBaseManager({
                 </AlertDialogContent>
             </AlertDialog>
 
-            <AlertDialog open={discardOpen} onOpenChange={setDiscardOpen}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Discard changes?</AlertDialogTitle>
-                        <AlertDialogDescription>Your unsaved changes will be lost.</AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Keep editing</AlertDialogCancel>
-                        <AlertDialogAction style={{ background: LX.error }} className="text-white hover:opacity-90" onClick={() => {
-                            setDiscardOpen(false);
-                            if (discardIntent === "reset") {
-                                setDraft(cloneEntries(initialRef.current));
-                                return;
-                            }
-                            onCancel();
-                        }}>
-                            Discard
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+            <DiscardChangesDialog
+                open={discardOpen}
+                onOpenChange={setDiscardOpen}
+                onDiscard={() => {
+                    setDiscardOpen(false);
+                    if (discardIntent === "reset") {
+                        setDraft(cloneEntries(initialRef.current));
+                        return;
+                    }
+                    onCancel();
+                }}
+            />
         </>
     );
 }

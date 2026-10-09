@@ -1,15 +1,10 @@
 import type { ReactNode } from "react";
-import { Button } from "@/app/components/ui/button";
-import {
-  AlertDialog,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/app/components/ui/alert-dialog";
+import { ConfirmDialog } from "@/app/features/shared/ConfirmDialog";
 
+/**
+ * Thin wrapper around the shared ConfirmDialog for admin-pipeline deletes.
+ * Prefer importing ConfirmDialog directly in new call sites.
+ */
 export function ConfirmDeleteDialog({
   open,
   title,
@@ -28,30 +23,16 @@ export function ConfirmDeleteDialog({
   onConfirm: () => void | Promise<void>;
 }) {
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{title}</AlertDialogTitle>
-          <AlertDialogDescription asChild>
-            <div className="space-y-2 text-[var(--luxia-text-secondary)]">
-              {description}
-            </div>
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
-          <Button
-            type="button"
-            variant="destructive"
-            disabled={busy}
-            onClick={() => {
-              void onConfirm();
-            }}
-          >
-            {busy ? "Deleting…" : confirmLabel}
-          </Button>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <ConfirmDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={title}
+      description={description}
+      confirmLabel={confirmLabel}
+      tone="destructive"
+      busy={busy}
+      busyLabel="Deleting…"
+      onConfirm={onConfirm}
+    />
   );
 }

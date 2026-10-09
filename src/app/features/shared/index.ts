@@ -2,6 +2,18 @@ export {
   LUXIA_ACTION_PLACEMENT,
   LUXIA_CREATE_VS_EDIT,
   LUXIA_DIRTY_STATE_COPY,
+  LUXIA_DIRTY_INLINE_STATUS_CLASS,
+  LUXIA_SETTINGS_FORM_ACTIONS_CLASS,
+  LUXIA_SETTINGS_FORM_ACTIONS_FLUSH_CLASS,
+  LUXIA_SETTINGS_TABLIST_CLASS,
+  LUXIA_SETTINGS_TAB_TRIGGER_CLASS,
+  LUXIA_SETTINGS_TAB_PANEL_CLASS,
+  LUXIA_SETTINGS_CONTENT_SURFACE_CLASS,
+  LUXIA_SETTINGS_SECTION_SURFACE_CLASS,
+  LUXIA_SETTINGS_LIST_SURFACE_CLASS,
+  LUXIA_SETTINGS_TABLE_SURFACE_CLASS,
+  LUXIA_SETTINGS_ROW_DIVIDER,
+  LUXIA_SETTINGS_PARENT_SURFACE_STYLE,
 } from "./luxiaSettingsUx";
 
 export { CollectorViewToggle } from "./CollectorViewToggle";
@@ -20,3 +32,42 @@ export {
   LUXIA_DIALOG_HEADER_CLASS,
   LUXIA_DIALOG_CLOSE_ON_DARK_CLASS,
 } from "./structuredModalChrome";
+
+export { LuxiaSettingsFormActions } from "./LuxiaSettingsFormActions";
+
+/* —— Phase 1 UX foundation —— */
+export {
+  StatusBadge,
+  statusToneForLabel,
+  type LuxiaStatusTone,
+} from "./StatusBadge";
+
+export {
+  InlineAlert,
+  type LuxiaInlineAlertTone,
+} from "./InlineAlert";
+
+export {
+  FieldError,
+  FieldHint,
+  FieldValidationBlock,
+  fieldDescribedBy,
+} from "./FieldValidation";
+
+export {
+  LuxiaSkeleton,
+  LuxiaSpinner,
+  LuxiaLinearProgress,
+  BusyButton,
+  buttonBusyProps,
+  RefetchIndicator,
+} from "./Loading";
+
+export { luxiaToast, type LuxiaToastTone } from "./luxiaToast";
+
+export { ConfirmDialog } from "./ConfirmDialog";
+
+export {
+  DiscardChangesDialog,
+  UnsavedChangesDialog,
+} from "./DiscardChangesDialog";

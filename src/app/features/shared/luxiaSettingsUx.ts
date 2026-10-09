@@ -76,8 +76,16 @@ export const LUXIA_DIRTY_STATE_COPY = {
   save: "Save changes",
   cancel: "Cancel",
   leaveTitle: "Leave without saving?",
-  leaveDescription: "You have unsaved changes. Leaving discards this draft for the current session.",
+  leaveDescription:
+    "You have unsaved changes. Leaving discards this draft for the current session.",
   saveSuccess: "Changes saved.",
+  /** Canonical DiscardChangesDialog / UnsavedChangesDialog copy */
+  discardTitle: "Discard your changes?",
+  discardDescription:
+    "You have unsaved changes. If you discard them, this work will be lost.",
+  keepEditing: "Keep editing",
+  discard: "Discard",
+  saveAndClose: "Save and close",
 } as const;
 
 /**
