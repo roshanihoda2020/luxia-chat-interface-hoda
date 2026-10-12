@@ -1,9 +1,8 @@
-import { Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/app/components/ui/button";
 import { Checkbox } from "@/app/components/ui/checkbox";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/app/components/ui/dialog";
-import { Input } from "@/app/components/ui/input";
+import { SearchField } from "@/app/features/shared/SearchField";
 import { LX } from "./tokens";
 import type { PDFCatalogFile, PDFFileRecord } from "./types";
 
@@ -65,10 +64,15 @@ export function ManagePDFFilesDialog({
                 </DialogHeader>
 
                 <div className="flex min-h-0 flex-1 flex-col gap-3 px-6 py-4">
-                    <div className="flex items-center gap-2 rounded-[14px] border px-3 py-2" style={{ borderColor: LX.border, background: LX.subtle }}>
-                        <Search size={14} style={{ color: LX.textMuted }} />
-                        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search files…" className="h-8 border-0 bg-transparent px-0 luxia-type-input-search-dense shadow-none focus-visible:ring-0" aria-label="Search available files" />
-                    </div>
+                    <SearchField
+                        density="dense"
+                        className="flex-none"
+                        value={search}
+                        onChange={setSearch}
+                        placeholder="Search files…"
+                        aria-label="Search available files"
+                        clearable={false}
+                    />
 
                     <div className="flex items-center gap-2">
                         <Button type="button" variant="outline" size="sm" onClick={selectAllVisible}>Select All</Button>

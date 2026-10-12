@@ -50,6 +50,7 @@ import { CURRENT_USER_ID, getOrganizationUserById } from "@/app/features/permiss
 import {
   canArchiveConstellation as roleCanArchiveConstellation,
   canConfigureConstellation as roleCanConfigureConstellation,
+  canCreateConstellation as roleCanCreateConstellation,
   canDeleteConstellation as roleCanDeleteConstellation,
   canEditConstellationKnowledge as roleCanEditConstellationKnowledge,
 } from "@/app/features/permissions/accessGuards";
@@ -64,6 +65,7 @@ import {
   LUXIA_SETTINGS_TABLIST_CLASS,
 } from "@/app/features/shared/luxiaSettingsUx";
 import { AddConstellationDataSourceDialog } from "./AddConstellationDataSourceDialog";
+import { DuplicateConstellationDialog } from "./DuplicateConstellationDialog";
 import { DataSourceLibraryDocumentTags } from "@/app/features/document-tags";
 import { ResponseConfidenceSection } from "./responseConfidence";
 import {
@@ -177,6 +179,13 @@ export interface ConstellationSettingsPageProps {
   onDisconnectSource: (sourceId: string) => void;
   onArchive: () => void;
   onDelete: () => void;
+  /** Atomically commit a local prototype duplicate; called only after mock success. */
+  onDuplicateConstellation: (name: string) => {
+    constellationId: string;
+    projectId: string;
+    name: string;
+  };
+  onOpenDuplicatedConstellation: (projectId: string, constellationId: string) => void;
   onNavigateHome: () => void;
   onOpenProject: (projectId: string) => void;
   onOpenConstellations: (projectId: string) => void;
@@ -210,6 +219,8 @@ export function ConstellationSettingsPage({
   onDisconnectSource,
   onArchive,
   onDelete,
+  onDuplicateConstellation,
+  onOpenDuplicatedConstellation,
   onNavigateHome,
   onOpenProject,
   onOpenConstellations,
@@ -229,8 +240,10 @@ export function ConstellationSettingsPage({
     null,
   );
   const [addSourceOpen, setAddSourceOpen] = useState(false);
+  const [duplicateOpen, setDuplicateOpen] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const duplicateTriggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     setGeneralDraft(draftFromSettings(record));
@@ -297,8 +310,11 @@ export function ConstellationSettingsPage({
   const canConfigureConstellation = roleCanConfigureConstellation(currentProjectRole);
   const canEditKnowledge = roleCanEditConstellationKnowledge(currentProjectRole);
   const isPageReadOnly = !canConfigureConstellation && !canEditKnowledge;
+  const canCreateConstellation = roleCanCreateConstellation(currentProjectRole);
   const canArchiveConstellation = roleCanArchiveConstellation(currentProjectRole);
   const canDeleteConstellation = roleCanDeleteConstellation(currentProjectRole);
+  const isArchived = record.status !== "active";
+  const canDuplicateConstellation = canCreateConstellation && !isArchived;
   const lifecycleRoleHint = !currentProjectRole
     ? "Your Project role is unavailable for this action."
     : currentProjectRole === "Member"
@@ -700,17 +716,23 @@ export function ConstellationSettingsPage({
                       {(() => {
                         const isKnowledgeCapability = capability.id === "kb" || capability.id === "instr" || capability.id === "crawler";
                         const canManageThis = isKnowledgeCapability ? canEditKnowledge : canConfigureConstellation;
-                        return canManageThis ? (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="compact"
-                            onClick={() => onManageCapability(capability.id)}
-                            aria-label={capability.manageLabel}
-                          >
-                            {capability.manageLabel}
-                          </Button>
-                        ) : (
+                        // Members may open Knowledge Base in read-only mode (search / view / export).
+                        const canOpenReadOnlyKb = capability.id === "kb" && !canManageThis;
+                        if (canManageThis || canOpenReadOnlyKb) {
+                          const label = canOpenReadOnlyKb ? "View" : capability.manageLabel;
+                          return (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="compact"
+                              onClick={() => onManageCapability(capability.id)}
+                              aria-label={label}
+                            >
+                              {label}
+                            </Button>
+                          );
+                        }
+                        return (
                           <span
                             className="luxia-type-caption shrink-0"
                             style={{ color: "var(--luxia-text-muted)" }}
@@ -1044,6 +1066,35 @@ export function ConstellationSettingsPage({
               </p>
 
               <div className={`${LUXIA_SETTINGS_LIST_SURFACE_CLASS} divide-y px-4`} style={{ borderColor: "var(--luxia-settings-row-divider)" }}>
+              {canDuplicateConstellation ? (
+              <div className="luxia-settings-row flex flex-wrap items-center justify-between gap-3 py-4">
+                <div className="min-w-0 flex-1">
+                  <p
+                    className="luxia-type-body-default-strong"
+                    style={{ color: "var(--luxia-text-primary)" }}
+                  >
+                    Duplicate this Constellation
+                  </p>
+                  <p
+                    className="mt-1 luxia-type-body-small"
+                    style={{ color: "var(--luxia-text-secondary)" }}
+                  >
+                    Copy its Knowledge Base, Metrics, Instructions and Extra Context into a new
+                    Constellation.
+                  </p>
+                </div>
+                <Button
+                  ref={duplicateTriggerRef}
+                  type="button"
+                  variant="secondary"
+                  size="compact"
+                  onClick={() => setDuplicateOpen(true)}
+                >
+                  Duplicate
+                </Button>
+              </div>
+              ) : null}
+
               {canArchiveConstellation ? (
               <div className="luxia-settings-row flex flex-wrap items-center justify-between gap-3 py-4">
                 <div>
@@ -1100,14 +1151,16 @@ export function ConstellationSettingsPage({
               </div>
               ) : null}
 
-              {!canArchiveConstellation && !canDeleteConstellation ? (
+              {!canDuplicateConstellation && !canArchiveConstellation && !canDeleteConstellation ? (
                 <div className="py-4">
                   <p
                     className="luxia-type-body-small"
                     style={{ color: "var(--luxia-text-secondary)" }}
                   >
-                    {lifecycleRoleHint
-                      ?? "Your Project role cannot change Constellation lifecycle."}
+                    {isArchived
+                      ? "This Constellation is archived and read only. Restore it to make changes."
+                      : (lifecycleRoleHint
+                        ?? "Your Project role cannot change Constellation lifecycle.")}
                   </p>
                 </div>
               ) : null}
@@ -1126,6 +1179,21 @@ export function ConstellationSettingsPage({
         onOpenChange={setAddSourceOpen}
         onConfirm={(sourceId) => {
           onAddDataSource(sourceId);
+        }}
+      />
+
+      <DuplicateConstellationDialog
+        open={duplicateOpen}
+        constellationName={generalDraft.name || record.name}
+        onCommitDuplicate={onDuplicateConstellation}
+        onOpenCopy={onOpenDuplicatedConstellation}
+        onOpenChange={(open) => {
+          setDuplicateOpen(open);
+          if (!open) {
+            window.requestAnimationFrame(() => {
+              duplicateTriggerRef.current?.focus();
+            });
+          }
         }}
       />
 

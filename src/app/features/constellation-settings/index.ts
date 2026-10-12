@@ -45,6 +45,23 @@ export {
 export { ConstellationSettingsPage } from "./ConstellationSettingsPage";
 export type { ConstellationSettingsPageProps } from "./ConstellationSettingsPage";
 
+export { DuplicateConstellationDialog } from "./DuplicateConstellationDialog";
+export type {
+  DuplicateConstellationCommitResult,
+  DuplicateConstellationDialogProps,
+} from "./DuplicateConstellationDialog";
+
+export {
+  buildLocalConstellationDuplicate,
+  cloneCapabilityBundleForDuplicate,
+  commitDuplicateResponseConfidence,
+  shouldFailDuplicatePrototype,
+} from "./duplicateConstellationLocal";
+export type {
+  DuplicateSourceConstellation,
+  LocalConstellationDuplicateDraft,
+} from "./duplicateConstellationLocal";
+
 export { ConstellationCapabilityManagePage } from "./ConstellationCapabilityManagePage";
 export type { ConstellationCapabilityManagePageProps } from "./ConstellationCapabilityManagePage";
 

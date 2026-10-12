@@ -152,6 +152,17 @@ export function canConfigureConstellation(
 }
 
 /**
+ * Constellation Create — includes Duplicate Constellation (Dev: Constellation + Create).
+ * Owner / Manager only. Analyst and Member cannot create or duplicate.
+ * Explicit Project role only — Org Admin does not bypass.
+ */
+export function canCreateConstellation(
+  role: ProjectRole | null | undefined,
+): boolean {
+  return role === "Project Owner" || role === "Project Manager";
+}
+
+/**
  * Galaxy Settings edit: Owner / Manager. Analyst / Member are read-only.
  * Project role only — Org Admin does not bypass.
  */

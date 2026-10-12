@@ -83,8 +83,9 @@ export function DiscardChangesDialog({
               variant="destructive"
               disabled={saving}
               onClick={() => {
-                // Match prior AlertDialogAction: close first, then run discard.
-                onOpenChange(false);
+                // Parent onDiscard closes the dialog. Do not call onOpenChange(false)
+                // first — that path is reserved for Keep editing / dismiss so hosts
+                // can tell abort apart from confirmed discard.
                 onDiscard();
               }}
             >

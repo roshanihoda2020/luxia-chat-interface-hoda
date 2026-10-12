@@ -1,10 +1,12 @@
-import { FileText, Plus, Search, X } from "lucide-react";
+import { FileText, Plus, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import { Button } from "@/app/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/app/components/ui/dialog";
-import { Input } from "@/app/components/ui/input";
 import { cn } from "@/app/components/ui/utils";
 import { TagMultiSelectFilter, useFileTagFilter } from "@/app/features/document-tags";
+import { ListEmptyState } from "@/app/features/shared/ListEmptyState";
+import { ListNoResultsState } from "@/app/features/shared/ListNoResultsState";
+import { SearchField } from "@/app/features/shared/SearchField";
 import { useManagerLeaveRegistration } from "@/app/features/shared/unsavedNavigationGuard";
 import { LUXIA_DIALOG_CLOSE_ON_DARK_CLASS } from "@/app/features/shared/structuredModalChrome";
 
@@ -195,7 +197,7 @@ export function PDFFilesManager({
                                 </div>
                                 <div className="min-w-0 flex-1">
                                     <DialogTitle className="luxia-type-title-modal">{filesLabel}</DialogTitle>
-                                    <DialogDescription className="mt-1 luxia-type-metadata">Changes are local until saved.</DialogDescription>
+                                    <DialogDescription className="mt-1.5 luxia-type-metadata">Changes are local until saved.</DialogDescription>
                                 </div>
                                 <Button
                                     type="button"
@@ -211,19 +213,15 @@ export function PDFFilesManager({
                         </DialogHeader>
                         ) : null}
 
-                        <div className="flex-shrink-0 border-b px-6 py-3" style={{ borderColor: LX.border }}>
+                        <div className="flex-shrink-0 border-b px-6 py-3.5" style={{ borderColor: LX.border }}>
                             <div className="flex flex-wrap items-end gap-2">
-                                <div className="flex min-w-0 flex-1 items-center gap-2 rounded-[14px] border px-3 py-2" style={{ borderColor: LX.border, background: LX.subtle }}>
-                                    <Search size={14} style={{ color: LX.textMuted }} />
-                                    <Input
-                                      value={search}
-                                      onChange={(e) => setSearch(e.target.value)}
-                                      placeholder={`Search ${filesLabel}…`}
-                                      className="h-8 border-0 bg-transparent px-0 luxia-type-input-search-dense shadow-none focus-visible:ring-0"
-                                      aria-label={`Search ${filesLabel}`}
-                                    />
-                                    {search ? <Button type="button" variant="ghost" size="icon" className="h-7 w-7 " aria-label="Clear search" onClick={() => setSearch("")}><X size={12} style={{ color: LX.textMuted }} /></Button> : null}
-                                </div>
+                                <SearchField
+                                    density="dense"
+                                    value={search}
+                                    onChange={setSearch}
+                                    placeholder={`Search ${filesLabel}…`}
+                                    aria-label={`Search ${filesLabel}`}
+                                />
                                 {showFileTagFilter ? (
                                     <TagMultiSelectFilter
                                         options={fileTagFilter.tagOptions}
@@ -243,26 +241,18 @@ export function PDFFilesManager({
 
                         <div className="overflow-y-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical px-6 py-5">
                             {filtered.length === 0 ? (
-                                <div className="flex flex-col items-center justify-center py-8 text-center">
-                                    {visibleDraft.length > 0 ? (
-                                        <>
-                                            <p className="luxia-type-body-small-strong" style={{ color: LX.primary }}>No {filesLabel.toLowerCase()} match these filters.</p>
-                                            <p className="mt-1 luxia-type-body-dense" style={{ color: LX.textMuted }}>
-                                                {search ? "Try another file name." : "Try adjusting the tag filter."}
-                                            </p>
-                                            {fileTagFilter.hasActiveTagFilters ? (
-                                                <Button type="button" variant="tertiary" size="compact" className="mt-3" onClick={fileTagFilter.clear}>
-                                                    Clear filters
-                                                </Button>
-                                            ) : null}
-                                        </>
-                                    ) : (
-                                        <>
-                                            <p className="luxia-type-title-component" style={{ color: LX.primary }}>No {filesLabel.toLowerCase()} yet</p>
-                                            <p className="mt-1 luxia-type-body-dense" style={{ color: LX.textMuted }}>Add existing files or upload new ones.</p>
-                                        </>
-                                    )}
-                                </div>
+                                visibleDraft.length > 0 ? (
+                                    <ListNoResultsState
+                                        title={`No ${filesLabel.toLowerCase()} match these filters.`}
+                                        description={search ? "Try another file name." : "Try adjusting the tag filter."}
+                                        onClear={fileTagFilter.hasActiveTagFilters ? fileTagFilter.clear : undefined}
+                                    />
+                                ) : (
+                                    <ListEmptyState
+                                        title={`No ${filesLabel.toLowerCase()} yet`}
+                                        description="Add existing files or upload new ones."
+                                    />
+                                )
                             ) : (
                                 <div className="space-y-2">{filtered.map((item) => (
                                     <PDFFileRow

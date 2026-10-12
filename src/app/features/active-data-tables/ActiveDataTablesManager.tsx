@@ -1,10 +1,13 @@
-import { GripVertical, Plus, Search, X } from "lucide-react";
+import { GripVertical, Plus, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import { Button } from "@/app/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/app/components/ui/dialog";
 import { cn } from "@/app/components/ui/utils";
 import { DiscardChangesDialog } from "@/app/features/shared/DiscardChangesDialog";
+import { ListEmptyState } from "@/app/features/shared/ListEmptyState";
+import { ListNoResultsState } from "@/app/features/shared/ListNoResultsState";
 import { luxiaToast } from "@/app/features/shared/luxiaToast";
+import { SearchField } from "@/app/features/shared/SearchField";
 import { useManagerLeaveRegistration } from "@/app/features/shared/unsavedNavigationGuard";
 import { LUXIA_DIALOG_CLOSE_ON_DARK_CLASS } from "@/app/features/shared/structuredModalChrome";
 import {
@@ -17,7 +20,6 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/app/components/ui/alert-dialog";
-import { Input } from "@/app/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/components/ui/select";
 import { Switch } from "@/app/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/app/components/ui/table";
@@ -178,7 +180,7 @@ export function ActiveDataTablesManager({
                             <div className="min-w-0 flex-1">
                                 <DialogTitle className="luxia-type-title-modal">Active Data Tables</DialogTitle>
                                 <DialogDescription className="sr-only">Manage which data tables are available to this constellation.</DialogDescription>
-                                <p className="mt-1 luxia-type-metadata text-[var(--luxia-purple-10)]">Manage tables available to this constellation.</p>
+                                <p className="mt-1.5 luxia-type-metadata text-[var(--luxia-purple-10)]">Manage tables available to this constellation.</p>
                             </div>
                             <button
                                 type="button"
@@ -200,10 +202,13 @@ export function ActiveDataTablesManager({
                             <>
                                 <div className="flex-shrink-0 px-6 pt-5">
                                     <div className="flex flex-wrap items-center gap-2">
-                                        <div className="flex min-w-0 flex-1 items-center gap-2 rounded-[14px] border px-3 py-2" style={{ borderColor: LX.border }}>
-                                            <Search size={14} style={{ color: LX.textMuted }} />
-                                            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search data tables..." className="h-8 border-0 bg-transparent px-0 luxia-type-input-search-dense shadow-none focus-visible:ring-0" aria-label="Search data tables" />
-                                        </div>
+                                        <SearchField
+                                            density="dense"
+                                            value={search}
+                                            onChange={setSearch}
+                                            placeholder="Search data tables..."
+                                            aria-label="Search data tables"
+                                        />
                                         <Button variant="primary" size="compact" onClick={() => setAddMode(true)}>
                                             <Plus size={14} />Add Data Table
                                         </Button>
@@ -225,8 +230,12 @@ export function ActiveDataTablesManager({
                                             <TableBody>
                                                 {filtered.length === 0 ? (
                                                     <TableRow>
-                                                        <TableCell colSpan={5} className="py-12 text-center luxia-type-body-dense" style={{ color: LX.textMuted }}>
-                                                            {search.trim() ? "No data tables match your search." : "No tables available in this constellation."}
+                                                        <TableCell colSpan={5} className="py-6">
+                                                            {search.trim() ? (
+                                                                <ListNoResultsState title="No data tables match your search." />
+                                                            ) : (
+                                                                <ListEmptyState title="No tables available in this constellation." />
+                                                            )}
                                                         </TableCell>
                                                     </TableRow>
                                                 ) : filtered.map((table) => {

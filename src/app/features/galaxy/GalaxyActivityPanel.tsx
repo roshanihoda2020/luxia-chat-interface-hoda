@@ -1823,7 +1823,6 @@ export function GalaxyActivityPanel({
       <InstructionManager
         open={instructionManagerOpen}
         data={instructionEditorData}
-        showAttachment={false}
         onCommit={(next) => handleInstructionChange(next.text)}
         onCancel={() => setInstructionManagerOpen(false)}
       />

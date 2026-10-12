@@ -28,6 +28,8 @@ import {
 import { DemoUserAvatar } from "@/app/features/permissions/demoUserAvatar";
 import type { OrganizationUser } from "@/app/features/permissions/types";
 import type { VidgetRecord } from "@/app/features/vidgets/types";
+import { ListPagination } from "@/app/features/shared/ListPagination";
+import { PageSizeSelect } from "@/app/features/shared/PageSizeSelect";
 import {
   LUXIA_SETTINGS_TAB_TRIGGER_CLASS,
   LUXIA_SETTINGS_TABLIST_CLASS,
@@ -79,7 +81,7 @@ const SESSION_FILTERS: Array<{ id: SessionStatusFilter; label: string }> = [
   { id: "idle", label: "Idle" },
 ];
 
-const PAGE_SIZES = ["5", "10", "25"] as const;
+const PAGE_SIZES = [5, 10, 25] as const;
 
 function statusTone(status: PresenceStatus): { color: string; label: string } {
   if (status === "online") return { color: "var(--luxia-success-70)", label: "Online" };
@@ -722,51 +724,26 @@ export function OrganizationAnalyticsSection({
                 </tbody>
               </table>
               <div
-                className="flex flex-wrap items-center justify-between gap-2 border-t px-3 py-2"
+                className="border-t px-3 py-2"
                 style={{ borderColor: "var(--luxia-settings-row-divider)" }}
               >
-                <p className="luxia-type-caption" style={{ color: "var(--luxia-text-muted)" }}>
-                  {filteredSessions.length === 0
-                    ? "0 rows"
-                    : `${safePage * pageSize + 1}–${Math.min(filteredSessions.length, safePage * pageSize + pageSize)} of ${filteredSessions.length}`}
-                </p>
-                <div className="flex items-center gap-2">
-                  <Select
-                    value={String(pageSize)}
-                    onValueChange={(value) => {
-                      patchSession({ pageSize: Number(value), page: 0 });
+                <ListPagination
+                  page={safePage + 1}
+                  pageCount={pageCount}
+                  onPageChange={(next) => patchSession({ page: next - 1 })}
+                  totalItems={filteredSessions.length}
+                  pageSize={pageSize}
+                  ariaLabel="Active sessions pagination"
+                >
+                  <PageSizeSelect
+                    value={pageSize}
+                    options={[...PAGE_SIZES]}
+                    onChange={(next) => {
+                      patchSession({ pageSize: next, page: 0 });
                     }}
-                  >
-                    <SelectTrigger size="sm" aria-label="Rows per page" className="h-8 min-h-8 w-[5.5rem]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className={SETTINGS_FLOATING_Z_CLASS}>
-                      {PAGE_SIZES.map((size) => (
-                        <SelectItem key={size} value={size}>
-                          {size}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    type="button"
-                    variant="tertiary"
-                    size="compact"
-                    disabled={safePage <= 0}
-                    onClick={() => patchSession({ page: Math.max(0, safePage - 1) })}
-                  >
-                    Previous
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="tertiary"
-                    size="compact"
-                    disabled={safePage >= pageCount - 1}
-                    onClick={() => patchSession({ page: Math.min(pageCount - 1, safePage + 1) })}
-                  >
-                    Next
-                  </Button>
-                </div>
+                    contentClassName={SETTINGS_FLOATING_Z_CLASS}
+                  />
+                </ListPagination>
               </div>
             </div>
           </section>

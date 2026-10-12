@@ -1,4 +1,4 @@
-import { Globe, Plus, Search, X } from "lucide-react";
+import { Globe, Plus, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import { AddCrawlerDialog } from "./AddCrawlerDialog";
 import { CrawlerRow } from "./CrawlerRow";
@@ -9,11 +9,11 @@ import { ViewCrawlerDialog } from "./ViewCrawlerDialog";
 import type { CrawlerFormValues } from "./CrawlerForm";
 import { Button } from "@/app/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/app/components/ui/dialog";
-import { Input } from "@/app/components/ui/input";
 import { Switch } from "@/app/components/ui/switch";
 import { cn } from "@/app/components/ui/utils";
 import { BusyButton } from "@/app/features/shared/Loading";
 import { luxiaToast } from "@/app/features/shared/luxiaToast";
+import { SearchField } from "@/app/features/shared/SearchField";
 import { useManagerLeaveRegistration } from "@/app/features/shared/unsavedNavigationGuard";
 import { LUXIA_DIALOG_CLOSE_ON_DARK_CLASS } from "@/app/features/shared/structuredModalChrome";
 import { LX } from "./tokens";
@@ -115,7 +115,7 @@ export function CrawlerManager({ open, state, onCommit, onCancel, presentation =
                                 <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-[12px]" style={{ background: LX.blueT10 }}><Globe size={18} color={LX.secondary} /></div>
                                 <div className="min-w-0 flex-1">
                                     <DialogTitle className="luxia-type-title-modal">Crawler URL Data</DialogTitle>
-                                    <DialogDescription className="mt-1 luxia-type-metadata">Changes are local until saved.</DialogDescription>
+                                    <DialogDescription className="mt-1.5 luxia-type-metadata">Changes are local until saved.</DialogDescription>
                                 </div>
                                 <Button
                                     type="button"
@@ -131,13 +131,15 @@ export function CrawlerManager({ open, state, onCommit, onCancel, presentation =
                         </DialogHeader>
                         ) : null}
 
-                        <div className="flex-shrink-0 border-b px-6 py-3" style={{ borderColor: LX.border }}>
+                        <div className="flex-shrink-0 border-b px-6 py-3.5" style={{ borderColor: LX.border }}>
                             <div className="flex flex-wrap items-center gap-2">
-                            <div className="flex min-w-0 flex-1 items-center gap-2 rounded-[14px] border px-3 py-2" style={{ borderColor: LX.border, background: LX.subtle }}>
-                                <Search size={14} style={{ color: LX.textMuted }} />
-                                <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search crawler URL data…" className="h-8 border-0 bg-transparent px-0 luxia-type-input-search-dense shadow-none focus-visible:ring-0" aria-label="Search crawler URLs" />
-                                {search ? <Button type="button" variant="ghost" size="icon" className="h-7 w-7 " aria-label="Clear search" onClick={() => setSearch("")}><X size={12} style={{ color: LX.textMuted }} /></Button> : null}
-                            </div>
+                            <SearchField
+                                density="dense"
+                                value={search}
+                                onChange={setSearch}
+                                placeholder="Search crawler URL data…"
+                                aria-label="Search crawler URLs"
+                            />
                             <Button type="button" variant="primary" size="compact" onClick={() => setAddOpen(true)}>
                                 <Plus size={14} />Add URL
                             </Button>

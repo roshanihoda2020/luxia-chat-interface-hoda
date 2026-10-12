@@ -1,14 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/app/components/ui/select";
 import { LuxiaAiButton } from "@/app/components/LuxiaAiButton";
+import { ListPagination } from "@/app/features/shared/ListPagination";
+import { PageSizeSelect } from "@/app/features/shared/PageSizeSelect";
 import {
   csvRecordPreview,
   importableCsvRecords,
@@ -296,49 +291,25 @@ export function CsvRowDescriptionsSection({
         </table>
       </div>
       {filtered.length > 0 ? (
-        <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
-          <p className="luxia-type-caption" style={{ color: "var(--luxia-text-muted)" }}>
-            Showing {(safePage * pageSize + 1).toLocaleString()}–{Math.min(filtered.length, (safePage + 1) * pageSize).toLocaleString()} of {filtered.length.toLocaleString()}
-          </p>
-          <div className="flex flex-wrap items-center gap-2">
-            <Select
-              value={String(pageSize)}
-              onValueChange={(value) => {
-                setPageSize(Number(value) as (typeof ROW_DESCRIPTION_PAGE_SIZES)[number]);
-                setPage(0);
-              }}
-            >
-              <SelectTrigger size="sm" className="h-7 min-h-7 w-[6.5rem]" aria-label="Rows per page">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="!z-[80]">
-                {ROW_DESCRIPTION_PAGE_SIZES.map((size) => (
-                  <SelectItem key={size} value={String(size)}>
-                    {size} / page
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button
-              type="button"
-              variant="tertiary"
-              size="compact"
-              disabled={safePage <= 0}
-              onClick={() => setPage(Math.max(0, safePage - 1))}
-            >
-              Previous
-            </Button>
-            <Button
-              type="button"
-              variant="tertiary"
-              size="compact"
-              disabled={safePage >= pageCount - 1}
-              onClick={() => setPage(Math.min(pageCount - 1, safePage + 1))}
-            >
-              Next
-            </Button>
-          </div>
-        </div>
+        <ListPagination
+          page={safePage + 1}
+          pageCount={pageCount}
+          onPageChange={(next) => setPage(next - 1)}
+          totalItems={filtered.length}
+          pageSize={pageSize}
+          ariaLabel="Row descriptions pagination"
+        >
+          <PageSizeSelect
+            value={pageSize}
+            options={[...ROW_DESCRIPTION_PAGE_SIZES]}
+            onChange={(next) => {
+              setPageSize(next as (typeof ROW_DESCRIPTION_PAGE_SIZES)[number]);
+              setPage(0);
+            }}
+            className="h-7 min-h-7 w-[6.5rem]"
+            contentClassName="!z-[80]"
+          />
+        </ListPagination>
       ) : null}
     </div>
   );

@@ -1649,7 +1649,7 @@ export function CsvImportFlow({
         }}
       >
         <DialogHeader
-          className="shrink-0 space-y-1 px-6 py-4 pr-14 text-left"
+          className="shrink-0 space-y-1 px-6 pt-5 pb-4 pr-14 text-left"
           style={STRUCTURED_MODAL_DARK_CHROME_STYLE}
         >
           <DialogTitle className="text-left" style={{ color: "var(--luxia-text-inverse)" }}>
@@ -2591,7 +2591,7 @@ function CsvFilePreviewBody({
       className="z-[60] flex max-h-[min(82vh,640px)] max-w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl"
       aria-describedby="csv-preview-context"
     >
-      <DialogHeader className="shrink-0 space-y-1 px-6 py-4 pr-14 text-left">
+      <DialogHeader className="shrink-0 space-y-1 pr-14 text-left">
         <DialogTitle className="text-left" style={{ color: "var(--luxia-text-inverse)" }}>
           Preview CSV
         </DialogTitle>

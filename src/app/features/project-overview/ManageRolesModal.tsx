@@ -33,10 +33,10 @@ export function ManageRolesModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="manage-roles-title"
-        className="relative z-10 flex w-full max-w-md flex-col overflow-hidden rounded-[var(--luxia-radius-16)] border border-[var(--luxia-border-default)] bg-[var(--luxia-surface)] p-0 shadow-[var(--luxia-shadow-lg)]"
+        className="relative z-10 flex w-full max-w-md flex-col overflow-hidden rounded-[var(--luxia-radius-16)] border-0 bg-[var(--luxia-surface)] p-0 shadow-[var(--luxia-shadow-lg)]"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="px-6 py-4" style={STRUCTURED_MODAL_DARK_CHROME_STYLE}>
+        <div className="px-6 pt-5 pb-4" style={STRUCTURED_MODAL_DARK_CHROME_STYLE}>
           <h2
             id="manage-roles-title"
             className="luxia-type-title-section text-[var(--luxia-text-inverse)]"

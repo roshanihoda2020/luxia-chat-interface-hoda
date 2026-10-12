@@ -1,6 +1,6 @@
-import { Plus, Search } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
-import { Input } from "@/app/components/ui/input";
+import { SearchField } from "@/app/features/shared/SearchField";
 import { LX } from "./tokens";
 import type { DataTableCatalogItem, DataTableRecord } from "./types";
 import { compactMeta } from "./utils";
@@ -43,10 +43,16 @@ export function AddDataTablesPanel({
                 </Button>
             </div>
 
-            <div className="mt-4 flex-shrink-0 flex items-center gap-2 rounded-[14px] border px-3 py-2" style={{ borderColor: LX.border, background: LX.surface }}>
-                <Search size={14} style={{ color: LX.textMuted }} />
-                <Input value={query} onChange={(e) => onQueryChange(e.target.value)} placeholder="Search tables to add..." className="h-8 border-0 bg-transparent px-0 luxia-type-input-search-dense shadow-none focus-visible:ring-0" aria-label="Search available tables" />
-            </div>
+            <SearchField
+                density="dense"
+                className="mt-4 flex-none"
+                value={query}
+                onChange={onQueryChange}
+                placeholder="Search tables to add..."
+                aria-label="Search available tables"
+                clearable={false}
+                style={{ background: LX.surface }}
+            />
 
             <div className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical pb-4 pr-1">
                 {filtered.length === 0 ? (

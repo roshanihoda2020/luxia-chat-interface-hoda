@@ -10,7 +10,6 @@ import { LUXIA_DIRTY_STATE_COPY } from "@/app/features/shared/luxiaSettingsUx";
 import { useManagerLeaveRegistration } from "@/app/features/shared/unsavedNavigationGuard";
 import { INSTRUCTION_MAX_CHARS } from "./constants";
 import { DiscardInstructionChangesDialog } from "./DiscardInstructionChangesDialog";
-import { InstructionAttachment } from "./InstructionAttachment";
 import { LX } from "./tokens";
 import type { InstructionData } from "./types";
 import { formatCharacterCount, instructionSignature } from "./utils";
@@ -27,7 +26,6 @@ export function InstructionManager({
     data,
     onCommit,
     onCancel,
-    showAttachment = true,
     presentation = "dialog",
     closeRef,
     dirtyRef,
@@ -37,7 +35,6 @@ export function InstructionManager({
     data: InstructionData;
     onCommit: (next: InstructionData) => void;
     onCancel: () => void;
-    showAttachment?: boolean;
     presentation?: "dialog" | "page";
     closeRef?: MutableRefObject<(() => void) | null>;
     dirtyRef?: MutableRefObject<boolean>;
@@ -125,7 +122,7 @@ export function InstructionManager({
     if (!effectiveOpen) return null;
 
     const shell = (
-        <div className={isPage ? "flex min-h-0 flex-1 flex-col" : "flex max-h-[88vh] flex-col"}>
+        <div className={isPage ? "flex min-h-0 flex-1 flex-col" : "flex max-h-[min(88vh,640px)] flex-col"}>
             {showHeaderChrome ? (
                 <DialogHeader className="flex-shrink-0">
                     <div className="flex items-start gap-3">
@@ -134,7 +131,9 @@ export function InstructionManager({
                         </div>
                         <div className="min-w-0 flex-1">
                             <DialogTitle className="luxia-type-title-modal">Instruction</DialogTitle>
-                            <DialogDescription className="mt-1 luxia-type-metadata">Changes are local until saved.</DialogDescription>
+                            <DialogDescription className="mt-1.5 luxia-type-metadata">
+                                Write guidance for how this constellation should respond. Changes are local until saved.
+                            </DialogDescription>
                         </div>
                         <Button
                             type="button"
@@ -151,34 +150,24 @@ export function InstructionManager({
             ) : null}
 
             <div className="min-h-0 flex-1 overflow-y-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical px-6 py-5">
-                <div className="space-y-4">
-                    {showAttachment ? (
-                        <InstructionAttachment
-                            attachment={draft.attachment}
-                            onAttach={(attachment) => setDraft((current) => ({ ...current, attachment }))}
-                            onRemove={() => setDraft((current) => ({ ...current, attachment: null }))}
-                        />
-                    ) : null}
-
-                    <div className="relative">
-                        <Textarea
-                            value={draft.text}
-                            onChange={(event) => handleTextChange(event.target.value)}
-                            placeholder="Write instructions for this constellation…"
-                            rows={12}
-                            className="min-h-[220px] resize-y rounded-[12px] pb-8 luxia-type-body-small"
-                            aria-label="Instruction text"
-                            aria-describedby="instruction-char-count"
-                        />
-                        <p
-                            id="instruction-char-count"
-                            className="pointer-events-none absolute bottom-2.5 right-3 luxia-type-caption"
-                            style={{ color: LX.textMuted }}
-                            aria-live="polite"
-                        >
-                            {formatCharacterCount(draft.text.length)}
-                        </p>
-                    </div>
+                <div className="relative">
+                    <Textarea
+                        value={draft.text}
+                        onChange={(event) => handleTextChange(event.target.value)}
+                        placeholder="Write instructions for this constellation…"
+                        rows={14}
+                        className="min-h-[280px] resize-y rounded-[12px] pb-8 luxia-type-body-small"
+                        aria-label="Instruction text"
+                        aria-describedby="instruction-char-count"
+                    />
+                    <p
+                        id="instruction-char-count"
+                        className="pointer-events-none absolute bottom-2.5 right-3 luxia-type-caption"
+                        style={{ color: LX.textMuted }}
+                        aria-live="polite"
+                    >
+                        {formatCharacterCount(draft.text.length)}
+                    </p>
                 </div>
             </div>
 
@@ -225,7 +214,11 @@ export function InstructionManager({
                 </div>
             ) : (
                 <Dialog open={open} onOpenChange={(next) => { if (!next) requestLeave(); }}>
-                    <DialogContent hideCloseButton className="overflow-hidden p-0" style={{ width: "min(92vw, 720px)", maxWidth: "min(92vw, 720px)", maxHeight: "88vh" }}>
+                    <DialogContent
+                        hideCloseButton
+                        className="overflow-hidden p-0"
+                        style={{ width: "min(92vw, 640px)", maxWidth: "min(92vw, 640px)", maxHeight: "min(88vh, 640px)" }}
+                    >
                         {shell}
                     </DialogContent>
                 </Dialog>

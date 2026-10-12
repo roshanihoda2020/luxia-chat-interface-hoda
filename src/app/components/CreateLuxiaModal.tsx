@@ -66,7 +66,7 @@ export function CreateLuxiaModalShell({
         aria-labelledby={titleId}
       >
         <div
-          className="flex flex-shrink-0 items-start justify-between px-7 py-4"
+          className="flex flex-shrink-0 items-start justify-between px-7 pt-5 pb-4"
           style={STRUCTURED_MODAL_DARK_CHROME_STYLE}
         >
           <div className="min-w-0 pr-4">

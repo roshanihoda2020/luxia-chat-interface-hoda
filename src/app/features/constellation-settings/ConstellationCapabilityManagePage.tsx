@@ -246,6 +246,7 @@ export function ConstellationCapabilityManagePage({
             entries={bundle.knowledgeBase}
             closeRef={closeRef}
             dirtyRef={dirtyRef}
+            readOnly={readOnly}
             onCommit={(knowledgeBase: KnowledgeBaseEntry[]) => {
               commitBundle({ ...bundle, knowledgeBase });
             }}
@@ -447,13 +448,19 @@ export function ConstellationCapabilityManagePage({
       </LuxiaPageHeadingRegion>
 
       <LuxiaPageBody>
-        <div
-          className={`${LUXIA_SETTINGS_CONTENT_SURFACE_CLASS} is-padded-sm`}
-          aria-disabled={readOnly || undefined}
-          style={readOnly ? { pointerEvents: "none", opacity: 0.92 } : undefined}
-        >
-          {manager}
-        </div>
+        {(() => {
+          // KB owns its own readOnly UI; keep shell interactive so Members can search/view/export.
+          const lockShell = readOnly && capabilityId !== "kb";
+          return (
+            <div
+              className={`${LUXIA_SETTINGS_CONTENT_SURFACE_CLASS} is-padded-sm`}
+              aria-disabled={lockShell || undefined}
+              style={lockShell ? { pointerEvents: "none", opacity: 0.92 } : undefined}
+            >
+              {manager}
+            </div>
+          );
+        })()}
       </LuxiaPageBody>
     </LuxiaPageFrame>
   );

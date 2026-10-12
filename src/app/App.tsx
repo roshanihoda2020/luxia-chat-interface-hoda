@@ -27,7 +27,8 @@ import {
 import { ActiveDataTablesSection } from "@/app/features/active-data-tables/ActiveDataTablesSection";
 import { ExtraContextFilesSection } from "@/app/features/extra-context-files/ExtraContextFilesSection";
 import { InstructionSection } from "@/app/features/instruction/InstructionSection";
-import { KBEntryMenu } from "@/app/features/kb/KBEntryMenu";
+import { KnowledgeBaseManager } from "@/app/features/knowledge-base/KnowledgeBaseManager";
+import type { KnowledgeBaseEntry } from "@/app/features/knowledge-base/data";
 import { MetricsSection } from "@/app/features/metrics/MetricsSection";
 import { PDFFilesSection } from "@/app/features/pdf-files/PDFFilesSection";
 import { CrawlerSection } from "@/app/features/crawler/CrawlerSection";
@@ -116,6 +117,8 @@ import {
   createSeedCapabilityBundle,
   cloneCapabilityBundle,
   summarizeCapabilityBundle,
+  buildLocalConstellationDuplicate,
+  commitDuplicateResponseConfidence,
   type ConstellationSettingsRecord,
   type ConstellationSettingsDraft,
   type ConstellationSettingsSectionId,
@@ -205,6 +208,7 @@ import {
   isOrganizationAdmin,
   canEditConstellationKnowledge,
   canEditGalaxySettings,
+  canCreateConstellation,
   canCreateOrganizationalDataSource,
   canCreateProject,
   canDeleteConstellation,
@@ -370,7 +374,6 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import {
-  LuxiaAiIcon,
   LuxiaGalaxyIcon,
   LuxiaHomeIcon,
   LuxiaSettingsIcon,
@@ -484,72 +487,6 @@ const KB_RESPONSE_TYPES = [
   { id: "chart", label: "Chart" },
   { id: "kpi", label: "KPI" },
   { id: "list", label: "List" },
-];
-
-const KB_DEFAULTS: KBEntry[] = [
-  {
-    id: "kb1", responseType: "narrative", question: "What is Luxia?",
-    answer: "Luxia is an enterprise AI platform that connects your data, documents, and knowledge into intelligent conversational experiences through AI-powered Constellations."
-  },
-  {
-    id: "kb2", responseType: "list", question: "How do I create a Constellation?",
-    answer: "Navigate to Constellations in the sidebar, click Create New, choose your data sources (databases, PDFs, or web crawlers), configure your settings, and save. It becomes available in Chat immediately."
-  },
-  {
-    id: "kb3", responseType: "narrative", question: "How does the Relationship feature work?",
-    answer: "Relationship maps entity connections in your data using graph logic. It traverses linked records to surface related information, improving accuracy for complex multi-entity queries."
-  },
-  {
-    id: "kb4", responseType: "list", question: "Which documents belong to this Constellation?",
-    answer: "Connected documents appear in the Extra Context Files and Active Data Table sidebar sections. Each section shows the resources Luxia searches when generating responses for this Constellation."
-  },
-  {
-    id: "kb5", responseType: "table", question: "What response types are available?",
-    answer: "Luxia supports five response types: Narrative (natural language), Table (structured grid), Chart (visual graph), KPI (key metric), and List (bullet summary). Each Knowledge Entry can have a default type."
-  },
-];
-
-const KB_AUTO_SAMPLES: KBEntry[] = [
-  {
-    id: "s1", responseType: "narrative", question: "How is data refreshed in real time?",
-    answer: "Data refreshes automatically when connected sources are updated. You can also trigger a manual refresh from the Datasources panel in the left navigation."
-  },
-  {
-    id: "s2", responseType: "list", question: "What file formats can I upload?",
-    answer: "Supported formats include PDF, DOCX, XLSX, CSV, and TXT. Files are indexed automatically after upload and become searchable within seconds."
-  },
-  {
-    id: "s3", responseType: "narrative", question: "How do I share a Constellation with my team?",
-    answer: "Open the Constellation settings, go to the Permissions tab, and add team members by email. You can set View or Edit access per person."
-  },
-  {
-    id: "s4", responseType: "list", question: "Can I export chat conversations?",
-    answer: "Yes. Open any Chat, click the ⋯ menu in the header, and select Export. You can export as PDF, Markdown, or plain text."
-  },
-  {
-    id: "s5", responseType: "kpi", question: "What is the maximum number of data sources per Constellation?",
-    answer: "Enterprise plans support up to 50 connected data sources per Constellation. The Standard plan allows up to 10 sources."
-  },
-  {
-    id: "s6", responseType: "narrative", question: "Does Luxia support Arabic language responses?",
-    answer: "Yes. Luxia supports responses in Arabic, English, French, German, Spanish, and Chinese. The language can be set per-session using the Language selector in the Chat composer."
-  },
-  {
-    id: "s7", responseType: "table", question: "How does the Metrics section work?",
-    answer: "Metrics connect to your KPI definitions and aggregate numeric data from your active data sources. They update dynamically as the underlying data changes."
-  },
-  {
-    id: "s8", responseType: "narrative", question: "What happens if a data source is disconnected?",
-    answer: "If a data source disconnects, Luxia will continue using cached data up to the last successful sync. A warning badge appears in the sidebar indicating the disconnected source."
-  },
-  {
-    id: "s9", responseType: "list", question: "Can I use multiple Constellations in one Chat session?",
-    answer: "Each Chat is connected to one Constellation at a time. To switch contexts, create a new Chat and select a different Constellation from the selector."
-  },
-  {
-    id: "s10", responseType: "narrative", question: "How is the Knowledge Base different from documents?",
-    answer: "The Knowledge Base contains hand-curated question-answer pairs that provide precise, structured answers. Documents are raw files that Luxia searches through semantic retrieval. The KB takes priority in responses when a matching entry is found."
-  },
 ];
 
 interface Source { id: string; label: string; }
@@ -1231,7 +1168,7 @@ function NewChatModal({
         aria-labelledby="new-chat-title"
       >
         <div
-          className="flex flex-shrink-0 items-start justify-between px-7 py-4"
+          className="flex flex-shrink-0 items-start justify-between px-7 pt-5 pb-4"
           style={STRUCTURED_MODAL_DARK_CHROME_STYLE}
         >
           <div>
@@ -1363,9 +1300,9 @@ function LuxiaDialog({ open, onClose, title, children, footer }: {
       style={{ background: "rgba(15,23,42,0.40)" }}
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="flex w-full max-w-md max-h-[85vh] flex-col overflow-hidden"
-        style={{ background: "white", border: "1px solid #E2E8F0", borderRadius: 16, boxShadow: "0 12px 32px rgba(15,23,42,0.14)" }}>
+        style={{ background: "white", borderRadius: 16, boxShadow: "0 12px 32px rgba(15,23,42,0.14)" }}>
         <div
-          className="flex flex-shrink-0 items-center justify-between px-7 py-4"
+          className="flex flex-shrink-0 items-center justify-between px-7 pt-5 pb-4"
           style={STRUCTURED_MODAL_DARK_CHROME_STYLE}
         >
           <h2 className="luxia-type-title-modal text-[var(--luxia-text-inverse)]">{title}</h2>
@@ -2219,7 +2156,7 @@ function ConfirmRemoveDialog({ label, onConfirm, onCancel }: {
         aria-modal="true"
         aria-labelledby="confirm-remove-title"
       >
-        <div className="px-6 py-4" style={STRUCTURED_MODAL_DARK_CHROME_STYLE}>
+        <div className="px-6 pt-5 pb-4" style={STRUCTURED_MODAL_DARK_CHROME_STYLE}>
           <h3
             id="confirm-remove-title"
             className="luxia-type-title-modal text-[var(--luxia-text-inverse)]"
@@ -2262,7 +2199,7 @@ function ItemPreviewModal({ label, icon: Icon, onClose }: {
       <div className="relative rounded-[20px] w-[560px] max-h-[70vh] overflow-hidden flex flex-col"
         style={{ background: "white", boxShadow: LX.shadow.xl }} onClick={(e) => e.stopPropagation()}>
         <div
-          className="flex flex-shrink-0 items-center gap-3 px-6 py-4"
+          className="flex flex-shrink-0 items-center gap-3 px-6 pt-5 pb-4"
           style={STRUCTURED_MODAL_DARK_CHROME_STYLE}
         >
           <div className="flex h-8 w-8 items-center justify-center rounded-[8px]" style={{ background: "rgba(255,255,255,0.12)" }}>
@@ -2367,7 +2304,7 @@ function SectionWorkspaceModal({ sectionId, items, instruction, onSave, onClose 
         onClick={(e) => e.stopPropagation()}>
 
         <div
-          className="flex flex-shrink-0 items-center gap-3 px-7 py-4"
+          className="flex flex-shrink-0 items-center gap-3 px-7 pt-5 pb-4"
           style={STRUCTURED_MODAL_DARK_CHROME_STYLE}
         >
           <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[10px]"
@@ -2519,12 +2456,14 @@ function SectionWorkspaceModal({ sectionId, items, instruction, onSave, onClose 
   );
 }
 
-function KBEntryModal({ mode: initialMode, entry, onSave, onAdd, onClose }: {
+function KBEntryModal({ mode: initialMode, entry, onSave, onAdd, onClose, allowSwitchToEdit = true }: {
   mode: "add" | "view" | "edit";
   entry?: KBEntry;
   onSave?: (e: KBEntry) => void;
   onAdd?: (e: KBEntry) => void;
   onClose: () => void;
+  /** When false, view mode stays read-only (no Edit → mutate path). */
+  allowSwitchToEdit?: boolean;
 }) {
   const [mode, setMode] = useState(initialMode);
   const [question, setQuestion] = useState(entry?.question ?? "");
@@ -2567,7 +2506,7 @@ function KBEntryModal({ mode: initialMode, entry, onSave, onAdd, onClose }: {
         style={{ background: LX.surface, boxShadow: LX.shadow.xl }} onClick={(e) => e.stopPropagation()}>
 
         <div
-          className="flex flex-shrink-0 items-center gap-3 px-8 py-4"
+          className="flex flex-shrink-0 items-center gap-3 px-8 pt-5 pb-4"
           style={STRUCTURED_MODAL_DARK_CHROME_STYLE}
         >
           <div className="flex h-9 w-9 items-center justify-center rounded-[10px]" style={{ background: "rgba(255,255,255,0.12)" }}>
@@ -2672,10 +2611,12 @@ function KBEntryModal({ mode: initialMode, entry, onSave, onAdd, onClose }: {
               <Button type="button" variant="secondary" onClick={onClose}>
                 Close
               </Button>
-              <Button type="button" variant="primary" onClick={() => setMode("edit")}>
-                <Edit3 size={16} aria-hidden />
-                Edit
-              </Button>
+              {allowSwitchToEdit ? (
+                <Button type="button" variant="primary" onClick={() => setMode("edit")}>
+                  <Edit3 size={16} aria-hidden />
+                  Edit
+                </Button>
+              ) : null}
             </>
           ) : (
             <>
@@ -2695,388 +2636,19 @@ function KBEntryModal({ mode: initialMode, entry, onSave, onAdd, onClose }: {
   );
 }
 
-function AutoKBModal({ constellationLabel, onAdd, onClose }: {
-  constellationLabel: string; onAdd: (entries: KBEntry[]) => void; onClose: () => void;
-}) {
-  const [count, setCount] = useState(5);
-  const [lang, setLang] = useState("EN");
-  const [generating, setGenerating] = useState(false);
-  const [generated, setGenerated] = useState<KBEntry[]>([]);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-
-  function handleGenerate() {
-    setGenerating(true);
-    setGenerated([]);
-    setSelected(new Set());
-    setTimeout(() => {
-      const slice = KB_AUTO_SAMPLES.slice(0, count).map(e => ({ ...e, id: `auto${Date.now()}${Math.random().toString(36).slice(2, 6)}` }));
-      setGenerated(slice);
-      setSelected(new Set(slice.map(e => e.id)));
-      setGenerating(false);
-    }, 1400);
-  }
-
-  function toggleSelect(id: string) {
-    setSelected(p => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
-  }
-
-  const selectedEntries = generated.filter(e => selected.has(e.id));
-
-  return ReactDOM.createPortal(
-    <div className="fixed inset-0 z-[9990] flex items-center justify-center" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/35" style={{ backdropFilter: "blur(3px)" }} />
-      <div className="relative rounded-[24px] w-[640px] max-h-[86vh] flex flex-col overflow-hidden"
-        style={{ background: LX.surface, boxShadow: LX.shadow.xl }} onClick={(e) => e.stopPropagation()}>
-        <div
-          className="flex flex-shrink-0 items-center gap-3 px-7 py-4"
-          style={STRUCTURED_MODAL_DARK_CHROME_STYLE}
-        >
-          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[10px]"
-            style={{ background: "rgba(255,255,255,0.12)" }}>
-            <LuxiaAiIcon size={15} color="var(--luxia-text-inverse)" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <h2 className="luxia-type-title-panel text-[var(--luxia-text-inverse)]">Auto-generate Knowledge</h2>
-            <p className="luxia-type-metadata text-[var(--luxia-purple-10)]">
-              From <span className="font-bold">{constellationLabel}</span>
-            </p>
-          </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={onClose}
-            className={cn("h-8 w-8", LUXIA_DIALOG_CLOSE_ON_DARK_CLASS)}
-            aria-label="Close"
-          >
-            <X size={14} />
-          </Button>
-        </div>
-        <div className="flex items-center gap-4 px-7 py-3.5 flex-shrink-0" style={{ borderBottom: `1px solid ${LX.border}` }}>
-          <div className="flex items-center gap-2">
-            <span className="luxia-type-metadata" style={{ color: LX.primary }}>Entries</span>
-            <div className="flex gap-1">
-              {[3, 5, 10].map(n => (
-                <button key={n} onClick={() => setCount(n)}
-                  className="w-9 h-8 rounded-[8px] luxia-type-metadata transition-all"
-                  style={{ background: count === n ? LX.secondary : LX.surface, color: count === n ? LX.surface : LX.textMuted, border: `1px solid ${count === n ? LX.secondary : LX.border}` }}>
-                  {n}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="luxia-type-metadata" style={{ color: LX.primary }}>Language</span>
-            <select value={lang} onChange={(e) => setLang(e.target.value)}
-              className="h-8 px-2.5 rounded-[8px] luxia-type-metadata outline-none"
-              style={{ border: `1px solid ${LX.border}`, color: LX.primary, background: LX.surface }}>
-              {LANGUAGES.map(l => <option key={l.code} value={l.code}>{l.label}</option>)}
-            </select>
-          </div>
-          <div className="flex-1" />
-          <LuxiaAiButton onClick={handleGenerate} disabled={generating}>
-            {generating ? "Generating…" : "Generate with AI"}
-          </LuxiaAiButton>
-        </div>
-        <div className="flex-1 overflow-y-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical px-7 py-5">
-          {generating && (
-            <div className="flex flex-col items-center justify-center py-14 gap-3">
-              <div className="w-9 h-9 rounded-full border-2 animate-spin"
-                style={{ borderColor: `${LX.secondary} transparent ${LX.secondary} ${LX.secondary}` }} />
-              <p className="luxia-type-body-dense-strong" style={{ color: LX.textMuted }}>Generating Knowledge Entries…</p>
-            </div>
-          )}
-          {!generating && generated.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-14 gap-2">
-              <LuxiaAiIcon size={28} style={{ color: `${LX.textMuted}55` }} />
-              <p className="luxia-type-body-dense" style={{ color: LX.textMuted }}>Configure above, then click Generate</p>
-            </div>
-          )}
-          {!generating && generated.length > 0 && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between mb-3">
-                <p className="luxia-type-metadata" style={{ color: LX.textMuted }}>{selected.size} of {generated.length} selected</p>
-                <button onClick={() => setSelected(selected.size === generated.length ? new Set() : new Set(generated.map(e => e.id)))}
-                  className="luxia-type-metadata hover:opacity-80 transition-opacity" style={{ color: LX.secondary }}>
-                  {selected.size === generated.length ? "Deselect all" : "Select all"}
-                </button>
-              </div>
-              {generated.map(entry => {
-                const checked = selected.has(entry.id);
-                return (
-                  <button key={entry.id} onClick={() => toggleSelect(entry.id)}
-                    className="w-full flex items-start gap-3 px-4 py-3.5 rounded-[14px] text-left transition-all"
-                    style={{ background: checked ? LX.state.secondary08 : LX.surface, border: `1px solid ${checked ? LX.secondary : LX.border}`, boxShadow: checked ? LX.shadow.xs : "none" }}>
-                    <div className="w-4 h-4 rounded-[5px] flex items-center justify-center flex-shrink-0 mt-0.5 transition-all"
-                      style={{ background: checked ? LX.secondary : LX.surface, border: `1.5px solid ${checked ? LX.secondary : LX.border}` }}>
-                      {checked && <Check size={9} color={LX.surface} />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="luxia-type-body-dense-strong" style={{ color: LX.primary }}>{entry.question}</p>
-                      <p className="luxia-type-metadata mt-0.5 truncate" style={{ color: LX.textMuted }}>{entry.answer}</p>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-        <div className="flex items-center justify-end gap-2.5 px-7 py-4 flex-shrink-0" style={{ borderTop: `1px solid ${LX.border}` }}>
-          <Button type="button" variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            variant="primary"
-            onClick={() => { if (selectedEntries.length > 0) { onAdd(selectedEntries); onClose(); } }}
-            disabled={selectedEntries.length === 0}
-          >
-            <Plus size={16} aria-hidden />
-            Add {selectedEntries.length > 0 ? `${selectedEntries.length} ` : ""}Selected
-          </Button>
-        </div>
-      </div>
-    </div>,
-    document.body,
-  );
-}
-
-function KBWorkspaceModal({ entries, constellationLabel, onSave, onClose }: {
-  entries: KBEntry[]; constellationLabel: string;
-  onSave: (entries: KBEntry[]) => void; onClose: () => void;
-}) {
-  const [pending, setPending] = useState<KBEntry[]>([...entries]);
-  const [searchQ, setSearchQ] = useState("");
-  const [dragSrc, setDragSrc] = useState<number | null>(null);
-  const [dragOver, setDragOver] = useState<number | null>(null);
-  const [itemMenu, setItemMenu] = useState<string | null>(null);
-  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
-  const [previewEntry, setPreviewEntry] = useState<KBEntry | null>(null);
-  const [editEntry, setEditEntry] = useState<KBEntry | null>(null);
-  const [addOpen, setAddOpen] = useState(false);
-  const [autoOpen, setAutoOpen] = useState(false);
-
-  useEffect(() => {
-    const close = () => setItemMenu(null);
-    window.addEventListener("mousedown", close);
-    return () => window.removeEventListener("mousedown", close);
-  }, []);
-
-  const filtered = pending.filter(e =>
-    e.question.toLowerCase().includes(searchQ.toLowerCase()) ||
-    e.answer.toLowerCase().includes(searchQ.toLowerCase())
-  );
-
-  function reorder(from: number, to: number) {
-    const next = [...pending]; const [moved] = next.splice(from, 1); next.splice(to, 0, moved); setPending(next);
-  }
-  function removeEntry(id: string) { setPending(p => p.filter(e => e.id !== id)); setConfirmRemoveId(null); }
-  function updateEntry(updated: KBEntry) { setPending(p => p.map(e => e.id === updated.id ? updated : e)); }
-
-  const hasChanges = JSON.stringify(pending) !== JSON.stringify(entries);
-
-  return ReactDOM.createPortal(
-    <>
-      <div className="fixed inset-0 z-[9990] flex items-center justify-center" onClick={onClose}>
-        <div className="absolute inset-0 bg-black/40" style={{ backdropFilter: "blur(4px)" }} />
-        <div className="relative w-[760px] max-h-[88vh] rounded-[24px] overflow-hidden flex flex-col"
-          style={{ background: LX.surface, boxShadow: LX.shadow.xl }} onClick={(e) => e.stopPropagation()}>
-
-          <div
-            className="flex flex-shrink-0 items-center gap-4 px-8 py-4"
-            style={STRUCTURED_MODAL_DARK_CHROME_STYLE}
-          >
-            <div className="min-w-0 flex-1">
-              <h2 className="luxia-type-heading-h4 leading-none text-[var(--luxia-text-inverse)]">Knowledge Base</h2>
-              <p className="mt-1 luxia-type-body-dense text-[var(--luxia-purple-10)]">
-                {constellationLabel} · {pending.length} {pending.length === 1 ? "entry" : "entries"}
-              </p>
-            </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={onClose}
-              className={cn("h-9 w-9", LUXIA_DIALOG_CLOSE_ON_DARK_CLASS)}
-              aria-label="Close knowledge base"
-            >
-              <X size={15} />
-            </Button>
-          </div>
-
-          <div className="flex items-center gap-2.5 px-8 pb-5 flex-shrink-0">
-            <div className="flex-1 flex items-center gap-2 px-3.5 h-[38px] rounded-[12px]"
-              style={{ border: `1px solid ${LX.border}`, background: LX.subtle }}>
-              <Search size={13} style={{ color: LX.textMuted }} />
-              <input value={searchQ} onChange={(e) => setSearchQ(e.target.value)}
-                placeholder="Search questions and answers…"
-                className="flex-1 outline-none luxia-type-body-dense bg-transparent" style={{ color: LX.primary }} />
-              {searchQ && (
-                <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => setSearchQ("")} aria-label="Clear search">
-                  <X size={11} style={{ color: LX.textMuted }} />
-                </Button>
-              )}
-            </div>
-            <Button type="button" variant="outline" onClick={() => { const i = document.createElement("input"); i.type = "file"; i.accept = ".csv"; i.click(); }}
-              className="h-[38px] rounded-[12px] px-3.5 luxia-type-metadata" style={{ color: LX.textMuted }}>
-              <Upload size={12} />Import CSV
-            </Button>
-            <LuxiaAiButton size="default" onClick={() => setAutoOpen(true)}>
-              Generate with AI
-            </LuxiaAiButton>
-            <Button type="button" onClick={() => setAddOpen(true)}
-              className="h-[38px] rounded-[12px] px-4 luxia-type-metadata text-white hover:opacity-90"
-              style={{ background: LX.gradient.button, boxShadow: LX.shadow.sm }}>
-              <Plus size={13} />Add Entry
-            </Button>
-          </div>
-
-          <div className="h-px mx-8 flex-shrink-0" style={{ background: LX.border }} />
-
-          <div className="flex-1 overflow-y-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical px-8 py-5">
-            {filtered.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 gap-3">
-                <BookOpen size={32} style={{ color: `${LX.textMuted}44` }} />
-                <p className="luxia-type-body-small" style={{ color: LX.textMuted }}>
-                  {searchQ ? "No entries match your search." : "No entries yet."}
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {filtered.map((entry) => {
-                  const realIdx = pending.findIndex(e => e.id === entry.id);
-                  const typeLabel = KB_RESPONSE_TYPES.find(t => t.id === entry.responseType)?.label;
-                  const isMenuOpen = itemMenu === entry.id;
-                  return (
-                    <div key={entry.id}
-                      draggable={!searchQ}
-                      onDragStart={() => setDragSrc(realIdx)}
-                      onDragOver={(e) => { e.preventDefault(); setDragOver(realIdx); }}
-                      onDrop={() => { if (dragSrc !== null && dragSrc !== realIdx) reorder(dragSrc, realIdx); setDragSrc(null); setDragOver(null); }}
-                      onDragEnd={() => { setDragSrc(null); setDragOver(null); }}
-                      className="flex items-start gap-3.5 px-5 py-4 rounded-[16px] group relative transition-all"
-                      style={{
-                        border: `1px solid ${dragOver === realIdx ? LX.secondary : LX.border}`,
-                        background: dragOver === realIdx ? LX.state.secondary04 : LX.surface,
-                      }}>
-                      {!searchQ && <GripVertical size={14} color={LX.borderStrong} className="cursor-grab flex-shrink-0 mt-1" />}
-                      <div className="flex-1 min-w-0">
-                        <p className="luxia-type-title-component leading-snug mb-1.5" style={{ color: LX.primary }}>{entry.question}</p>
-                        <p className="luxia-type-body-dense" style={{
-                          color: LX.textMuted,
-                          display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
-                        } as React.CSSProperties}>{entry.answer}</p>
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0 mt-0.5">
-                        <div className="relative" onClick={(e) => e.stopPropagation()}>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button type="button" variant="ghost" size="icon" onClick={() => setItemMenu(isMenuOpen ? null : entry.id)}
-                                className="h-7 w-7 rounded-[8px]" aria-label="Entry actions">
-                                <MoreHorizontal size={14} style={{ color: LX.textMuted }} />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent sideOffset={6}>Actions</TooltipContent>
-                          </Tooltip>
-                          {isMenuOpen && (
-                            <div className="absolute right-0 top-full mt-1.5 z-50 min-w-[168px] py-1.5"
-                              style={{ background: LX.surface, boxShadow: LX.shadow.lg, border: `1px solid ${LX.border}`, borderRadius: 14 }}
-                              onClick={(e) => e.stopPropagation()}>
-                              <button onClick={() => { setItemMenu(null); setPreviewEntry(entry); }}
-                                className="w-full flex items-center gap-2.5 px-4 luxia-type-body-dense-strong transition-colors text-left"
-                                style={{ color: LX.primary, height: 40 }}
-                                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.state.menuHover; }}
-                                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
-                                <Eye size={14} style={{ color: LX.textMuted }} />View</button>
-                              <button onClick={() => { setItemMenu(null); setEditEntry(entry); }}
-                                className="w-full flex items-center gap-2.5 px-4 luxia-type-body-dense-strong transition-colors text-left"
-                                style={{ color: LX.primary, height: 40 }}
-                                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.state.menuHover; }}
-                                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
-                                <Edit3 size={14} style={{ color: LX.textMuted }} />Edit</button>
-                              <div className="h-px mx-3 my-1" style={{ background: LX.border }} />
-                              <button onClick={() => { setItemMenu(null); setConfirmRemoveId(entry.id); }}
-                                className="w-full flex items-center gap-2.5 px-4 luxia-type-body-dense-strong transition-colors text-left"
-                                style={{ color: LX.error, height: 40 }}
-                                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.state.error07; }}
-                                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
-                                <Trash2 size={14} style={{ color: LX.error }} />Remove</button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          <div className="flex items-center justify-between gap-3 px-8 py-5 flex-shrink-0" style={{ borderTop: `1px solid ${LX.border}` }}>
-            <span className="luxia-type-body-dense" style={{ color: LX.textMuted }}>
-              {pending.length} {pending.length === 1 ? "entry" : "entries"}
-            </span>
-            <div className="flex items-center gap-2.5">
-              <Button type="button" variant="secondary" onClick={onClose} className="h-[40px] rounded-[12px] px-5 luxia-type-body-dense-strong" style={{ color: LX.textMuted }}>
-                Cancel
-              </Button>
-              <Button type="button" onClick={() => { onSave(pending); onClose(); }} disabled={!hasChanges}
-                className="h-[40px] rounded-[12px] px-5 luxia-type-body-dense-strong text-white disabled:opacity-40"
-                style={{ background: LX.gradient.button, boxShadow: LX.shadow.sm }}>
-                <Check size={14} />Save Changes
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {confirmRemoveId && (
-        <ConfirmRemoveDialog
-          label={pending.find(e => e.id === confirmRemoveId)?.question ?? ""}
-          onConfirm={() => removeEntry(confirmRemoveId)}
-          onCancel={() => setConfirmRemoveId(null)}
-        />
-      )}
-      {previewEntry && (
-        <KBEntryModal mode="view" entry={previewEntry}
-          onSave={(e) => { updateEntry(e); setPreviewEntry(null); }}
-          onClose={() => setPreviewEntry(null)} />
-      )}
-      {editEntry && (
-        <KBEntryModal mode="edit" entry={editEntry}
-          onSave={(e) => { updateEntry(e); setEditEntry(null); }}
-          onClose={() => setEditEntry(null)} />
-      )}
-      {addOpen && (
-        <KBEntryModal mode="add"
-          onAdd={(e) => setPending(p => [...p, e])}
-          onClose={() => setAddOpen(false)} />
-      )}
-      {autoOpen && <AutoKBModal constellationLabel={constellationLabel} onAdd={(es) => setPending(p => [...p, ...es])} onClose={() => setAutoOpen(false)} />}
-    </>,
-    document.body,
-  );
-}
-
 function KBSidebarSection({
   entries,
   isOpen,
   onToggle,
   onExpand,
-  onAdd,
   onView,
-  onEdit,
-  onRemove,
   readOnly = false,
 }: {
-  entries: KBEntry[];
+  entries: KnowledgeBaseEntry[];
   isOpen: boolean;
   onToggle: () => void;
   onExpand: () => void;
-  onAdd?: () => void;
   onView: (id: string) => void;
-  onEdit?: (id: string) => void;
-  onRemove?: (id: string) => void;
   readOnly?: boolean;
 }) {
   const [searchQ, setSearchQ] = useState("");
@@ -3089,12 +2661,11 @@ function KBSidebarSection({
       <div className={IC_CARD_HEADER}>
         <BookOpen size={14} color={IC.iconSemantic} className="flex-shrink-0" />
         <span className="flex-1 luxia-type-title-component truncate" style={{ color: IC.iconSemantic }}>Knowledge Base</span>
-        {!readOnly ? (
         <Tooltip>
           <TooltipTrigger asChild>
             <button type="button" onClick={(e) => { e.stopPropagation(); onExpand(); }}
               className={IC_BTN_OPEN}
-              aria-label="Open Knowledge Base settings"
+              aria-label={readOnly ? "View Knowledge Base" : "Manage Knowledge Base"}
               onMouseEnter={icHoverOn}
               onMouseLeave={icHoverOff}
               onMouseDown={icOpenActiveOn}
@@ -3102,9 +2673,10 @@ function KBSidebarSection({
               <SquareArrowOutUpRight size={14} strokeWidth={2} style={{ color: IC.textMuted }} aria-hidden />
             </button>
           </TooltipTrigger>
-          <TooltipContent sideOffset={6}>Open Knowledge Base settings</TooltipContent>
+          <TooltipContent sideOffset={6}>
+            {readOnly ? "View Knowledge Base" : "Manage Knowledge Base"}
+          </TooltipContent>
         </Tooltip>
-        ) : null}
         <Tooltip>
           <TooltipTrigger asChild>
             <button onClick={onToggle}
@@ -3153,35 +2725,17 @@ function KBSidebarSection({
                 onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
                 <BookOpen size={10} color={IC.iconSemantic} className="flex-shrink-0" />
                 <span className="flex-1 luxia-type-caption truncate" style={{ color: IC.textPrimary }}>{entry.question}</span>
-                {readOnly || !onEdit || !onRemove ? (
-                  <button
-                    type="button"
-                    className="luxia-type-caption px-1.5 py-0.5 rounded-[6px] outline-none"
-                    style={{ color: IC.textMuted }}
-                    onClick={() => onView(entry.id)}
-                  >
-                    View
-                  </button>
-                ) : (
-                  <KBEntryMenu
-                    onView={() => onView(entry.id)}
-                    onEdit={() => onEdit(entry.id)}
-                    onRemove={() => onRemove(entry.id)}
-                  />
-                )}
+                <button
+                  type="button"
+                  className="luxia-type-caption px-1.5 py-0.5 rounded-[6px] outline-none"
+                  style={{ color: IC.textMuted }}
+                  onClick={() => onView(entry.id)}
+                >
+                  View
+                </button>
               </div>
             ))
           )}
-
-          {!readOnly && onAdd ? (
-            <button onClick={onAdd}
-              className="mt-1 w-full flex items-center gap-1.5 px-2 py-1.5 rounded-[7px] luxia-type-caption transition-colors outline-none"
-              style={{ color: IC.textMuted }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = IC.hover; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
-              <Plus size={10} />Add Entry
-            </button>
-          ) : null}
         </div>
       )}
     </div>
@@ -3510,6 +3064,8 @@ function ConstellationSidebar({
   isGalaxyChat,
   canConfigure = false,
   canEditKnowledge = false,
+  knowledgeBase,
+  onCommitKnowledgeBase,
 }: {
   width: number;
   onResizeStart: (e: React.MouseEvent) => void;
@@ -3524,6 +3080,9 @@ function ConstellationSidebar({
   isGalaxyChat: boolean;
   canConfigure?: boolean;
   canEditKnowledge?: boolean;
+  /** Shared Constellation KB from capabilityBundlesById — not Chat-local state. */
+  knowledgeBase: KnowledgeBaseEntry[];
+  onCommitKnowledgeBase: (next: KnowledgeBaseEntry[]) => void;
 }) {
   const sectionIds = CONSTELLATION_SECTIONS[constellation.type];
 
@@ -3540,12 +3099,14 @@ function ConstellationSidebar({
   const [confirmRemove, setConfirmRemove] = useState<{ sid: SectionId; idx: number } | null>(null);
   const [previewItem, setPreviewItem] = useState<{ sid: SectionId; idx: number } | null>(null);
 
-  const [kbEntries, setKbEntries] = useState<KBEntry[]>(KB_DEFAULTS);
   const [kbWorkspaceOpen, setKbWorkspaceOpen] = useState(false);
-  const [kbAddOpen, setKbAddOpen] = useState(false);
-  const [kbConfirmId, setKbConfirmId] = useState<string | null>(null);
   const [kbViewId, setKbViewId] = useState<string | null>(null);
-  const [kbEditId, setKbEditId] = useState<string | null>(null);
+  const kbCloseRef = useRef<(() => void) | null>(null);
+  const kbDirtyRef = useRef(false);
+  const kbLeaveActionRef = useRef<() => void>(() => {
+    setKbWorkspaceOpen(false);
+    setKbViewId(null);
+  });
 
   const [dragSrc, setDragSrc] = useState<{ sid: SectionId; i: number } | null>(null);
   const [dragOver, setDragOver] = useState<{ sid: SectionId; i: number } | null>(null);
@@ -3559,20 +3120,49 @@ function ConstellationSidebar({
     setSectionSignatures((prev) => (prev[sectionId] === signature ? prev : { ...prev, [sectionId]: signature }));
   }, []);
 
-  const kbSignature = useMemo(
-    () => JSON.stringify(kbEntries.map((e) => ({ id: e.id, question: e.question, answer: e.answer, responseType: e.responseType }))),
-    [kbEntries],
+  // KB commits via onCommitKnowledgeBase → capabilityBundlesById; exclude from Chat dirty snapshot.
+  const currentConstellationSnapshot = useMemo(
+    () => JSON.stringify({ sections: sectionSignatures }),
+    [sectionSignatures],
   );
 
-  const currentConstellationSnapshot = useMemo(
-    () => JSON.stringify({ kb: kbSignature, sections: sectionSignatures }),
-    [kbSignature, sectionSignatures],
-  );
+  function closeKbWorkspace() {
+    setKbWorkspaceOpen(false);
+    setKbViewId(null);
+  }
+
+  function runKbLeaveAction() {
+    const action = kbLeaveActionRef.current;
+    kbLeaveActionRef.current = closeKbWorkspace;
+    action();
+  }
+
+  /** Intercept constellation switch while Chat KB manager is dirty — reuse manager DiscardChangesDialog. */
+  function requestConstellationChange(nextId: string) {
+    if (nextId === constellation.id) return;
+
+    const proceed = () => onConstellationChange(nextId);
+
+    if (kbWorkspaceOpen && kbCloseRef.current) {
+      kbLeaveActionRef.current = () => {
+        closeKbWorkspace();
+        proceed();
+      };
+      kbCloseRef.current();
+      return;
+    }
+
+    closeKbWorkspace();
+    proceed();
+  }
 
   useEffect(() => {
     setSectionSignatures({});
     setSavedConstellationSnapshot(null);
     setConstellationFeedback(null);
+    setKbWorkspaceOpen(false);
+    setKbViewId(null);
+    kbLeaveActionRef.current = closeKbWorkspace;
   }, [constellation.id]);
 
   useEffect(() => {
@@ -3780,7 +3370,7 @@ function ConstellationSidebar({
               <ConstellationSelector
                 constellation={constellation}
                 options={projectConstellations}
-                onChange={onConstellationChange}
+                onChange={requestConstellationChange}
                 disabled={!allowConstellationChange}
                 forceClosed={collapsed}
               />
@@ -3970,14 +3560,11 @@ function ConstellationSidebar({
           if (sid === "kb") {
             return (
               <KBSidebarSection key="kb"
-                entries={kbEntries}
+                entries={knowledgeBase}
                 isOpen={isOpen}
                 onToggle={() => setOpenSections(p => ({ ...p, kb: !p.kb }))}
                 onExpand={() => setKbWorkspaceOpen(true)}
-                onAdd={canEditKnowledge ? () => setKbAddOpen(true) : undefined}
                 onView={(id) => setKbViewId(id)}
-                onEdit={canEditKnowledge ? (id) => setKbEditId(id) : undefined}
-                onRemove={canEditKnowledge ? (id) => setKbConfirmId(id) : undefined}
                 readOnly={!canEditKnowledge}
               />
             );
@@ -4105,41 +3692,31 @@ function ConstellationSidebar({
         />
       )}
 
-      {kbWorkspaceOpen && (
-        <KBWorkspaceModal
-          entries={kbEntries}
-          constellationLabel={constellation.label}
-          onSave={(es) => setKbEntries(es)}
-          onClose={() => setKbWorkspaceOpen(false)}
-        />
-      )}
-      {kbAddOpen && (
-        <KBEntryModal mode="add"
-          onAdd={(e) => setKbEntries(p => [...p, e])}
-          onClose={() => setKbAddOpen(false)}
-        />
-      )}
+      {/* Shared Constellation KB: capabilityBundlesById[constellation.id].knowledgeBase */}
+      <KnowledgeBaseManager
+        open={kbWorkspaceOpen}
+        presentation="dialog"
+        entries={knowledgeBase}
+        readOnly={!canEditKnowledge}
+        closeRef={kbCloseRef}
+        dirtyRef={kbDirtyRef}
+        onCommit={onCommitKnowledgeBase}
+        onCancel={runKbLeaveAction}
+        onLeaveAborted={() => {
+          kbLeaveActionRef.current = closeKbWorkspace;
+        }}
+      />
       {kbViewId && (() => {
-        const e = kbEntries.find(x => x.id === kbViewId); return e ? (
-          <KBEntryModal mode="view" entry={e}
-            onSave={(upd) => { setKbEntries(p => p.map(x => x.id === upd.id ? upd : x)); setKbViewId(null); }}
-            onClose={() => setKbViewId(null)} />
+        const e = knowledgeBase.find((x) => x.id === kbViewId);
+        return e ? (
+          <KBEntryModal
+            mode="view"
+            entry={e}
+            allowSwitchToEdit={false}
+            onClose={() => setKbViewId(null)}
+          />
         ) : null;
       })()}
-      {kbEditId && (() => {
-        const e = kbEntries.find(x => x.id === kbEditId); return e ? (
-          <KBEntryModal mode="edit" entry={e}
-            onSave={(upd) => { setKbEntries(p => p.map(x => x.id === upd.id ? upd : x)); setKbEditId(null); }}
-            onClose={() => setKbEditId(null)} />
-        ) : null;
-      })()}
-      {kbConfirmId && (
-        <ConfirmRemoveDialog
-          label={kbEntries.find(e => e.id === kbConfirmId)?.question ?? ""}
-          onConfirm={() => { setKbEntries(p => p.filter(e => e.id !== kbConfirmId)); setKbConfirmId(null); }}
-          onCancel={() => setKbConfirmId(null)}
-        />
-      )}
     </div>
   );
 }
@@ -6725,6 +6302,92 @@ export default function App() {
     handleOpenConstellationsList(projectId);
   }
 
+  /**
+   * Atomic local Duplicate commit — builds the full clone in memory first,
+   * then writes settings + capability bundle + runtime list + counts together.
+   * Called only after the dialog mock job reaches success (never on cancel/fail).
+   */
+  function handleDuplicateConstellation(
+    sourceConstellationId: string,
+    name: string,
+  ): { constellationId: string; projectId: string; name: string } {
+    const source = allConstellations.find((item) => item.id === sourceConstellationId);
+    if (!source) {
+      throw new Error("Source Constellation was not found.");
+    }
+    const projectRole = projectRoleFor(source.projectId);
+    if (!canCreateConstellation(projectRole)) {
+      throw new Error("You do not have permission to duplicate this Constellation.");
+    }
+    const sourceSettings = resolveConstellationSettingsRecordForView(sourceConstellationId);
+    if (!sourceSettings || sourceSettings.status === "archived") {
+      throw new Error("This Constellation cannot be duplicated.");
+    }
+
+    const sourceBundle = resolveCapabilityBundle(
+      sourceConstellationId,
+      sourceSettings.instructions,
+    );
+    const createdBy =
+      getOrganizationUserById(prototypeUserId)?.name ?? sourceSettings.createdBy;
+
+    const draft = buildLocalConstellationDuplicate({
+      sourceConstellation: {
+        id: source.id,
+        label: source.label,
+        type: source.type,
+        projectId: source.projectId,
+        description: source.description,
+      },
+      sourceSettings,
+      sourceBundle,
+      name,
+      createdBy,
+    });
+
+    const created: Constellation = {
+      id: draft.constellation.id,
+      label: draft.constellation.label,
+      type: draft.constellation.type,
+      projectId: draft.constellation.projectId,
+      description: draft.constellation.description,
+    };
+
+    const nextRuntime = [...runtimeConstellations, created];
+    const nextAll = [...CONSTELLATIONS, ...nextRuntime];
+    const nextSettings = {
+      ...constellationSettingsById,
+      [draft.settings.id]: draft.settings,
+    };
+
+    setRuntimeConstellations(nextRuntime);
+    setConstellationSettingsById(nextSettings);
+    setCapabilityBundlesById((prev) => ({
+      ...prev,
+      [draft.constellation.id]: draft.bundle,
+    }));
+    commitDuplicateResponseConfidence(draft);
+    syncHomeProjectDerivedCounts(created.projectId, {
+      settingsById: nextSettings,
+      constellations: nextAll,
+    });
+
+    return {
+      constellationId: created.id,
+      projectId: created.projectId,
+      name: created.label,
+    };
+  }
+
+  function handleOpenDuplicatedConstellation(
+    projectId: string,
+    constellationId: string,
+  ) {
+    handleOpenConstellationSettings(projectId, constellationId, "general", {
+      focusHeading: true,
+    });
+  }
+
   function resolveCapabilityBundle(
     constellationId: string,
     instructions?: string,
@@ -6737,23 +6400,34 @@ export default function App() {
   }
 
   useEffect(() => {
-    if (appView !== "constellation-settings" || !settingsConstellationId) return;
+    const constellationId = appView === "constellation-settings"
+      ? settingsConstellationId
+      : appView === "chat"
+        ? activeConstellation.id
+        : null;
+    if (!constellationId) return;
     setCapabilityBundlesById((prev) => {
-      if (prev[settingsConstellationId]) return prev;
-      const record = constellationSettingsById[settingsConstellationId]
-        ?? getConstellationSettingsRecord(settingsConstellationId);
-      const constellation = allConstellations.find((item) => item.id === settingsConstellationId);
+      if (prev[constellationId]) return prev;
+      const record = constellationSettingsById[constellationId]
+        ?? getConstellationSettingsRecord(constellationId);
+      const constellation = allConstellations.find((item) => item.id === constellationId);
       const type = constellation?.type ?? record?.type ?? "database";
       return {
         ...prev,
-        [settingsConstellationId]: createSeedCapabilityBundle(
-          settingsConstellationId,
+        [constellationId]: createSeedCapabilityBundle(
+          constellationId,
           type,
           record?.instructions,
         ),
       };
     });
-  }, [appView, settingsConstellationId, constellationSettingsById, allConstellations]);
+  }, [
+    appView,
+    settingsConstellationId,
+    activeConstellation.id,
+    constellationSettingsById,
+    allConstellations,
+  ]);
 
   function handleUpdateCapabilityBundle(
     constellationId: string,
@@ -6782,6 +6456,19 @@ export default function App() {
       },
       updatedAt: "Just now",
     }));
+  }
+
+  /** Chat KB Save Changes → same Constellation capability bundle as Settings. */
+  function handleCommitChatKnowledgeBase(
+    constellationId: string,
+    knowledgeBase: KnowledgeBaseEntry[],
+  ) {
+    const bundle = resolveCapabilityBundle(constellationId);
+    handleUpdateCapabilityBundle(
+      constellationId,
+      { ...bundle, knowledgeBase },
+      { capabilityKind: "knowledge" },
+    );
   }
 
   function syncProjectPath(projectId: string) {
@@ -9645,7 +9332,8 @@ export default function App() {
                     const isKnowledgeCap = capabilityId === "kb" || capabilityId === "instr" || capabilityId === "crawler";
                     const role = constellationProjectRole;
                     if (isKnowledgeCap) {
-                      if (!canEditConstellationKnowledge(role)) return;
+                      // KB may open read-only for Members; instr/crawler still require edit.
+                      if (capabilityId !== "kb" && !canEditConstellationKnowledge(role)) return;
                     } else if (!canAdministerProjectConfiguration(prototypeUserId, role)) {
                       return;
                     }
@@ -9673,6 +9361,13 @@ export default function App() {
                     if (!projectId || !constellationId || settingsUnavailable) return;
                     handleDeleteConstellationSettings(projectId, constellationId);
                   }}
+                  onDuplicateConstellation={(name) => {
+                    if (!constellationId || settingsUnavailable) {
+                      throw new Error("This Constellation cannot be duplicated.");
+                    }
+                    return handleDuplicateConstellation(constellationId, name);
+                  }}
+                  onOpenDuplicatedConstellation={handleOpenDuplicatedConstellation}
                   onNavigateHome={handleNavigateHome}
                   onOpenProject={handleOpenProjectFromHome}
                   onOpenConstellations={handleOpenConstellationsList}
@@ -10710,6 +10405,12 @@ export default function App() {
                 prototypeProjectRole,
               )}
               canEditKnowledge={canEditConstellationKnowledge(prototypeProjectRole)}
+              knowledgeBase={
+                resolveCapabilityBundle(activeConstellation.id).knowledgeBase
+              }
+              onCommitKnowledgeBase={(next) =>
+                handleCommitChatKnowledgeBase(activeConstellation.id, next)
+              }
             />
           )}
           </div>

@@ -4,6 +4,7 @@ import { Button } from "@/app/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/app/components/ui/dialog";
 import { cn } from "@/app/components/ui/utils";
 import { DiscardChangesDialog } from "@/app/features/shared/DiscardChangesDialog";
+import { SearchField } from "@/app/features/shared/SearchField";
 import { LUXIA_DIALOG_CLOSE_ON_DARK_CLASS } from "@/app/features/shared/structuredModalChrome";
 import { Input } from "@/app/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/components/ui/select";
@@ -85,7 +86,7 @@ export function ConfigureColumnsDialog({
                                 <div className="min-w-0 flex-1">
                                     <DialogTitle className="luxia-type-title-modal">Configure columns</DialogTitle>
                                     <DialogDescription className="sr-only">Control visibility, display names, types, descriptions, and value context for columns.</DialogDescription>
-                                    <p className="mt-1 luxia-type-metadata text-[var(--luxia-purple-10)]">Control visibility, display names, types, descriptions, and value context.</p>
+                                    <p className="mt-1.5 luxia-type-metadata text-[var(--luxia-purple-10)]">Control visibility, display names, types, descriptions, and value context.</p>
                                 </div>
                                 <button
                                     type="button"
@@ -104,9 +105,15 @@ export function ConfigureColumnsDialog({
                         <div className="flex min-h-0 flex-1 flex-col xl:flex-row">
                             <div className="flex min-h-0 flex-1 flex-col border-r px-6 py-5" style={{ borderColor: LX.border }}>
                                 <div className="flex flex-wrap items-center gap-2">
-                                    <div className="flex min-w-0 flex-1 items-center gap-2 rounded-[14px] border px-3 py-2" style={{ borderColor: LX.border, background: LX.surface }}>
-                                        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search columns..." className="h-8 border-0 bg-transparent px-0 luxia-type-input-search-dense shadow-none focus-visible:ring-0" aria-label="Search columns" />
-                                    </div>
+                                    <SearchField
+                                        density="dense"
+                                        value={search}
+                                        onChange={setSearch}
+                                        placeholder="Search columns..."
+                                        aria-label="Search columns"
+                                        clearable={false}
+                                        style={{ background: LX.surface }}
+                                    />
                                 </div>
 
                                 {hasInvalidColumns ? (

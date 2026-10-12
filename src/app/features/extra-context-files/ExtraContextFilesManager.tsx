@@ -1,11 +1,11 @@
-import { FolderOpen, Plus, Search, X } from "lucide-react";
+import { FolderOpen, Plus, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import { Button } from "@/app/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/app/components/ui/dialog";
-import { Input } from "@/app/components/ui/input";
 import { cn } from "@/app/components/ui/utils";
 import { BusyButton } from "@/app/features/shared/Loading";
 import { luxiaToast } from "@/app/features/shared/luxiaToast";
+import { SearchField } from "@/app/features/shared/SearchField";
 import { useManagerLeaveRegistration } from "@/app/features/shared/unsavedNavigationGuard";
 import { LUXIA_DIALOG_CLOSE_ON_DARK_CLASS } from "@/app/features/shared/structuredModalChrome";
 import { AddExtraContextFilesDialog } from "./AddExtraContextFilesDialog";
@@ -147,7 +147,7 @@ export function ExtraContextFilesManager({
                                 </div>
                                 <div className="min-w-0 flex-1">
                                     <DialogTitle className="luxia-type-title-modal">Extra Context Files</DialogTitle>
-                                    <DialogDescription className="mt-1 luxia-type-metadata">Changes are local until saved.</DialogDescription>
+                                    <DialogDescription className="mt-1.5 luxia-type-metadata">Changes are local until saved.</DialogDescription>
                                 </div>
                                 <Button
                                     type="button"
@@ -163,23 +163,15 @@ export function ExtraContextFilesManager({
                         </DialogHeader>
                         ) : null}
 
-                        <div className="border-b px-6 py-3" style={{ borderColor: LX.border }}>
+                        <div className="border-b px-6 py-3.5" style={{ borderColor: LX.border }}>
                             <div className="flex flex-wrap items-center gap-2">
-                            <div className="flex min-w-0 flex-1 items-center gap-2 rounded-[14px] border px-3 py-2" style={{ borderColor: LX.border, background: LX.subtle }}>
-                                <Search size={14} style={{ color: LX.textMuted }} />
-                                <Input
-                                    value={search}
-                                    onChange={(event) => setSearch(event.target.value)}
-                                    placeholder="Search extra context files…"
-                                    className="h-8 border-0 bg-transparent px-0 luxia-type-input-search-dense shadow-none focus-visible:ring-0"
-                                    aria-label="Search extra context files"
-                                />
-                                {search ? (
-                                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7 " aria-label="Clear search" onClick={() => setSearch("")}>
-                                        <X size={12} style={{ color: LX.textMuted }} />
-                                    </Button>
-                                ) : null}
-                            </div>
+                            <SearchField
+                                density="dense"
+                                value={search}
+                                onChange={setSearch}
+                                placeholder="Search extra context files…"
+                                aria-label="Search extra context files"
+                            />
                             <Button type="button" variant="primary" size="compact" onClick={() => setAddOpen(true)}>
                                 <Plus size={14} />Add Extra Context File
                             </Button>

@@ -111,11 +111,6 @@ export function InstructionSection({
                             onMouseEnter={(e) => icInputBorderHoverOn(e, focused)}
                             onMouseLeave={(e) => icInputBorderHoverOff(e, focused)}
                         />
-                        {data.attachment ? (
-                            <p className="mt-1.5 truncate luxia-type-caption" style={{ color: IC.textMuted }}>
-                                {data.attachment.name}
-                            </p>
-                        ) : null}
                     </div>
                 ) : null}
             </div>

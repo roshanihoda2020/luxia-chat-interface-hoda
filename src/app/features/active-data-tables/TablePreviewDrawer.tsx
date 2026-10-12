@@ -1,10 +1,11 @@
-import { Columns3, PencilLine, Search, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Columns3, PencilLine, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/app/components/ui/button";
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/app/components/ui/drawer";
-import { Input } from "@/app/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/app/components/ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/app/components/ui/tooltip";
+import { ListPagination } from "@/app/features/shared/ListPagination";
+import { SearchField } from "@/app/features/shared/SearchField";
 import { LX } from "./tokens";
 import type { DataTableRecord } from "./types";
 import { truncateValue } from "./utils";
@@ -34,8 +35,17 @@ export function TablePreviewDrawer({
         return table.rows.filter((row) => activeColumns.some((column) => [column.displayName, column.originalName, row.values[column.id] ?? ""].join(" ").toLowerCase().includes(lowered)));
     }, [search, table]);
 
-    const pageRows = useMemo(() => filteredRows.slice((page - 1) * rowsPerPage, page * rowsPerPage), [filteredRows, page]);
     const totalPages = Math.max(1, Math.ceil(filteredRows.length / rowsPerPage));
+    const safePage = Math.min(page, totalPages);
+
+    useEffect(() => {
+        if (page > totalPages) setPage(totalPages);
+    }, [page, totalPages]);
+
+    const pageRows = useMemo(
+        () => filteredRows.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage),
+        [filteredRows, safePage, rowsPerPage],
+    );
 
     if (!table) return null;
 
@@ -43,11 +53,11 @@ export function TablePreviewDrawer({
         <Drawer open={open} onOpenChange={onOpenChange} direction="right">
             <DrawerContent className="p-0 w-[min(96vw,1280px)] max-w-none">
                 <div className="flex h-full flex-col" style={{ background: LX.surface }}>
-                    <DrawerHeader className="border-b px-6 py-5" style={{ borderColor: LX.border }}>
+                    <DrawerHeader className="border-b" style={{ borderColor: LX.border }}>
                         <div className="flex items-start gap-3">
                             <div className="min-w-0 flex-1">
                                 <DrawerTitle className="truncate luxia-type-title-modal" style={{ color: LX.primary }}>{table.displayName}</DrawerTitle>
-                                {table.description ? <DrawerDescription className="mt-1 max-w-[80ch] luxia-type-metadata" style={{ color: LX.textMuted }}>{table.description}</DrawerDescription> : null}
+                                {table.description ? <DrawerDescription className="mt-1.5 max-w-[80ch] luxia-type-metadata" style={{ color: LX.textMuted }}>{table.description}</DrawerDescription> : null}
                                 <p className="mt-2 luxia-type-metadata" style={{ color: LX.textMuted }}>{filteredRows.length} rows</p>
                             </div>
                             <button type="button" className="flex h-9 w-9 items-center justify-center rounded-full border transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2" style={{ borderColor: LX.border, color: LX.textMuted }} onClick={() => onOpenChange(false)} aria-label="Close preview"><X size={15} /></button>
@@ -56,10 +66,18 @@ export function TablePreviewDrawer({
 
                     <div className="border-b px-6 py-4" style={{ borderColor: LX.border }}>
                         <div className="flex flex-wrap items-center gap-2">
-                            <div className="flex min-w-0 flex-1 items-center gap-2 rounded-[14px] border px-3 py-2" style={{ borderColor: LX.border }}>
-                                <Search size={14} style={{ color: LX.textMuted }} />
-                                <Input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} placeholder="Search rows..." className="h-8 border-0 bg-transparent px-0 luxia-type-input-search-dense shadow-none focus-visible:ring-0" aria-label="Search table rows" />
-                            </div>
+                            <SearchField
+                                density="dense"
+                                value={search}
+                                onChange={(next) => {
+                                    setSearch(next);
+                                    setPage(1);
+                                }}
+                                placeholder="Search rows..."
+                                aria-label="Search table rows"
+                                clearable={false}
+                                style={{ background: "transparent" }}
+                            />
                             <Button variant="outline" className="px-4" onClick={onEditDetails}><PencilLine size={14} />Edit table details</Button>
                             <Button variant="outline" className="px-4" onClick={onConfigureColumns}><Columns3 size={14} />Configure columns</Button>
                         </div>
@@ -101,13 +119,18 @@ export function TablePreviewDrawer({
                     </div>
 
                     <div className="border-t px-6 py-4" style={{ borderColor: LX.border }}>
-                        <div className="flex flex-wrap items-center justify-between gap-3 luxia-type-metadata" style={{ color: LX.textMuted }}>
-                            <span>{filteredRows.length === 0 ? "0 rows shown" : `${Math.min((page - 1) * rowsPerPage + 1, filteredRows.length)}-${Math.min(page * rowsPerPage, filteredRows.length)} of ${filteredRows.length} rows`}</span>
-                            <div className="flex items-center gap-2">
-                                <Button variant="outline" className="px-4" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={page === 1}>Prev</Button>
-                                <Button variant="outline" className="px-4" onClick={() => setPage((current) => Math.min(totalPages, current + 1))} disabled={page >= totalPages}>Next</Button>
-                            </div>
-                        </div>
+                        {filteredRows.length === 0 ? (
+                            <p className="luxia-type-metadata" style={{ color: LX.textMuted }}>0 rows shown</p>
+                        ) : (
+                            <ListPagination
+                                page={safePage}
+                                pageCount={totalPages}
+                                onPageChange={setPage}
+                                totalItems={filteredRows.length}
+                                pageSize={rowsPerPage}
+                                ariaLabel="Table preview pagination"
+                            />
+                        )}
                     </div>
                 </div>
             </DrawerContent>

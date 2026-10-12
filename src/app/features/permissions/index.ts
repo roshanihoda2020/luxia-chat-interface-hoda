@@ -85,6 +85,7 @@ export {
   canArchiveProject,
   canChangeProjectRole,
   canConfigureConstellation,
+  canCreateConstellation,
   canEditGalaxySettings,
   canEditConstellationKnowledge,
   canCreateOrganizationalDataSource,

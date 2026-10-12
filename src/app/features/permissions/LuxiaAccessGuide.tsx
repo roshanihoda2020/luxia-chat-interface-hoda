@@ -11,6 +11,7 @@ import {
   DialogTrigger,
 } from "@/app/components/ui/dialog";
 import {
+  LUXIA_DIALOG_CLOSE_ABSOLUTE_CLASS,
   LUXIA_DIALOG_CLOSE_ON_DARK_CLASS,
   STRUCTURED_MODAL_DARK_CHROME_STYLE,
 } from "@/app/features/shared/structuredModalChrome";
@@ -107,7 +108,7 @@ export function LuxiaAccessGuide({
         className="flex max-h-[calc(100vh-80px)] w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-[680px]"
       >
         <header
-          className="relative shrink-0 px-6 py-4 pr-14"
+          className="relative shrink-0 px-6 pt-5 pb-4 pr-14"
           style={STRUCTURED_MODAL_DARK_CHROME_STYLE}
         >
           <DialogTitle className="select-none text-[var(--luxia-text-inverse)]">
@@ -122,7 +123,8 @@ export function LuxiaAccessGuide({
           <DialogClose
             type="button"
             className={cn(
-              "luxia-button luxia-button--ghost luxia-button--icon-compact absolute top-3.5 right-3.5",
+              "luxia-button luxia-button--ghost luxia-button--icon-compact",
+              LUXIA_DIALOG_CLOSE_ABSOLUTE_CLASS,
               LUXIA_DIALOG_CLOSE_ON_DARK_CLASS,
             )}
             aria-label="Close Access guide"

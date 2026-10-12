@@ -1,7 +1,6 @@
 import type { CSSProperties, ReactNode, SelectHTMLAttributes } from "react";
 import { useId } from "react";
 import { Search } from "lucide-react";
-import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import {
   LuxiaBreadcrumb,
@@ -10,6 +9,7 @@ import {
 } from "@/app/components/LuxiaBreadcrumb";
 import { LuxiaPageHeader } from "@/app/components/LuxiaPageHeader";
 import { LUXIA_PAGE_LAYOUT } from "@/app/components/luxiaPageLayout";
+import { ListNoResultsState } from "@/app/features/shared/ListNoResultsState";
 import { HS } from "./homeSurfaces";
 
 export const BROWSER_PAGE_SIZE = 20;
@@ -317,31 +317,11 @@ export function FilteredEmptyState({
   onClear?: () => void;
 }) {
   return (
-    <div
-      className="rounded-[12px] border px-4 py-5 text-center"
-      style={{
-        borderColor: "var(--luxia-border-default)",
-        background: "var(--luxia-surface-subtle)",
-      }}
-    >
-      <p className="luxia-type-body-default-strong" style={{ color: "var(--luxia-text-primary)" }}>
-        {title}
-      </p>
-      <p className="mt-1 luxia-type-body-dense" style={{ color: "var(--luxia-text-secondary)" }}>
-        {description}
-      </p>
-      {onClear ? (
-        <Button
-          type="button"
-          variant="outline"
-          size="compact"
-          className="mt-3"
-          onClick={onClear}
-        >
-          Clear filters
-        </Button>
-      ) : null}
-    </div>
+    <ListNoResultsState
+      title={title}
+      description={description}
+      onClear={onClear}
+    />
   );
 }
 

@@ -1701,17 +1701,6 @@ export function ConstellationCreatePage({
           contentGap="page"
           pageTypeLabel="CONSTELLATION"
           title="Create Constellation"
-          titleLeading={
-            <button
-              type="button"
-              aria-label="Exit Constellation creation"
-              className="luxia-creation-exit-button"
-              onClick={requestLeaveCreation}
-            >
-              <ChevronLeft size={16} strokeWidth={2.2} aria-hidden />
-            </button>
-          }
-          titleLeadingAccessible
           breadcrumb={<LuxiaBreadcrumb items={breadcrumbItems} handlers={breadcrumbHandlers} />}
           context={
             <p className="luxia-type-body-small text-[var(--luxia-text-secondary)]">

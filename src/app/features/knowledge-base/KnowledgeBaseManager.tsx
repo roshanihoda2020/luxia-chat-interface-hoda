@@ -1,4 +1,4 @@
-import { BookOpen, Plus, Search, X } from "lucide-react";
+import { BookOpen, Download, Plus, Upload, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import { KBEntryMenu } from "@/app/features/kb/KBEntryMenu";
 import {
@@ -17,12 +17,22 @@ import { Input } from "@/app/components/ui/input";
 import { Textarea } from "@/app/components/ui/textarea";
 import { cn } from "@/app/components/ui/utils";
 import { DiscardChangesDialog } from "@/app/features/shared/DiscardChangesDialog";
+import { ListEmptyState } from "@/app/features/shared/ListEmptyState";
+import { ListNoResultsState } from "@/app/features/shared/ListNoResultsState";
+import { ListPagination } from "@/app/features/shared/ListPagination";
 import { BusyButton } from "@/app/features/shared/Loading";
 import { luxiaToast } from "@/app/features/shared/luxiaToast";
+import { PageSizeSelect } from "@/app/features/shared/PageSizeSelect";
+import { SearchField } from "@/app/features/shared/SearchField";
 import { useManagerLeaveRegistration } from "@/app/features/shared/unsavedNavigationGuard";
 import { LUXIA_DIALOG_CLOSE_ON_DARK_CLASS } from "@/app/features/shared/structuredModalChrome";
 import { KB_RESPONSE_TYPES, type KnowledgeBaseEntry } from "./data";
+import { downloadKnowledgeBaseCsv } from "./exportCsv";
+import { KbImportCsvDialog } from "./KbImportCsvDialog";
 import { LX } from "@/app/features/active-data-tables/tokens";
+
+const KB_PAGE_SIZES = [10, 25, 50] as const;
+const KB_PAGE_SIZE_DEFAULT: (typeof KB_PAGE_SIZES)[number] = 25;
 
 function cloneEntries(entries: KnowledgeBaseEntry[]): KnowledgeBaseEntry[] {
     return entries.map((entry) => ({ ...entry }));
@@ -36,6 +46,8 @@ function entriesSignature(entries: KnowledgeBaseEntry[]): string {
         responseType: entry.responseType,
     })));
 }
+
+const KB_ENTRY_SUBMIT_DELAY_MS = 500;
 
 function KBEntryFormAlert({
     mode,
@@ -53,32 +65,68 @@ function KBEntryFormAlert({
     const [question, setQuestion] = useState(entry?.question ?? "");
     const [answer, setAnswer] = useState(entry?.answer ?? "");
     const [responseType, setResponseType] = useState(entry?.responseType ?? "narrative");
+    const [submitting, setSubmitting] = useState(false);
+    const submitTimerRef = useRef<number | null>(null);
     const isView = mode === "view";
     const isAdd = mode === "add";
     const canSave = question.trim().length > 0 && answer.trim().length > 0;
 
+    function clearSubmitTimer() {
+        if (submitTimerRef.current != null) {
+            window.clearTimeout(submitTimerRef.current);
+            submitTimerRef.current = null;
+        }
+    }
+
     useEffect(() => {
-        if (!open) return;
+        if (!open) {
+            clearSubmitTimer();
+            setSubmitting(false);
+            return;
+        }
         setQuestion(entry?.question ?? "");
         setAnswer(entry?.answer ?? "");
         setResponseType(entry?.responseType ?? "narrative");
+        clearSubmitTimer();
+        setSubmitting(false);
     }, [open, entry]);
 
+    useEffect(() => () => clearSubmitTimer(), []);
+
+    function handleOpenChange(next: boolean) {
+        if (!next && submitting) {
+            // Cancel / dismiss aborts a pending mock submit without mutating or toasting.
+            clearSubmitTimer();
+            setSubmitting(false);
+        }
+        onOpenChange(next);
+    }
+
     function handleSubmit() {
-        if (!canSave || isView) return;
-        onSubmit({
+        if (!canSave || isView || submitting) return;
+        setSubmitting(true);
+        const nextEntry: KnowledgeBaseEntry = {
             id: entry?.id ?? `kb${Date.now()}`,
             question: question.trim(),
             answer: answer.trim(),
             responseType,
-        });
-        onOpenChange(false);
+        };
+        clearSubmitTimer();
+        submitTimerRef.current = window.setTimeout(() => {
+            submitTimerRef.current = null;
+            onSubmit(nextEntry);
+            luxiaToast.success(isAdd ? "Knowledge entry added." : "Knowledge entry updated.");
+            setSubmitting(false);
+            onOpenChange(false);
+        }, KB_ENTRY_SUBMIT_DELAY_MS);
     }
 
     const title = isAdd ? "Add Knowledge Entry" : isView ? "Knowledge Entry" : "Edit Knowledge Entry";
+    const submitLabel = isAdd ? "Add Entry" : "Save Changes";
+    const busyLabel = isAdd ? "Adding…" : "Saving…";
 
     return (
-        <AlertDialog open={open} onOpenChange={onOpenChange}>
+        <AlertDialog open={open} onOpenChange={handleOpenChange}>
             <AlertDialogContent className="max-w-[min(92vw,560px)] gap-0 overflow-hidden p-0">
                 <AlertDialogHeader>
                     <AlertDialogTitle>{title}</AlertDialogTitle>
@@ -89,71 +137,90 @@ function KBEntryFormAlert({
                     ) : null}
                 </AlertDialogHeader>
 
-                <div className="max-h-[min(60vh,480px)] space-y-4 overflow-y-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical px-6 py-5">
-                    <div>
-                        <label className="luxia-type-metadata mb-2 block" style={{ color: LX.textMuted }}>Question</label>
-                        {isView ? (
-                            <p className="luxia-type-body-small-strong rounded-[12px] px-4 py-3.5" style={{ border: `1px solid ${LX.border}`, color: LX.primary, background: LX.subtle }}>{question}</p>
-                        ) : (
-                            <Input
-                                value={question}
-                                onChange={(event) => setQuestion(event.target.value)}
-                                placeholder="e.g. What is Luxia?"
-                                className="rounded-[12px] luxia-type-body-small"
-                                aria-label="Question"
-                            />
-                        )}
-                    </div>
-                    <div>
-                        <label className="luxia-type-metadata mb-2 block" style={{ color: LX.textMuted }}>Answer</label>
-                        {isView ? (
-                            <p className="luxia-type-body-small whitespace-pre-wrap rounded-[12px] px-4 py-3.5" style={{ border: `1px solid ${LX.border}`, color: LX.primary, background: LX.subtle }}>{answer}</p>
-                        ) : (
-                            <Textarea
-                                value={answer}
-                                onChange={(event) => setAnswer(event.target.value)}
-                                placeholder="Write the expected answer…"
-                                rows={6}
-                                className="min-h-[140px] resize-y rounded-[12px] luxia-type-body-small"
-                                aria-label="Answer"
-                            />
-                        )}
-                    </div>
-                    <div>
-                        <label className="luxia-type-overline-form mb-2 block" style={{ color: LX.textMuted }}>Response Type</label>
-                        <div className="inline-flex overflow-hidden rounded-[10px]" style={{ border: `1px solid ${LX.border}`, background: LX.surface, opacity: isView ? 0.7 : 1 }}>
-                            {KB_RESPONSE_TYPES.map((type, index) => (
-                                <button
-                                    key={type.id}
-                                    type="button"
-                                    disabled={isView}
-                                    onClick={() => setResponseType(type.id)}
-                                    className="px-4 py-2 luxia-type-metadata transition-all disabled:cursor-default"
-                                    style={{
-                                        background: responseType === type.id ? LX.primary : "transparent",
-                                        color: responseType === type.id ? LX.surface : LX.textMuted,
-                                        borderRight: index < KB_RESPONSE_TYPES.length - 1 ? `1px solid ${LX.border}` : "none",
-                                    }}
-                                >
-                                    {type.label}
-                                </button>
-                            ))}
+                <form
+                    className="contents"
+                    onSubmit={(event) => {
+                        event.preventDefault();
+                        handleSubmit();
+                    }}
+                >
+                    <div className="max-h-[min(60vh,480px)] space-y-4 overflow-y-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical px-6 py-5">
+                        <div>
+                            <label className="luxia-type-metadata mb-2 block" style={{ color: LX.textMuted }}>Question</label>
+                            {isView ? (
+                                <p className="luxia-type-body-small-strong rounded-[12px] px-4 py-3.5" style={{ border: `1px solid ${LX.border}`, color: LX.primary, background: LX.subtle }}>{question}</p>
+                            ) : (
+                                <Input
+                                    value={question}
+                                    onChange={(event) => setQuestion(event.target.value)}
+                                    placeholder="e.g. What is Luxia?"
+                                    className="rounded-[12px] luxia-type-body-small"
+                                    aria-label="Question"
+                                    disabled={submitting}
+                                />
+                            )}
+                        </div>
+                        <div>
+                            <label className="luxia-type-metadata mb-2 block" style={{ color: LX.textMuted }}>Answer</label>
+                            {isView ? (
+                                <p className="luxia-type-body-small whitespace-pre-wrap rounded-[12px] px-4 py-3.5" style={{ border: `1px solid ${LX.border}`, color: LX.primary, background: LX.subtle }}>{answer}</p>
+                            ) : (
+                                <Textarea
+                                    value={answer}
+                                    onChange={(event) => setAnswer(event.target.value)}
+                                    placeholder="Write the expected answer…"
+                                    rows={6}
+                                    className="min-h-[140px] resize-y rounded-[12px] luxia-type-body-small"
+                                    aria-label="Answer"
+                                    disabled={submitting}
+                                />
+                            )}
+                        </div>
+                        <div>
+                            <label className="luxia-type-overline-form mb-2 block" style={{ color: LX.textMuted }}>Response Type</label>
+                            <div className="inline-flex overflow-hidden rounded-[10px]" style={{ border: `1px solid ${LX.border}`, background: LX.surface, opacity: isView ? 0.7 : 1 }}>
+                                {KB_RESPONSE_TYPES.map((type, index) => (
+                                    <button
+                                        key={type.id}
+                                        type="button"
+                                        disabled={isView || submitting}
+                                        onClick={() => setResponseType(type.id)}
+                                        className="px-4 py-2 luxia-type-metadata transition-all disabled:cursor-default"
+                                        style={{
+                                            background: responseType === type.id ? LX.primary : "transparent",
+                                            color: responseType === type.id ? LX.surface : LX.textMuted,
+                                            borderRight: index < KB_RESPONSE_TYPES.length - 1 ? `1px solid ${LX.border}` : "none",
+                                        }}
+                                    >
+                                        {type.label}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                <AlertDialogFooter>
-                    {isView ? (
-                        <AlertDialogCancel className="px-4">Close</AlertDialogCancel>
-                    ) : (
-                        <>
-                            <AlertDialogCancel className="px-4">Cancel</AlertDialogCancel>
-                            <AlertDialogAction className="px-4 text-white hover:opacity-90" style={{ background: LX.primary }} disabled={!canSave} onClick={handleSubmit}>
-                                {isAdd ? "Add" : "Save Changes"}
-                            </AlertDialogAction>
-                        </>
-                    )}
-                </AlertDialogFooter>
+                    <AlertDialogFooter>
+                        {isView ? (
+                            <AlertDialogCancel className="px-4">Close</AlertDialogCancel>
+                        ) : (
+                            <>
+                                <AlertDialogCancel className="px-4" disabled={submitting}>Cancel</AlertDialogCancel>
+                                <BusyButton
+                                    type="submit"
+                                    variant="primary"
+                                    className="px-4"
+                                    style={{ background: LX.primary }}
+                                    disabled={!canSave}
+                                    busy={submitting}
+                                    busyLabel={busyLabel}
+                                    busyText={busyLabel}
+                                >
+                                    {submitLabel}
+                                </BusyButton>
+                            </>
+                        )}
+                    </AlertDialogFooter>
+                </form>
             </AlertDialogContent>
         </AlertDialog>
     );
@@ -168,6 +235,8 @@ export function KnowledgeBaseManager({
     closeRef,
     dirtyRef,
     hideChrome,
+    readOnly = false,
+    onLeaveAborted,
 }: {
     open: boolean;
     entries: KnowledgeBaseEntry[];
@@ -177,6 +246,10 @@ export function KnowledgeBaseManager({
     closeRef?: MutableRefObject<(() => void) | null>;
     dirtyRef?: MutableRefObject<boolean>;
     hideChrome?: boolean;
+    /** When true, browsing/View/Export remain available; all mutations are blocked. */
+    readOnly?: boolean;
+    /** Keep editing / dismiss on leave confirmation — pending host leave actions should clear. */
+    onLeaveAborted?: () => void;
 }) {
     const isPage = presentation === "page";
     const effectiveOpen = isPage ? true : open;
@@ -184,6 +257,8 @@ export function KnowledgeBaseManager({
 
     const [draft, setDraft] = useState<KnowledgeBaseEntry[]>(() => cloneEntries(entries));
     const [search, setSearch] = useState("");
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState<(typeof KB_PAGE_SIZES)[number]>(KB_PAGE_SIZE_DEFAULT);
     const [addOpen, setAddOpen] = useState(false);
     const [viewEntry, setViewEntry] = useState<KnowledgeBaseEntry | null>(null);
     const [editEntry, setEditEntry] = useState<KnowledgeBaseEntry | null>(null);
@@ -191,8 +266,12 @@ export function KnowledgeBaseManager({
     const [discardOpen, setDiscardOpen] = useState(false);
     const [discardIntent, setDiscardIntent] = useState<"leave" | "reset">("leave");
     const [saving, setSaving] = useState(false);
+    const [exporting, setExporting] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
+    const [importFile, setImportFile] = useState<File | null>(null);
+    const [importDialogOpen, setImportDialogOpen] = useState(false);
     const initialRef = useRef(cloneEntries(entries));
+    const importFileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         if (!effectiveOpen) return;
@@ -200,16 +279,32 @@ export function KnowledgeBaseManager({
         initialRef.current = snapshot;
         setDraft(snapshot);
         setSearch("");
+        setPage(1);
         setAddOpen(false);
         setViewEntry(null);
         setEditEntry(null);
         setConfirmRemoveId(null);
         setDiscardOpen(false);
         setSaving(false);
+        setExporting(false);
         setSaveError(null);
+        setImportFile(null);
+        setImportDialogOpen(false);
+        if (importFileInputRef.current) importFileInputRef.current.value = "";
     }, [effectiveOpen, entries]);
 
-    const dirty = entriesSignature(draft) !== entriesSignature(initialRef.current);
+    useEffect(() => {
+        if (!readOnly) return;
+        setAddOpen(false);
+        setEditEntry(null);
+        setConfirmRemoveId(null);
+        setDiscardOpen(false);
+        setImportFile(null);
+        setImportDialogOpen(false);
+        if (importFileInputRef.current) importFileInputRef.current.value = "";
+    }, [readOnly]);
+
+    const dirty = !readOnly && entriesSignature(draft) !== entriesSignature(initialRef.current);
 
     const filtered = useMemo(() => {
         const lowered = search.trim().toLowerCase();
@@ -219,6 +314,18 @@ export function KnowledgeBaseManager({
             entry.answer.toLowerCase().includes(lowered),
         );
     }, [draft, search]);
+
+    const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+    const safePage = Math.min(page, pageCount);
+
+    useEffect(() => {
+        if (page > pageCount) setPage(pageCount);
+    }, [page, pageCount]);
+
+    const paged = useMemo(
+        () => filtered.slice((safePage - 1) * pageSize, safePage * pageSize),
+        [filtered, safePage, pageSize],
+    );
 
     const removeEntry = draft.find((entry) => entry.id === confirmRemoveId) ?? null;
 
@@ -243,24 +350,31 @@ export function KnowledgeBaseManager({
     useManagerLeaveRegistration({ closeRef, dirtyRef, dirty, requestLeave });
 
     function removeById(id: string) {
+        if (readOnly) return;
         setDraft((current) => current.filter((entry) => entry.id !== id));
         setConfirmRemoveId(null);
     }
 
     function addEntry(entry: KnowledgeBaseEntry) {
+        if (readOnly) return;
         setDraft((current) => [...current, entry]);
     }
 
     function updateEntry(entry: KnowledgeBaseEntry) {
+        if (readOnly) return;
         setDraft((current) => current.map((item) => item.id === entry.id ? entry : item));
         setEditEntry(null);
     }
 
     function save() {
-        if (!dirty || saving) return;
+        if (readOnly || !dirty || saving) return;
         setSaving(true);
         setSaveError(null);
         window.setTimeout(() => {
+            if (readOnly) {
+                setSaving(false);
+                return;
+            }
             const next = cloneEntries(draft);
             onCommit(next);
             initialRef.current = next;
@@ -269,6 +383,66 @@ export function KnowledgeBaseManager({
             luxiaToast.success("Knowledge base saved");
             if (!isPage) onCancel();
         }, 500);
+    }
+
+    function exportCsv() {
+        if (draft.length === 0 || exporting) return;
+        setExporting(true);
+        try {
+            downloadKnowledgeBaseCsv(draft);
+            luxiaToast.success("Knowledge Base exported successfully.");
+        } finally {
+            window.setTimeout(() => setExporting(false), 300);
+        }
+    }
+
+    function openImportPicker() {
+        if (readOnly) return;
+        importFileInputRef.current?.click();
+    }
+
+    function onImportFileSelected(fileList: FileList | null) {
+        if (readOnly) return;
+        const file = fileList?.[0];
+        if (!file) return;
+        setImportFile(file);
+        setImportDialogOpen(true);
+        if (importFileInputRef.current) importFileInputRef.current.value = "";
+    }
+
+    function mergeImportedEntries(createdEntries: KnowledgeBaseEntry[]) {
+        if (readOnly) return;
+        if (createdEntries.length === 0) {
+            setPage(1);
+            return;
+        }
+        // Prepend so page 1 surfaces newly imported draft rows after reset.
+        setDraft((current) => [...createdEntries.map((entry) => ({ ...entry })), ...current]);
+        setPage(1);
+    }
+
+    function chooseAnotherImportFile() {
+        if (readOnly) return;
+        setImportDialogOpen(false);
+        setImportFile(null);
+        window.setTimeout(() => {
+            importFileInputRef.current?.click();
+        }, 0);
+    }
+
+    function openAdd() {
+        if (readOnly) return;
+        setAddOpen(true);
+    }
+
+    function openEdit(entry: KnowledgeBaseEntry) {
+        if (readOnly) return;
+        setEditEntry(entry);
+    }
+
+    function openRemoveConfirm(id: string) {
+        if (readOnly) return;
+        setConfirmRemoveId(id);
     }
 
     if (!effectiveOpen) return null;
@@ -283,7 +457,9 @@ export function KnowledgeBaseManager({
                         </div>
                         <div className="min-w-0 flex-1">
                             <DialogTitle className="luxia-type-title-modal">Knowledge Base</DialogTitle>
-                            <DialogDescription className="mt-1 luxia-type-metadata">Changes are local until saved.</DialogDescription>
+                            <DialogDescription className="mt-1.5 luxia-type-metadata">
+                                {readOnly ? "View curated question-answer pairs for this constellation." : "Changes are local until saved."}
+                            </DialogDescription>
                         </div>
                         <Button
                             type="button"
@@ -299,50 +475,90 @@ export function KnowledgeBaseManager({
                 </DialogHeader>
             ) : null}
 
-            <div className="flex-shrink-0 border-b px-6 py-3" style={{ borderColor: LX.border }}>
+            <div className="flex-shrink-0 border-b px-6 py-3.5" style={{ borderColor: LX.border }}>
                 <div className="flex flex-wrap items-center gap-2">
-                    <div className="flex min-w-0 flex-1 items-center gap-2 rounded-[14px] border px-3 py-2" style={{ borderColor: LX.border, background: LX.subtle }}>
-                        <Search size={14} style={{ color: LX.textMuted }} />
-                        <Input
-                            value={search}
-                            onChange={(event) => setSearch(event.target.value)}
-                            placeholder="Search questions and answers…"
-                            className="h-8 border-0 bg-transparent px-0 luxia-type-input-search-dense shadow-none focus-visible:ring-0"
-                            aria-label="Search knowledge base entries"
+                    <SearchField
+                        density="dense"
+                        value={search}
+                        onChange={(next) => {
+                            setSearch(next);
+                            setPage(1);
+                        }}
+                        placeholder="Search questions and answers…"
+                        aria-label="Search knowledge base entries"
+                    />
+                    {!readOnly ? (
+                        <input
+                            ref={importFileInputRef}
+                            type="file"
+                            accept=".csv,text/csv"
+                            className="sr-only"
+                            tabIndex={-1}
+                            aria-label="Knowledge Base CSV file"
+                            onChange={(event) => onImportFileSelected(event.target.files)}
                         />
-                        {search ? (
-                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7 " aria-label="Clear search" onClick={() => setSearch("")}>
-                                <X size={12} style={{ color: LX.textMuted }} />
-                            </Button>
-                        ) : null}
-                    </div>
-                    <Button type="button" variant="primary" size="compact" onClick={() => setAddOpen(true)}>
-                        <Plus size={14} />Add Knowledge Entry
-                    </Button>
+                    ) : null}
+                    {!readOnly ? (
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="compact"
+                            aria-label="Import CSV"
+                            onClick={openImportPicker}
+                        >
+                            <Upload size={14} aria-hidden />
+                            Import CSV
+                        </Button>
+                    ) : null}
+                    <BusyButton
+                        type="button"
+                        variant="outline"
+                        size="compact"
+                        disabled={draft.length === 0}
+                        busy={exporting}
+                        busyLabel="Exporting…"
+                        busyText="Exporting…"
+                        aria-label="Export CSV"
+                        onClick={exportCsv}
+                    >
+                        <Download size={14} aria-hidden />
+                        Export CSV
+                    </BusyButton>
+                    {!readOnly ? (
+                        <Button type="button" variant="primary" size="compact" onClick={openAdd}>
+                            <Plus size={14} />Add Knowledge Entry
+                        </Button>
+                    ) : null}
                 </div>
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical px-6 py-5">
                 {filtered.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-12 text-center">
-                        {search ? (
-                            <>
-                                <p className="luxia-type-body-small-strong" style={{ color: LX.primary }}>No entries match your search.</p>
-                                <p className="mt-1 luxia-type-body-dense" style={{ color: LX.textMuted }}>Try another question or answer.</p>
-                            </>
-                        ) : (
-                            <>
-                                <p className="luxia-type-title-component" style={{ color: LX.primary }}>No knowledge entries yet</p>
-                                <p className="mt-1 luxia-type-body-dense" style={{ color: LX.textMuted }}>Add curated question-answer pairs for this constellation.</p>
-                                <Button type="button" className="mt-4 px-4" onClick={() => setAddOpen(true)}>
-                                    <Plus size={14} />Add Knowledge Entry
-                                </Button>
-                            </>
-                        )}
-                    </div>
+                    search.trim() ? (
+                        <ListNoResultsState
+                            title="No entries match your search."
+                            description="Try another question or answer."
+                        />
+                    ) : (
+                        <ListEmptyState
+                            title="No knowledge entries yet"
+                            description={
+                                readOnly
+                                    ? "No curated question-answer pairs are available for this constellation."
+                                    : "Add curated question-answer pairs for this constellation."
+                            }
+                            action={
+                                readOnly ? undefined : (
+                                    <Button type="button" className="px-4" onClick={openAdd}>
+                                        <Plus size={14} />Add Knowledge Entry
+                                    </Button>
+                                )
+                            }
+                        />
+                    )
                 ) : (
                     <div className="space-y-2">
-                        {filtered.map((entry) => {
+                        {paged.map((entry) => {
                             const typeLabel = KB_RESPONSE_TYPES.find((type) => type.id === entry.responseType)?.label;
                             return (
                                 <div
@@ -376,8 +592,8 @@ export function KnowledgeBaseManager({
                                     >
                                         <KBEntryMenu
                                             onView={() => setViewEntry(entry)}
-                                            onEdit={() => setEditEntry(entry)}
-                                            onRemove={() => setConfirmRemoveId(entry.id)}
+                                            onEdit={readOnly ? undefined : () => openEdit(entry)}
+                                            onRemove={readOnly ? undefined : () => openRemoveConfirm(entry.id)}
                                         />
                                     </div>
                                 </div>
@@ -387,13 +603,34 @@ export function KnowledgeBaseManager({
                 )}
             </div>
 
-            <div className="flex-shrink-0 border-t px-6 py-4" style={{ borderColor: LX.border }}>
-                {saveError ? <p className="mb-3 luxia-type-metadata" role="alert" style={{ color: LX.error }}>{saveError}</p> : null}
-                <div className="flex items-center justify-between gap-3">
-                    <span className="luxia-type-metadata" style={{ color: LX.textMuted }}>
-                        {draft.length} {draft.length === 1 ? "entry" : "entries"}{dirty ? " · Unsaved changes" : ""}
-                    </span>
-                    <div className="flex items-center gap-2">
+            {filtered.length > 0 ? (
+                <div className="flex-shrink-0 border-t px-6 py-3" style={{ borderColor: LX.border }}>
+                    <ListPagination
+                        page={safePage}
+                        pageCount={pageCount}
+                        onPageChange={setPage}
+                        totalItems={filtered.length}
+                        pageSize={pageSize}
+                        ariaLabel="Knowledge base pagination"
+                    >
+                        {filtered.length > 10 ? (
+                            <PageSizeSelect
+                                value={pageSize}
+                                options={[...KB_PAGE_SIZES]}
+                                onChange={(next) => {
+                                    setPageSize(next as (typeof KB_PAGE_SIZES)[number]);
+                                    setPage(1);
+                                }}
+                            />
+                        ) : null}
+                    </ListPagination>
+                </div>
+            ) : null}
+
+            {!readOnly ? (
+                <div className="flex-shrink-0 border-t px-6 py-4" style={{ borderColor: LX.border }}>
+                    {saveError ? <p className="mb-3 luxia-type-metadata" role="alert" style={{ color: LX.error }}>{saveError}</p> : null}
+                    <div className="flex items-center justify-end gap-2">
                         <Button type="button" variant="secondary" className="px-4" onClick={requestCancelEdits} disabled={isPage && !dirty}>Cancel</Button>
                         <BusyButton
                             type="button"
@@ -409,7 +646,7 @@ export function KnowledgeBaseManager({
                         </BusyButton>
                     </div>
                 </div>
-            </div>
+            ) : null}
         </div>
     );
 
@@ -427,7 +664,9 @@ export function KnowledgeBaseManager({
                 </Dialog>
             )}
 
-            <KBEntryFormAlert mode="add" open={addOpen} onOpenChange={setAddOpen} onSubmit={addEntry} />
+            {!readOnly ? (
+                <KBEntryFormAlert mode="add" open={addOpen} onOpenChange={setAddOpen} onSubmit={addEntry} />
+            ) : null}
 
             {viewEntry ? (
                 <KBEntryFormAlert
@@ -439,7 +678,7 @@ export function KnowledgeBaseManager({
                 />
             ) : null}
 
-            {editEntry ? (
+            {!readOnly && editEntry ? (
                 <KBEntryFormAlert
                     mode="edit"
                     entry={editEntry}
@@ -449,35 +688,59 @@ export function KnowledgeBaseManager({
                 />
             ) : null}
 
-            <AlertDialog open={!!confirmRemoveId} onOpenChange={(next) => { if (!next) setConfirmRemoveId(null); }}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Remove knowledge entry?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            {removeEntry ? `"${removeEntry.question}" will be removed from this draft.` : "This entry will be removed from this draft."}
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction style={{ background: LX.error }} className="text-white hover:opacity-90" onClick={() => confirmRemoveId && removeById(confirmRemoveId)}>
-                            Remove
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+            {!readOnly ? (
+                <AlertDialog open={!!confirmRemoveId} onOpenChange={(next) => { if (!next) setConfirmRemoveId(null); }}>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Remove knowledge entry?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                {removeEntry ? `"${removeEntry.question}" will be removed from this draft.` : "This entry will be removed from this draft."}
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction style={{ background: LX.error }} className="text-white hover:opacity-90" onClick={() => confirmRemoveId && removeById(confirmRemoveId)}>
+                                Remove
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+            ) : null}
 
-            <DiscardChangesDialog
-                open={discardOpen}
-                onOpenChange={setDiscardOpen}
-                onDiscard={() => {
-                    setDiscardOpen(false);
-                    if (discardIntent === "reset") {
-                        setDraft(cloneEntries(initialRef.current));
-                        return;
-                    }
-                    onCancel();
-                }}
-            />
+            {!readOnly ? (
+                <DiscardChangesDialog
+                    open={discardOpen}
+                    onOpenChange={(next) => {
+                        setDiscardOpen(next);
+                        // Keep editing / escape only — Discard confirms via onDiscard.
+                        if (!next && discardIntent === "leave") {
+                            onLeaveAborted?.();
+                        }
+                    }}
+                    onDiscard={() => {
+                        setDiscardOpen(false);
+                        if (discardIntent === "reset") {
+                            setDraft(cloneEntries(initialRef.current));
+                            return;
+                        }
+                        onCancel();
+                    }}
+                />
+            ) : null}
+
+            {!readOnly ? (
+                <KbImportCsvDialog
+                    open={importDialogOpen && !!importFile}
+                    file={importFile}
+                    existingEntries={draft}
+                    onOpenChange={(next) => {
+                        setImportDialogOpen(next);
+                        if (!next) setImportFile(null);
+                    }}
+                    onImportComplete={mergeImportedEntries}
+                    onChooseAnotherFile={chooseAnotherImportFile}
+                />
+            ) : null}
         </>
     );
 }
