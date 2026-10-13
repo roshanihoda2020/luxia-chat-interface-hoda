@@ -25,14 +25,23 @@ import {
   type UnsavedNavigationGuard,
 } from "@/app/features/shared/unsavedNavigationGuard";
 import { ActiveDataTablesSection } from "@/app/features/active-data-tables/ActiveDataTablesSection";
+import type { DataTableRecord } from "@/app/features/active-data-tables/types";
 import { ExtraContextFilesSection } from "@/app/features/extra-context-files/ExtraContextFilesSection";
+import type { ExtraContextFile } from "@/app/features/extra-context-files/types";
 import { InstructionSection } from "@/app/features/instruction/InstructionSection";
-import { KnowledgeBaseManager } from "@/app/features/knowledge-base/KnowledgeBaseManager";
-import type { KnowledgeBaseEntry } from "@/app/features/knowledge-base/data";
+import {
+  KnowledgeBaseSection,
+  type KnowledgeBaseEntry,
+} from "@/app/features/knowledge-base";
+import { DataViewsSection } from "@/app/features/data-views";
 import { MetricsSection } from "@/app/features/metrics/MetricsSection";
+import type { MetricRecord } from "@/app/features/metrics/types";
 import { PDFFilesSection } from "@/app/features/pdf-files/PDFFilesSection";
+import type { PDFFileRecord } from "@/app/features/pdf-files/types";
 import { CrawlerSection } from "@/app/features/crawler/CrawlerSection";
+import type { CrawlerState } from "@/app/features/crawler/types";
 import { RelationshipSection } from "@/app/features/relationship/RelationshipSection";
+import type { RelationshipRecord } from "@/app/features/relationship/types";
 import {
   GalaxyActivityPanel,
   GalaxyCollapsedRail,
@@ -116,6 +125,7 @@ import {
   getConstellationSettingsRecord,
   createSeedCapabilityBundle,
   cloneCapabilityBundle,
+  normalizeCapabilityBundle,
   summarizeCapabilityBundle,
   buildLocalConstellationDuplicate,
   commitDuplicateResponseConfidence,
@@ -164,6 +174,7 @@ import {
   CAPSULE_CAPABILITY_ICON,
   CAPSULE_CAPABILITY_PATH,
   capabilityIdFromPath,
+  capsuleCapabilitiesForType,
   isCapsuleCapabilityAllowed,
   CANONICAL_CONSTELLATIONS,
   getCanonicalConstellationById,
@@ -224,6 +235,7 @@ import {
 } from "@/app/features/permissions";
 import type {
   AccessLevelRecord,
+  DataSourceCatalogItem,
   DataSourceSettingsFocusSection,
   InviteOrganizationUserPayload,
   OrganizationUser,
@@ -342,7 +354,6 @@ import {
 import { LX } from "@/app/features/active-data-tables/tokens";
 import { IC, IC_BTN_ICON, IC_BTN_OPEN, IC_CARD_HEADER, IC_INPUT_TEXT, IC_SEARCH_SHELL, IC_SEARCH_SHELL_STYLE, icCardStyle, icHoverOff, icHoverOn, icInspectorAccentStyle, icInspectorDescriptionColor, icInspectorTitleColor, icOpenActiveOn, icSearchShellBlur, icSearchShellFocus, icSearchShellHoverOff, icSearchShellHoverOn, icTextareaStyle } from "@/app/features/active-data-tables/inspectorTheme";
 import { Button } from "@/app/components/ui/button";
-import { LuxiaAiButton } from "@/app/components/LuxiaAiButton";
 import { cn } from "@/app/components/ui/utils";
 import {
   LUXIA_DIALOG_CLOSE_ON_DARK_CLASS,
@@ -439,7 +450,7 @@ function FlagCircle({ flagUrl, label, size = 24 }: { flagUrl: string; label: str
   );
 }
 
-type SectionId = "kb" | "dataTable" | "contextFiles" | "relationship" | "metrics" | "instr" | "pdfFiles" | "crawler";
+type SectionId = "kb" | "dataTable" | "views" | "contextFiles" | "relationship" | "metrics" | "instr" | "pdfFiles" | "crawler";
 type ConstellationType = "database" | "csv" | "pdf";
 
 type SectionIcon = LucideIcon;
@@ -447,6 +458,7 @@ type SectionIcon = LucideIcon;
 const SECTION_META: Record<SectionId, { label: string; icon: SectionIcon }> = {
   kb: { label: "Knowledge Base", icon: CAPSULE_CAPABILITY_ICON.kb },
   dataTable: { label: "Active Data Tables", icon: CAPSULE_CAPABILITY_ICON.dataTable },
+  views: { label: "Views", icon: CAPSULE_CAPABILITY_ICON.views },
   contextFiles: { label: "Extra Context Files", icon: CAPSULE_CAPABILITY_ICON.contextFiles },
   relationship: { label: "Relationship", icon: CAPSULE_CAPABILITY_ICON.relationship },
   metrics: { label: "Metrics", icon: CAPSULE_CAPABILITY_ICON.metrics },
@@ -455,17 +467,20 @@ const SECTION_META: Record<SectionId, { label: string; icon: SectionIcon }> = {
   crawler: { label: "Crawler URLs", icon: CAPSULE_CAPABILITY_ICON.crawler },
 };
 
-const FILE_BASED_SECTIONS: SectionId[] = ["pdfFiles", "kb", "instr", "crawler"];
-
+/**
+ * Chat capsule capability order — single source via capsuleCapabilitiesForType.
+ * Database includes Views; CSV/PDF do not.
+ */
 const CONSTELLATION_SECTIONS: Record<ConstellationType, SectionId[]> = {
-  database: ["dataTable", "kb", "instr", "contextFiles", "relationship", "metrics"],
-  pdf: FILE_BASED_SECTIONS,
-  csv: FILE_BASED_SECTIONS,
+  database: capsuleCapabilitiesForType("database") as SectionId[],
+  pdf: capsuleCapabilitiesForType("pdf") as SectionId[],
+  csv: capsuleCapabilitiesForType("csv") as SectionId[],
 };
 
 const SECTION_DEFAULTS: Partial<Record<SectionId, string[]>> = {
   kb: [],
   dataTable: ["Table 1", "Table 2"],
+  views: [],
   contextFiles: ["Context File A", "Context File B"],
   relationship: ["Relation 1"],
   metrics: ["Metric 1", "Metric 2"],
@@ -478,16 +493,6 @@ const SECTION_INSTRUCTION: Record<ConstellationType, string> = {
   pdf: "Extract and summarise information from the connected PDF files.",
   csv: "Answer based on the connected CSV tabular data.",
 };
-
-interface KBEntry { id: string; question: string; answer: string; responseType?: string; }
-
-const KB_RESPONSE_TYPES = [
-  { id: "narrative", label: "Narrative" },
-  { id: "table", label: "Table" },
-  { id: "chart", label: "Chart" },
-  { id: "kpi", label: "KPI" },
-  { id: "list", label: "List" },
-];
 
 interface Source { id: string; label: string; }
 type ResponseInsights = {
@@ -2456,292 +2461,6 @@ function SectionWorkspaceModal({ sectionId, items, instruction, onSave, onClose 
   );
 }
 
-function KBEntryModal({ mode: initialMode, entry, onSave, onAdd, onClose, allowSwitchToEdit = true }: {
-  mode: "add" | "view" | "edit";
-  entry?: KBEntry;
-  onSave?: (e: KBEntry) => void;
-  onAdd?: (e: KBEntry) => void;
-  onClose: () => void;
-  /** When false, view mode stays read-only (no Edit → mutate path). */
-  allowSwitchToEdit?: boolean;
-}) {
-  const [mode, setMode] = useState(initialMode);
-  const [question, setQuestion] = useState(entry?.question ?? "");
-  const [answer, setAnswer] = useState(entry?.answer ?? "");
-  const [responseType, setResponseType] = useState(entry?.responseType ?? "narrative");
-  const [advanced, setAdvanced] = useState(false);
-  const [generating, setGenerating] = useState(false);
-  const [sqlDraft, setSqlDraft] = useState("");
-
-  const isView = mode === "view";
-  const isAdd = mode === "add";
-  const typeLabel = KB_RESPONSE_TYPES.find(t => t.id === responseType)?.label ?? "Narrative";
-  const sqlDisabled = responseType === "narrative";
-  const canSave = question.trim().length > 0 && answer.trim().length > 0;
-
-  function handleGenerateSQL() {
-    if (!question.trim() || sqlDisabled) return;
-    setGenerating(true);
-    setTimeout(() => {
-      setSqlDraft(`SELECT content, source, relevance_score\nFROM knowledge_base\nWHERE question ILIKE '%${question.slice(0, 28).replace(/'/g, "''").trim()}%'\n   OR content_vector <-> query_vector < 0.35\nORDER BY relevance_score DESC\nLIMIT 5;`);
-      setGenerating(false);
-    }, 1100);
-  }
-
-  function handleSubmit() {
-    if (!canSave) return;
-    const updated: KBEntry = { id: entry?.id ?? `kb${Date.now()}`, question: question.trim(), answer: answer.trim(), responseType };
-    if (isAdd) { onAdd?.(updated); }
-    else { onSave?.(updated); }
-    onClose();
-  }
-
-  const title = isAdd ? "Add Knowledge Entry" : isView ? "Knowledge Entry" : "Edit Knowledge Entry";
-  const submitLabel = isAdd ? "Add" : "Save Changes";
-
-  return ReactDOM.createPortal(
-    <div className="fixed inset-0 z-[9990] flex items-center justify-center" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/35" style={{ backdropFilter: "blur(3px)" }} />
-      <div className="relative rounded-[24px] w-[600px] max-h-[90vh] flex flex-col overflow-hidden"
-        style={{ background: LX.surface, boxShadow: LX.shadow.xl }} onClick={(e) => e.stopPropagation()}>
-
-        <div
-          className="flex flex-shrink-0 items-center gap-3 px-8 pt-5 pb-4"
-          style={STRUCTURED_MODAL_DARK_CHROME_STYLE}
-        >
-          <div className="flex h-9 w-9 items-center justify-center rounded-[10px]" style={{ background: "rgba(255,255,255,0.12)" }}>
-            <BookOpen size={15} color="var(--luxia-text-inverse)" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <h2 className="luxia-type-title-panel text-[var(--luxia-text-inverse)]">{title}</h2>
-          </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={onClose}
-            className={cn("h-8 w-8", LUXIA_DIALOG_CLOSE_ON_DARK_CLASS)}
-            aria-label="Close"
-          >
-            <X size={14} />
-          </Button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical px-8 py-6 space-y-5">
-          <div>
-            <label className="luxia-type-metadata mb-2 block" style={{ color: LX.textMuted }}>Question</label>
-            {isView ? (
-              <p className="luxia-type-body-small-strong px-4 py-3.5 rounded-[12px]"
-                style={{ border: `1px solid ${LX.border}`, color: LX.primary, background: LX.subtle }}>{question}</p>
-            ) : (
-              <input value={question} onChange={(e) => setQuestion(e.target.value)}
-                placeholder="e.g. What is Luxia?"
-                className="w-full outline-none luxia-type-body-small px-4 py-3.5 rounded-[12px] transition-colors"
-                style={{ border: `1px solid ${question ? LX.secondary : LX.border}`, color: LX.primary, background: LX.subtle }} />
-            )}
-          </div>
-          <div>
-            <label className="luxia-type-metadata mb-2 block" style={{ color: LX.textMuted }}>Answer</label>
-            {isView ? (
-              <p className="luxia-type-body-small px-4 py-3.5 rounded-[12px]"
-                style={{ border: `1px solid ${LX.border}`, color: LX.primary, background: LX.subtle, whiteSpace: "pre-wrap" }}>{answer}</p>
-            ) : (
-              <textarea value={answer} onChange={(e) => setAnswer(e.target.value)}
-                placeholder="Write the expected answer…"
-                rows={6}
-                className="w-full outline-none resize-none luxia-type-body-small px-4 py-3.5 rounded-[12px] transition-colors"
-                style={{ border: `1px solid ${answer ? LX.secondary : LX.border}`, color: LX.primary, background: LX.subtle }} />
-            )}
-          </div>
-          <div>
-            <button onClick={() => !isView && setAdvanced(p => !p)}
-              className="flex items-center gap-1.5 luxia-type-metadata transition-opacity"
-              style={{ color: LX.textMuted, opacity: isView ? 0.5 : 1, cursor: isView ? "default" : "pointer" }}>
-              <ChevronRight size={12} style={{ transform: advanced ? "rotate(90deg)" : "none", transition: "transform 0.16s" }} />
-              Advanced Mode
-            </button>
-            {(advanced || isView) && (
-              <div className="mt-3 space-y-5 rounded-[14px] p-5" style={{ background: LX.subtle, border: `1px solid ${LX.border}` }}>
-                <div>
-                  <label className="luxia-type-overline-form mb-2.5 block" style={{ color: LX.textMuted }}>Response Type</label>
-                  <div className="inline-flex rounded-[10px] overflow-hidden" style={{ border: `1px solid ${LX.border}`, background: LX.surface, opacity: isView ? 0.7 : 1 }}>
-                    {KB_RESPONSE_TYPES.map((rt, i) => (
-                      <button key={rt.id} onClick={() => !isView && setResponseType(rt.id)}
-                        disabled={isView}
-                        className="px-4 py-2 luxia-type-metadata transition-all"
-                        style={{
-                          background: responseType === rt.id ? LX.primary : "transparent",
-                          color: responseType === rt.id ? LX.surface : LX.textMuted,
-                          borderRight: i < KB_RESPONSE_TYPES.length - 1 ? `1px solid ${LX.border}` : "none",
-                          cursor: isView ? "default" : "pointer",
-                        }}>{rt.label}</button>
-                    ))}
-                  </div>
-                </div>
-                {!isView && (
-                  <div>
-                    <label className="luxia-type-overline-form mb-2.5 block" style={{ color: LX.textMuted }}>Generate SQL</label>
-                    <LuxiaAiButton
-                      onClick={handleGenerateSQL}
-                      disabled={!question.trim() || generating || sqlDisabled}
-                    >
-                      {generating ? "Generating…" : "Generate SQL with AI"}
-                    </LuxiaAiButton>
-                    {sqlDisabled && (
-                      <p className="luxia-type-caption mt-1.5" style={{ color: LX.textMuted }}>Available for Table, Chart, KPI, and List types only.</p>
-                    )}
-                    {sqlDraft && !sqlDisabled && (
-                      <div className="mt-3">
-                        <label className="luxia-type-overline-form mb-1.5 block" style={{ color: LX.textMuted }}>SQL Editor</label>
-                        <textarea value={sqlDraft} onChange={(e) => setSqlDraft(e.target.value)} rows={5}
-                          className="w-full outline-none resize-none luxia-type-metadata font-mono px-3.5 py-3 rounded-[10px]"
-                          style={{ border: `1px solid ${LX.border}`, color: LX.primary, background: LX.surface }} />
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="flex items-center justify-end gap-2.5 px-8 py-5 flex-shrink-0" style={{ borderTop: `1px solid ${LX.border}` }}>
-          {isView ? (
-            <>
-              <Button type="button" variant="secondary" onClick={onClose}>
-                Close
-              </Button>
-              {allowSwitchToEdit ? (
-                <Button type="button" variant="primary" onClick={() => setMode("edit")}>
-                  <Edit3 size={16} aria-hidden />
-                  Edit
-                </Button>
-              ) : null}
-            </>
-          ) : (
-            <>
-              <Button type="button" variant="secondary" onClick={onClose}>
-                Cancel
-              </Button>
-              <Button type="button" variant="primary" onClick={handleSubmit} disabled={!canSave}>
-                <Check size={16} aria-hidden />
-                {submitLabel}
-              </Button>
-            </>
-          )}
-        </div>
-      </div>
-    </div>,
-    document.body,
-  );
-}
-
-function KBSidebarSection({
-  entries,
-  isOpen,
-  onToggle,
-  onExpand,
-  onView,
-  readOnly = false,
-}: {
-  entries: KnowledgeBaseEntry[];
-  isOpen: boolean;
-  onToggle: () => void;
-  onExpand: () => void;
-  onView: (id: string) => void;
-  readOnly?: boolean;
-}) {
-  const [searchQ, setSearchQ] = useState("");
-
-  const filtered = entries.filter(e => e.question.toLowerCase().includes(searchQ.toLowerCase()));
-
-  return (
-    <div className="overflow-hidden rounded-[14px]"
-      style={icCardStyle(isOpen)}>
-      <div className={IC_CARD_HEADER}>
-        <BookOpen size={14} color={IC.iconSemantic} className="flex-shrink-0" />
-        <span className="flex-1 luxia-type-title-component truncate" style={{ color: IC.iconSemantic }}>Knowledge Base</span>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button type="button" onClick={(e) => { e.stopPropagation(); onExpand(); }}
-              className={IC_BTN_OPEN}
-              aria-label={readOnly ? "View Knowledge Base" : "Manage Knowledge Base"}
-              onMouseEnter={icHoverOn}
-              onMouseLeave={icHoverOff}
-              onMouseDown={icOpenActiveOn}
-              onMouseUp={icHoverOn}>
-              <SquareArrowOutUpRight size={14} strokeWidth={2} style={{ color: IC.textMuted }} aria-hidden />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent sideOffset={6}>
-            {readOnly ? "View Knowledge Base" : "Manage Knowledge Base"}
-          </TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button onClick={onToggle}
-              className={IC_BTN_ICON}
-              aria-label={isOpen ? "Collapse" : "Expand"}
-              onMouseEnter={icHoverOn}
-              onMouseLeave={icHoverOff}>
-              <ChevronDown size={15} style={{ color: IC.textMuted, transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 160ms ease" }} />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent sideOffset={6}>{isOpen ? "Collapse" : "Expand"}</TooltipContent>
-        </Tooltip>
-      </div>
-
-      {isOpen && (
-        <div className="px-2 pb-2.5" style={{ borderTop: `1px solid ${IC.borderSubtle}` }}>
-          <div
-            className={IC_SEARCH_SHELL}
-            style={IC_SEARCH_SHELL_STYLE}
-            onMouseEnter={icSearchShellHoverOn}
-            onMouseLeave={icSearchShellHoverOff}
-          >
-            <Search size={10} style={{ color: IC.inputIcon }} />
-            <input value={searchQ} onChange={(e) => setSearchQ(e.target.value)}
-              placeholder="Search…"
-              className={`flex-1 ${IC_INPUT_TEXT}`} style={{ color: IC.textPrimary }}
-              onFocus={icSearchShellFocus}
-              onBlur={icSearchShellBlur} />
-            {searchQ && (
-              <button onClick={() => setSearchQ("")} className="w-4 h-4 flex items-center justify-center outline-none">
-                <X size={9} style={{ color: IC.inputIcon }} />
-              </button>
-            )}
-          </div>
-
-          {filtered.length === 0 ? (
-            <p className="px-2 py-2 luxia-type-caption" style={{ color: IC.textMuted }}>
-              {searchQ ? "No matches." : "No entries yet."}
-            </p>
-          ) : (
-            filtered.map(entry => (
-              <div key={entry.id}
-                className="flex items-center gap-1.5 px-2 py-1.5 rounded-[7px] relative"
-                style={{ background: "transparent" }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = IC.hover; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
-                <BookOpen size={10} color={IC.iconSemantic} className="flex-shrink-0" />
-                <span className="flex-1 luxia-type-caption truncate" style={{ color: IC.textPrimary }}>{entry.question}</span>
-                <button
-                  type="button"
-                  className="luxia-type-caption px-1.5 py-0.5 rounded-[6px] outline-none"
-                  style={{ color: IC.textMuted }}
-                  onClick={() => onView(entry.id)}
-                >
-                  View
-                </button>
-              </div>
-            ))
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
 const CONSTELLATION_MENU_ID = "luxia-constellation-selector-listbox";
 const CONSTELLATION_MENU_WIDTH = 244;
 const CONSTELLATION_MENU_MIN_WIDTH = 220;
@@ -3066,6 +2785,20 @@ function ConstellationSidebar({
   canEditKnowledge = false,
   knowledgeBase,
   onCommitKnowledgeBase,
+  views,
+  onCommitViews,
+  tables,
+  onCommitTables,
+  contextFiles,
+  onCommitContextFiles,
+  relationships,
+  onCommitRelationships,
+  metrics,
+  onCommitMetrics,
+  pdfFiles,
+  onCommitPdfFiles,
+  crawler,
+  onCommitCrawler,
 }: {
   width: number;
   onResizeStart: (e: React.MouseEvent) => void;
@@ -3083,6 +2816,21 @@ function ConstellationSidebar({
   /** Shared Constellation KB from capabilityBundlesById — not Chat-local state. */
   knowledgeBase: KnowledgeBaseEntry[];
   onCommitKnowledgeBase: (next: KnowledgeBaseEntry[]) => void;
+  /** Shared Constellation Views from capabilityBundlesById — same as Settings. */
+  views: DataTableRecord[];
+  onCommitViews: (next: DataTableRecord[]) => void;
+  tables: DataTableRecord[];
+  onCommitTables: (next: DataTableRecord[]) => void;
+  contextFiles: ExtraContextFile[];
+  onCommitContextFiles: (next: ExtraContextFile[]) => void;
+  relationships: RelationshipRecord[];
+  onCommitRelationships: (next: RelationshipRecord[]) => void;
+  metrics: MetricRecord[];
+  onCommitMetrics: (next: MetricRecord[]) => void;
+  pdfFiles: PDFFileRecord[];
+  onCommitPdfFiles: (next: PDFFileRecord[]) => void;
+  crawler: CrawlerState;
+  onCommitCrawler: (next: CrawlerState) => void;
 }) {
   const sectionIds = CONSTELLATION_SECTIONS[constellation.type];
 
@@ -3100,12 +2848,10 @@ function ConstellationSidebar({
   const [previewItem, setPreviewItem] = useState<{ sid: SectionId; idx: number } | null>(null);
 
   const [kbWorkspaceOpen, setKbWorkspaceOpen] = useState(false);
-  const [kbViewId, setKbViewId] = useState<string | null>(null);
   const kbCloseRef = useRef<(() => void) | null>(null);
   const kbDirtyRef = useRef(false);
   const kbLeaveActionRef = useRef<() => void>(() => {
     setKbWorkspaceOpen(false);
-    setKbViewId(null);
   });
 
   const [dragSrc, setDragSrc] = useState<{ sid: SectionId; i: number } | null>(null);
@@ -3128,7 +2874,6 @@ function ConstellationSidebar({
 
   function closeKbWorkspace() {
     setKbWorkspaceOpen(false);
-    setKbViewId(null);
   }
 
   function runKbLeaveAction() {
@@ -3161,7 +2906,6 @@ function ConstellationSidebar({
     setSavedConstellationSnapshot(null);
     setConstellationFeedback(null);
     setKbWorkspaceOpen(false);
-    setKbViewId(null);
     kbLeaveActionRef.current = closeKbWorkspace;
   }, [constellation.id]);
 
@@ -3481,9 +3225,12 @@ function ConstellationSidebar({
             return (
               <ActiveDataTablesSection
                 key="dataTable"
+                tables={tables}
+                onCommitTables={onCommitTables}
                 isOpen={isOpen}
                 onToggle={() => setOpenSections(p => ({ ...p, dataTable: !p.dataTable }))}
-                onSignatureChange={(sig) => registerSectionSignature("dataTable", sig)}
+                readOnly={!canConfigure}
+                constellationId={constellation.id}
               />
             );
           }
@@ -3492,9 +3239,11 @@ function ConstellationSidebar({
             return (
               <ExtraContextFilesSection
                 key="contextFiles"
+                files={contextFiles}
+                onCommitFiles={onCommitContextFiles}
                 isOpen={isOpen}
                 onToggle={() => setOpenSections(p => ({ ...p, contextFiles: !p.contextFiles }))}
-                onSignatureChange={(sig) => registerSectionSignature("contextFiles", sig)}
+                readOnly={!canConfigure}
               />
             );
           }
@@ -3503,9 +3252,11 @@ function ConstellationSidebar({
             return (
               <RelationshipSection
                 key="relationship"
+                relationships={relationships}
+                onCommitRelationships={onCommitRelationships}
                 isOpen={isOpen}
                 onToggle={() => setOpenSections(p => ({ ...p, relationship: !p.relationship }))}
-                onSignatureChange={(sig) => registerSectionSignature("relationship", sig)}
+                readOnly={!canConfigure}
               />
             );
           }
@@ -3514,9 +3265,11 @@ function ConstellationSidebar({
             return (
               <MetricsSection
                 key="metrics"
+                metrics={metrics}
+                onCommitMetrics={onCommitMetrics}
                 isOpen={isOpen}
                 onToggle={() => setOpenSections(p => ({ ...p, metrics: !p.metrics }))}
-                onSignatureChange={(sig) => registerSectionSignature("metrics", sig)}
+                readOnly={!canConfigure}
               />
             );
           }
@@ -3538,9 +3291,11 @@ function ConstellationSidebar({
             return (
               <PDFFilesSection
                 key="pdfFiles"
+                files={pdfFiles}
+                onCommitFiles={onCommitPdfFiles}
                 isOpen={isOpen}
                 onToggle={() => setOpenSections(p => ({ ...p, pdfFiles: !p.pdfFiles }))}
-                onSignatureChange={(sig) => registerSectionSignature("pdfFiles", sig)}
+                readOnly={!canConfigure}
               />
             );
           }
@@ -3549,9 +3304,10 @@ function ConstellationSidebar({
             return (
               <CrawlerSection
                 key="crawler"
+                state={crawler}
+                onCommitState={onCommitCrawler}
                 isOpen={isOpen}
                 onToggle={() => setOpenSections(p => ({ ...p, crawler: !p.crawler }))}
-                onSignatureChange={(sig) => registerSectionSignature("crawler", sig)}
                 readOnly={!canEditKnowledge}
               />
             );
@@ -3559,80 +3315,41 @@ function ConstellationSidebar({
 
           if (sid === "kb") {
             return (
-              <KBSidebarSection key="kb"
+              <KnowledgeBaseSection
+                key="kb"
                 entries={knowledgeBase}
+                onCommitEntries={onCommitKnowledgeBase}
                 isOpen={isOpen}
-                onToggle={() => setOpenSections(p => ({ ...p, kb: !p.kb }))}
-                onExpand={() => setKbWorkspaceOpen(true)}
-                onView={(id) => setKbViewId(id)}
+                onToggle={() => setOpenSections((p) => ({ ...p, kb: !p.kb }))}
                 readOnly={!canEditKnowledge}
+                managerOpen={kbWorkspaceOpen}
+                onManagerOpenChange={setKbWorkspaceOpen}
+                closeRef={kbCloseRef}
+                dirtyRef={kbDirtyRef}
+                onLeaveAborted={() => {
+                  kbLeaveActionRef.current = closeKbWorkspace;
+                }}
+                onCancelManager={runKbLeaveAction}
               />
             );
           }
 
-          const isInstr = sid === "instr";
-          const showDrop = sid === "pdfFiles";
-          const fallbackSid = sid as SectionId;
-          const sectionItems: string[] = items[fallbackSid] ?? [];
-          const FallbackIcon = SECTION_META[fallbackSid].icon;
+          // Views: accordion + in-Chat dialog over shared bundle.views.
+          if (sid === "views") {
+            return (
+              <DataViewsSection
+                key="views"
+                views={views}
+                onCommitViews={onCommitViews}
+                isOpen={isOpen}
+                onToggle={() => setOpenSections((p) => ({ ...p, views: !p.views }))}
+                readOnly={!canConfigure}
+                constellationId={constellation.id}
+              />
+            );
+          }
 
-          return (
-            <div key={fallbackSid} className="overflow-hidden rounded-[14px]"
-              style={icCardStyle(isOpen)}>
-              <div className={IC_CARD_HEADER}>
-                <FallbackIcon size={14} color={IC.iconSemantic} className="flex-shrink-0" />
-                <span className="flex-1 luxia-type-title-component truncate" style={{ color: IC.iconSemantic }}>{SECTION_META[fallbackSid].label}</span>
-                <button type="button" onClick={(e) => { e.stopPropagation(); setModalSection(fallbackSid); }} title="Open full editor"
-                  className={IC_BTN_OPEN}
-                  aria-label="Open full editor"
-                  onMouseEnter={icHoverOn}
-                  onMouseLeave={icHoverOff}
-                  onMouseDown={icOpenActiveOn}
-                  onMouseUp={icHoverOn}>
-                  <SquareArrowOutUpRight size={14} strokeWidth={2} style={{ color: IC.textMuted }} />
-                </button>
-                <button onClick={() => setOpenSections(p => ({ ...p, [fallbackSid]: !p[fallbackSid] }))}
-                  className={IC_BTN_ICON}
-                  onMouseEnter={icHoverOn}
-                  onMouseLeave={icHoverOff}>
-                  <ChevronDown size={15} style={{ color: IC.textMuted, transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 160ms ease" }} />
-                </button>
-              </div>
-              {isOpen && (
-                <div className="px-2 pb-2.5" style={{ borderTop: `1px solid ${IC.borderSubtle}` }}>
-                  {isInstr ? (
-                    <textarea value={instruction} onChange={(e) => setInstruction(e.target.value)} rows={3}
-                      className="w-full outline-none resize-none luxia-type-metadata p-2.5 rounded-[12px] mt-2 transition-[border-color] duration-150 placeholder:text-[rgba(255,255,255,0.40)]"
-                      style={icTextareaStyle(false)}
-                      placeholder="Write instructions…" />
-                  ) : (
-                    <div className="pt-1.5">
-                      {sectionItems.map((item, i) => (
-                        <SidebarListItem key={i} label={item}
-                          icon={FallbackIcon}
-                          draggable
-                          onDragStart={() => setDragSrc({ sid: fallbackSid, i })}
-                          onDragOver={() => setDragOver({ sid: fallbackSid, i })}
-                          onDrop={() => handleDrop(fallbackSid, i)}
-                          onDragEnd={() => { setDragSrc(null); setDragOver(null); }}
-                          dragOver={dragOver?.sid === fallbackSid && dragOver?.i === i && dragSrc?.i !== i}
-                          onView={() => setPreviewItem({ sid: fallbackSid, idx: i })}
-                          onRemove={() => setConfirmRemove({ sid: fallbackSid, idx: i })} />
-                      ))}
-                      {showDrop && <FileDropZone onDrop={(names) => updateItems(fallbackSid, [...sectionItems, ...names])} />}
-                      <button onClick={() => updateItems(fallbackSid, [...sectionItems, fallbackSid === "crawler" ? "https://example.com" : `Item ${sectionItems.length + 1}`])}
-                        className="w-full flex items-center gap-1.5 px-2 py-1.5 rounded-[7px] luxia-type-caption transition-colors mt-1 outline-none"
-                        style={{ color: IC.textMuted }}
-                        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = IC.hover; }}
-                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
-                        <Plus size={11} />{fallbackSid === "crawler" ? "Add URL" : "Add item"}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          );
+          return null;
         })}
       </div>
 
@@ -3692,31 +3409,6 @@ function ConstellationSidebar({
         />
       )}
 
-      {/* Shared Constellation KB: capabilityBundlesById[constellation.id].knowledgeBase */}
-      <KnowledgeBaseManager
-        open={kbWorkspaceOpen}
-        presentation="dialog"
-        entries={knowledgeBase}
-        readOnly={!canEditKnowledge}
-        closeRef={kbCloseRef}
-        dirtyRef={kbDirtyRef}
-        onCommit={onCommitKnowledgeBase}
-        onCancel={runKbLeaveAction}
-        onLeaveAborted={() => {
-          kbLeaveActionRef.current = closeKbWorkspace;
-        }}
-      />
-      {kbViewId && (() => {
-        const e = knowledgeBase.find((x) => x.id === kbViewId);
-        return e ? (
-          <KBEntryModal
-            mode="view"
-            entry={e}
-            allowSwitchToEdit={false}
-            onClose={() => setKbViewId(null)}
-          />
-        ) : null;
-      })()}
     </div>
   );
 }
@@ -5634,12 +5326,31 @@ export default function App() {
 
   function handleOpenDataSourceSettings(
     dataSourceId: string,
-    options?: { focus?: DataSourceSettingsFocusSection },
+    options?: {
+      focus?: DataSourceSettingsFocusSection;
+      /**
+       * Trusted just-created catalog row from the local create flow.
+       * Merged into the access catalog only when React state has not committed yet.
+       * Existing-library opens must omit this — they still use live dataSourcesState.
+       */
+      createdSource?: DataSourceCatalogItem;
+    },
   ) {
+    // Avoid stale-state deny after create: setDataSourcesState has not re-rendered yet.
+    const created = options?.createdSource;
+    const catalogForAccess =
+      created && created.id === dataSourceId
+        ? (
+          dataSourcesState.some((item) => item.id === dataSourceId)
+            ? dataSourcesState
+            : [...dataSourcesState, created]
+        )
+        : dataSourcesState;
+
     const allowed = canUserAccessDataSource(
       dataSourceId,
       accessLevelsState,
-      dataSourcesState,
+      catalogForAccess,
       prototypeUserId,
     );
     if (!allowed) {
@@ -6393,7 +6104,20 @@ export default function App() {
     instructions?: string,
   ): ConstellationCapabilityBundle {
     const existing = capabilityBundlesById[constellationId];
-    if (existing) return existing;
+    if (existing) {
+      const normalized = normalizeCapabilityBundle(existing);
+      // Heal pre-Views in-memory bundles so Configuration / Views manage never crash.
+      if (!Array.isArray(existing.views)) {
+        queueMicrotask(() => {
+          setCapabilityBundlesById((prev) => {
+            const current = prev[constellationId];
+            if (!current || Array.isArray(current.views)) return prev;
+            return { ...prev, [constellationId]: normalizeCapabilityBundle(current) };
+          });
+        });
+      }
+      return normalized;
+    }
     const constellation = allConstellations.find((item) => item.id === constellationId);
     const type = constellation?.type ?? "database";
     return createSeedCapabilityBundle(constellationId, type, instructions);
@@ -6467,6 +6191,91 @@ export default function App() {
     handleUpdateCapabilityBundle(
       constellationId,
       { ...bundle, knowledgeBase },
+      { capabilityKind: "knowledge" },
+    );
+  }
+
+  /** Chat Views popup → same Constellation capability bundle.views as Settings. */
+  function handleCommitChatViews(
+    constellationId: string,
+    nextViews: DataTableRecord[],
+  ) {
+    const bundle = resolveCapabilityBundle(constellationId);
+    handleUpdateCapabilityBundle(
+      constellationId,
+      { ...bundle, views: nextViews },
+      { capabilityKind: "configure" },
+    );
+  }
+
+  function handleCommitChatTables(
+    constellationId: string,
+    nextTables: DataTableRecord[],
+  ) {
+    const bundle = resolveCapabilityBundle(constellationId);
+    handleUpdateCapabilityBundle(
+      constellationId,
+      { ...bundle, tables: nextTables },
+      { capabilityKind: "configure" },
+    );
+  }
+
+  function handleCommitChatContextFiles(
+    constellationId: string,
+    nextFiles: ExtraContextFile[],
+  ) {
+    const bundle = resolveCapabilityBundle(constellationId);
+    handleUpdateCapabilityBundle(
+      constellationId,
+      { ...bundle, contextFiles: nextFiles },
+      { capabilityKind: "configure" },
+    );
+  }
+
+  function handleCommitChatRelationships(
+    constellationId: string,
+    nextRelationships: RelationshipRecord[],
+  ) {
+    const bundle = resolveCapabilityBundle(constellationId);
+    handleUpdateCapabilityBundle(
+      constellationId,
+      { ...bundle, relationships: nextRelationships },
+      { capabilityKind: "configure" },
+    );
+  }
+
+  function handleCommitChatMetrics(
+    constellationId: string,
+    nextMetrics: MetricRecord[],
+  ) {
+    const bundle = resolveCapabilityBundle(constellationId);
+    handleUpdateCapabilityBundle(
+      constellationId,
+      { ...bundle, metrics: nextMetrics },
+      { capabilityKind: "configure" },
+    );
+  }
+
+  function handleCommitChatPdfFiles(
+    constellationId: string,
+    nextFiles: PDFFileRecord[],
+  ) {
+    const bundle = resolveCapabilityBundle(constellationId);
+    handleUpdateCapabilityBundle(
+      constellationId,
+      { ...bundle, pdfFiles: nextFiles },
+      { capabilityKind: "configure" },
+    );
+  }
+
+  function handleCommitChatCrawler(
+    constellationId: string,
+    nextCrawler: CrawlerState,
+  ) {
+    const bundle = resolveCapabilityBundle(constellationId);
+    handleUpdateCapabilityBundle(
+      constellationId,
+      { ...bundle, crawler: nextCrawler },
       { capabilityKind: "knowledge" },
     );
   }
@@ -10411,6 +10220,38 @@ export default function App() {
               onCommitKnowledgeBase={(next) =>
                 handleCommitChatKnowledgeBase(activeConstellation.id, next)
               }
+              views={resolveCapabilityBundle(activeConstellation.id).views}
+              onCommitViews={(next) =>
+                handleCommitChatViews(activeConstellation.id, next)
+              }
+              tables={resolveCapabilityBundle(activeConstellation.id).tables}
+              onCommitTables={(next) =>
+                handleCommitChatTables(activeConstellation.id, next)
+              }
+              contextFiles={
+                resolveCapabilityBundle(activeConstellation.id).contextFiles
+              }
+              onCommitContextFiles={(next) =>
+                handleCommitChatContextFiles(activeConstellation.id, next)
+              }
+              relationships={
+                resolveCapabilityBundle(activeConstellation.id).relationships
+              }
+              onCommitRelationships={(next) =>
+                handleCommitChatRelationships(activeConstellation.id, next)
+              }
+              metrics={resolveCapabilityBundle(activeConstellation.id).metrics}
+              onCommitMetrics={(next) =>
+                handleCommitChatMetrics(activeConstellation.id, next)
+              }
+              pdfFiles={resolveCapabilityBundle(activeConstellation.id).pdfFiles}
+              onCommitPdfFiles={(next) =>
+                handleCommitChatPdfFiles(activeConstellation.id, next)
+              }
+              crawler={resolveCapabilityBundle(activeConstellation.id).crawler}
+              onCommitCrawler={(next) =>
+                handleCommitChatCrawler(activeConstellation.id, next)
+              }
             />
           )}
           </div>
@@ -10523,7 +10364,8 @@ export default function App() {
             toast.success(`Created ${source.name}`);
           }
           if (options?.openSettings) {
-            handleOpenDataSourceSettings(source.id);
+            // Pass the just-created row so access check does not race setState.
+            handleOpenDataSourceSettings(source.id, { createdSource: source });
             return;
           }
           if (appView !== "data-sources") {

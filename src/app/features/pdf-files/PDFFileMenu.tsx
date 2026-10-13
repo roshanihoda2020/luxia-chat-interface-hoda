@@ -7,7 +7,8 @@ import { LX } from "./tokens";
 
 const VIEWPORT_PADDING = 12;
 
-export function PDFFileMenu({ onView, onRemove }: { onView: () => void; onRemove: () => void }) {
+export function PDFFileMenu({ onView, onRemove }: { onView: () => void; onRemove?: () => void }) {
+    const canRemove = typeof onRemove === "function";
     const [open, setOpen] = useState(false);
     const triggerWrapRef = useRef<HTMLDivElement>(null);
     const menuRef = useRef<HTMLDivElement>(null);
@@ -74,8 +75,12 @@ export function PDFFileMenu({ onView, onRemove }: { onView: () => void; onRemove
     const menu = open ? createPortal(
         <div ref={menuRef} role="menu" aria-label="PDF file actions" className="min-w-[200px] max-w-[min(300px,calc(100vw-24px))] rounded-[14px] border p-1 z-[9999]" style={{ ...menuStyle, pointerEvents: "auto", background: LX.surface, borderColor: LX.border, boxShadow: LX.shadow.lg }} onMouseDown={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
             <button type="button" role="menuitem" onClick={() => runAction(onView)} className="flex w-full cursor-pointer items-center gap-2 rounded-[10px] px-3 py-2 text-left luxia-type-body-dense-strong outline-none whitespace-nowrap" style={{ color: LX.primary }}><Eye size={14} />View</button>
-            <Separator className="my-1" />
-            <button type="button" role="menuitem" onClick={() => runAction(onRemove)} className="flex w-full cursor-pointer items-center gap-2 rounded-[10px] px-3 py-2 text-left luxia-type-body-dense-strong outline-none whitespace-nowrap" style={{ color: LX.error }}><Trash2 size={14} />Remove from Constellation</button>
+            {canRemove ? (
+                <>
+                    <Separator className="my-1" />
+                    <button type="button" role="menuitem" onClick={() => runAction(onRemove)} className="flex w-full cursor-pointer items-center gap-2 rounded-[10px] px-3 py-2 text-left luxia-type-body-dense-strong outline-none whitespace-nowrap" style={{ color: LX.error }}><Trash2 size={14} />Remove from Constellation</button>
+                </>
+            ) : null}
         </div>,
         document.body,
     ) : null;

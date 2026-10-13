@@ -1,36 +1,36 @@
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from "@/app/components/ui/alert-dialog";
-import { LX } from "./tokens";
+import { ConfirmDialog } from "@/app/features/shared/ConfirmDialog";
+import { DESTRUCTIVE_CONFIRM } from "@/app/features/shared/destructiveConfirmCopy";
 
 export function RemovePDFDialog({
     open,
     onOpenChange,
     onConfirm,
+    busy = false,
+    chrome = "compact",
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     onConfirm: () => void;
+    busy?: boolean;
+    chrome?: "standard" | "compact";
 }) {
+    const copy = DESTRUCTIVE_CONFIRM.pdf;
     return (
-        <AlertDialog open={open} onOpenChange={onOpenChange}>
-            <AlertDialogContent>
-                <AlertDialogHeader>
-                    <AlertDialogTitle>Remove PDF file?</AlertDialogTitle>
-                    <AlertDialogDescription>This file will be removed from the current constellation. The original file will not be deleted.</AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction style={{ background: LX.error }} className="text-white hover:opacity-90" onClick={onConfirm}>Remove</AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
+        <ConfirmDialog
+            open={open}
+            onOpenChange={(next) => {
+                if (!next && busy) return;
+                onOpenChange(next);
+            }}
+            tone="destructive"
+            chrome={chrome}
+            title={copy.title}
+            description={copy.description}
+            cancelLabel="Cancel"
+            confirmLabel={copy.confirmLabel}
+            busy={busy}
+            busyLabel={copy.busyLabel}
+            onConfirm={onConfirm}
+        />
     );
 }

@@ -13,9 +13,11 @@ export function RelationshipMenu({
     onRemove,
 }: {
     onView: () => void;
-    onEdit: () => void;
-    onRemove: () => void;
+    onEdit?: () => void;
+    onRemove?: () => void;
 }) {
+    const canEdit = typeof onEdit === "function";
+    const canRemove = typeof onRemove === "function";
     const [open, setOpen] = useState(false);
     const triggerWrapRef = useRef<HTMLDivElement>(null);
     const menuRef = useRef<HTMLDivElement>(null);
@@ -128,25 +130,31 @@ export function RelationshipMenu({
             >
                 <Eye size={14} />View
             </button>
-            <button
-                type="button"
-                role="menuitem"
-                onClick={() => runAction(onEdit)}
-                className="flex w-full cursor-pointer items-center gap-2 rounded-[10px] px-3 py-2 text-left luxia-type-body-dense-strong outline-none whitespace-nowrap focus-visible:ring-2 focus-visible:ring-offset-1"
-                style={{ color: LX.primary }}
-            >
-                <PencilLine size={14} />Edit
-            </button>
-            <Separator className="my-1" />
-            <button
-                type="button"
-                role="menuitem"
-                onClick={() => runAction(onRemove)}
-                className="flex w-full cursor-pointer items-center gap-2 rounded-[10px] px-3 py-2 text-left luxia-type-body-dense-strong outline-none whitespace-nowrap focus-visible:ring-2 focus-visible:ring-offset-1"
-                style={{ color: LX.error }}
-            >
-                <Trash2 size={14} />Remove
-            </button>
+            {canEdit ? (
+                <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => runAction(onEdit)}
+                    className="flex w-full cursor-pointer items-center gap-2 rounded-[10px] px-3 py-2 text-left luxia-type-body-dense-strong outline-none whitespace-nowrap focus-visible:ring-2 focus-visible:ring-offset-1"
+                    style={{ color: LX.primary }}
+                >
+                    <PencilLine size={14} />Edit
+                </button>
+            ) : null}
+            {canRemove ? (
+                <>
+                    <Separator className="my-1" />
+                    <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => runAction(onRemove)}
+                        className="flex w-full cursor-pointer items-center gap-2 rounded-[10px] px-3 py-2 text-left luxia-type-body-dense-strong outline-none whitespace-nowrap focus-visible:ring-2 focus-visible:ring-offset-1"
+                        style={{ color: LX.error }}
+                    >
+                        <Trash2 size={14} />Remove
+                    </button>
+                </>
+            ) : null}
         </div>,
         document.body,
     ) : null;

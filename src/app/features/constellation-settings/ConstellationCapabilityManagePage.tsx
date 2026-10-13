@@ -22,6 +22,7 @@ import { ConfigureColumnsDialog } from "@/app/features/active-data-tables/Config
 import { EditTableDetailsDialog } from "@/app/features/active-data-tables/EditTableDetailsDialog";
 import { TablePreviewDrawer } from "@/app/features/active-data-tables/TablePreviewDrawer";
 import type { DataTableRecord } from "@/app/features/active-data-tables/types";
+import { DataViewsManager } from "@/app/features/data-views";
 import {
   capabilityMetaForType,
   isCapsuleCapabilityAllowed,
@@ -48,7 +49,10 @@ import {
   LUXIA_SETTINGS_CONTENT_SURFACE_CLASS,
 } from "@/app/features/shared/luxiaSettingsUx";
 import type { UnsavedNavigationGuard } from "@/app/features/shared/unsavedNavigationGuard";
-import type { ConstellationCapabilityBundle } from "./capabilityState";
+import {
+  normalizeCapabilityBundle,
+  type ConstellationCapabilityBundle,
+} from "./capabilityState";
 import { CONSTELLATION_SETTINGS_PAGE_VARIANT } from "./ia";
 
 export interface ConstellationCapabilityManagePageProps {
@@ -99,19 +103,26 @@ export function ConstellationCapabilityManagePage({
   const dirtyRef = useRef(false);
   const leaveActionRef = useRef(onBackToSettings);
   leaveActionRef.current = onBackToSettings;
+  const safeBundle = normalizeCapabilityBundle(bundle);
 
   const commitBundle = (next: ConstellationCapabilityBundle) => {
     if (readOnly) return;
-    onUpdateBundle(next);
+    onUpdateBundle(normalizeCapabilityBundle(next));
   };
 
   const [previewTableId, setPreviewTableId] = useState<string | null>(null);
   const [detailsTableId, setDetailsTableId] = useState<string | null>(null);
   const [columnsTableId, setColumnsTableId] = useState<string | null>(null);
+  const [previewViewId, setPreviewViewId] = useState<string | null>(null);
+  const [detailsViewId, setDetailsViewId] = useState<string | null>(null);
+  const [columnsViewId, setColumnsViewId] = useState<string | null>(null);
 
-  const openPreviewTable = bundle.tables.find((table) => table.id === previewTableId) ?? null;
-  const openDetailsTable = bundle.tables.find((table) => table.id === detailsTableId) ?? null;
-  const openColumnsTable = bundle.tables.find((table) => table.id === columnsTableId) ?? null;
+  const openPreviewTable = safeBundle.tables.find((table) => table.id === previewTableId) ?? null;
+  const openDetailsTable = safeBundle.tables.find((table) => table.id === detailsTableId) ?? null;
+  const openColumnsTable = safeBundle.tables.find((table) => table.id === columnsTableId) ?? null;
+  const openPreviewView = safeBundle.views.find((view) => view.id === previewViewId) ?? null;
+  const openDetailsView = safeBundle.views.find((view) => view.id === detailsViewId) ?? null;
+  const openColumnsView = safeBundle.views.find((view) => view.id === columnsViewId) ?? null;
 
   const breadcrumbItems = buildConstellationCapabilityBreadcrumbItems({
     projectId: project.id,
@@ -177,12 +188,13 @@ export function ConstellationCapabilityManagePage({
             <ActiveDataTablesManager
               open
               presentation="page"
-              tables={bundle.tables}
+              tables={safeBundle.tables}
               catalog={TABLE_CATALOG}
               closeRef={closeRef}
               dirtyRef={dirtyRef}
+              readOnly={readOnly}
               onCommit={(tables: DataTableRecord[]) => {
-                commitBundle({ ...bundle, tables });
+                commitBundle({ ...safeBundle, tables });
               }}
               onCancel={onCancel}
               onPreview={setPreviewTableId}
@@ -192,49 +204,126 @@ export function ConstellationCapabilityManagePage({
             <TablePreviewDrawer
               table={openPreviewTable}
               open={Boolean(openPreviewTable)}
+              hideMutatingActions={readOnly}
               onOpenChange={(open) => {
                 if (!open) setPreviewTableId(null);
               }}
               onEditDetails={() => {
-                if (!openPreviewTable) return;
+                if (!openPreviewTable || readOnly) return;
                 setPreviewTableId(null);
                 setDetailsTableId(openPreviewTable.id);
               }}
               onConfigureColumns={() => {
-                if (!openPreviewTable) return;
+                if (!openPreviewTable || readOnly) return;
                 setPreviewTableId(null);
                 setColumnsTableId(openPreviewTable.id);
               }}
             />
-            <EditTableDetailsDialog
-              table={openDetailsTable}
-              open={Boolean(openDetailsTable)}
-              onOpenChange={(open) => {
-                if (!open) setDetailsTableId(null);
+            {!readOnly ? (
+              <EditTableDetailsDialog
+                table={openDetailsTable}
+                open={Boolean(openDetailsTable)}
+                onOpenChange={(open) => {
+                  if (!open) setDetailsTableId(null);
+                }}
+                onSave={(tableId, patch) => {
+                  commitBundle({
+                    ...safeBundle,
+                    tables: safeBundle.tables.map((table) =>
+                      table.id === tableId ? { ...table, ...patch } : table,
+                    ),
+                  });
+                }}
+              />
+            ) : null}
+            {!readOnly ? (
+              <ConfigureColumnsDialog
+                table={openColumnsTable}
+                open={Boolean(openColumnsTable)}
+                onOpenChange={(open) => {
+                  if (!open) setColumnsTableId(null);
+                }}
+                onSave={(tableId, columns) => {
+                  commitBundle({
+                    ...safeBundle,
+                    tables: safeBundle.tables.map((table) =>
+                      table.id === tableId ? { ...table, columns } : table,
+                    ),
+                  });
+                }}
+                constellationId={constellation.id}
+              />
+            ) : null}
+          </>
+        );
+      case "views":
+        return (
+          <>
+            <DataViewsManager
+              presentation="page"
+              views={safeBundle.views}
+              readOnly={readOnly}
+              closeRef={closeRef}
+              dirtyRef={dirtyRef}
+              onCancel={onCancel}
+              onCommit={(nextViews: DataTableRecord[]) => {
+                commitBundle({ ...safeBundle, views: nextViews });
               }}
-              onSave={(tableId, patch) => {
+              onPreview={setPreviewViewId}
+              onEditDetails={setDetailsViewId}
+              onConfigureColumns={setColumnsViewId}
+            />
+            <TablePreviewDrawer
+              entityKind="view"
+              hideMutatingActions={readOnly}
+              table={openPreviewView}
+              open={Boolean(openPreviewView)}
+              onOpenChange={(open) => {
+                if (!open) setPreviewViewId(null);
+              }}
+              onEditDetails={() => {
+                if (!openPreviewView || readOnly) return;
+                setPreviewViewId(null);
+                setDetailsViewId(openPreviewView.id);
+              }}
+              onConfigureColumns={() => {
+                if (!openPreviewView || readOnly) return;
+                setPreviewViewId(null);
+                setColumnsViewId(openPreviewView.id);
+              }}
+            />
+            <EditTableDetailsDialog
+              entityKind="view"
+              table={openDetailsView}
+              open={Boolean(openDetailsView)}
+              onOpenChange={(open) => {
+                if (!open) setDetailsViewId(null);
+              }}
+              onSave={(viewId, patch) => {
                 commitBundle({
-                  ...bundle,
-                  tables: bundle.tables.map((table) =>
-                    table.id === tableId ? { ...table, ...patch } : table,
+                  ...safeBundle,
+                  views: safeBundle.views.map((view) =>
+                    view.id === viewId ? { ...view, ...patch } : view,
                   ),
                 });
               }}
             />
             <ConfigureColumnsDialog
-              table={openColumnsTable}
-              open={Boolean(openColumnsTable)}
+              entityKind="view"
+              table={openColumnsView}
+              open={Boolean(openColumnsView)}
               onOpenChange={(open) => {
-                if (!open) setColumnsTableId(null);
+                if (!open) setColumnsViewId(null);
               }}
-              onSave={(tableId, columns) => {
+              onSave={(viewId, columns) => {
                 commitBundle({
-                  ...bundle,
-                  tables: bundle.tables.map((table) =>
-                    table.id === tableId ? { ...table, columns } : table,
+                  ...safeBundle,
+                  views: safeBundle.views.map((view) =>
+                    view.id === viewId ? { ...view, columns } : view,
                   ),
                 });
               }}
+              constellationId={constellation.id}
             />
           </>
         );
@@ -243,12 +332,12 @@ export function ConstellationCapabilityManagePage({
           <KnowledgeBaseManager
             open
             presentation="page"
-            entries={bundle.knowledgeBase}
+            entries={safeBundle.knowledgeBase}
             closeRef={closeRef}
             dirtyRef={dirtyRef}
             readOnly={readOnly}
             onCommit={(knowledgeBase: KnowledgeBaseEntry[]) => {
-              commitBundle({ ...bundle, knowledgeBase });
+              commitBundle({ ...safeBundle, knowledgeBase });
             }}
             onCancel={onCancel}
           />
@@ -258,11 +347,12 @@ export function ConstellationCapabilityManagePage({
           <InstructionManager
             open
             presentation="page"
-            data={bundle.instruction}
+            data={safeBundle.instruction}
             closeRef={closeRef}
             dirtyRef={dirtyRef}
+            readOnly={readOnly}
             onCommit={(instruction: InstructionData) => {
-              commitBundle({ ...bundle, instruction });
+              commitBundle({ ...safeBundle, instruction });
             }}
             onCancel={onCancel}
           />
@@ -272,11 +362,11 @@ export function ConstellationCapabilityManagePage({
           <ExtraContextFilesManager
             open
             presentation="page"
-            files={bundle.contextFiles}
+            files={safeBundle.contextFiles}
             closeRef={closeRef}
             dirtyRef={dirtyRef}
             onCommit={(contextFiles: ExtraContextFile[]) => {
-              commitBundle({ ...bundle, contextFiles });
+              commitBundle({ ...safeBundle, contextFiles });
             }}
             onCancel={onCancel}
           />
@@ -286,11 +376,11 @@ export function ConstellationCapabilityManagePage({
           <RelationshipManager
             open
             presentation="page"
-            relationships={bundle.relationships}
+            relationships={safeBundle.relationships}
             closeRef={closeRef}
             dirtyRef={dirtyRef}
             onCommit={(relationships: RelationshipRecord[]) => {
-              commitBundle({ ...bundle, relationships });
+              commitBundle({ ...safeBundle, relationships });
             }}
             onCancel={onCancel}
           />
@@ -300,11 +390,11 @@ export function ConstellationCapabilityManagePage({
           <MetricsManager
             open
             presentation="page"
-            metrics={bundle.metrics}
+            metrics={safeBundle.metrics}
             closeRef={closeRef}
             dirtyRef={dirtyRef}
             onCommit={(metrics: MetricRecord[]) => {
-              commitBundle({ ...bundle, metrics });
+              commitBundle({ ...safeBundle, metrics });
             }}
             onCancel={onCancel}
           />
@@ -312,15 +402,15 @@ export function ConstellationCapabilityManagePage({
       case "pdfFiles":
         return (
           <>
-            {constellation.type === "csv" && bundle.csvParseConfig ? (
+            {constellation.type === "csv" && safeBundle.csvParseConfig ? (
               <div className="mb-4 grid gap-2 sm:grid-cols-2">
                 <p className="luxia-type-body-dense text-[var(--luxia-text-primary)]">
                   <span className="luxia-type-caption">Delimiter:</span>{" "}
-                  {bundle.csvParseConfig.delimiter || ","}
+                  {safeBundle.csvParseConfig.delimiter || ","}
                 </p>
                 <p className="luxia-type-body-dense text-[var(--luxia-text-primary)]">
                   <span className="luxia-type-caption">Header row:</span>{" "}
-                  {bundle.csvParseConfig.hasHeader
+                  {safeBundle.csvParseConfig.hasHeader
                     ? "First row contains column headers"
                     : "No header row"}
                 </p>
@@ -329,13 +419,13 @@ export function ConstellationCapabilityManagePage({
             <PDFFilesManager
               open
               presentation="page"
-              files={bundle.pdfFiles}
+              files={safeBundle.pdfFiles}
               fileKind={constellation.type === "csv" ? "csv" : "pdf"}
               fileTagSourceIds={connectedSourceIds}
               closeRef={closeRef}
               dirtyRef={dirtyRef}
               onCommit={(pdfFiles: PDFFileRecord[]) => {
-                commitBundle({ ...bundle, pdfFiles });
+                commitBundle({ ...safeBundle, pdfFiles });
               }}
               onCancel={onCancel}
             />
@@ -346,11 +436,11 @@ export function ConstellationCapabilityManagePage({
           <CrawlerManager
             open
             presentation="page"
-            state={bundle.crawler}
+            state={safeBundle.crawler}
             closeRef={closeRef}
             dirtyRef={dirtyRef}
             onCommit={(crawler: CrawlerState) => {
-              commitBundle({ ...bundle, crawler });
+              commitBundle({ ...safeBundle, crawler });
             }}
             onCancel={onCancel}
           />
@@ -360,7 +450,7 @@ export function ConstellationCapabilityManagePage({
     }
   }, [
     allowed,
-    bundle,
+    safeBundle,
     capabilityId,
     constellation.type,
     connectedSourceIds,
@@ -370,6 +460,9 @@ export function ConstellationCapabilityManagePage({
     openColumnsTable,
     openDetailsTable,
     openPreviewTable,
+    openColumnsView,
+    openDetailsView,
+    openPreviewView,
   ]);
 
   if (unavailable || !allowed) {
@@ -449,13 +542,20 @@ export function ConstellationCapabilityManagePage({
 
       <LuxiaPageBody>
         {(() => {
-          // KB owns its own readOnly UI; keep shell interactive so Members can search/view/export.
-          const lockShell = readOnly && capabilityId !== "kb";
+          // Prefer native manager readOnly over a faded/blocked shell.
+          // Remaining managers still block pointer input when read-only so
+          // restricted actions stay unreachable, without fading the surface.
+          const hasNativeReadOnly =
+            capabilityId === "kb"
+            || capabilityId === "views"
+            || capabilityId === "instr"
+            || capabilityId === "dataTable";
+          const lockInteractive = readOnly && !hasNativeReadOnly;
           return (
             <div
               className={`${LUXIA_SETTINGS_CONTENT_SURFACE_CLASS} is-padded-sm`}
-              aria-disabled={lockShell || undefined}
-              style={lockShell ? { pointerEvents: "none", opacity: 0.92 } : undefined}
+              aria-disabled={lockInteractive || undefined}
+              style={lockInteractive ? { pointerEvents: "none" } : undefined}
             >
               {manager}
             </div>

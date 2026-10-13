@@ -1,9 +1,8 @@
-import { ChevronDown, Eye, FolderOpen, Plus, Search, SquareArrowOutUpRight, Trash2, X } from "lucide-react";
+import { ChevronDown, FolderOpen, Plus, Search, SquareArrowOutUpRight, X } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/app/components/ui/tooltip";
 import { IC, IC_BTN_ICON, IC_BTN_OPEN, IC_CARD_HEADER, IC_INPUT_TEXT, IC_SEARCH_SHELL, IC_SEARCH_SHELL_STYLE, icCardStyle, icHoverOff, icHoverOn, icOpenActiveOn, icSearchShellBlur, icSearchShellFocus, icSearchShellHoverOff, icSearchShellHoverOn } from "../active-data-tables/inspectorTheme";
-import { LX } from "./tokens";
+import { ExtraContextFileMenu } from "./ExtraContextFileMenu";
 import type { ExtraContextFile } from "./types";
-
 
 export function CompactContextFileList({
     files,
@@ -14,6 +13,7 @@ export function CompactContextFileList({
     onOpenManager,
     onView,
     onRemove,
+    readOnly = false,
 }: {
     files: ExtraContextFile[];
     isOpen: boolean;
@@ -22,7 +22,8 @@ export function CompactContextFileList({
     onToggle: () => void;
     onOpenManager: () => void;
     onView: (id: string) => void;
-    onRemove: (id: string) => void;
+    onRemove?: (id: string) => void;
+    readOnly?: boolean;
 }) {
     const visible = files.filter((f) => !f.markedForRemoval);
     const filtered = visible.filter((f) => f.name.toLowerCase().includes(search.trim().toLowerCase()));
@@ -34,14 +35,14 @@ export function CompactContextFileList({
                 <span className="flex-1 truncate luxia-type-title-component" style={{ color: IC.iconSemantic }}>Extra Context Files</span>
                 <Tooltip>
                     <TooltipTrigger asChild>
-                        <button type="button" className={IC_BTN_OPEN} aria-label="Open Extra Context Files settings"
+                        <button type="button" className={IC_BTN_OPEN} aria-label={readOnly ? "View Extra Context Files" : "Open Extra Context Files"}
                             onClick={(e) => { e.stopPropagation(); onOpenManager(); }}
                             onMouseEnter={icHoverOn} onMouseLeave={icHoverOff}
                             onMouseDown={icOpenActiveOn} onMouseUp={icHoverOn}>
                             <SquareArrowOutUpRight size={14} strokeWidth={2} style={{ color: IC.textMuted }} aria-hidden />
                         </button>
                     </TooltipTrigger>
-                    <TooltipContent sideOffset={6}>Open Extra Context Files settings</TooltipContent>
+                    <TooltipContent sideOffset={6}>{readOnly ? "View Extra Context Files" : "Open Extra Context Files"}</TooltipContent>
                 </Tooltip>
                 <Tooltip>
                     <TooltipTrigger asChild>
@@ -65,10 +66,11 @@ export function CompactContextFileList({
                         <Search size={10} style={{ color: IC.inputIcon }} />
                         <input value={search} onChange={(e) => onSearchChange(e.target.value)} placeholder="Search…"
                             className={`flex-1 ${IC_INPUT_TEXT}`} style={{ color: IC.textPrimary }}
+                            aria-label="Search extra context files"
                             onFocus={icSearchShellFocus}
                             onBlur={icSearchShellBlur} />
                         {search && (
-                            <button type="button" onClick={() => onSearchChange("")} className="outline-none">
+                            <button type="button" onClick={() => onSearchChange("")} className="outline-none" aria-label="Clear search">
                                 <X size={9} style={{ color: IC.inputIcon }} />
                             </button>
                         )}
@@ -87,30 +89,25 @@ export function CompactContextFileList({
                                 onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
                                 <FolderOpen size={10} color={IC.iconSemantic} className="flex-shrink-0" />
                                 <span className="min-w-0 flex-1 truncate luxia-type-caption" style={{ color: IC.textPrimary }}>{file.name}</span>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <button type="button" className="w-5 h-5 flex items-center justify-center rounded-full outline-none hover:opacity-70"
-                                            aria-label="View file" onClick={() => onView(file.id)}>
-                                            <Eye size={10} style={{ color: IC.textMuted }} />
-                                        </button>
-                                    </TooltipTrigger>
-                                    <TooltipContent sideOffset={6}>View file</TooltipContent>
-                                </Tooltip>
-                                <button type="button" className="w-5 h-5 flex items-center justify-center rounded-full outline-none hover:opacity-70"
-                                    aria-label="Remove file" onClick={() => onRemove(file.id)}>
-                                    <Trash2 size={10} style={{ color: LX.error }} />
-                                </button>
+                                <div className="relative z-20 flex-shrink-0" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
+                                    <ExtraContextFileMenu
+                                        onView={() => onView(file.id)}
+                                        onRemove={!readOnly && onRemove ? () => onRemove(file.id) : undefined}
+                                    />
+                                </div>
                             </div>
                         ))
                     )}
 
-                    <button type="button" onClick={onOpenManager}
-                        className="mt-1 w-full flex items-center gap-1.5 px-2 py-1.5 rounded-[7px] luxia-type-caption transition-colors outline-none"
-                        style={{ color: IC.textMuted }}
-                        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = IC.hover; }}
-                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
-                        <Plus size={10} />Add files
-                    </button>
+                    {!readOnly ? (
+                        <button type="button" onClick={onOpenManager}
+                            className="mt-1 w-full flex items-center gap-1.5 px-2 py-1.5 rounded-[7px] luxia-type-caption transition-colors outline-none"
+                            style={{ color: IC.textMuted }}
+                            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = IC.hover; }}
+                            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
+                            <Plus size={10} />Add files
+                        </button>
+                    ) : null}
                 </div>
             )}
         </div>

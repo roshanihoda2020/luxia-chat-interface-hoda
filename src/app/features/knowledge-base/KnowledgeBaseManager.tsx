@@ -3,7 +3,6 @@ import { useEffect, useMemo, useRef, useState, type MutableRefObject } from "rea
 import { KBEntryMenu } from "@/app/features/kb/KBEntryMenu";
 import {
     AlertDialog,
-    AlertDialogAction,
     AlertDialogCancel,
     AlertDialogContent,
     AlertDialogDescription,
@@ -16,7 +15,12 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "@/app/components/ui/input";
 import { Textarea } from "@/app/components/ui/textarea";
 import { cn } from "@/app/components/ui/utils";
+import { ConfirmDialog } from "@/app/features/shared/ConfirmDialog";
 import { DiscardChangesDialog } from "@/app/features/shared/DiscardChangesDialog";
+import {
+    DESTRUCTIVE_CONFIRM,
+    DESTRUCTIVE_REMOVE_DELAY_MS,
+} from "@/app/features/shared/destructiveConfirmCopy";
 import { ListEmptyState } from "@/app/features/shared/ListEmptyState";
 import { ListNoResultsState } from "@/app/features/shared/ListNoResultsState";
 import { ListPagination } from "@/app/features/shared/ListPagination";
@@ -25,7 +29,10 @@ import { luxiaToast } from "@/app/features/shared/luxiaToast";
 import { PageSizeSelect } from "@/app/features/shared/PageSizeSelect";
 import { SearchField } from "@/app/features/shared/SearchField";
 import { useManagerLeaveRegistration } from "@/app/features/shared/unsavedNavigationGuard";
-import { LUXIA_DIALOG_CLOSE_ON_DARK_CLASS } from "@/app/features/shared/structuredModalChrome";
+import {
+    LUXIA_DIALOG_CLOSE_ABSOLUTE_CLASS,
+    LUXIA_DIALOG_CLOSE_ON_DARK_CLASS,
+} from "@/app/features/shared/structuredModalChrome";
 import { KB_RESPONSE_TYPES, type KnowledgeBaseEntry } from "./data";
 import { downloadKnowledgeBaseCsv } from "./exportCsv";
 import { KbImportCsvDialog } from "./KbImportCsvDialog";
@@ -49,7 +56,8 @@ function entriesSignature(entries: KnowledgeBaseEntry[]): string {
 
 const KB_ENTRY_SUBMIT_DELAY_MS = 500;
 
-function KBEntryFormAlert({
+/** Shared Knowledge Entry add / edit / view dialog (Chat capsule View + manager). */
+export function KnowledgeEntryDialog({
     mode,
     entry,
     open,
@@ -127,15 +135,31 @@ function KBEntryFormAlert({
 
     return (
         <AlertDialog open={open} onOpenChange={handleOpenChange}>
-            <AlertDialogContent className="max-w-[min(92vw,560px)] gap-0 overflow-hidden p-0">
-                <AlertDialogHeader>
+            <AlertDialogContent className="relative max-w-[min(92vw,560px)] gap-0 overflow-hidden p-0">
+                <AlertDialogHeader className="pr-14">
                     <AlertDialogTitle>{title}</AlertDialogTitle>
                     {!isView ? (
                         <AlertDialogDescription>
                             Question and answer are required.
                         </AlertDialogDescription>
-                    ) : null}
+                    ) : (
+                        <AlertDialogDescription className="sr-only">
+                            Read-only knowledge entry details.
+                        </AlertDialogDescription>
+                    )}
                 </AlertDialogHeader>
+                <AlertDialogCancel
+                    className={cn(
+                        "luxia-button luxia-button--ghost luxia-button--icon-compact border-0 bg-transparent shadow-none",
+                        LUXIA_DIALOG_CLOSE_ABSOLUTE_CLASS,
+                        LUXIA_DIALOG_CLOSE_ON_DARK_CLASS,
+                    )}
+                    aria-label="Close"
+                    disabled={submitting}
+                >
+                    <X size={15} />
+                    <span className="sr-only">Close</span>
+                </AlertDialogCancel>
 
                 <form
                     className="contents"
@@ -263,6 +287,7 @@ export function KnowledgeBaseManager({
     const [viewEntry, setViewEntry] = useState<KnowledgeBaseEntry | null>(null);
     const [editEntry, setEditEntry] = useState<KnowledgeBaseEntry | null>(null);
     const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
+    const [removing, setRemoving] = useState(false);
     const [discardOpen, setDiscardOpen] = useState(false);
     const [discardIntent, setDiscardIntent] = useState<"leave" | "reset">("leave");
     const [saving, setSaving] = useState(false);
@@ -272,6 +297,7 @@ export function KnowledgeBaseManager({
     const [importDialogOpen, setImportDialogOpen] = useState(false);
     const initialRef = useRef(cloneEntries(entries));
     const importFileInputRef = useRef<HTMLInputElement>(null);
+    const removeTimerRef = useRef<number | null>(null);
 
     useEffect(() => {
         if (!effectiveOpen) return;
@@ -284,6 +310,7 @@ export function KnowledgeBaseManager({
         setViewEntry(null);
         setEditEntry(null);
         setConfirmRemoveId(null);
+        setRemoving(false);
         setDiscardOpen(false);
         setSaving(false);
         setExporting(false);
@@ -292,6 +319,14 @@ export function KnowledgeBaseManager({
         setImportDialogOpen(false);
         if (importFileInputRef.current) importFileInputRef.current.value = "";
     }, [effectiveOpen, entries]);
+
+    useEffect(() => {
+        return () => {
+            if (removeTimerRef.current !== null) {
+                window.clearTimeout(removeTimerRef.current);
+            }
+        };
+    }, []);
 
     useEffect(() => {
         if (!readOnly) return;
@@ -327,8 +362,6 @@ export function KnowledgeBaseManager({
         [filtered, safePage, pageSize],
     );
 
-    const removeEntry = draft.find((entry) => entry.id === confirmRemoveId) ?? null;
-
     function requestLeave() {
         if (dirty) {
             setDiscardIntent("leave");
@@ -349,10 +382,22 @@ export function KnowledgeBaseManager({
 
     useManagerLeaveRegistration({ closeRef, dirtyRef, dirty, requestLeave });
 
-    function removeById(id: string) {
-        if (readOnly) return;
-        setDraft((current) => current.filter((entry) => entry.id !== id));
-        setConfirmRemoveId(null);
+    function confirmRemoveEntry() {
+        if (readOnly || !confirmRemoveId || removing) return;
+        const removeId = confirmRemoveId;
+        setRemoving(true);
+        removeTimerRef.current = window.setTimeout(() => {
+            removeTimerRef.current = null;
+            try {
+                setDraft((current) => current.filter((entry) => entry.id !== removeId));
+                luxiaToast.success(DESTRUCTIVE_CONFIRM.knowledgeEntry.successToast);
+                setConfirmRemoveId(null);
+            } catch {
+                luxiaToast.error(DESTRUCTIVE_CONFIRM.knowledgeEntry.errorToast);
+            } finally {
+                setRemoving(false);
+            }
+        }, DESTRUCTIVE_REMOVE_DELAY_MS);
     }
 
     function addEntry(entry: KnowledgeBaseEntry) {
@@ -653,9 +698,7 @@ export function KnowledgeBaseManager({
     return (
         <>
             {isPage ? (
-                <div className="flex flex-col overflow-hidden rounded-[12px] border" style={{ borderColor: LX.border }}>
-                    {shell}
-                </div>
+                shell
             ) : (
                 <Dialog open={open} onOpenChange={(next) => { if (!next) requestLeave(); }}>
                     <DialogContent hideCloseButton className="overflow-hidden p-0" style={{ width: "min(92vw, 760px)", maxWidth: "min(92vw, 760px)", maxHeight: "88vh" }}>
@@ -665,11 +708,11 @@ export function KnowledgeBaseManager({
             )}
 
             {!readOnly ? (
-                <KBEntryFormAlert mode="add" open={addOpen} onOpenChange={setAddOpen} onSubmit={addEntry} />
+                <KnowledgeEntryDialog mode="add" open={addOpen} onOpenChange={setAddOpen} onSubmit={addEntry} />
             ) : null}
 
             {viewEntry ? (
-                <KBEntryFormAlert
+                <KnowledgeEntryDialog
                     mode="view"
                     entry={viewEntry}
                     open={!!viewEntry}
@@ -679,7 +722,7 @@ export function KnowledgeBaseManager({
             ) : null}
 
             {!readOnly && editEntry ? (
-                <KBEntryFormAlert
+                <KnowledgeEntryDialog
                     mode="edit"
                     entry={editEntry}
                     open={!!editEntry}
@@ -689,22 +732,21 @@ export function KnowledgeBaseManager({
             ) : null}
 
             {!readOnly ? (
-                <AlertDialog open={!!confirmRemoveId} onOpenChange={(next) => { if (!next) setConfirmRemoveId(null); }}>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>Remove knowledge entry?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                {removeEntry ? `"${removeEntry.question}" will be removed from this draft.` : "This entry will be removed from this draft."}
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction style={{ background: LX.error }} className="text-white hover:opacity-90" onClick={() => confirmRemoveId && removeById(confirmRemoveId)}>
-                                Remove
-                            </AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
+                <ConfirmDialog
+                    open={Boolean(confirmRemoveId)}
+                    onOpenChange={(next) => {
+                        if (!next && !removing) setConfirmRemoveId(null);
+                    }}
+                    tone="destructive"
+                    chrome={isPage ? "standard" : "compact"}
+                    title={DESTRUCTIVE_CONFIRM.knowledgeEntry.title}
+                    description={DESTRUCTIVE_CONFIRM.knowledgeEntry.description}
+                    cancelLabel="Cancel"
+                    confirmLabel={DESTRUCTIVE_CONFIRM.knowledgeEntry.confirmLabel}
+                    busy={removing}
+                    busyLabel={DESTRUCTIVE_CONFIRM.knowledgeEntry.busyLabel}
+                    onConfirm={confirmRemoveEntry}
+                />
             ) : null}
 
             {!readOnly ? (

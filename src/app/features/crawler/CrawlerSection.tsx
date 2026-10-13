@@ -1,40 +1,83 @@
-import { useEffect, useMemo, useState } from "react";
-import { AddCrawlerDialog } from "./AddCrawlerDialog";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ConfirmDialog } from "@/app/features/shared/ConfirmDialog";
+import {
+    DESTRUCTIVE_CONFIRM,
+    DESTRUCTIVE_REMOVE_DELAY_MS,
+} from "@/app/features/shared/destructiveConfirmCopy";
+import { luxiaToast } from "@/app/features/shared/luxiaToast";
 import { CompactCrawlerList } from "./CompactCrawlerList";
 import { CrawlerManager } from "./CrawlerManager";
 import { EditCrawlerDialog } from "./EditCrawlerDialog";
-import { RemoveCrawlerDialog } from "./RemoveCrawlerDialog";
 import { ViewCrawlerDialog } from "./ViewCrawlerDialog";
-import { luxiaToast } from "@/app/features/shared/luxiaToast";
-import { INITIAL_CRAWLER_STATE } from "./data";
 import type { CrawlerState } from "./types";
-import { cloneCrawlerState, crawlerSignature } from "./utils";
+import { cloneCrawlerState } from "./utils";
 
+/**
+ * Chat capsule Crawler URLs — expandable summary + dialog shortcut.
+ * Reads/writes the same Constellation `bundle.crawler` as Settings.
+ */
 export function CrawlerSection({
+    state,
+    onCommitState,
     isOpen,
     onToggle,
-    onSignatureChange,
     readOnly = false,
 }: {
+    state: CrawlerState;
+    onCommitState: (next: CrawlerState) => void;
     isOpen: boolean;
     onToggle: () => void;
-    onSignatureChange?: (signature: string) => void;
     readOnly?: boolean;
 }) {
-    const [state, setState] = useState<CrawlerState>(() => cloneCrawlerState(INITIAL_CRAWLER_STATE));
     const [managerOpen, setManagerOpen] = useState(false);
     const [viewId, setViewId] = useState<string | null>(null);
     const [editId, setEditId] = useState<string | null>(null);
     const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
-    const [addOpen, setAddOpen] = useState(false);
+    const [removing, setRemoving] = useState(false);
+    const removeTimerRef = useRef<number | null>(null);
 
-    const visibleEntries = useMemo(() => state.entries.filter((e) => !e.markedForRemoval), [state.entries]);
+    const visibleEntries = useMemo(
+        () => state.entries.filter((e) => !e.markedForRemoval),
+        [state.entries],
+    );
     const viewItem = visibleEntries.find((e) => e.id === viewId) ?? null;
     const editItem = visibleEntries.find((e) => e.id === editId) ?? null;
 
     useEffect(() => {
-        onSignatureChange?.(crawlerSignature(state));
-    }, [state, onSignatureChange]);
+        return () => {
+            if (removeTimerRef.current !== null) {
+                window.clearTimeout(removeTimerRef.current);
+            }
+        };
+    }, []);
+
+    function commit(next: CrawlerState) {
+        if (readOnly) return;
+        onCommitState(cloneCrawlerState(next));
+    }
+
+    function confirmRemove() {
+        if (readOnly || !confirmRemoveId || removing) return;
+        const removeId = confirmRemoveId;
+        setRemoving(true);
+        removeTimerRef.current = window.setTimeout(() => {
+            removeTimerRef.current = null;
+            try {
+                commit({
+                    ...state,
+                    entries: state.entries.filter((e) => e.id !== removeId),
+                });
+                if (viewId === removeId) setViewId(null);
+                if (editId === removeId) setEditId(null);
+                luxiaToast.success(DESTRUCTIVE_CONFIRM.crawler.successToast);
+                setConfirmRemoveId(null);
+            } catch {
+                luxiaToast.error(DESTRUCTIVE_CONFIRM.crawler.errorToast);
+            } finally {
+                setRemoving(false);
+            }
+        }, DESTRUCTIVE_REMOVE_DELAY_MS);
+    }
 
     return (
         <>
@@ -42,29 +85,76 @@ export function CrawlerSection({
                 entries={visibleEntries}
                 isOpen={isOpen}
                 onToggle={onToggle}
-                onOpenManager={readOnly ? () => undefined : () => setManagerOpen(true)}
+                onOpenManager={() => setManagerOpen(true)}
                 onView={(id) => setViewId(id)}
                 onEdit={readOnly ? undefined : (id) => setEditId(id)}
                 onRemove={readOnly ? undefined : (id) => setConfirmRemoveId(id)}
                 readOnly={readOnly}
             />
 
-            {!readOnly ? (
-                <>
-                    <CrawlerManager open={managerOpen} state={state} onCommit={setState} onCancel={() => setManagerOpen(false)} />
-                    <AddCrawlerDialog open={addOpen} onOpenChange={setAddOpen} onAdd={(values) => {
-                        setState((c) => ({ ...c, entries: [...c.entries, { id: `crawl-${Date.now()}`, ...values, url: values.url.trim(), description: values.description.trim() }] }));
-                        luxiaToast.success("Crawler URL added");
-                    }} />
-                    {editItem ? <EditCrawlerDialog open={!!editId} onOpenChange={(o) => { if (!o) setEditId(null); }} initialValues={{ url: editItem.url, description: editItem.description, exactSearch: editItem.exactSearch }} onUpdate={(values) => {
-                        setState((c) => ({ ...c, entries: c.entries.map((e) => e.id === editId ? { ...e, url: values.url.trim(), description: values.description.trim(), exactSearch: values.exactSearch } : e) }));
+            <CrawlerManager
+                open={managerOpen}
+                state={state}
+                onCommit={(next) => {
+                    if (readOnly) return;
+                    onCommitState(next);
+                }}
+                onCancel={() => setManagerOpen(false)}
+            />
+
+            {!readOnly && editItem ? (
+                <EditCrawlerDialog
+                    open={Boolean(editId)}
+                    onOpenChange={(o) => {
+                        if (!o) setEditId(null);
+                    }}
+                    initialValues={{
+                        url: editItem.url,
+                        description: editItem.description,
+                        exactSearch: editItem.exactSearch,
+                    }}
+                    onUpdate={(values) => {
+                        commit({
+                            ...state,
+                            entries: state.entries.map((e) =>
+                                e.id === editId
+                                    ? {
+                                        ...e,
+                                        url: values.url.trim(),
+                                        description: values.description.trim(),
+                                        exactSearch: values.exactSearch,
+                                    }
+                                    : e,
+                            ),
+                        });
                         setEditId(null);
                         luxiaToast.success("Crawler URL updated");
-                    }} /> : null}
-                    <RemoveCrawlerDialog open={!!confirmRemoveId} onOpenChange={(o) => { if (!o) setConfirmRemoveId(null); }} onConfirm={() => { if (!confirmRemoveId) return; setState((c) => ({ ...c, entries: c.entries.filter((e) => e.id !== confirmRemoveId) })); setConfirmRemoveId(null); }} />
-                </>
+                    }}
+                />
             ) : null}
-            <ViewCrawlerDialog open={!!viewItem} onOpenChange={(o) => { if (!o) setViewId(null); }} item={viewItem} />
+
+            <ViewCrawlerDialog
+                open={Boolean(viewItem)}
+                onOpenChange={(o) => {
+                    if (!o) setViewId(null);
+                }}
+                item={viewItem}
+            />
+
+            <ConfirmDialog
+                open={Boolean(confirmRemoveId)}
+                onOpenChange={(next) => {
+                    if (!next && !removing) setConfirmRemoveId(null);
+                }}
+                tone="destructive"
+                title={DESTRUCTIVE_CONFIRM.crawler.title}
+                description={DESTRUCTIVE_CONFIRM.crawler.description}
+                cancelLabel="Cancel"
+                confirmLabel={DESTRUCTIVE_CONFIRM.crawler.confirmLabel}
+                busy={removing}
+                busyLabel={DESTRUCTIVE_CONFIRM.crawler.busyLabel}
+                onConfirm={confirmRemove}
+            />
         </>
     );
 }

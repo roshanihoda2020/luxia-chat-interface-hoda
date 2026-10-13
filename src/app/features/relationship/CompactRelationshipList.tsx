@@ -1,9 +1,9 @@
 import { ChevronDown, GitBranch, Plus, Search, SquareArrowOutUpRight, X } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/app/components/ui/tooltip";
 import { IC, IC_BTN_ICON, IC_BTN_OPEN, IC_CARD_HEADER, IC_INPUT_TEXT, IC_SEARCH_SHELL, IC_SEARCH_SHELL_STYLE, icCardStyle, icHoverOff, icHoverOn, icOpenActiveOn, icSearchShellBlur, icSearchShellFocus, icSearchShellHoverOff, icSearchShellHoverOn } from "../active-data-tables/inspectorTheme";
+import { RelationshipMenu } from "./RelationshipMenu";
 import type { RelationshipRecord } from "./types";
 import { relationshipName } from "./utils";
-
 
 export function CompactRelationshipList({
     relationships,
@@ -12,6 +12,10 @@ export function CompactRelationshipList({
     onSearchChange,
     onToggle,
     onOpenManager,
+    onView,
+    onEdit,
+    onRemove,
+    readOnly = false,
 }: {
     relationships: RelationshipRecord[];
     isOpen: boolean;
@@ -19,6 +23,10 @@ export function CompactRelationshipList({
     onSearchChange: (value: string) => void;
     onToggle: () => void;
     onOpenManager: () => void;
+    onView: (id: string) => void;
+    onEdit?: (id: string) => void;
+    onRemove?: (id: string) => void;
+    readOnly?: boolean;
 }) {
     const visible = relationships.filter((item) => !item.markedForRemoval);
     const lowered = search.trim().toLowerCase();
@@ -33,14 +41,14 @@ export function CompactRelationshipList({
                 <span className="flex-1 truncate luxia-type-title-component" style={{ color: IC.iconSemantic }}>Relationship</span>
                 <Tooltip>
                     <TooltipTrigger asChild>
-                        <button type="button" className={IC_BTN_OPEN} aria-label="Open Relationship settings"
+                        <button type="button" className={IC_BTN_OPEN} aria-label={readOnly ? "View Relationship" : "Open Relationship"}
                             onClick={(e) => { e.stopPropagation(); onOpenManager(); }}
                             onMouseEnter={icHoverOn} onMouseLeave={icHoverOff}
                             onMouseDown={icOpenActiveOn} onMouseUp={icHoverOn}>
                             <SquareArrowOutUpRight size={14} strokeWidth={2} style={{ color: IC.textMuted }} aria-hidden />
                         </button>
                     </TooltipTrigger>
-                    <TooltipContent sideOffset={6}>Open Relationship settings</TooltipContent>
+                    <TooltipContent sideOffset={6}>{readOnly ? "View Relationship" : "Open Relationship"}</TooltipContent>
                 </Tooltip>
                 <Tooltip>
                     <TooltipTrigger asChild>
@@ -92,17 +100,26 @@ export function CompactRelationshipList({
                                 {!item.active && (
                                     <span className="flex-shrink-0 luxia-type-caption" style={{ color: IC.textMuted }}>Off</span>
                                 )}
+                                <div className="relative z-20 flex-shrink-0" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
+                                    <RelationshipMenu
+                                        onView={() => onView(item.id)}
+                                        onEdit={!readOnly && onEdit ? () => onEdit(item.id) : undefined}
+                                        onRemove={!readOnly && onRemove ? () => onRemove(item.id) : undefined}
+                                    />
+                                </div>
                             </div>
                         ))
                     )}
 
-                    <button type="button" onClick={onOpenManager}
-                        className="mt-1 w-full flex items-center gap-1.5 px-2 py-1.5 rounded-[7px] luxia-type-caption transition-colors outline-none"
-                        style={{ color: IC.textMuted }}
-                        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = IC.hover; }}
-                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
-                        <Plus size={10} />Add relationship
-                    </button>
+                    {!readOnly ? (
+                        <button type="button" onClick={onOpenManager}
+                            className="mt-1 w-full flex items-center gap-1.5 px-2 py-1.5 rounded-[7px] luxia-type-caption transition-colors outline-none"
+                            style={{ color: IC.textMuted }}
+                            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = IC.hover; }}
+                            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
+                            <Plus size={10} />Add relationship
+                        </button>
+                    ) : null}
                 </div>
             )}
         </div>

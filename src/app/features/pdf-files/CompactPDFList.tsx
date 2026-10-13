@@ -17,6 +17,7 @@ export function CompactPDFList({
     onView,
     onRemove,
     onUpload,
+    readOnly = false,
 }: {
     files: PDFFileRecord[];
     isOpen: boolean;
@@ -25,8 +26,9 @@ export function CompactPDFList({
     onToggle: () => void;
     onOpenManager: () => void;
     onView: (id: string) => void;
-    onRemove: (id: string) => void;
-    onUpload: (file: File) => void;
+    onRemove?: (id: string) => void;
+    onUpload?: (file: File) => void;
+    readOnly?: boolean;
 }) {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [uploadError, setUploadError] = useState<string | null>(null);
@@ -36,7 +38,7 @@ export function CompactPDFList({
     const filtered = visible.filter((f) => f.name.toLowerCase().includes(lowered));
 
     function handlePickedFile(file: File | null) {
-        if (!file) return;
+        if (!file || !onUpload) return;
         setUploadError(null);
         if (!isPdfFile(file.name)) {
             setUploadError("This file type is not supported.");
@@ -57,14 +59,14 @@ export function CompactPDFList({
                 <span className="flex-1 truncate luxia-type-title-component" style={{ color: IC.iconSemantic }}>PDF Files</span>
                 <Tooltip>
                     <TooltipTrigger asChild>
-                        <button type="button" className={IC_BTN_OPEN} aria-label="Open full editor"
+                        <button type="button" className={IC_BTN_OPEN} aria-label={readOnly ? "View PDF Files" : "Open PDF Files"}
                             onClick={(e) => { e.stopPropagation(); onOpenManager(); }}
                             onMouseEnter={icHoverOn} onMouseLeave={icHoverOff}
                             onMouseDown={icOpenActiveOn} onMouseUp={icHoverOn}>
                             <SquareArrowOutUpRight size={14} strokeWidth={2} style={{ color: IC.textMuted }} />
                         </button>
                     </TooltipTrigger>
-                    <TooltipContent sideOffset={6}>Open full editor</TooltipContent>
+                    <TooltipContent sideOffset={6}>{readOnly ? "View PDF Files" : "Open PDF Files"}</TooltipContent>
                 </Tooltip>
                 <Tooltip>
                     <TooltipTrigger asChild>
@@ -112,7 +114,10 @@ export function CompactPDFList({
                                 <FileText size={10} color={IC.iconSemantic} className="flex-shrink-0" />
                                 <span className="min-w-0 flex-1 truncate luxia-type-caption" style={{ color: IC.textPrimary }}>{file.name}</span>
                                 <div className="relative z-20 flex-shrink-0" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
-                                    <PDFFileMenu onView={() => onView(file.id)} onRemove={() => onRemove(file.id)} />
+                                    <PDFFileMenu
+                                        onView={() => onView(file.id)}
+                                        onRemove={!readOnly && onRemove ? () => onRemove(file.id) : undefined}
+                                    />
                                 </div>
                             </div>
                         ))
@@ -122,23 +127,27 @@ export function CompactPDFList({
                         <p className="px-2 py-1 luxia-type-caption" role="alert" style={{ color: LX.error }}>{uploadError}</p>
                     ) : null}
 
-                    <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="mt-1 w-full flex items-center gap-1.5 px-2 py-1.5 rounded-[7px] luxia-type-caption transition-colors outline-none"
-                        style={{ color: IC.textMuted }}
-                        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = IC.hover; }}
-                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
-                    >
-                        <Plus size={10} />Add files
-                    </button>
-                    <input
-                        ref={fileInputRef}
-                        type="file"
-                        className="hidden"
-                        accept=".pdf,application/pdf"
-                        onChange={(e) => handlePickedFile(e.target.files?.[0] ?? null)}
-                    />
+                    {!readOnly ? (
+                        <>
+                            <button
+                                type="button"
+                                onClick={() => fileInputRef.current?.click()}
+                                className="mt-1 w-full flex items-center gap-1.5 px-2 py-1.5 rounded-[7px] luxia-type-caption transition-colors outline-none"
+                                style={{ color: IC.textMuted }}
+                                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = IC.hover; }}
+                                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                            >
+                                <Plus size={10} />Add files
+                            </button>
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                className="hidden"
+                                accept=".pdf,application/pdf"
+                                onChange={(e) => handlePickedFile(e.target.files?.[0] ?? null)}
+                            />
+                        </>
+                    ) : null}
                 </div>
             )}
         </div>

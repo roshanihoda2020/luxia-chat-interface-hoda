@@ -21,6 +21,8 @@ import {
   type AccessLevelRecord,
   type DataSourceCatalogItem,
 } from "@/app/features/permissions";
+import { ListEmptyState } from "@/app/features/shared/ListEmptyState";
+import { ListNoResultsState } from "@/app/features/shared/ListNoResultsState";
 
 export interface AddConstellationDataSourceDialogProps {
   open: boolean;
@@ -140,32 +142,22 @@ export function AddConstellationDataSourceDialog({
           ) : null}
 
           {eligible.length === 0 ? (
-            <div className="space-y-1.5 py-6" role="status">
-              <p className="luxia-type-body-dense-strong text-[var(--luxia-text-primary)]">
-                No additional Data Sources available
-              </p>
-              <p className="luxia-type-caption text-[var(--luxia-text-secondary)]">
-                Eligible sources need Use or Manage access and must not already be
-                connected to this Constellation. Inaccessible Private sources are not
-                listed.
-              </p>
-            </div>
+            <ListEmptyState
+              title="No additional Data Sources available"
+              description="Eligible sources need Use or Manage access and must not already be connected to this Constellation. Inaccessible Private sources are not listed."
+              className="border-0 bg-transparent px-0 py-6"
+            />
           ) : filtered.length === 0 ? (
-            <div className="space-y-2 py-6" role="status">
-              <p className="luxia-type-body-dense text-[var(--luxia-text-secondary)]">
-                No matching Data Sources.
-              </p>
-              {tagFilter.hasActiveTagFilters ? (
-                <Button
-                  type="button"
-                  variant="tertiary"
-                  size="compact"
-                  onClick={() => tagFilter.clear()}
-                >
-                  Clear filters
-                </Button>
-              ) : null}
-            </div>
+            <ListNoResultsState
+              title="No matching Data Sources."
+              className="border-0 bg-transparent px-0 py-6"
+              onClear={
+                tagFilter.hasActiveTagFilters
+                  ? () => tagFilter.clear()
+                  : undefined
+              }
+              clearLabel="Clear filters"
+            />
           ) : (
             <ul
               role="listbox"

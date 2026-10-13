@@ -16,6 +16,7 @@ export function CompactDataTableList({
     onEditDetails,
     onConfigureColumns,
     onRemove,
+    readOnly = false,
 }: {
     tables: DataTableRecord[];
     isOpen: boolean;
@@ -24,9 +25,10 @@ export function CompactDataTableList({
     onToggle: () => void;
     onOpenManager: () => void;
     onView: (id: string) => void;
-    onEditDetails: (id: string) => void;
-    onConfigureColumns: (id: string) => void;
-    onRemove: (id: string) => void;
+    onEditDetails?: (id: string) => void;
+    onConfigureColumns?: (id: string) => void;
+    onRemove?: (id: string) => void;
+    readOnly?: boolean;
 }) {
     const filtered = tables.filter((t) => [t.displayName, t.originalName].join(" ").toLowerCase().includes(search.trim().toLowerCase()));
 
@@ -95,22 +97,36 @@ export function CompactDataTableList({
                                 <div className="relative z-20 flex-shrink-0" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
                                     <TableRowMenu
                                         onView={() => onView(table.id)}
-                                        onEditDetails={() => onEditDetails(table.id)}
-                                        onConfigureColumns={() => onConfigureColumns(table.id)}
-                                        onRemove={() => onRemove(table.id)}
+                                        onEditDetails={
+                                            !readOnly && onEditDetails
+                                                ? () => onEditDetails(table.id)
+                                                : undefined
+                                        }
+                                        onConfigureColumns={
+                                            !readOnly && onConfigureColumns
+                                                ? () => onConfigureColumns(table.id)
+                                                : undefined
+                                        }
+                                        onRemove={
+                                            !readOnly && onRemove
+                                                ? () => onRemove(table.id)
+                                                : undefined
+                                        }
                                     />
                                 </div>
                             </div>
                         ))
                     )}
 
-                    <button type="button" onClick={onOpenManager}
-                        className="mt-1 w-full flex items-center gap-1.5 px-2 py-1.5 rounded-[7px] luxia-type-caption transition-colors outline-none"
-                        style={{ color: IC.textMuted }}
-                        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = IC.hover; }}
-                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
-                        <Plus size={10} />Add data table
-                    </button>
+                    {!readOnly ? (
+                        <button type="button" onClick={onOpenManager}
+                            className="mt-1 w-full flex items-center gap-1.5 px-2 py-1.5 rounded-[7px] luxia-type-caption transition-colors outline-none"
+                            style={{ color: IC.textMuted }}
+                            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = IC.hover; }}
+                            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
+                            <Plus size={10} />Add data table
+                        </button>
+                    ) : null}
                 </div>
             )}
         </div>

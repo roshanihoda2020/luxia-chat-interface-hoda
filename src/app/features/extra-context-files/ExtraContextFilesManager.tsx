@@ -4,6 +4,12 @@ import { Button } from "@/app/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/app/components/ui/dialog";
 import { cn } from "@/app/components/ui/utils";
 import { BusyButton } from "@/app/features/shared/Loading";
+import { ListEmptyState } from "@/app/features/shared/ListEmptyState";
+import { ListNoResultsState } from "@/app/features/shared/ListNoResultsState";
+import {
+    DESTRUCTIVE_CONFIRM,
+    DESTRUCTIVE_REMOVE_DELAY_MS,
+} from "@/app/features/shared/destructiveConfirmCopy";
 import { luxiaToast } from "@/app/features/shared/luxiaToast";
 import { SearchField } from "@/app/features/shared/SearchField";
 import { useManagerLeaveRegistration } from "@/app/features/shared/unsavedNavigationGuard";
@@ -45,11 +51,13 @@ export function ExtraContextFilesManager({
     const [addOpen, setAddOpen] = useState(false);
     const [previewId, setPreviewId] = useState<string | null>(null);
     const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
+    const [removing, setRemoving] = useState(false);
     const [discardOpen, setDiscardOpen] = useState(false);
     const [discardIntent, setDiscardIntent] = useState<"leave" | "reset">("leave");
     const [saving, setSaving] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
     const initialRef = useRef(cloneFiles(files));
+    const removeTimerRef = useRef<number | null>(null);
 
     useEffect(() => {
         if (!effectiveOpen) return;
@@ -60,10 +68,19 @@ export function ExtraContextFilesManager({
         setAddOpen(false);
         setPreviewId(null);
         setConfirmRemoveId(null);
+        setRemoving(false);
         setDiscardOpen(false);
         setSaving(false);
         setSaveError(null);
     }, [effectiveOpen, files]);
+
+    useEffect(() => {
+        return () => {
+            if (removeTimerRef.current !== null) {
+                window.clearTimeout(removeTimerRef.current);
+            }
+        };
+    }, []);
 
     const dirty = filesSignature(draft) !== filesSignature(initialRef.current);
     const filtered = useMemo(() => {
@@ -96,9 +113,26 @@ export function ExtraContextFilesManager({
 
     useManagerLeaveRegistration({ closeRef, dirtyRef, dirty, requestLeave });
 
-    function markRemove(id: string) {
-        setDraft((current) => current.map((file) => file.id === id ? { ...file, markedForRemoval: true } : file));
-        setConfirmRemoveId(null);
+    function confirmMarkRemove() {
+        if (!confirmRemoveId || removing) return;
+        const removeId = confirmRemoveId;
+        setRemoving(true);
+        removeTimerRef.current = window.setTimeout(() => {
+            removeTimerRef.current = null;
+            try {
+                setDraft((current) =>
+                    current.map((file) =>
+                        file.id === removeId ? { ...file, markedForRemoval: true } : file,
+                    ),
+                );
+                luxiaToast.success(DESTRUCTIVE_CONFIRM.extraContext.successToast);
+                setConfirmRemoveId(null);
+            } catch {
+                luxiaToast.error(DESTRUCTIVE_CONFIRM.extraContext.errorToast);
+            } finally {
+                setRemoving(false);
+            }
+        }, DESTRUCTIVE_REMOVE_DELAY_MS);
     }
 
     function addUpload(file: ExtraContextFile) {
@@ -180,22 +214,24 @@ export function ExtraContextFilesManager({
 
                         <div className="min-h-0 flex-1 overflow-y-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical px-6 py-5">
                             {filtered.length === 0 ? (
-                                <div className="flex flex-col items-center justify-center py-12 text-center">
-                                    {search ? (
-                                        <>
-                                            <p className="luxia-type-body-small-strong" style={{ color: LX.primary }}>No files match your search.</p>
-                                            <p className="mt-1 luxia-type-body-dense" style={{ color: LX.textMuted }}>Try another file name.</p>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <p className="luxia-type-title-component" style={{ color: LX.primary }}>No extra context files yet</p>
-                                            <p className="mt-1 luxia-type-body-dense" style={{ color: LX.textMuted }}>Add files to provide additional context.</p>
-                                            <Button type="button" className="mt-4 px-4" onClick={() => setAddOpen(true)}>
+                                search ? (
+                                    <ListNoResultsState
+                                        title="No files match your search."
+                                        description="Try another file name."
+                                        className="border-0 bg-transparent px-2 py-10"
+                                    />
+                                ) : (
+                                    <ListEmptyState
+                                        title="No extra context files yet"
+                                        description="Add files to provide additional context."
+                                        className="border-0 bg-transparent px-2 py-10"
+                                        action={
+                                            <Button type="button" className="px-4" onClick={() => setAddOpen(true)}>
                                                 <Plus size={14} />Add files
                                             </Button>
-                                        </>
-                                    )}
-                                </div>
+                                        }
+                                    />
+                                )
                             ) : (
                                 <div className="space-y-2">
                                     {filtered.map((file) => (
@@ -239,9 +275,7 @@ export function ExtraContextFilesManager({
     return (
         <>
             {isPage ? (
-                <div className="flex flex-col overflow-hidden rounded-[12px] border" style={{ borderColor: LX.border }}>
-                    {shell}
-                </div>
+                shell
             ) : (
                 <Dialog open={open} onOpenChange={(next) => { if (!next) requestLeave(); }}>
                     <DialogContent hideCloseButton className="overflow-hidden p-0" style={{ width: "min(92vw, 760px)", maxWidth: "min(92vw, 760px)", maxHeight: "88vh" }}>
@@ -264,8 +298,10 @@ export function ExtraContextFilesManager({
             <RemoveExtraContextFileDialog
                 open={!!removeFile}
                 fileName={removeFile?.name ?? ""}
-                onOpenChange={(next) => { if (!next) setConfirmRemoveId(null); }}
-                onConfirm={() => confirmRemoveId && markRemove(confirmRemoveId)}
+                onOpenChange={(next) => { if (!next && !removing) setConfirmRemoveId(null); }}
+                onConfirm={confirmMarkRemove}
+                busy={removing}
+                chrome={isPage ? "standard" : "compact"}
             />
 
             <DiscardExtraContextChangesDialog

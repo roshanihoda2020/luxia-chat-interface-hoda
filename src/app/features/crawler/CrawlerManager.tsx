@@ -12,6 +12,12 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Switch } from "@/app/components/ui/switch";
 import { cn } from "@/app/components/ui/utils";
 import { BusyButton } from "@/app/features/shared/Loading";
+import { ListEmptyState } from "@/app/features/shared/ListEmptyState";
+import { ListNoResultsState } from "@/app/features/shared/ListNoResultsState";
+import {
+    DESTRUCTIVE_CONFIRM,
+    DESTRUCTIVE_REMOVE_DELAY_MS,
+} from "@/app/features/shared/destructiveConfirmCopy";
 import { luxiaToast } from "@/app/features/shared/luxiaToast";
 import { SearchField } from "@/app/features/shared/SearchField";
 import { useManagerLeaveRegistration } from "@/app/features/shared/unsavedNavigationGuard";
@@ -36,19 +42,29 @@ export function CrawlerManager({ open, state, onCommit, onCancel, presentation =
     const [viewId, setViewId] = useState<string | null>(null);
     const [editId, setEditId] = useState<string | null>(null);
     const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
+    const [removing, setRemoving] = useState(false);
     const [discardOpen, setDiscardOpen] = useState(false);
     const [discardIntent, setDiscardIntent] = useState<"leave" | "reset">("leave");
     const [saving, setSaving] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
     const initialRef = useRef(cloneCrawlerState(state));
+    const removeTimerRef = useRef<number | null>(null);
 
     useEffect(() => {
         if (!effectiveOpen) return;
         const snapshot = cloneCrawlerState(state);
         initialRef.current = snapshot;
         setDraft(snapshot);
-        setSearch(""); setAddOpen(false); setViewId(null); setEditId(null); setConfirmRemoveId(null); setDiscardOpen(false); setSaving(false); setSaveError(null);
+        setSearch(""); setAddOpen(false); setViewId(null); setEditId(null); setConfirmRemoveId(null); setRemoving(false); setDiscardOpen(false); setSaving(false); setSaveError(null);
     }, [effectiveOpen, state]);
+
+    useEffect(() => {
+        return () => {
+            if (removeTimerRef.current !== null) {
+                window.clearTimeout(removeTimerRef.current);
+            }
+        };
+    }, []);
 
     const dirty = crawlerSignature(draft) !== crawlerSignature(initialRef.current);
     const visible = useMemo(() => draft.entries.filter((e) => !e.markedForRemoval), [draft.entries]);
@@ -82,7 +98,28 @@ export function CrawlerManager({ open, state, onCommit, onCancel, presentation =
 
     useManagerLeaveRegistration({ closeRef, dirtyRef, dirty, requestLeave });
 
-    function markRemove(id: string) { setDraft((c) => ({ ...c, entries: c.entries.map((e) => e.id === id ? { ...e, markedForRemoval: true } : e) })); setConfirmRemoveId(null); }
+    function confirmMarkRemove() {
+        if (!confirmRemoveId || removing) return;
+        const removeId = confirmRemoveId;
+        setRemoving(true);
+        removeTimerRef.current = window.setTimeout(() => {
+            removeTimerRef.current = null;
+            try {
+                setDraft((c) => ({
+                    ...c,
+                    entries: c.entries.map((e) =>
+                        e.id === removeId ? { ...e, markedForRemoval: true } : e,
+                    ),
+                }));
+                luxiaToast.success(DESTRUCTIVE_CONFIRM.crawler.successToast);
+                setConfirmRemoveId(null);
+            } catch {
+                luxiaToast.error(DESTRUCTIVE_CONFIRM.crawler.errorToast);
+            } finally {
+                setRemoving(false);
+            }
+        }, DESTRUCTIVE_REMOVE_DELAY_MS);
+    }
     function addEntry(values: CrawlerFormValues) {
         setDraft((c) => ({ ...c, entries: [...c.entries, { id: `crawl-${Date.now()}`, url: values.url.trim(), description: values.description.trim(), exactSearch: values.exactSearch }] }));
     }
@@ -148,10 +185,22 @@ export function CrawlerManager({ open, state, onCommit, onCancel, presentation =
 
                         <div className="min-h-0 flex-1 overflow-y-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical px-6 py-5">
                             {filtered.length === 0 ? (
-                                <div className="flex flex-col items-center justify-center py-12 text-center">
-                                    <p className="luxia-type-body-small-strong" style={{ color: LX.primary }}>{search ? "No crawler URLs match your search." : "No crawler URLs yet"}</p>
-                                    {!search ? <Button type="button" className="mt-4 px-4" onClick={() => setAddOpen(true)}><Plus size={14} />Add URL</Button> : null}
-                                </div>
+                                search ? (
+                                    <ListNoResultsState
+                                        title="No crawler URLs match your search."
+                                        className="border-0 bg-transparent px-2 py-10"
+                                    />
+                                ) : (
+                                    <ListEmptyState
+                                        title="No crawler URLs yet"
+                                        className="border-0 bg-transparent px-2 py-10"
+                                        action={
+                                            <Button type="button" className="px-4" onClick={() => setAddOpen(true)}>
+                                                <Plus size={14} />Add URL
+                                            </Button>
+                                        }
+                                    />
+                                )
                             ) : (
                                 <div className="space-y-2">{filtered.map((item) => (
                                     <CrawlerRow key={item.id} item={item} onView={() => setViewId(item.id)} onEdit={() => setEditId(item.id)} onRemove={() => setConfirmRemoveId(item.id)} />
@@ -196,9 +245,7 @@ export function CrawlerManager({ open, state, onCommit, onCancel, presentation =
     return (
         <>
             {isPage ? (
-                <div className="flex flex-col overflow-hidden rounded-[12px] border" style={{ borderColor: LX.border }}>
-                    {shell}
-                </div>
+                shell
             ) : (
                 <Dialog open={open} onOpenChange={(next) => { if (!next) requestLeave(); }}>
                     <DialogContent hideCloseButton className="overflow-hidden p-0" style={{ width: "min(92vw, 760px)", maxWidth: "min(92vw, 760px)", maxHeight: "88vh" }}>
@@ -210,7 +257,13 @@ export function CrawlerManager({ open, state, onCommit, onCancel, presentation =
             <AddCrawlerDialog open={addOpen} onOpenChange={setAddOpen} onAdd={addEntry} />
             {editItem ? <EditCrawlerDialog open={!!editId} onOpenChange={(o) => { if (!o) setEditId(null); }} initialValues={{ url: editItem.url, description: editItem.description, exactSearch: editItem.exactSearch }} onUpdate={updateEntry} /> : null}
             <ViewCrawlerDialog open={!!viewItem} onOpenChange={(o) => { if (!o) setViewId(null); }} item={viewItem} />
-            <RemoveCrawlerDialog open={!!confirmRemoveId} onOpenChange={(o) => { if (!o) setConfirmRemoveId(null); }} onConfirm={() => confirmRemoveId && markRemove(confirmRemoveId)} />
+            <RemoveCrawlerDialog
+                open={!!confirmRemoveId}
+                onOpenChange={(o) => { if (!o && !removing) setConfirmRemoveId(null); }}
+                onConfirm={confirmMarkRemove}
+                busy={removing}
+                chrome={isPage ? "standard" : "compact"}
+            />
             <DiscardCrawlerChangesDialog open={discardOpen} onOpenChange={setDiscardOpen} onDiscard={() => {
                 setDiscardOpen(false);
                 if (discardIntent === "reset") {

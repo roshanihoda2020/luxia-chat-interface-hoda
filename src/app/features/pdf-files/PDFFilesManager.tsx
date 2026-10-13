@@ -6,6 +6,11 @@ import { cn } from "@/app/components/ui/utils";
 import { TagMultiSelectFilter, useFileTagFilter } from "@/app/features/document-tags";
 import { ListEmptyState } from "@/app/features/shared/ListEmptyState";
 import { ListNoResultsState } from "@/app/features/shared/ListNoResultsState";
+import {
+    DESTRUCTIVE_CONFIRM,
+    DESTRUCTIVE_REMOVE_DELAY_MS,
+} from "@/app/features/shared/destructiveConfirmCopy";
+import { luxiaToast } from "@/app/features/shared/luxiaToast";
 import { SearchField } from "@/app/features/shared/SearchField";
 import { useManagerLeaveRegistration } from "@/app/features/shared/unsavedNavigationGuard";
 import { LUXIA_DIALOG_CLOSE_ON_DARK_CLASS } from "@/app/features/shared/structuredModalChrome";
@@ -56,11 +61,13 @@ export function PDFFilesManager({
     const [manageOpen, setManageOpen] = useState(false);
     const [viewId, setViewId] = useState<string | null>(null);
     const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
+    const [removing, setRemoving] = useState(false);
     const [discardOpen, setDiscardOpen] = useState(false);
     const [discardIntent, setDiscardIntent] = useState<"leave" | "reset">("leave");
     const [saving, setSaving] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
     const initialRef = useRef(clonePdfFiles(files));
+    const removeTimerRef = useRef<number | null>(null);
 
     useEffect(() => {
         if (!effectiveOpen) return;
@@ -71,10 +78,19 @@ export function PDFFilesManager({
         setManageOpen(false);
         setViewId(null);
         setConfirmRemoveId(null);
+        setRemoving(false);
         setDiscardOpen(false);
         setSaving(false);
         setSaveError(null);
     }, [effectiveOpen, files]);
+
+    useEffect(() => {
+        return () => {
+            if (removeTimerRef.current !== null) {
+                window.clearTimeout(removeTimerRef.current);
+            }
+        };
+    }, []);
 
     const dirty = pdfFilesSignature(draft) !== pdfFilesSignature(initialRef.current);
     const visibleDraft = useMemo(() => draft.filter((f) => !f.markedForRemoval), [draft]);
@@ -134,9 +150,24 @@ export function PDFFilesManager({
 
     useManagerLeaveRegistration({ closeRef, dirtyRef, dirty, requestLeave });
 
-    function markRemove(id: string) {
-        setDraft((c) => c.map((f) => f.id === id ? { ...f, markedForRemoval: true } : f));
-        setConfirmRemoveId(null);
+    function confirmMarkRemove() {
+        if (!confirmRemoveId || removing) return;
+        const removeId = confirmRemoveId;
+        setRemoving(true);
+        removeTimerRef.current = window.setTimeout(() => {
+            removeTimerRef.current = null;
+            try {
+                setDraft((c) =>
+                    c.map((f) => (f.id === removeId ? { ...f, markedForRemoval: true } : f)),
+                );
+                luxiaToast.success(DESTRUCTIVE_CONFIRM.pdf.successToast);
+                setConfirmRemoveId(null);
+            } catch {
+                luxiaToast.error(DESTRUCTIVE_CONFIRM.pdf.errorToast);
+            } finally {
+                setRemoving(false);
+            }
+        }, DESTRUCTIVE_REMOVE_DELAY_MS);
     }
 
     function handleUpload(file: File) {
@@ -285,9 +316,7 @@ export function PDFFilesManager({
     return (
         <>
             {isPage ? (
-                <div className="flex flex-col overflow-hidden rounded-[12px] border" style={{ borderColor: LX.border }}>
-                    {shell}
-                </div>
+                shell
             ) : (
                 <Dialog open={open} onOpenChange={(next) => { if (!next) requestLeave(); }}>
                     <DialogContent hideCloseButton className="overflow-hidden p-0" style={{ width: "min(92vw, 760px)", maxWidth: "min(92vw, 760px)", maxHeight: "88vh" }}>
@@ -298,7 +327,13 @@ export function PDFFilesManager({
 
             <ManagePDFFilesDialog open={manageOpen} onOpenChange={setManageOpen} catalog={PDF_CATALOG} connectedFiles={draft} onSave={handleManageSave} />
             <PDFPreviewDialog open={!!viewFile} onOpenChange={(o) => { if (!o) setViewId(null); }} file={viewFile} />
-            <RemovePDFDialog open={!!confirmRemoveId} onOpenChange={(o) => { if (!o) setConfirmRemoveId(null); }} onConfirm={() => confirmRemoveId && markRemove(confirmRemoveId)} />
+            <RemovePDFDialog
+                open={!!confirmRemoveId}
+                onOpenChange={(o) => { if (!o && !removing) setConfirmRemoveId(null); }}
+                onConfirm={confirmMarkRemove}
+                busy={removing}
+                chrome={isPage ? "standard" : "compact"}
+            />
             <DiscardPDFChangesDialog open={discardOpen} onOpenChange={setDiscardOpen} onDiscard={() => {
                 setDiscardOpen(false);
                 if (discardIntent === "reset") {

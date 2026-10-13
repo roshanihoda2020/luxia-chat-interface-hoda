@@ -90,7 +90,7 @@ export function KBEntryMenu({
             {canRemove ? (
                 <>
                     <Separator className="my-1" />
-                    <button type="button" role="menuitem" onClick={() => runAction(onRemove)} className="flex w-full cursor-pointer items-center gap-2 rounded-[10px] px-3 py-2 text-left luxia-type-body-dense-strong outline-none whitespace-nowrap" style={{ color: LX.error }}><Trash2 size={14} />Remove</button>
+                    <button type="button" role="menuitem" onClick={() => runAction(onRemove)} className="flex w-full cursor-pointer items-center gap-2 rounded-[10px] px-3 py-2 text-left luxia-type-body-dense-strong outline-none whitespace-nowrap" style={{ color: LX.error }}><Trash2 size={14} />Delete</button>
                 </>
             ) : null}
         </div>,

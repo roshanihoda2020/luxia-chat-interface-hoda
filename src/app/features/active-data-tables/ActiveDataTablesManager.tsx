@@ -3,6 +3,11 @@ import { useEffect, useMemo, useRef, useState, type MutableRefObject } from "rea
 import { Button } from "@/app/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/app/components/ui/dialog";
 import { cn } from "@/app/components/ui/utils";
+import { ConfirmDialog } from "@/app/features/shared/ConfirmDialog";
+import {
+    DESTRUCTIVE_CONFIRM,
+    DESTRUCTIVE_REMOVE_DELAY_MS,
+} from "@/app/features/shared/destructiveConfirmCopy";
 import { DiscardChangesDialog } from "@/app/features/shared/DiscardChangesDialog";
 import { ListEmptyState } from "@/app/features/shared/ListEmptyState";
 import { ListNoResultsState } from "@/app/features/shared/ListNoResultsState";
@@ -10,16 +15,6 @@ import { luxiaToast } from "@/app/features/shared/luxiaToast";
 import { SearchField } from "@/app/features/shared/SearchField";
 import { useManagerLeaveRegistration } from "@/app/features/shared/unsavedNavigationGuard";
 import { LUXIA_DIALOG_CLOSE_ON_DARK_CLASS } from "@/app/features/shared/structuredModalChrome";
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from "@/app/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/components/ui/select";
 import { Switch } from "@/app/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/app/components/ui/table";
@@ -29,6 +24,7 @@ import { TableRowMenu } from "./TableRowMenu";
 import { LX } from "./tokens";
 import type { DataTableCatalogItem, DataTableRecord } from "./types";
 import { cloneTables, tableSignature } from "./utils";
+
 
 export function ActiveDataTablesManager({
     open,
@@ -43,6 +39,7 @@ export function ActiveDataTablesManager({
     closeRef,
     dirtyRef,
     hideChrome,
+    readOnly = false,
 }: {
     open: boolean;
     tables: DataTableRecord[];
@@ -56,6 +53,7 @@ export function ActiveDataTablesManager({
     closeRef?: MutableRefObject<(() => void) | null>;
     dirtyRef?: MutableRefObject<boolean>;
     hideChrome?: boolean;
+    readOnly?: boolean;
 }) {
     const isPage = presentation === "page";
     const effectiveOpen = isPage ? true : open;
@@ -66,11 +64,13 @@ export function ActiveDataTablesManager({
     const [addQuery, setAddQuery] = useState("");
     const [addSelected, setAddSelected] = useState<string[]>([]);
     const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
+    const [removing, setRemoving] = useState(false);
     const [draggingId, setDraggingId] = useState<string | null>(null);
     const [dropId, setDropId] = useState<string | null>(null);
     const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
     const [discardIntent, setDiscardIntent] = useState<"leave" | "reset">("leave");
     const initialRef = useRef(cloneTables(tables));
+    const removeTimerRef = useRef<number | null>(null);
 
     useEffect(() => {
         if (!effectiveOpen) return;
@@ -82,12 +82,25 @@ export function ActiveDataTablesManager({
         setAddQuery("");
         setAddSelected([]);
         setConfirmRemoveId(null);
+        setRemoving(false);
         setDraggingId(null);
         setDropId(null);
         setDiscardConfirmOpen(false);
+        if (removeTimerRef.current !== null) {
+            window.clearTimeout(removeTimerRef.current);
+            removeTimerRef.current = null;
+        }
     }, [effectiveOpen, tables]);
 
-    const dirty = tableSignature(draft) !== tableSignature(initialRef.current);
+    useEffect(() => {
+        return () => {
+            if (removeTimerRef.current !== null) {
+                window.clearTimeout(removeTimerRef.current);
+            }
+        };
+    }, []);
+
+    const dirty = !readOnly && tableSignature(draft) !== tableSignature(initialRef.current);
     const filtered = useMemo(() => {
         const lowered = search.trim().toLowerCase();
         if (!lowered) return draft;
@@ -96,11 +109,12 @@ export function ActiveDataTablesManager({
     const activeCount = draft.filter((table) => table.active).length;
 
     function patchTable(id: string, patch: Partial<DataTableRecord>) {
+        if (readOnly) return;
         setDraft((current) => current.map((table) => table.id === id ? { ...table, ...patch } : table));
     }
 
     function reorder(fromId: string, toId: string) {
-        if (fromId === toId) return;
+        if (readOnly || fromId === toId) return;
         setDraft((current) => {
             const fromIndex = current.findIndex((table) => table.id === fromId);
             const toIndex = current.findIndex((table) => table.id === toId);
@@ -113,6 +127,7 @@ export function ActiveDataTablesManager({
     }
 
     function moveTable(id: string, direction: -1 | 1) {
+        if (readOnly) return;
         setDraft((current) => {
             const index = current.findIndex((table) => table.id === id);
             const nextIndex = index + direction;
@@ -124,12 +139,29 @@ export function ActiveDataTablesManager({
         });
     }
 
-    function removeTable(id: string) {
-        setDraft((current) => current.filter((table) => table.id !== id));
-        setConfirmRemoveId(null);
+    function confirmRemove() {
+        if (readOnly || !confirmRemoveId || removing) return;
+        const removeId = confirmRemoveId;
+        setRemoving(true);
+        removeTimerRef.current = window.setTimeout(() => {
+            removeTimerRef.current = null;
+            try {
+                const next = cloneTables(draft.filter((table) => table.id !== removeId));
+                onCommit(next);
+                initialRef.current = next;
+                setDraft(next);
+                luxiaToast.success(DESTRUCTIVE_CONFIRM.table.successToast);
+                setConfirmRemoveId(null);
+            } catch {
+                luxiaToast.error(DESTRUCTIVE_CONFIRM.table.errorToast);
+            } finally {
+                setRemoving(false);
+            }
+        }, DESTRUCTIVE_REMOVE_DELAY_MS);
     }
 
     function addSelectedTables() {
+        if (readOnly) return;
         const next = addSelected
             .map((id) => catalog.find((table) => table.id === id))
             .filter((table): table is DataTableCatalogItem => Boolean(table))
@@ -141,6 +173,7 @@ export function ActiveDataTablesManager({
     }
 
     function save() {
+        if (readOnly || !dirty) return;
         const next = cloneTables(draft);
         onCommit(next);
         initialRef.current = next;
@@ -151,6 +184,7 @@ export function ActiveDataTablesManager({
     }
 
     function requestLeave() {
+        if (removing) return;
         if (dirty) {
             setDiscardIntent("leave");
             setDiscardConfirmOpen(true);
@@ -209,9 +243,11 @@ export function ActiveDataTablesManager({
                                             placeholder="Search data tables..."
                                             aria-label="Search data tables"
                                         />
-                                        <Button variant="primary" size="compact" onClick={() => setAddMode(true)}>
-                                            <Plus size={14} />Add Data Table
-                                        </Button>
+                                        {!readOnly ? (
+                                            <Button variant="primary" size="compact" onClick={() => setAddMode(true)}>
+                                                <Plus size={14} />Add Data Table
+                                            </Button>
+                                        ) : null}
                                     </div>
                                 </div>
 
@@ -243,14 +279,38 @@ export function ActiveDataTablesManager({
                                                     return (
                                                         <TableRow
                                                             key={table.id}
-                                                            onDragOver={(event) => { event.preventDefault(); setDropId(table.id); }}
-                                                            onDrop={(event) => { event.preventDefault(); if (draggingId) reorder(draggingId, table.id); setDraggingId(null); setDropId(null); }}
+                                                            onDragOver={(event) => {
+                                                                if (readOnly) return;
+                                                                event.preventDefault();
+                                                                setDropId(table.id);
+                                                            }}
+                                                            onDrop={(event) => {
+                                                                if (readOnly) return;
+                                                                event.preventDefault();
+                                                                if (draggingId) reorder(draggingId, table.id);
+                                                                setDraggingId(null);
+                                                                setDropId(null);
+                                                            }}
                                                             onDragEnd={() => { setDraggingId(null); setDropId(null); }}
                                                             className="transition-colors"
                                                             style={{ background: dropId === table.id ? LX.state.secondary04 : undefined }}
                                                         >
                                                             <TableCell>
-                                                                <button type="button" draggable onDragStart={(event) => { event.dataTransfer.effectAllowed = "move"; setDraggingId(table.id); }} className="flex h-8 w-8 cursor-grab items-center justify-center rounded-full transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2" aria-label={`Drag ${table.displayName}`}>
+                                                                <button
+                                                                    type="button"
+                                                                    draggable={!readOnly}
+                                                                    disabled={readOnly}
+                                                                    onDragStart={(event) => {
+                                                                        if (readOnly) {
+                                                                            event.preventDefault();
+                                                                            return;
+                                                                        }
+                                                                        event.dataTransfer.effectAllowed = "move";
+                                                                        setDraggingId(table.id);
+                                                                    }}
+                                                                    className="flex h-8 w-8 cursor-grab items-center justify-center rounded-full transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-default disabled:opacity-40"
+                                                                    aria-label={`Drag ${table.displayName}`}
+                                                                >
                                                                     <GripVertical size={14} style={{ color: LX.textMuted }} />
                                                                 </button>
                                                             </TableCell>
@@ -279,7 +339,12 @@ export function ActiveDataTablesManager({
                                                                 </div>
                                                             </TableCell>
                                                             <TableCell>
-                                                                <Switch checked={table.active} onCheckedChange={(next) => patchTable(table.id, { active: next })} aria-label={`${table.displayName} active state`} />
+                                                                <Switch
+                                                                    checked={table.active}
+                                                                    disabled={readOnly}
+                                                                    onCheckedChange={(next) => patchTable(table.id, { active: next })}
+                                                                    aria-label={`${table.displayName} active state`}
+                                                                />
                                                             </TableCell>
                                                             <TableCell>
                                                                 <div
@@ -289,14 +354,34 @@ export function ActiveDataTablesManager({
                                                                     onClick={(event) => event.stopPropagation()}
                                                                 >
                                                                     <TableRowMenu
-                                                                    onMoveUp={rowIndex > 0 ? () => moveTable(table.id, -1) : undefined}
-                                                                    onMoveDown={rowIndex >= 0 && rowIndex < draft.length - 1 ? () => moveTable(table.id, 1) : undefined}
-                                                                    disableMoveUp={rowIndex <= 0}
-                                                                    disableMoveDown={rowIndex < 0 || rowIndex >= draft.length - 1}
+                                                                    onMoveUp={
+                                                                        !readOnly && rowIndex > 0
+                                                                            ? () => moveTable(table.id, -1)
+                                                                            : undefined
+                                                                    }
+                                                                    onMoveDown={
+                                                                        !readOnly && rowIndex >= 0 && rowIndex < draft.length - 1
+                                                                            ? () => moveTable(table.id, 1)
+                                                                            : undefined
+                                                                    }
+                                                                    disableMoveUp={readOnly || rowIndex <= 0}
+                                                                    disableMoveDown={readOnly || rowIndex < 0 || rowIndex >= draft.length - 1}
                                                                     onView={() => onPreview(table.id)}
-                                                                    onEditDetails={() => onEditDetails(table.id)}
-                                                                    onConfigureColumns={() => onConfigureColumns(table.id)}
-                                                                    onRemove={() => setConfirmRemoveId(table.id)}
+                                                                    onEditDetails={
+                                                                        readOnly
+                                                                            ? undefined
+                                                                            : () => onEditDetails(table.id)
+                                                                    }
+                                                                    onConfigureColumns={
+                                                                        readOnly
+                                                                            ? undefined
+                                                                            : () => onConfigureColumns(table.id)
+                                                                    }
+                                                                    onRemove={
+                                                                        readOnly
+                                                                            ? undefined
+                                                                            : () => setConfirmRemoveId(table.id)
+                                                                    }
                                                                 />
                                                                 </div>
                                                             </TableCell>
@@ -328,12 +413,14 @@ export function ActiveDataTablesManager({
                         <div className="flex-shrink-0 border-t px-6 py-4" style={{ borderColor: LX.border, background: LX.surface }}>
                             <div className="flex items-center justify-between gap-3">
                                 <span className="luxia-type-metadata" style={{ color: LX.textMuted }}>{activeCount} active tables</span>
-                                <div className="flex items-center gap-2">
-                                    {dirty || !isPage ? (
-                                        <Button variant="secondary" className="px-4" onClick={requestCancelEdits}>Cancel</Button>
-                                    ) : null}
-                                    <Button variant="primary" className="px-4 !bg-[var(--luxia-purple-70)] !bg-none disabled:!opacity-[0.45]" disabled={!dirty} onClick={save}>Save changes</Button>
-                                </div>
+                                {!readOnly ? (
+                                    <div className="flex items-center gap-2">
+                                        {dirty || !isPage ? (
+                                            <Button variant="secondary" className="px-4" onClick={requestCancelEdits}>Cancel</Button>
+                                        ) : null}
+                                        <Button variant="primary" className="px-4 !bg-[var(--luxia-purple-70)] !bg-none disabled:!opacity-[0.45]" disabled={!dirty || removing} onClick={save}>Save changes</Button>
+                                    </div>
+                                ) : null}
                             </div>
                         </div>
                     ) : null}
@@ -343,9 +430,7 @@ export function ActiveDataTablesManager({
     return (
         <>
             {isPage ? (
-                <div className="flex flex-col overflow-hidden rounded-[12px] border" style={{ borderColor: LX.border }}>
-                    {shell}
-                </div>
+                shell
             ) : (
                 <Dialog open={open} onOpenChange={(next) => { if (!next) requestLeave(); }}>
                     <DialogContent
@@ -369,18 +454,21 @@ export function ActiveDataTablesManager({
                     onCancel();
                 }}
             />
-            <AlertDialog open={!!confirmRemoveId} onOpenChange={(next) => { if (!next) setConfirmRemoveId(null); }}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Remove from constellation?</AlertDialogTitle>
-                        <AlertDialogDescription>This removes the table from this constellation only. The source table will not be deleted.</AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel onClick={() => setConfirmRemoveId(null)}>Cancel</AlertDialogCancel>
-                        <AlertDialogAction style={{ background: LX.error }} className="text-white hover:opacity-90" onClick={() => confirmRemoveId && removeTable(confirmRemoveId)}>Remove</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+            <ConfirmDialog
+                open={Boolean(confirmRemoveId)}
+                onOpenChange={(next) => {
+                    if (!next && !removing) setConfirmRemoveId(null);
+                }}
+                tone="destructive"
+                chrome={isPage ? "standard" : "compact"}
+                title={DESTRUCTIVE_CONFIRM.table.title}
+                description={DESTRUCTIVE_CONFIRM.table.description}
+                cancelLabel="Cancel"
+                confirmLabel={DESTRUCTIVE_CONFIRM.table.confirmLabel}
+                busy={removing}
+                busyLabel={DESTRUCTIVE_CONFIRM.table.busyLabel}
+                onConfirm={confirmRemove}
+            />
         </>
     );
 }

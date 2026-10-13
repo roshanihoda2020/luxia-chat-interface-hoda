@@ -1,9 +1,9 @@
-import { ChevronDown, Globe, Plus, SquareArrowOutUpRight } from "lucide-react";
+import { ChevronDown, Globe, Plus, Search, SquareArrowOutUpRight, X } from "lucide-react";
+import { useState } from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/app/components/ui/tooltip";
 import { CrawlerMenu } from "./CrawlerMenu";
-import { IC, IC_BTN_ICON, IC_BTN_OPEN, IC_CARD_HEADER, icCardStyle, icHoverOff, icHoverOn, icOpenActiveOn } from "../active-data-tables/inspectorTheme";
+import { IC, IC_BTN_ICON, IC_BTN_OPEN, IC_CARD_HEADER, IC_INPUT_TEXT, IC_SEARCH_SHELL, IC_SEARCH_SHELL_STYLE, icCardStyle, icHoverOff, icHoverOn, icOpenActiveOn, icSearchShellBlur, icSearchShellFocus, icSearchShellHoverOff, icSearchShellHoverOn } from "../active-data-tables/inspectorTheme";
 import type { CrawlerEntry } from "./types";
-
 
 export function CompactCrawlerList({
     entries,
@@ -24,26 +24,29 @@ export function CompactCrawlerList({
     onRemove?: (id: string) => void;
     readOnly?: boolean;
 }) {
+    const [search, setSearch] = useState("");
     const visible = entries.filter((e) => !e.markedForRemoval);
+    const lowered = search.trim().toLowerCase();
+    const filtered = visible.filter((entry) =>
+        !lowered || [entry.url, entry.description].join(" ").toLowerCase().includes(lowered),
+    );
 
     return (
         <div style={icCardStyle(isOpen)}>
             <div className={IC_CARD_HEADER}>
                 <Globe size={14} color={IC.iconSemantic} className="flex-shrink-0" />
                 <span className="flex-1 truncate luxia-type-title-component" style={{ color: IC.iconSemantic }}>Crawler URLs</span>
-                {!readOnly ? (
                 <Tooltip>
                     <TooltipTrigger asChild>
-                        <button type="button" className={IC_BTN_OPEN} aria-label="Open full editor"
+                        <button type="button" className={IC_BTN_OPEN} aria-label={readOnly ? "View Crawler URLs" : "Open Crawler URLs"}
                             onClick={(e) => { e.stopPropagation(); onOpenManager(); }}
                             onMouseEnter={icHoverOn} onMouseLeave={icHoverOff}
                             onMouseDown={icOpenActiveOn} onMouseUp={icHoverOn}>
                             <SquareArrowOutUpRight size={14} strokeWidth={2} style={{ color: IC.textMuted }} />
                         </button>
                     </TooltipTrigger>
-                    <TooltipContent sideOffset={6}>Open full editor</TooltipContent>
+                    <TooltipContent sideOffset={6}>{readOnly ? "View Crawler URLs" : "Open Crawler URLs"}</TooltipContent>
                 </Tooltip>
-                ) : null}
                 <Tooltip>
                     <TooltipTrigger asChild>
                         <button className={IC_BTN_ICON} aria-label={isOpen ? "Collapse" : "Expand"} onClick={onToggle}
@@ -57,44 +60,56 @@ export function CompactCrawlerList({
 
             {isOpen && (
                 <div className="px-2 pb-2.5" style={{ borderTop: `1px solid ${IC.borderSubtle}` }}>
-                    {visible.length === 0 ? (
-                        <p className="px-2 py-2 luxia-type-caption mt-1" style={{ color: IC.textMuted }}>No URLs yet.</p>
+                    <div
+                        className={IC_SEARCH_SHELL}
+                        style={IC_SEARCH_SHELL_STYLE}
+                        onMouseEnter={icSearchShellHoverOn}
+                        onMouseLeave={icSearchShellHoverOff}
+                    >
+                        <Search size={10} style={{ color: IC.inputIcon }} />
+                        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search…"
+                            className={`flex-1 ${IC_INPUT_TEXT}`} style={{ color: IC.textPrimary }}
+                            aria-label="Search crawler URLs"
+                            onFocus={icSearchShellFocus}
+                            onBlur={icSearchShellBlur} />
+                        {search ? (
+                            <button type="button" aria-label="Clear search" onClick={() => setSearch("")} className="outline-none">
+                                <X size={9} style={{ color: IC.inputIcon }} />
+                            </button>
+                        ) : null}
+                    </div>
+
+                    {filtered.length === 0 ? (
+                        <p className="px-2 py-2 luxia-type-caption" style={{ color: IC.textMuted }}>
+                            {search ? "No matches." : "No URLs yet."}
+                        </p>
                     ) : (
-                        <div className="pt-1.5">
-                            {visible.map((entry) => (
-                                <div key={entry.id}
-                                    className="flex items-center gap-1.5 px-2 py-1.5 rounded-[7px] transition-colors"
-                                    style={{ background: "transparent" }}
-                                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = IC.hover; }}
-                                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
-                                    <Globe size={10} color={IC.iconSemantic} className="flex-shrink-0" />
-                                    <span className="min-w-0 flex-1 truncate luxia-type-caption" style={{ color: IC.textPrimary }}>{entry.url}</span>
-                                    <div className="relative z-20 flex-shrink-0" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
-                                        {readOnly || !onEdit || !onRemove ? (
-                                            <button
-                                                type="button"
-                                                className="luxia-type-caption px-1.5 py-0.5 rounded-[6px] outline-none"
-                                                style={{ color: IC.textMuted }}
-                                                onClick={() => onView(entry.id)}
-                                            >
-                                                View
-                                            </button>
-                                        ) : (
-                                            <CrawlerMenu onView={() => onView(entry.id)} onEdit={() => onEdit(entry.id)} onRemove={() => onRemove(entry.id)} />
-                                        )}
-                                    </div>
+                        filtered.map((entry) => (
+                            <div key={entry.id}
+                                className="flex items-center gap-1.5 px-2 py-1.5 rounded-[7px] transition-colors"
+                                style={{ background: "transparent" }}
+                                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = IC.hover; }}
+                                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
+                                <Globe size={10} color={IC.iconSemantic} className="flex-shrink-0" />
+                                <span className="min-w-0 flex-1 truncate luxia-type-caption" style={{ color: IC.textPrimary }}>{entry.url}</span>
+                                <div className="relative z-20 flex-shrink-0" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
+                                    <CrawlerMenu
+                                        onView={() => onView(entry.id)}
+                                        onEdit={!readOnly && onEdit ? () => onEdit(entry.id) : undefined}
+                                        onRemove={!readOnly && onRemove ? () => onRemove(entry.id) : undefined}
+                                    />
                                 </div>
-                            ))}
-                        </div>
+                            </div>
+                        ))
                     )}
                     {!readOnly ? (
-                    <button type="button" onClick={onOpenManager}
-                        className="mt-1 w-full flex items-center gap-1.5 px-2 py-1.5 rounded-[7px] luxia-type-caption transition-colors outline-none"
-                        style={{ color: IC.textMuted }}
-                        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = IC.hover; }}
-                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
-                        <Plus size={10} />Add URL
-                    </button>
+                        <button type="button" onClick={onOpenManager}
+                            className="mt-1 w-full flex items-center gap-1.5 px-2 py-1.5 rounded-[7px] luxia-type-caption transition-colors outline-none"
+                            style={{ color: IC.textMuted }}
+                            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = IC.hover; }}
+                            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
+                            <Plus size={10} />Add URL
+                        </button>
                     ) : null}
                 </div>
             )}

@@ -30,6 +30,7 @@ export function InstructionManager({
     closeRef,
     dirtyRef,
     hideChrome,
+    readOnly = false,
 }: {
     open: boolean;
     data: InstructionData;
@@ -39,6 +40,7 @@ export function InstructionManager({
     closeRef?: MutableRefObject<(() => void) | null>;
     dirtyRef?: MutableRefObject<boolean>;
     hideChrome?: boolean;
+    readOnly?: boolean;
 }) {
     const isPage = presentation === "page";
     const effectiveOpen = isPage ? true : open;
@@ -62,7 +64,7 @@ export function InstructionManager({
         setSaveNotice(null);
     }, [effectiveOpen, data]);
 
-    const dirty = instructionSignature(draft) !== instructionSignature(initialRef.current);
+    const dirty = !readOnly && instructionSignature(draft) !== instructionSignature(initialRef.current);
 
     function resetDraft() {
         const snapshot = cloneInstruction(initialRef.current);
@@ -99,13 +101,14 @@ export function InstructionManager({
     useManagerLeaveRegistration({ closeRef, dirtyRef, dirty, requestLeave });
 
     function handleTextChange(value: string) {
+        if (readOnly) return;
         if (value.length > INSTRUCTION_MAX_CHARS) return;
         setDraft((current) => ({ ...current, text: value }));
         setSaveNotice(null);
     }
 
     function save() {
-        if (!dirty || saving) return;
+        if (readOnly || !dirty || saving) return;
         setSaving(true);
         setSaveError(null);
         window.setTimeout(() => {
@@ -132,7 +135,9 @@ export function InstructionManager({
                         <div className="min-w-0 flex-1">
                             <DialogTitle className="luxia-type-title-modal">Instruction</DialogTitle>
                             <DialogDescription className="mt-1.5 luxia-type-metadata">
-                                Write guidance for how this constellation should respond. Changes are local until saved.
+                                {readOnly
+                                    ? "View guidance for how this constellation should respond."
+                                    : "Write guidance for how this constellation should respond. Changes are local until saved."}
                             </DialogDescription>
                         </div>
                         <Button
@@ -156,9 +161,11 @@ export function InstructionManager({
                         onChange={(event) => handleTextChange(event.target.value)}
                         placeholder="Write instructions for this constellation…"
                         rows={14}
+                        readOnly={readOnly}
                         className="min-h-[280px] resize-y rounded-[12px] pb-8 luxia-type-body-small"
                         aria-label="Instruction text"
                         aria-describedby="instruction-char-count"
+                        aria-readonly={readOnly || undefined}
                     />
                     <p
                         id="instruction-char-count"
@@ -171,6 +178,7 @@ export function InstructionManager({
                 </div>
             </div>
 
+            {!readOnly ? (
             <div className="flex-shrink-0 border-t px-6 py-4" style={{ borderColor: LX.border }}>
                 {saveError ? <p className="mb-3 luxia-type-metadata" role="alert" style={{ color: LX.error }}>{saveError}</p> : null}
                 {saveNotice && !dirty ? (
@@ -203,15 +211,14 @@ export function InstructionManager({
                     </div>
                 </div>
             </div>
+            ) : null}
         </div>
     );
 
     return (
         <>
             {isPage ? (
-                <div className="flex flex-col overflow-hidden rounded-[12px] border" style={{ borderColor: LX.border }}>
-                    {shell}
-                </div>
+                shell
             ) : (
                 <Dialog open={open} onOpenChange={(next) => { if (!next) requestLeave(); }}>
                     <DialogContent
@@ -224,6 +231,7 @@ export function InstructionManager({
                 </Dialog>
             )}
 
+            {!readOnly ? (
             <DiscardInstructionChangesDialog
                 open={discardOpen}
                 onOpenChange={setDiscardOpen}
@@ -236,6 +244,7 @@ export function InstructionManager({
                     onCancel();
                 }}
             />
+            ) : null}
         </>
     );
 }

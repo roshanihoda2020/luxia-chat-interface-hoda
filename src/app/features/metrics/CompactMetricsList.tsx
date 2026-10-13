@@ -1,8 +1,8 @@
 import { BarChart3, ChevronDown, Plus, Search, SquareArrowOutUpRight, X } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/app/components/ui/tooltip";
 import { IC, IC_BTN_ICON, IC_BTN_OPEN, IC_CARD_HEADER, IC_INPUT_TEXT, IC_SEARCH_SHELL, IC_SEARCH_SHELL_STYLE, icCardStyle, icHoverOff, icHoverOn, icOpenActiveOn, icSearchShellBlur, icSearchShellFocus, icSearchShellHoverOff, icSearchShellHoverOn } from "../active-data-tables/inspectorTheme";
+import { MetricMenu } from "./MetricMenu";
 import type { MetricRecord } from "./types";
-
 
 export function CompactMetricsList({
     metrics,
@@ -11,6 +11,10 @@ export function CompactMetricsList({
     onSearchChange,
     onToggle,
     onOpenManager,
+    onView,
+    onEdit,
+    onRemove,
+    readOnly = false,
 }: {
     metrics: MetricRecord[];
     isOpen: boolean;
@@ -18,6 +22,10 @@ export function CompactMetricsList({
     onSearchChange: (value: string) => void;
     onToggle: () => void;
     onOpenManager: () => void;
+    onView: (id: string) => void;
+    onEdit?: (id: string) => void;
+    onRemove?: (id: string) => void;
+    readOnly?: boolean;
 }) {
     const visible = metrics.filter((item) => !item.markedForRemoval);
     const lowered = search.trim().toLowerCase();
@@ -30,14 +38,14 @@ export function CompactMetricsList({
                 <span className="flex-1 truncate luxia-type-title-component" style={{ color: IC.iconSemantic }}>Metrics</span>
                 <Tooltip>
                     <TooltipTrigger asChild>
-                        <button type="button" className={IC_BTN_OPEN} aria-label="Open Metrics settings"
+                        <button type="button" className={IC_BTN_OPEN} aria-label={readOnly ? "View Metrics" : "Open Metrics"}
                             onClick={(e) => { e.stopPropagation(); onOpenManager(); }}
                             onMouseEnter={icHoverOn} onMouseLeave={icHoverOff}
                             onMouseDown={icOpenActiveOn} onMouseUp={icHoverOn}>
                             <SquareArrowOutUpRight size={14} strokeWidth={2} style={{ color: IC.textMuted }} aria-hidden />
                         </button>
                     </TooltipTrigger>
-                    <TooltipContent sideOffset={6}>Open Metrics settings</TooltipContent>
+                    <TooltipContent sideOffset={6}>{readOnly ? "View Metrics" : "Open Metrics"}</TooltipContent>
                 </Tooltip>
                 <Tooltip>
                     <TooltipTrigger asChild>
@@ -84,17 +92,26 @@ export function CompactMetricsList({
                                 onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
                                 <BarChart3 size={10} color={IC.iconSemantic} className="flex-shrink-0" />
                                 <span className="min-w-0 flex-1 truncate luxia-type-caption" style={{ color: IC.textPrimary }}>{item.name}</span>
+                                <div className="relative z-20 flex-shrink-0" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
+                                    <MetricMenu
+                                        onView={() => onView(item.id)}
+                                        onEdit={!readOnly && onEdit ? () => onEdit(item.id) : undefined}
+                                        onRemove={!readOnly && onRemove ? () => onRemove(item.id) : undefined}
+                                    />
+                                </div>
                             </div>
                         ))
                     )}
 
-                    <button type="button" onClick={onOpenManager}
-                        className="mt-1 w-full flex items-center gap-1.5 px-2 py-1.5 rounded-[7px] luxia-type-caption transition-colors outline-none"
-                        style={{ color: IC.textMuted }}
-                        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = IC.hover; }}
-                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
-                        <Plus size={10} />Add metric
-                    </button>
+                    {!readOnly ? (
+                        <button type="button" onClick={onOpenManager}
+                            className="mt-1 w-full flex items-center gap-1.5 px-2 py-1.5 rounded-[7px] luxia-type-caption transition-colors outline-none"
+                            style={{ color: IC.textMuted }}
+                            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = IC.hover; }}
+                            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
+                            <Plus size={10} />Add metric
+                        </button>
+                    ) : null}
                 </div>
             )}
         </div>
