@@ -520,6 +520,19 @@ export function useDataSourceTags(dataSourceId: string) {
     writeOrganizationTagLibrary(next);
   }, [dataSourceId]);
 
+  /** Drop all tag assignments for a document (e.g. after the file is deleted). */
+  const clearFileAssignments = useCallback((fileName: string) => {
+    const next = latestLibrary();
+    const files = { ...(next.fileAssignments[dataSourceId] ?? {}) };
+    delete files[fileIdentity(fileName)];
+    if (Object.keys(files).length > 0) {
+      next.fileAssignments[dataSourceId] = files;
+    } else {
+      delete next.fileAssignments[dataSourceId];
+    }
+    writeOrganizationTagLibrary(next);
+  }, [dataSourceId]);
+
   const tagsForTable = useCallback((tableId: string) => {
     return resolveTagIds(
       library.definitions,
@@ -611,6 +624,7 @@ export function useDataSourceTags(dataSourceId: string) {
     applyTagToFiles,
     createAndApplyTagToFiles,
     removeTagFromFile,
+    clearFileAssignments,
     tagsForTable,
     applyTagToTables,
     createAndApplyTagToTables,

@@ -1,12 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { toast } from "sonner";
+import { LuxiaEntityOptionsMenu } from "@/app/components/LuxiaEntityOptionsMenu";
 import { Button } from "@/app/components/ui/button";
 import { Checkbox } from "@/app/components/ui/checkbox";
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
+import { FileInUseDialog } from "@/app/features/data-sources/FileInUseDialog";
+import {
+  getFileInUseDependencies,
+  type FileInUseDependency,
+} from "@/app/features/data-sources/fileInUse";
 import { HS } from "@/app/features/home/homeSurfaces";
 import { canManageOrganizationTagDefinitions } from "@/app/features/permissions";
+import { ConfirmDialog } from "@/app/features/shared/ConfirmDialog";
+import { luxiaToast } from "@/app/features/shared/luxiaToast";
 import { LUXIA_SETTINGS_LIST_SURFACE_CLASS } from "@/app/features/shared/luxiaSettingsUx";
 import { DocumentTagChip, TAG_CHIP_LIST_CLASS } from "./DocumentTagChip";
 import { DocumentTagPicker } from "./DocumentTagPicker";
@@ -29,16 +37,29 @@ export function FileDataSourceDocumentsPanel({
   fileNames,
   canEdit,
   currentUserId,
+  onDeleteDocument,
+  onOpenConstellation,
 }: {
   dataSourceId: string;
   fileNames: readonly string[];
   canEdit: boolean;
   currentUserId?: string;
+  /**
+   * Persist removal from the canonical Data Source document list.
+   * Only called after ConfirmDialog when the file is unused.
+   */
+  onDeleteDocument?: (fileName: string) => void;
+  onOpenConstellation?: (projectId: string, constellationId: string) => void;
 }) {
   const [query, setQuery] = useState("");
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [untaggedSelected, setUntaggedSelected] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [inUse, setInUse] = useState<{
+    fileName: string;
+    dependencies: FileInUseDependency[];
+  } | null>(null);
 
   const {
     catalog,
@@ -46,9 +67,11 @@ export function FileDataSourceDocumentsPanel({
     applyTagToFiles,
     createAndApplyTagToFiles,
     removeTagFromFile,
+    clearFileAssignments,
     updateTag,
   } = useDataSourceTags(dataSourceId);
   const canManageDefinitions = canManageOrganizationTagDefinitions(currentUserId);
+  const canDelete = Boolean(canEdit && onDeleteDocument);
 
   const fileTagOptions = useMemo(() => {
     const seen = new Set<string>();
@@ -79,6 +102,14 @@ export function FileDataSourceDocumentsPanel({
   useEffect(() => {
     if (!hasUntaggedDocuments) setUntaggedSelected(false);
   }, [hasUntaggedDocuments]);
+
+  useEffect(() => {
+    const valid = new Set(fileNames);
+    setSelected((current) => {
+      const next = current.filter((name) => valid.has(name));
+      return next.length === current.length ? current : next;
+    });
+  }, [fileNames]);
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -164,6 +195,28 @@ export function FileDataSourceDocumentsPanel({
     if (error) return error;
     toast.success("Tag updated.");
     return null;
+  }
+
+  function handleConfirmDelete() {
+    if (!deleteTarget || !onDeleteDocument) return;
+    const fileName = deleteTarget;
+    // Re-resolve on every attempt — never cache a stale in-use decision.
+    const dependencies = getFileInUseDependencies(dataSourceId, fileName);
+    setDeleteTarget(null);
+
+    if (dependencies.length > 0) {
+      // Hard block: no file, tag, or selection mutation.
+      setInUse({ fileName, dependencies });
+      return;
+    }
+
+    clearFileAssignments(fileName);
+    onDeleteDocument(fileName);
+    setSelected((current) => current.filter((name) => name !== fileName));
+    luxiaToast.success({
+      title: "File deleted",
+      description: fileName,
+    });
   }
 
   const bulkBar = canEdit && visibleSelected.length > 0 ? (
@@ -262,6 +315,11 @@ export function FileDataSourceDocumentsPanel({
                     <th scope="col" className={TABLE_HEADER_CELL}>Document</th>
                     <th scope="col" className={TABLE_HEADER_CELL}>Format</th>
                     <th scope="col" className={TABLE_HEADER_CELL}>Tags</th>
+                    {canDelete ? (
+                      <th scope="col" className={`${TABLE_HEADER_CELL} w-12`}>
+                        <span className="sr-only">Actions</span>
+                      </th>
+                    ) : null}
                   </tr>
                 </thead>
                 <tbody>
@@ -278,8 +336,11 @@ export function FileDataSourceDocumentsPanel({
                             />
                           </td>
                         ) : null}
-                        <td className={TABLE_BODY_CELL}>
-                          <span className="luxia-type-body-dense-strong" style={{ color: "var(--luxia-text-primary)" }}>
+                        <td className={`${TABLE_BODY_CELL} min-w-0`}>
+                          <span
+                            className="block break-words luxia-type-body-dense-strong"
+                            style={{ color: "var(--luxia-text-primary)" }}
+                          >
                             {name}
                           </span>
                         </td>
@@ -318,6 +379,24 @@ export function FileDataSourceDocumentsPanel({
                             ) : null}
                           </div>
                         </td>
+                        {canDelete ? (
+                          <td className={`${TABLE_BODY_CELL} w-12`}>
+                            <LuxiaEntityOptionsMenu
+                              entityLabel={name}
+                              entityType="document"
+                              ariaLabel={`Options for ${name}`}
+                              items={[
+                                {
+                                  id: "delete",
+                                  label: "Delete",
+                                  ariaLabel: `Delete ${name}`,
+                                  destructive: true,
+                                  onSelect: () => setDeleteTarget(name),
+                                },
+                              ]}
+                            />
+                          </td>
+                        ) : null}
                       </tr>
                     );
                   })}
@@ -327,6 +406,27 @@ export function FileDataSourceDocumentsPanel({
           )}
         </>
       )}
+
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+        title={`Delete ${deleteTarget ?? "file"}?`}
+        description="The file will be removed from this Data Source and from search. This cannot be undone."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        tone="destructive"
+        onConfirm={handleConfirmDelete}
+      />
+
+      <FileInUseDialog
+        open={Boolean(inUse)}
+        fileName={inUse?.fileName ?? ""}
+        dependencies={inUse?.dependencies ?? []}
+        onClose={() => setInUse(null)}
+        onOpenConstellation={onOpenConstellation}
+      />
     </div>
   );
 }

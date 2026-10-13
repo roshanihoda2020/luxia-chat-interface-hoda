@@ -820,6 +820,25 @@ export function DataSourceSettingsPage({
                 fileNames={source.contentSummary.fileNames ?? []}
                 canEdit={canManage}
                 currentUserId={currentUserId}
+                onOpenConstellation={onOpenConstellationSettings}
+                onDeleteDocument={
+                  canManage && onSaveSource
+                    ? (fileName) => {
+                        const summary = source.contentSummary;
+                        if (!summary || summary.kind !== "file") return;
+                        const nextNames = (summary.fileNames ?? []).filter(
+                          (name) => name !== fileName,
+                        );
+                        onSaveSource({
+                          ...source,
+                          contentSummary: {
+                            ...summary,
+                            fileNames: nextNames,
+                          },
+                        });
+                      }
+                    : undefined
+                }
               />
             </div>
           );

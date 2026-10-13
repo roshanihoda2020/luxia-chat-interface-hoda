@@ -30,6 +30,14 @@ export type {
   DataSourceHandoffConstellation,
 } from "./constellationHandoff";
 export { buildDataSourceLibraryRows } from "./buildLibraryRows";
+export { FileInUseDialog } from "./FileInUseDialog";
+export type { FileInUseDialogProps } from "./FileInUseDialog";
+export {
+  fileAttachmentsByDataSourceId,
+  getFileInUseDependencies,
+  isFileInUse,
+} from "./fileInUse";
+export type { FileInUseDependency } from "./fileInUse";
 export { DATA_SOURCES_GUIDANCE, DATA_SOURCES_PAGE_VARIANT } from "./ia";
 export type {
   DataSourceLibraryRow,

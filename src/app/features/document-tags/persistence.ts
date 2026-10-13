@@ -93,7 +93,11 @@ const DEMO_FILE_ASSIGNMENTS: Record<string, Record<string, readonly string[]>> =
 };
 
 const DEMO_FILE_CATALOG: Record<string, readonly string[]> = {
-  "ds-pdf-01": ["master-services-agreement.pdf"],
+  "ds-pdf-01": [
+    "master-services-agreement.pdf",
+    "vendor-addendum.pdf",
+    "draft-nda-template.pdf",
+  ],
   "ds-pdf-02": ["employee-handbook.pdf"],
   "ds-pdf-03": ["runbook.pdf"],
 };
