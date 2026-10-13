@@ -233,7 +233,8 @@ export function buildCapabilityBundleFromCreationDraft(
     );
     return {
       ...bundle,
-      tables: [...tables, ...views],
+      tables,
+      views,
       pdfFiles: [],
       csvParseConfig: null,
     };
@@ -248,6 +249,7 @@ export function buildCapabilityBundleFromCreationDraft(
   return {
     ...bundle,
     tables: [],
+    views: [],
     pdfFiles,
     csvParseConfig: resolveCsvParseConfig(draft),
   };

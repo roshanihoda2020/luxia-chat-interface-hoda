@@ -28,6 +28,8 @@ import type {
   CapsuleCapabilityId,
   CapsuleConstellationType,
 } from "@/app/features/constellation/capsuleCapabilities";
+import { VIEW_CATALOG } from "@/app/features/data-views/catalog";
+import { MAX_CONSTELLATION_VIEWS } from "@/app/features/data-views/constants";
 import type { CapabilitySummary } from "./types";
 
 export type CsvParseConfig = {
@@ -37,6 +39,8 @@ export type CsvParseConfig = {
 
 export type ConstellationCapabilityBundle = {
   tables: DataTableRecord[];
+  /** Database views selected for this Constellation — separate from Active Data Tables. */
+  views: DataTableRecord[];
   knowledgeBase: KnowledgeBaseEntry[];
   instruction: InstructionData;
   contextFiles: ExtraContextFile[];
@@ -68,6 +72,26 @@ function sliceCloneTables(count: number): DataTableRecord[] {
       displayName: `Table name ${String(index + 1).padStart(2, "0")}`,
     };
   });
+}
+
+/**
+ * Demo Views seed — catalog clones into `bundle.views` only (never tables).
+ * Count may be 0 for empty-state demos; capped at MAX_CONSTELLATION_VIEWS.
+ */
+function sliceCloneViews(count: number): DataTableRecord[] {
+  const source = VIEW_CATALOG;
+  if (count <= 0 || source.length === 0) return [];
+  const take = Math.min(count, MAX_CONSTELLATION_VIEWS, source.length);
+  return source.slice(0, take).map((view) => ({
+    ...cloneTable(view),
+    active: true,
+  }));
+}
+
+/** Rotating demo counts: empty, 1, multi, and max-5 for visual QA. */
+function demoDatabaseViewCount(seedIndex: number): number {
+  const pattern = [0, 1, 2, 3, 5, 2, 1, 0, 3, 5] as const;
+  return pattern[(seedIndex - 1) % pattern.length];
 }
 
 function sliceKb(count: number): KnowledgeBaseEntry[] {
@@ -128,6 +152,7 @@ export function createDefaultCapabilityBundle(
 ): ConstellationCapabilityBundle {
   return {
     tables: INITIAL_ACTIVE_TABLES.map((table) => cloneTable(table)),
+    views: [],
     knowledgeBase: KB_DEFAULTS.map((entry) => ({ ...entry })),
     instruction: {
       text: instructions?.trim() || DEFAULT_INSTRUCTION,
@@ -157,6 +182,7 @@ export function createSeedCapabilityBundle(
   if (type === "database") {
     return {
       tables: sliceCloneTables(3 + ((n - 1) % 6)),
+      views: sliceCloneViews(demoDatabaseViewCount(n)),
       knowledgeBase: sliceKb(2 + ((n - 1) % 3)),
       instruction: { text: instructionText, attachment: null },
       contextFiles: sliceContextFiles(1 + ((n - 1) % 3)),
@@ -170,6 +196,7 @@ export function createSeedCapabilityBundle(
 
   return {
     tables: [],
+    views: [],
     knowledgeBase: sliceKb(2 + ((n - 1) % 3)),
     instruction: { text: instructionText, attachment: null },
     contextFiles: [],
@@ -181,25 +208,43 @@ export function createSeedCapabilityBundle(
   };
 }
 
+/**
+ * Ensure older in-memory / HMR bundles always expose `views` separately from tables.
+ * Missing `views` previously crashed Configuration summaries and the Views manage page.
+ */
+export function normalizeCapabilityBundle(
+  bundle: ConstellationCapabilityBundle | (Omit<ConstellationCapabilityBundle, "views"> & {
+    views?: DataTableRecord[];
+  }),
+): ConstellationCapabilityBundle {
+  return {
+    ...bundle,
+    tables: Array.isArray(bundle.tables) ? bundle.tables : [],
+    views: Array.isArray(bundle.views) ? bundle.views : [],
+  };
+}
+
 export function cloneCapabilityBundle(
   bundle: ConstellationCapabilityBundle,
 ): ConstellationCapabilityBundle {
+  const normalized = normalizeCapabilityBundle(bundle);
   return {
-    tables: bundle.tables.map((table) => cloneTable(table)),
-    knowledgeBase: bundle.knowledgeBase.map((entry) => ({ ...entry })),
+    tables: normalized.tables.map((table) => cloneTable(table)),
+    views: normalized.views.map((view) => cloneTable(view)),
+    knowledgeBase: normalized.knowledgeBase.map((entry) => ({ ...entry })),
     instruction: {
-      text: bundle.instruction.text,
-      attachment: bundle.instruction.attachment
-        ? { ...bundle.instruction.attachment }
+      text: normalized.instruction.text,
+      attachment: normalized.instruction.attachment
+        ? { ...normalized.instruction.attachment }
         : null,
     },
-    contextFiles: cloneFiles(bundle.contextFiles),
-    relationships: cloneRelationships(bundle.relationships),
-    metrics: cloneMetrics(bundle.metrics),
-    pdfFiles: clonePdfFiles(bundle.pdfFiles),
-    crawler: cloneCrawlerState(bundle.crawler),
-    csvParseConfig: bundle.csvParseConfig
-      ? { ...bundle.csvParseConfig }
+    contextFiles: cloneFiles(normalized.contextFiles),
+    relationships: cloneRelationships(normalized.relationships),
+    metrics: cloneMetrics(normalized.metrics),
+    pdfFiles: clonePdfFiles(normalized.pdfFiles),
+    crawler: cloneCrawlerState(normalized.crawler),
+    csvParseConfig: normalized.csvParseConfig
+      ? { ...normalized.csvParseConfig }
       : null,
   };
 }
@@ -207,24 +252,30 @@ export function cloneCapabilityBundle(
 export function summarizeCapabilityBundle(
   bundle: ConstellationCapabilityBundle,
 ): Partial<Record<CapsuleCapabilityId, CapabilitySummary>> {
-  const activeTables = bundle.tables.filter((table) => table.active).length;
-  const relationships = activeRelationshipCount(bundle.relationships);
-  const metrics = activeMetricCount(bundle.metrics);
-  const pdfs = activePdfCount(bundle.pdfFiles);
-  const crawlers = activeCrawlerCount(bundle.crawler.entries);
-  const context = activeFileCount(bundle.contextFiles);
+  const normalized = normalizeCapabilityBundle(bundle);
+  const activeTables = normalized.tables.filter((table) => table.active).length;
+  const activeViews = normalized.views.filter((view) => view.active).length;
+  const relationships = activeRelationshipCount(normalized.relationships);
+  const metrics = activeMetricCount(normalized.metrics);
+  const pdfs = activePdfCount(normalized.pdfFiles);
+  const crawlers = activeCrawlerCount(normalized.crawler.entries);
+  const context = activeFileCount(normalized.contextFiles);
 
   return {
     dataTable: {
       countLabel: `${activeTables} active`,
       statusLabel: activeTables > 0 ? "Valid" : "Needs attention",
     },
+    views: {
+      countLabel: `${activeViews} ${activeViews === 1 ? "view" : "views"}`,
+      statusLabel: activeViews > 0 ? "Valid" : "Empty",
+    },
     kb: {
-      countLabel: `${bundle.knowledgeBase.length} ${bundle.knowledgeBase.length === 1 ? "entry" : "entries"}`,
+      countLabel: `${normalized.knowledgeBase.length} ${normalized.knowledgeBase.length === 1 ? "entry" : "entries"}`,
       statusLabel: "Updated recently",
     },
     instr: {
-      countLabel: bundle.instruction.text.trim() ? "Configured" : "Empty",
+      countLabel: normalized.instruction.text.trim() ? "Configured" : "Empty",
       statusLabel: "Saved",
     },
     contextFiles: {

@@ -10,6 +10,7 @@ import {
   FileText,
   FolderOpen,
   Globe,
+  Layers,
   Network,
   Table2,
   type LucideIcon,
@@ -18,6 +19,7 @@ import {
 export type CapsuleCapabilityId =
   | "kb"
   | "dataTable"
+  | "views"
   | "contextFiles"
   | "relationship"
   | "metrics"
@@ -33,6 +35,7 @@ export type CapsuleConstellationType = "database" | "pdf" | "csv";
  */
 export const CAPSULE_CAPABILITY_ICON: Record<CapsuleCapabilityId, LucideIcon> = {
   dataTable: Table2,
+  views: Layers,
   kb: BookOpen,
   instr: Cpu,
   contextFiles: FolderOpen,
@@ -54,6 +57,11 @@ export const CAPSULE_CAPABILITY_META: Record<
     label: "Active Data Tables",
     purpose: "Choose which database tables are available to this Constellation.",
     manageLabel: "Manage Active Data Tables",
+  },
+  views: {
+    label: "Views",
+    purpose: "Choose which database views are available to this Constellation.",
+    manageLabel: "Manage Views",
   },
   kb: {
     label: "Knowledge Base",
@@ -95,6 +103,7 @@ export const CAPSULE_CAPABILITY_META: Record<
 /** Exact capsule order for Database Constellations. */
 export const DATABASE_CAPSULE_CAPABILITIES: CapsuleCapabilityId[] = [
   "dataTable",
+  "views",
   "kb",
   "instr",
   "contextFiles",
@@ -156,6 +165,7 @@ export function capabilityMetaForType(
 
 export const CAPSULE_CAPABILITY_PATH: Record<CapsuleCapabilityId, string> = {
   dataTable: "active-data-tables",
+  views: "views",
   kb: "knowledge-base",
   instr: "instruction",
   contextFiles: "extra-context-files",

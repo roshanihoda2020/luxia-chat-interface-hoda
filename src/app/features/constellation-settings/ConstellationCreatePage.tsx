@@ -106,6 +106,7 @@ import {
   deriveDatabaseSchemaFromSelection,
   getCreationDatabaseSchemas,
 } from "./creationMockData";
+import { MAX_CONSTELLATION_VIEWS } from "@/app/features/data-views";
 import { CONSTELLATION_SETTINGS_PAGE_VARIANT } from "./ia";
 
 const CONTENT_CLASS = "w-full min-w-0";
@@ -1001,12 +1002,21 @@ export function ConstellationCreatePage({
   }, []);
 
   const toggleView = useCallback((viewId: string) => {
-    setDraft((prev) => ({
-      ...prev,
-      selectedViewIds: prev.selectedViewIds.includes(viewId)
-        ? prev.selectedViewIds.filter((id) => id !== viewId)
-        : [...prev.selectedViewIds, viewId],
-    }));
+    setDraft((prev) => {
+      if (prev.selectedViewIds.includes(viewId)) {
+        return {
+          ...prev,
+          selectedViewIds: prev.selectedViewIds.filter((id) => id !== viewId),
+        };
+      }
+      if (prev.selectedViewIds.length >= MAX_CONSTELLATION_VIEWS) {
+        return prev;
+      }
+      return {
+        ...prev,
+        selectedViewIds: [...prev.selectedViewIds, viewId],
+      };
+    });
   }, []);
 
   const isFinalStep = draft.currentStep === "review";
@@ -1388,24 +1398,28 @@ export function ConstellationCreatePage({
             </summary>
             <p className="luxia-type-caption text-[var(--luxia-text-secondary)]">
               Include database views when they contain useful prepared data.
+              {" "}Select up to {MAX_CONSTELLATION_VIEWS}.
             </p>
             <div className="luxia-creation-list-panel mt-2">
               <ul className="luxia-creation-list-scroll is-views luxia-scrollbar luxia-scrollbar-vertical space-y-0.5">
                 {views.map((view) => {
                   const selected = draft.selectedViewIds.includes(view.id);
+                  const atLimit =
+                    !selected && draft.selectedViewIds.length >= MAX_CONSTELLATION_VIEWS;
                   return (
                     <li
                       key={view.id}
-                      className={`luxia-creation-list-row${selected ? " is-selected" : ""}`}
+                      className={`luxia-creation-list-row${selected ? " is-selected" : ""}${atLimit ? " opacity-60" : ""}`}
                     >
                       <Checkbox
                         id={`view-${view.id}`}
                         checked={selected}
+                        disabled={atLimit}
                         onCheckedChange={() => toggleView(view.id)}
                       />
                       <label
                         htmlFor={`view-${view.id}`}
-                        className="cursor-pointer luxia-type-body-dense text-[var(--luxia-text-primary)]"
+                        className={`luxia-type-body-dense text-[var(--luxia-text-primary)] ${atLimit ? "cursor-not-allowed" : "cursor-pointer"}`}
                       >
                         {view.name}
                       </label>

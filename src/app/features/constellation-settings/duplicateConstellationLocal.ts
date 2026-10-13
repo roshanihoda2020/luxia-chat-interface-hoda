@@ -61,6 +61,26 @@ export function cloneCapabilityBundleForDuplicate(
         }),
       };
     }),
+    views: cloned.views.map((view) => {
+      const columnIdMap = new Map<string, string>();
+      const columns = view.columns.map((column) => {
+        const nextId = nextDuplicateToken("vcol");
+        columnIdMap.set(column.id, nextId);
+        return { ...column, id: nextId };
+      });
+      return {
+        ...view,
+        id: nextDuplicateToken("view"),
+        columns,
+        rows: view.rows.map((row) => {
+          const values: Record<string, string> = {};
+          for (const [key, value] of Object.entries(row.values)) {
+            values[columnIdMap.get(key) ?? key] = value;
+          }
+          return { id: nextDuplicateToken("vrow"), values };
+        }),
+      };
+    }),
     knowledgeBase: cloned.knowledgeBase.map((entry) => ({
       ...entry,
       id: nextDuplicateToken("kb"),
