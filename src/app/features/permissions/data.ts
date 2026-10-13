@@ -121,7 +121,12 @@ export const DATA_SOURCE_CATALOG: DataSourceCatalogItem[] = [
     status: "active",
     contentSummary: {
       kind: "file",
-      fileNames: ["master-services-agreement.pdf"],
+      // Slice 2 File-in-use demo: one multi-use, one single-use, one unused.
+      fileNames: [
+        "master-services-agreement.pdf",
+        "vendor-addendum.pdf",
+        "draft-nda-template.pdf",
+      ],
     },
   },
   {
@@ -673,6 +678,7 @@ export const DATA_SOURCE_CONNECTOR_LABELS: Record<string, string> = {
   redshift: "Redshift",
   bigquery: "BigQuery",
   csv: "CSV",
+  googlesheet: "CSV",
   file: "File",
 };
 

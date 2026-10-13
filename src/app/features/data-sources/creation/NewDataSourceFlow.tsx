@@ -1,23 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/app/components/ui/alert-dialog";
 import type {
   DataSourceCatalogItem,
   DataSourceConnector,
   DataSourceContentSummary,
 } from "@/app/features/permissions/types";
-import { getConnectorOption, isDatabaseConnector } from "./connectors";
+import { ConfirmDialog } from "@/app/features/shared/ConfirmDialog";
+import { luxiaToast } from "@/app/features/shared/luxiaToast";
+import { getConnectorOption, isDatabaseConnector, isSheetLinkConnector } from "./connectors";
 import { CsvImportFlow } from "./CsvImportFlow";
 import { DatabaseConnectionDialog } from "./DatabaseConnectionDialog";
 import { FileUploadDialog } from "./FileUploadDialog";
+import { GoogleSheetImportDialog } from "./GoogleSheetImportDialog";
+import {
+  buildGoogleSheetContentSummary,
+  delayGoogleSheetMockImport,
+  shouldFailGoogleSheetPrototype,
+} from "./googleSheetImport";
 import { NewDataSourceChooserDialog } from "./NewDataSourceChooserDialog";
 import { useDraftDataSourceTags } from "@/app/features/document-tags";
 import type {
@@ -76,7 +74,9 @@ export function NewDataSourceFlow({
   >({});
   const [discardOpen, setDiscardOpen] = useState(false);
   const [sessionKey, setSessionKey] = useState(0);
+  const [sheetImporting, setSheetImporting] = useState(false);
   const createdSourceRef = useRef<DataSourceCatalogItem | null>(null);
+  const sheetImportTokenRef = useRef(0);
   const tagDraft = useDraftDataSourceTags();
 
   const suggestedName = useMemo(
@@ -93,6 +93,8 @@ export function NewDataSourceFlow({
     setOwnership(defaultOwnership(allowOrganizational));
     setDbFieldsByConnector({});
     setDiscardOpen(false);
+    setSheetImporting(false);
+    sheetImportTokenRef.current += 1;
     setSessionKey((value) => value + 1);
     tagDraft.reset();
     // Reset only when the dialog opens. Do not reset after catalog create while the CSV Summary is still showing.
@@ -220,11 +222,46 @@ export function NewDataSourceFlow({
       setPhase("database");
       return;
     }
+    if (isSheetLinkConnector(connector)) {
+      setPhase("googlesheet");
+      return;
+    }
     if (connector === "csv") {
       setPhase("csv");
       return;
     }
     setPhase("file");
+  }
+
+  async function handleGoogleSheetImport(link: string) {
+    if (sheetImporting) return;
+    const token = ++sheetImportTokenRef.current;
+    setSheetImporting(true);
+    await delayGoogleSheetMockImport();
+    if (token !== sheetImportTokenRef.current) return;
+
+    if (shouldFailGoogleSheetPrototype(link)) {
+      setSheetImporting(false);
+      luxiaToast.error({
+        title: "Could not import this sheet",
+        description:
+          "Connection failed. Check the connection details and network access.",
+      });
+      return;
+    }
+
+    const contentSummary = buildGoogleSheetContentSummary(link);
+    const tableIds = (contentSummary.csvTables ?? []).map((table) => table.id);
+    setSheetImporting(false);
+    finish(
+      buildSource({
+        connector: "googlesheet",
+        type: "CSV",
+        status: "active",
+        contentSummary,
+      }),
+      { openSettings: true, retainFileNames: [], retainTableIds: tableIds },
+    );
   }
 
   function finishCsv(payload: CsvImportCompletePayload) {
@@ -373,20 +410,33 @@ export function NewDataSourceFlow({
         tagDraft={tagDraft}
       />
 
-      <AlertDialog open={discardOpen} onOpenChange={setDiscardOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Discard this Data Source draft?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Your connector choice and entered details will not be saved.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Keep editing</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDiscard}>Discard</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <GoogleSheetImportDialog
+        key={`sheet-${sessionKey}`}
+        open={open && phase === "googlesheet"}
+        sourceName={name.trim() || suggestedName}
+        ownershipLabel={ownershipLabel}
+        importing={sheetImporting}
+        onBack={() => {
+          if (sheetImporting) return;
+          setPhase("chooser");
+        }}
+        onCancel={requestClose}
+        onImport={(link) => {
+          void handleGoogleSheetImport(link);
+        }}
+      />
+
+      <ConfirmDialog
+        open={discardOpen}
+        onOpenChange={setDiscardOpen}
+        chrome="compact"
+        tone="destructive"
+        title="Discard this Data Source draft?"
+        description="Your connector choice and entered details will not be saved."
+        cancelLabel="Keep editing"
+        confirmLabel="Discard"
+        onConfirm={confirmDiscard}
+      />
     </>
   );
 }

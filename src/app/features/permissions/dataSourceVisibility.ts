@@ -112,6 +112,8 @@ export function getLibraryTypeLabel(
       redshift: "Redshift",
       bigquery: "BigQuery",
       csv: "CSV",
+      // v2 parity: Google Sheet imports surface as CSV in library / Settings Type.
+      googlesheet: "CSV",
       file: "File",
     };
     return labels[source.connector] ?? source.connector;

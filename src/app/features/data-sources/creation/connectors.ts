@@ -21,7 +21,7 @@ import {
 
 export type ConnectorGroupId = "database" | "files";
 
-export type DataSourceTypeIconId = DataSourceConnector | "googlesheet" | "other";
+export type DataSourceTypeIconId = DataSourceConnector | "other";
 
 /**
  * Brand marks: Simple Icons official paths + brand hex, unmodified.
@@ -56,6 +56,8 @@ export function resolveDataSourceTypeIconId(
   source: Pick<DataSourceCatalogItem, "connector" | "type"> | null | undefined,
 ): DataSourceTypeIconId {
   const connector = source?.connector;
+  // v2 parity: Google Sheet imports display as CSV in the library / Settings.
+  if (connector === "googlesheet") return "csv";
   if (connector && Object.prototype.hasOwnProperty.call(DATA_SOURCE_TYPE_ICONS, connector)) {
     return connector;
   }
@@ -76,7 +78,7 @@ export interface DataSourceConnectorOption {
 
 /** Prototype-only chooser tiles that are visible but not selectable. */
 export interface PrototypePlaceholderConnector {
-  id: "googlesheet" | "other";
+  id: "other";
   label: string;
   group: ConnectorGroupId;
   unavailableReason: string;
@@ -98,16 +100,11 @@ export const DATA_SOURCE_CONNECTORS: DataSourceConnectorOption[] = [
   { id: "redshift", label: "Redshift", group: "database", catalogType: "Database", helper: "Cloud warehouse" },
   { id: "bigquery", label: "BigQuery", group: "database", catalogType: "Database", helper: "Analytics warehouse" },
   { id: "csv", label: "CSV", group: "files", catalogType: "CSV", helper: "Tabular upload wizard" },
+  { id: "googlesheet", label: "Google Sheet", group: "files", catalogType: "CSV", helper: "Import from a shared link" },
   { id: "file", label: "File", group: "files", catalogType: "File", helper: "Documents and text" },
 ];
 
 export const PROTOTYPE_PLACEHOLDER_CONNECTORS: PrototypePlaceholderConnector[] = [
-  {
-    id: "googlesheet",
-    label: "Google Sheet",
-    group: "files",
-    unavailableReason: "Google Sheet import is not available yet.",
-  },
   {
     id: "other",
     label: "Other",
@@ -125,4 +122,8 @@ export function getConnectorOption(
 
 export function isDatabaseConnector(id: DataSourceConnector): boolean {
   return getConnectorOption(id)?.group === "database";
+}
+
+export function isSheetLinkConnector(id: DataSourceConnector | null | undefined): boolean {
+  return id === "googlesheet";
 }

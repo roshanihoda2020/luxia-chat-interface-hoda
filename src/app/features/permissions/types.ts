@@ -15,6 +15,7 @@ export type DataSourceConnector =
   | "redshift"
   | "bigquery"
   | "csv"
+  | "googlesheet"
   | "file";
 
 /** Local Settings Profile MFA UI only — not real authentication enrollment. */
@@ -111,6 +112,11 @@ export interface DataSourceContentSummary {
   fileNames?: string[];
   /** Multi-table CSV snapshot. Legacy sources may only have the singular fields above. */
   csvTables?: CsvImportedTableSummary[];
+  /**
+   * Prototype: original Google Sheet URL when connector is googlesheet.
+   * Stored for local identity only — not shown in Settings (v2 parity).
+   */
+  googleSheetLink?: string;
 }
 
 export interface DataSourceCatalogItem {

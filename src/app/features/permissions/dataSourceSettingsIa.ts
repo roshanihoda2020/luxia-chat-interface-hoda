@@ -42,7 +42,13 @@ export function getDataSourceSettingsContentKind(
 ): DataSourceSettingsContentKind | null {
   if (!source) return null;
   if (source.contentSummary?.kind) return source.contentSummary.kind;
-  if (source.connector === "csv" || source.type === "CSV") return "csv";
+  if (
+    source.connector === "csv"
+    || source.connector === "googlesheet"
+    || source.type === "CSV"
+  ) {
+    return "csv";
+  }
   if (
     source.connector === "file"
     || source.type === "PDF"

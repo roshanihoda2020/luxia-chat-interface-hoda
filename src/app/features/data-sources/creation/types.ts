@@ -18,6 +18,7 @@ export type CreationPhase =
   | "chooser"
   | "database"
   | "csv"
+  | "googlesheet"
   | "file";
 
 export interface DatabaseConnectionFields {
