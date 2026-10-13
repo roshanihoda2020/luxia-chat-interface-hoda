@@ -52,6 +52,16 @@ export type {
 } from "./DuplicateConstellationDialog";
 
 export {
+  buildMockConstellationDescription,
+  generateConstellationDescriptionMock,
+  shouldFailDescriptionGeneratePrototype,
+} from "./generateConstellationDescriptionMock";
+export type {
+  GenerateConstellationDescriptionInput,
+  GenerateConstellationDescriptionResult,
+} from "./generateConstellationDescriptionMock";
+
+export {
   buildLocalConstellationDuplicate,
   cloneCapabilityBundleForDuplicate,
   commitDuplicateResponseConfidence,
@@ -79,6 +89,7 @@ export {
   cloneCapabilityBundle,
   createDefaultCapabilityBundle,
   createSeedCapabilityBundle,
+  normalizeCapabilityBundle,
   summarizeCapabilityBundle,
 } from "./capabilityState";
 export type { ConstellationCapabilityBundle, CsvParseConfig } from "./capabilityState";

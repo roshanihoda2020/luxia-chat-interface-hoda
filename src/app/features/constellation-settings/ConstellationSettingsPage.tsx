@@ -5,6 +5,7 @@ import {
   buildConstellationSettingsBreadcrumbItems,
   type LuxiaBreadcrumbHandlers,
 } from "@/app/components/LuxiaBreadcrumb";
+import { LuxiaAiButton } from "@/app/components/LuxiaAiButton";
 import { LuxiaEntityOptionsMenu } from "@/app/components/LuxiaEntityOptionsMenu";
 import {
   LuxiaPageBody,
@@ -18,17 +19,13 @@ import {
   LUXIA_PAGE_HEADER_ACTION,
   LuxiaPageEntityUpdatedMeta,
 } from "@/app/components/LuxiaPageHeader";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/app/components/ui/alert-dialog";
 import { Button } from "@/app/components/ui/button";
+import { ConfirmDialog } from "@/app/features/shared/ConfirmDialog";
+import {
+  DESTRUCTIVE_CONFIRM,
+  DESTRUCTIVE_REMOVE_DELAY_MS,
+} from "@/app/features/shared/destructiveConfirmCopy";
+import { luxiaToast } from "@/app/features/shared/luxiaToast";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -54,6 +51,7 @@ import {
   canDeleteConstellation as roleCanDeleteConstellation,
   canEditConstellationKnowledge as roleCanEditConstellationKnowledge,
 } from "@/app/features/permissions/accessGuards";
+import { ListEmptyState } from "@/app/features/shared/ListEmptyState";
 import { LuxiaSettingsFormActions } from "@/app/features/shared/LuxiaSettingsFormActions";
 import {
   LUXIA_DIRTY_STATE_COPY,
@@ -67,6 +65,7 @@ import {
 import { AddConstellationDataSourceDialog } from "./AddConstellationDataSourceDialog";
 import { DuplicateConstellationDialog } from "./DuplicateConstellationDialog";
 import { DataSourceLibraryDocumentTags } from "@/app/features/document-tags";
+import { generateConstellationDescriptionMock } from "./generateConstellationDescriptionMock";
 import { ResponseConfidenceSection } from "./responseConfidence";
 import {
   CONSTELLATION_SETTINGS_GUIDANCE,
@@ -239,13 +238,33 @@ export function ConstellationSettingsPage({
   const [disconnectSourceId, setDisconnectSourceId] = useState<string | null>(
     null,
   );
+  const [disconnecting, setDisconnecting] = useState(false);
   const [addSourceOpen, setAddSourceOpen] = useState(false);
   const [duplicateOpen, setDuplicateOpen] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
+  const [archiving, setArchiving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [generatingDescription, setGeneratingDescription] = useState(false);
+  const [generateDescriptionError, setGenerateDescriptionError] = useState<
+    string | null
+  >(null);
   const duplicateTriggerRef = useRef<HTMLButtonElement>(null);
+  const generateDescriptionTokenRef = useRef(0);
+  const destructiveTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
+    return () => {
+      if (destructiveTimerRef.current !== null) {
+        window.clearTimeout(destructiveTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    generateDescriptionTokenRef.current += 1;
+    setGeneratingDescription(false);
+    setGenerateDescriptionError(null);
     setGeneralDraft(draftFromSettings(record));
   }, [record]);
 
@@ -314,6 +333,7 @@ export function ConstellationSettingsPage({
   const canArchiveConstellation = roleCanArchiveConstellation(currentProjectRole);
   const canDeleteConstellation = roleCanDeleteConstellation(currentProjectRole);
   const isArchived = record.status !== "active";
+  const canGenerateDescription = canConfigureConstellation && !isArchived;
   const canDuplicateConstellation = canCreateConstellation && !isArchived;
   const lifecycleRoleHint = !currentProjectRole
     ? "Your Project role is unavailable for this action."
@@ -336,7 +356,7 @@ export function ConstellationSettingsPage({
   const isLastSource = record.connectedSources.length <= 1;
 
   function handleSaveGeneral() {
-    if (!generalDirty || !canConfigureConstellation) return;
+    if (!generalDirty || !canConfigureConstellation || generatingDescription) return;
     onSaveGeneral({
       name: generalDraft.name.trim(),
       description: generalDraft.description.trim(),
@@ -345,13 +365,85 @@ export function ConstellationSettingsPage({
   }
 
   function handleCancelGeneral() {
+    if (generatingDescription) return;
+    setGenerateDescriptionError(null);
     setGeneralDraft(draftFromSettings(record));
   }
 
+  async function handleGenerateDescription() {
+    if (!canGenerateDescription || generatingDescription) return;
+    const token = ++generateDescriptionTokenRef.current;
+    setGeneratingDescription(true);
+    setGenerateDescriptionError(null);
+    const result = await generateConstellationDescriptionMock({
+      name: generalDraft.name || record.name,
+      type: record.type,
+      projectName: record.projectName,
+      connectedSourceNames: record.connectedSources.map((source) => source.name),
+    });
+    if (token !== generateDescriptionTokenRef.current) return;
+    setGeneratingDescription(false);
+    if (!result.ok) {
+      setGenerateDescriptionError(result.message);
+      return;
+    }
+    // Slice 1: match Dev — replace draft immediately (no confirm). Known product-safety decision.
+    setGeneralDraft((prev) => ({
+      ...prev,
+      description: result.description,
+    }));
+  }
+
   function confirmDisconnect() {
-    if (!disconnectSourceId || isLastSource) return;
-    onDisconnectSource(disconnectSourceId);
-    setDisconnectSourceId(null);
+    if (!disconnectSourceId || isLastSource || disconnecting) return;
+    const sourceId = disconnectSourceId;
+    setDisconnecting(true);
+    destructiveTimerRef.current = window.setTimeout(() => {
+      destructiveTimerRef.current = null;
+      try {
+        onDisconnectSource(sourceId);
+        luxiaToast.success(DESTRUCTIVE_CONFIRM.dataSource.successToast);
+        setDisconnectSourceId(null);
+      } catch {
+        luxiaToast.error(DESTRUCTIVE_CONFIRM.dataSource.errorToast);
+      } finally {
+        setDisconnecting(false);
+      }
+    }, DESTRUCTIVE_REMOVE_DELAY_MS);
+  }
+
+  function confirmArchive() {
+    if (archiving) return;
+    setArchiving(true);
+    destructiveTimerRef.current = window.setTimeout(() => {
+      destructiveTimerRef.current = null;
+      try {
+        onArchive();
+        luxiaToast.success(DESTRUCTIVE_CONFIRM.constellationArchive.successToast);
+        setArchiveOpen(false);
+      } catch {
+        luxiaToast.error(DESTRUCTIVE_CONFIRM.constellationArchive.errorToast);
+      } finally {
+        setArchiving(false);
+      }
+    }, DESTRUCTIVE_REMOVE_DELAY_MS);
+  }
+
+  function confirmDelete() {
+    if (deleting) return;
+    setDeleting(true);
+    destructiveTimerRef.current = window.setTimeout(() => {
+      destructiveTimerRef.current = null;
+      try {
+        onDelete();
+        luxiaToast.success(DESTRUCTIVE_CONFIRM.constellationDelete.successToast);
+        setDeleteOpen(false);
+      } catch {
+        luxiaToast.error(DESTRUCTIVE_CONFIRM.constellationDelete.errorToast);
+      } finally {
+        setDeleting(false);
+      }
+    }, DESTRUCTIVE_REMOVE_DELAY_MS);
   }
 
   if (unavailable) {
@@ -547,15 +639,12 @@ export function ConstellationSettingsPage({
             onSectionChange(value);
           }}
         >
-          <div className="mb-4 w-full min-w-0 overflow-x-auto">
+          <div className="mb-4 w-full min-w-0 overflow-x-auto luxia-scrollbar luxia-scrollbar-light">
             <TabsList
               aria-label="Constellation Settings sections"
-              className={LUXIA_SETTINGS_TABLIST_CLASS}
+              className={`${LUXIA_SETTINGS_TABLIST_CLASS} !flex !min-w-0 !grid-cols-none w-max max-w-none sm:w-full`}
               style={{
-                display: "grid",
-                gridTemplateColumns: `repeat(${CONSTELLATION_SETTINGS_SECTIONS.length}, minmax(0, 1fr))`,
-                width: "100%",
-                minWidth: `${CONSTELLATION_SETTINGS_SECTIONS.length * 8.8}rem`,
+                display: "flex",
                 boxSizing: "border-box",
               }}
             >
@@ -564,9 +653,9 @@ export function ConstellationSettingsPage({
                   key={section.id}
                   value={section.id}
                   title={section.label}
-                  className={LUXIA_SETTINGS_TAB_TRIGGER_CLASS}
+                  className={`${LUXIA_SETTINGS_TAB_TRIGGER_CLASS} !w-auto flex-1 px-3`}
                 >
-                  <span className="block w-full truncate text-center">{section.label}</span>
+                  <span className="block whitespace-nowrap text-center">{section.label}</span>
                 </TabsTrigger>
               ))}
             </TabsList>
@@ -602,8 +691,9 @@ export function ConstellationSettingsPage({
                   <Textarea
                     id="cs-description"
                     value={generalDraft.description}
-                    disabled={!canConfigureConstellation}
+                    disabled={!canConfigureConstellation || generatingDescription}
                     onChange={(event) => {
+                      setGenerateDescriptionError(null);
                       setGeneralDraft((prev) => ({
                         ...prev,
                         description: event.target.value,
@@ -612,18 +702,51 @@ export function ConstellationSettingsPage({
                     rows={4}
                   />
                 </FilterField>
+
+                {canGenerateDescription ? (
+                  <div className="flex min-w-0 flex-col items-start gap-1.5">
+                    <LuxiaAiButton
+                      size="compact"
+                      disabled={generatingDescription}
+                      aria-busy={generatingDescription || undefined}
+                      aria-label={
+                        generatingDescription
+                          ? "Generating description"
+                          : "Generate description"
+                      }
+                      onClick={() => {
+                        void handleGenerateDescription();
+                      }}
+                    >
+                      {generatingDescription ? "Generating…" : "Generate description"}
+                    </LuxiaAiButton>
+                    {generateDescriptionError ? (
+                      <p
+                        className="luxia-type-caption"
+                        style={{ color: "var(--luxia-error)" }}
+                        role="alert"
+                      >
+                        {generateDescriptionError}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
 
               <LuxiaSettingsFormActions
                 dirty={generalDirty}
-                canSave={canConfigureConstellation && activeSection === "general"}
+                canSave={
+                  canConfigureConstellation
+                  && activeSection === "general"
+                  && !generatingDescription
+                }
                 onSave={handleSaveGeneral}
                 onCancel={handleCancelGeneral}
               />
 
               <dl
-                className="mt-6 grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3"
-                style={{ borderTop: "1px solid var(--luxia-settings-row-divider)" }}
+                className="mt-6 grid gap-x-6 gap-y-4 rounded-[var(--luxia-radius-12)] border p-4 sm:grid-cols-2 lg:grid-cols-3"
+                style={{ borderColor: "var(--luxia-settings-row-divider)" }}
               >
                 {[
                   { label: "Type", value: constellationTypeLabel(record.type) },
@@ -643,8 +766,7 @@ export function ConstellationSettingsPage({
                 ].map((item) => (
                   <div
                     key={item.label}
-                    className="flex min-w-0 flex-col gap-0.5 pt-3"
-                    style={{ borderTop: "1px solid var(--luxia-settings-row-divider)" }}
+                    className="flex min-w-0 flex-col gap-0.5"
                   >
                     <dt
                       className="luxia-type-caption"
@@ -719,16 +841,21 @@ export function ConstellationSettingsPage({
                         // Members may open Knowledge Base in read-only mode (search / view / export).
                         const canOpenReadOnlyKb = capability.id === "kb" && !canManageThis;
                         if (canManageThis || canOpenReadOnlyKb) {
-                          const label = canOpenReadOnlyKb ? "View" : capability.manageLabel;
+                          const visibleLabel = canOpenReadOnlyKb ? "View" : "Manage";
+                          const accessibleLabel = canOpenReadOnlyKb
+                            ? `View ${capability.label}`
+                            : capability.manageLabel;
                           return (
                             <Button
                               type="button"
                               variant="outline"
                               size="compact"
+                              className="shrink-0"
                               onClick={() => onManageCapability(capability.id)}
-                              aria-label={label}
+                              aria-label={accessibleLabel}
+                              title={accessibleLabel}
                             >
-                              {label}
+                              {visibleLabel}
                             </Button>
                           );
                         }
@@ -779,12 +906,7 @@ export function ConstellationSettingsPage({
               </div>
 
               {record.connectedSources.length === 0 ? (
-                <p
-                  className="luxia-type-body-dense"
-                  style={{ color: "var(--luxia-text-muted)" }}
-                >
-                  No Data Sources connected yet.
-                </p>
+                <ListEmptyState title="No Data Sources connected yet." />
               ) : (
                 <ul className={`${LUXIA_SETTINGS_LIST_SURFACE_CLASS} divide-y px-4`} style={{ borderColor: "var(--luxia-settings-row-divider)" }}>
                   {record.connectedSources.map((source) => (
@@ -956,15 +1078,10 @@ export function ConstellationSettingsPage({
               </h3>
 
               {record.connectedSources.length === 0 ? (
-                <p
-                  className="luxia-type-body-dense"
-                  style={{ color: "var(--luxia-text-muted)" }}
-                >
-                  This Constellation does not have connected Data Sources yet.
-                </p>
+                <ListEmptyState title="This Constellation does not have connected Data Sources yet." />
               ) : accessConflicts.length === 0 ? (
                 <p
-                  className="luxia-type-body-small"
+                  className="luxia-type-body-dense"
                   style={{ color: "var(--luxia-text-secondary)" }}
                 >
                   Effective access is available for all connected Data Sources.
@@ -976,7 +1093,7 @@ export function ConstellationSettingsPage({
                 {sourceAccessRows.map((row) => (
                   <li
                     key={row.sourceId}
-                    className="luxia-settings-row flex flex-wrap items-start justify-between gap-3 py-4"
+                    className="luxia-settings-row flex flex-col gap-3 py-4 sm:flex-row sm:items-start sm:justify-between"
                   >
                     <div className="min-w-0 flex-1">
                       <p
@@ -1016,11 +1133,12 @@ export function ConstellationSettingsPage({
                         </p>
                       ) : null}
                     </div>
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex shrink-0 flex-col items-stretch gap-1.5 sm:items-end">
                       <Button
                         type="button"
                         variant="outline"
                         size="compact"
+                        className="justify-center sm:justify-end"
                         onClick={() => onOpenDataSourceSettings(row.sourceId)}
                       >
                         Open Data Source settings
@@ -1032,6 +1150,7 @@ export function ConstellationSettingsPage({
                           type="button"
                           variant="outline"
                           size="compact"
+                          className="justify-center sm:justify-end"
                           onClick={onOpenAccessLevels}
                         >
                           Open Access Levels
@@ -1042,6 +1161,7 @@ export function ConstellationSettingsPage({
                           type="button"
                           variant="secondary"
                           size="compact"
+                          className="justify-center sm:justify-end"
                           onClick={() => onManageSourceAccess(row.sourceId)}
                         >
                           Review access
@@ -1059,7 +1179,7 @@ export function ConstellationSettingsPage({
               className={SETTINGS_TAB_PANEL_CLASS}
             >
               <p
-                className="mb-4 luxia-type-body-small"
+                className="mb-4 luxia-type-body-dense"
                 style={{ color: "var(--luxia-text-secondary)" }}
               >
                 {CONSTELLATION_SETTINGS_GUIDANCE.lifecycleDescription}
@@ -1076,7 +1196,7 @@ export function ConstellationSettingsPage({
                     Duplicate this Constellation
                   </p>
                   <p
-                    className="mt-1 luxia-type-body-small"
+                    className="mt-1 luxia-type-body-dense"
                     style={{ color: "var(--luxia-text-secondary)" }}
                   >
                     Copy its Knowledge Base, Metrics, Instructions and Extra Context into a new
@@ -1105,7 +1225,7 @@ export function ConstellationSettingsPage({
                     Archive this Constellation
                   </p>
                   <p
-                    className="mt-1 luxia-type-body-small"
+                    className="mt-1 luxia-type-body-dense"
                     style={{ color: "var(--luxia-text-secondary)" }}
                   >
                     Hide this Constellation from active use. You can restore it
@@ -1133,7 +1253,7 @@ export function ConstellationSettingsPage({
                     Delete this Constellation
                   </p>
                   <p
-                    className="mt-1 luxia-type-body-small"
+                    className="mt-1 luxia-type-body-dense"
                     style={{ color: "var(--luxia-text-secondary)" }}
                   >
                     Permanently remove this Constellation. Connected Data Sources
@@ -1154,7 +1274,7 @@ export function ConstellationSettingsPage({
               {!canDuplicateConstellation && !canArchiveConstellation && !canDeleteConstellation ? (
                 <div className="py-4">
                   <p
-                    className="luxia-type-body-small"
+                    className="luxia-type-body-dense"
                     style={{ color: "var(--luxia-text-secondary)" }}
                   >
                     {isArchived
@@ -1197,89 +1317,69 @@ export function ConstellationSettingsPage({
         }}
       />
 
-      <AlertDialog
+      <ConfirmDialog
         open={Boolean(disconnectSourceId)}
         onOpenChange={(open) => {
-          if (!open) setDisconnectSourceId(null);
+          if (!open && !disconnecting) setDisconnectSourceId(null);
         }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              Remove {disconnectTarget?.name ?? "Data Source"} from this Constellation?
-            </AlertDialogTitle>
-            <AlertDialogDescription asChild>
-              <div className="space-y-2">
-                <p>
-                  This removes the association from this Constellation only. The Data
-                  Source itself is not deleted.
-                </p>
-                {disconnectTarget ? (
-                  <ul className="list-disc pl-5 space-y-1">
-                    <li>Active tables and metrics tied to this source</li>
-                    <li>Knowledge entries referencing this source</li>
-                    <li>{disconnectTarget.usageInConstellation}</li>
-                  </ul>
-                ) : null}
-                {isLastSource ? (
-                  <p style={{ color: "var(--luxia-error)" }}>
-                    At least one Data Source must remain connected.
-                  </p>
-                ) : null}
-              </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              disabled={isLastSource}
-              style={{ background: "var(--luxia-error)" }}
-              className="text-white hover:opacity-90"
-              onClick={confirmDisconnect}
-            >
-              Remove from Constellation
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        tone="destructive"
+        title={DESTRUCTIVE_CONFIRM.dataSource.title}
+        description={DESTRUCTIVE_CONFIRM.dataSource.description}
+        impact={
+          <>
+            {disconnectTarget ? (
+              <ul className="list-disc space-y-1 pl-5">
+                <li>Active tables and metrics tied to this source</li>
+                <li>Knowledge entries referencing this source</li>
+                <li>{disconnectTarget.usageInConstellation}</li>
+              </ul>
+            ) : null}
+            {isLastSource ? (
+              <p style={{ color: "var(--luxia-error)" }}>
+                At least one Data Source must remain connected.
+              </p>
+            ) : null}
+          </>
+        }
+        cancelLabel="Cancel"
+        confirmLabel={DESTRUCTIVE_CONFIRM.dataSource.confirmLabel}
+        busy={disconnecting}
+        busyLabel={DESTRUCTIVE_CONFIRM.dataSource.busyLabel}
+        onConfirm={() => {
+          if (isLastSource) return;
+          confirmDisconnect();
+        }}
+      />
 
-      <AlertDialog open={archiveOpen} onOpenChange={setArchiveOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Archive {record.name}?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This Constellation will be hidden from Chat and Galaxy until
-              restored.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={onArchive}>Archive</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        open={archiveOpen}
+        onOpenChange={(open) => {
+          if (!open && !archiving) setArchiveOpen(false);
+        }}
+        tone="neutral"
+        title={DESTRUCTIVE_CONFIRM.constellationArchive.title}
+        description={DESTRUCTIVE_CONFIRM.constellationArchive.description}
+        cancelLabel="Cancel"
+        confirmLabel={DESTRUCTIVE_CONFIRM.constellationArchive.confirmLabel}
+        busy={archiving}
+        busyLabel={DESTRUCTIVE_CONFIRM.constellationArchive.busyLabel}
+        onConfirm={confirmArchive}
+      />
 
-      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete {record.name}?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This permanently removes the Constellation and its configuration.
-              Connected Data Sources will not be deleted.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              style={{ background: "var(--luxia-error)" }}
-              className="text-white hover:opacity-90"
-              onClick={onDelete}
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        open={deleteOpen}
+        onOpenChange={(open) => {
+          if (!open && !deleting) setDeleteOpen(false);
+        }}
+        tone="destructive"
+        title={DESTRUCTIVE_CONFIRM.constellationDelete.title}
+        description={DESTRUCTIVE_CONFIRM.constellationDelete.description}
+        cancelLabel="Cancel"
+        confirmLabel={DESTRUCTIVE_CONFIRM.constellationDelete.confirmLabel}
+        busy={deleting}
+        busyLabel={DESTRUCTIVE_CONFIRM.constellationDelete.busyLabel}
+        onConfirm={confirmDelete}
+      />
     </LuxiaPageFrame>
   );
 }
