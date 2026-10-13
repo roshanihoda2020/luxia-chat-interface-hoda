@@ -6,6 +6,7 @@ import { Separator } from "@/app/components/ui/separator";
 import { LX } from "./tokens";
 
 export function TableRowMenu({
+    entityKind = "table",
     onMoveUp,
     onMoveDown,
     disableMoveUp,
@@ -15,15 +16,21 @@ export function TableRowMenu({
     onConfigureColumns,
     onRemove,
 }: {
+    /** Local copy context — defaults preserve Active Data Tables labels. */
+    entityKind?: "table" | "view";
     onMoveUp?: () => void;
     onMoveDown?: () => void;
     disableMoveUp?: boolean;
     disableMoveDown?: boolean;
     onView: () => void;
-    onEditDetails: () => void;
-    onConfigureColumns: () => void;
-    onRemove: () => void;
+    onEditDetails?: () => void;
+    onConfigureColumns?: () => void;
+    onRemove?: () => void;
 }) {
+    const isView = entityKind === "view";
+    const editDetailsLabel = isView ? "Edit view details" : "Edit table details";
+    const actionsLabel = isView ? "Open view actions" : "Open table actions";
+    const removeLabel = isView ? "Remove from Constellation" : "Remove from constellation";
     const [open, setOpen] = useState(false);
     const triggerWrapRef = useRef<HTMLDivElement>(null);
     const menuRef = useRef<HTMLDivElement>(null);
@@ -119,31 +126,39 @@ export function TableRowMenu({
             >
                 <Eye size={14} />View data
             </button>
-            <button
-                type="button"
-                onClick={() => runAction(onEditDetails)}
-                className="flex w-full cursor-pointer items-center gap-2 rounded-[10px] px-3 py-2 text-left luxia-type-body-dense-strong outline-none whitespace-nowrap"
-                style={{ color: LX.primary }}
-            >
-                <PencilLine size={14} />Edit table details
-            </button>
-            <button
-                type="button"
-                onClick={() => runAction(onConfigureColumns)}
-                className="flex w-full cursor-pointer items-center gap-2 rounded-[10px] px-3 py-2 text-left luxia-type-body-dense-strong outline-none whitespace-nowrap"
-                style={{ color: LX.primary }}
-            >
-                <Columns3 size={14} />Configure columns
-            </button>
-            <Separator className="my-1" />
-            <button
-                type="button"
-                onClick={() => runAction(onRemove)}
-                className="flex w-full cursor-pointer items-center gap-2 rounded-[10px] px-3 py-2 text-left luxia-type-body-dense-strong outline-none whitespace-nowrap"
-                style={{ color: LX.error }}
-            >
-                <Trash2 size={14} />Remove from constellation
-            </button>
+            {onEditDetails ? (
+                <button
+                    type="button"
+                    onClick={() => runAction(onEditDetails)}
+                    className="flex w-full cursor-pointer items-center gap-2 rounded-[10px] px-3 py-2 text-left luxia-type-body-dense-strong outline-none whitespace-nowrap"
+                    style={{ color: LX.primary }}
+                >
+                    <PencilLine size={14} />{editDetailsLabel}
+                </button>
+            ) : null}
+            {onConfigureColumns ? (
+                <button
+                    type="button"
+                    onClick={() => runAction(onConfigureColumns)}
+                    className="flex w-full cursor-pointer items-center gap-2 rounded-[10px] px-3 py-2 text-left luxia-type-body-dense-strong outline-none whitespace-nowrap"
+                    style={{ color: LX.primary }}
+                >
+                    <Columns3 size={14} />Configure columns
+                </button>
+            ) : null}
+            {onRemove ? (
+                <>
+                    <Separator className="my-1" />
+                    <button
+                        type="button"
+                        onClick={() => runAction(onRemove)}
+                        className="flex w-full cursor-pointer items-center gap-2 rounded-[10px] px-3 py-2 text-left luxia-type-body-dense-strong outline-none whitespace-nowrap"
+                        style={{ color: LX.error }}
+                    >
+                        <Trash2 size={14} />{removeLabel}
+                    </button>
+                </>
+            ) : null}
         </div>,
         document.body,
     ) : null;
@@ -161,7 +176,7 @@ export function TableRowMenu({
                     variant="ghost"
                     size="icon"
                     className="h-7 w-7 "
-                    aria-label="Open table actions"
+                    aria-label={actionsLabel}
                     aria-expanded={open}
                     style={{ color: LX.textMuted }}
                     onClick={() => setOpen((current) => !current)}
