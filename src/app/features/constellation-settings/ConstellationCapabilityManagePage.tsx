@@ -365,6 +365,7 @@ export function ConstellationCapabilityManagePage({
             files={safeBundle.contextFiles}
             closeRef={closeRef}
             dirtyRef={dirtyRef}
+            readOnly={readOnly}
             onCommit={(contextFiles: ExtraContextFile[]) => {
               commitBundle({ ...safeBundle, contextFiles });
             }}
@@ -424,6 +425,7 @@ export function ConstellationCapabilityManagePage({
               fileTagSourceIds={connectedSourceIds}
               closeRef={closeRef}
               dirtyRef={dirtyRef}
+              readOnly={readOnly}
               onCommit={(pdfFiles: PDFFileRecord[]) => {
                 commitBundle({ ...safeBundle, pdfFiles });
               }}
@@ -549,7 +551,9 @@ export function ConstellationCapabilityManagePage({
             capabilityId === "kb"
             || capabilityId === "views"
             || capabilityId === "instr"
-            || capabilityId === "dataTable";
+            || capabilityId === "dataTable"
+            || capabilityId === "pdfFiles"
+            || capabilityId === "contextFiles";
           const lockInteractive = readOnly && !hasNativeReadOnly;
           return (
             <div

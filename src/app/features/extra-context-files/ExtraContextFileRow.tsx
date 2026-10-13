@@ -12,7 +12,7 @@ export function ExtraContextFileRow({
 }: {
     file: ExtraContextFile;
     onView: () => void;
-    onRemove: () => void;
+    onRemove?: () => void;
 }) {
     const meta = fileMetaLine(file);
     const isUploading = file.status === "uploading";
@@ -47,9 +47,11 @@ export function ExtraContextFileRow({
                     </TooltipTrigger>
                     <TooltipContent sideOffset={6}>View file</TooltipContent>
                 </Tooltip>
-                <Button type="button" variant="ghost" size="icon" className="h-7 w-7 " aria-label="Remove file" onClick={onRemove} disabled={isUploading || isMarked}>
-                    <Trash2 size={14} style={{ color: LX.error }} />
-                </Button>
+                {onRemove ? (
+                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7 " aria-label="Remove file" onClick={onRemove} disabled={isUploading || isMarked}>
+                        <Trash2 size={14} style={{ color: LX.error }} />
+                    </Button>
+                ) : null}
             </div>
         </div>
     );

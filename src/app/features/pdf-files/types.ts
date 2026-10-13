@@ -6,6 +6,8 @@ export interface PDFFileRecord {
     source: "upload" | "catalog";
     catalogId?: string;
     previewable: boolean;
+    /** Local/static prototype URL for iframe preview. Null/undefined = unavailable. */
+    previewUrl?: string | null;
     markedForRemoval?: boolean;
 }
 
@@ -15,4 +17,12 @@ export interface PDFCatalogFile {
     sizeLabel: string;
     sizeBytes: number;
     previewable: boolean;
+    previewUrl?: string | null;
+}
+
+/** Minimal shape accepted by PDFPreviewDialog (Constellation + Data Source reuse). */
+export interface PDFPreviewTarget {
+    name: string;
+    sizeLabel?: string;
+    previewUrl?: string | null;
 }

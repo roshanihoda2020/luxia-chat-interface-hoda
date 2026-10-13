@@ -12,7 +12,7 @@ export function PDFFileRow({
 }: {
     item: PDFFileRecord;
     onView: () => void;
-    onRemove: () => void;
+    onRemove?: () => void;
     fileTagSourceIds?: readonly string[];
 }) {
     const metadata = item.source === "upload" ? `PDF · ${item.sizeLabel}` : `PDF · ${item.sizeLabel}`;

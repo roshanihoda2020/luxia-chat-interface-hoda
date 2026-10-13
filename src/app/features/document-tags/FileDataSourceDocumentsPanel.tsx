@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { toast } from "sonner";
-import { LuxiaEntityOptionsMenu } from "@/app/components/LuxiaEntityOptionsMenu";
+import {
+  LuxiaEntityOptionsMenu,
+  type LuxiaEntityOptionsItem,
+} from "@/app/components/LuxiaEntityOptionsMenu";
 import { Button } from "@/app/components/ui/button";
 import { Checkbox } from "@/app/components/ui/checkbox";
 import { Input } from "@/app/components/ui/input";
@@ -13,11 +16,14 @@ import {
 } from "@/app/features/data-sources/fileInUse";
 import { HS } from "@/app/features/home/homeSurfaces";
 import { canManageOrganizationTagDefinitions } from "@/app/features/permissions";
+import { PDFPreviewDialog } from "@/app/features/pdf-files/PDFPreviewDialog";
+import type { PDFPreviewTarget } from "@/app/features/pdf-files/types";
 import { ConfirmDialog } from "@/app/features/shared/ConfirmDialog";
 import { luxiaToast } from "@/app/features/shared/luxiaToast";
 import { LUXIA_SETTINGS_LIST_SURFACE_CLASS } from "@/app/features/shared/luxiaSettingsUx";
 import { DocumentTagChip, TAG_CHIP_LIST_CLASS } from "./DocumentTagChip";
 import { DocumentTagPicker } from "./DocumentTagPicker";
+import { resolveDocumentPreviewTarget } from "./documentPreviewMock";
 import { ManagedTagChip } from "./ManagedTagChip";
 import { TagMultiSelectFilter } from "./TagMultiSelectFilter";
 import type { DocumentTagColorId, DocumentTagDefinition } from "./types";
@@ -56,6 +62,7 @@ export function FileDataSourceDocumentsPanel({
   const [untaggedSelected, setUntaggedSelected] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [previewTarget, setPreviewTarget] = useState<PDFPreviewTarget | null>(null);
   const [inUse, setInUse] = useState<{
     fileName: string;
     dependencies: FileInUseDependency[];
@@ -315,16 +322,34 @@ export function FileDataSourceDocumentsPanel({
                     <th scope="col" className={TABLE_HEADER_CELL}>Document</th>
                     <th scope="col" className={TABLE_HEADER_CELL}>Format</th>
                     <th scope="col" className={TABLE_HEADER_CELL}>Tags</th>
-                    {canDelete ? (
-                      <th scope="col" className={`${TABLE_HEADER_CELL} w-12`}>
-                        <span className="sr-only">Actions</span>
-                      </th>
-                    ) : null}
+                    <th scope="col" className={`${TABLE_HEADER_CELL} w-12`}>
+                      <span className="sr-only">Actions</span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {visible.map((name) => {
                     const fileTags = tagsForFileName(name);
+                    const menuItems: LuxiaEntityOptionsItem[] = [
+                      {
+                        id: "preview",
+                        label: "Preview",
+                        ariaLabel: `Preview ${name}`,
+                        onSelect: () => setPreviewTarget(resolveDocumentPreviewTarget(name)),
+                      },
+                      ...(canDelete
+                        ? [
+                            {
+                              id: "delete",
+                              label: "Delete",
+                              ariaLabel: `Delete ${name}`,
+                              destructive: true,
+                              separatorBefore: true,
+                              onSelect: () => setDeleteTarget(name),
+                            } satisfies LuxiaEntityOptionsItem,
+                          ]
+                        : []),
+                    ];
                     return (
                       <tr key={name} className="luxia-settings-row hover:bg-[var(--luxia-surface-hover)]">
                         {canEdit ? (
@@ -379,24 +404,14 @@ export function FileDataSourceDocumentsPanel({
                             ) : null}
                           </div>
                         </td>
-                        {canDelete ? (
-                          <td className={`${TABLE_BODY_CELL} w-12`}>
-                            <LuxiaEntityOptionsMenu
-                              entityLabel={name}
-                              entityType="document"
-                              ariaLabel={`Options for ${name}`}
-                              items={[
-                                {
-                                  id: "delete",
-                                  label: "Delete",
-                                  ariaLabel: `Delete ${name}`,
-                                  destructive: true,
-                                  onSelect: () => setDeleteTarget(name),
-                                },
-                              ]}
-                            />
-                          </td>
-                        ) : null}
+                        <td className={`${TABLE_BODY_CELL} w-12`}>
+                          <LuxiaEntityOptionsMenu
+                            entityLabel={name}
+                            entityType="document"
+                            ariaLabel={`Options for ${name}`}
+                            items={menuItems}
+                          />
+                        </td>
                       </tr>
                     );
                   })}
@@ -426,6 +441,14 @@ export function FileDataSourceDocumentsPanel({
         dependencies={inUse?.dependencies ?? []}
         onClose={() => setInUse(null)}
         onOpenConstellation={onOpenConstellation}
+      />
+
+      <PDFPreviewDialog
+        open={Boolean(previewTarget)}
+        onOpenChange={(next) => {
+          if (!next) setPreviewTarget(null);
+        }}
+        file={previewTarget}
       />
     </div>
   );

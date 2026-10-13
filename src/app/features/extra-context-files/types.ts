@@ -11,6 +11,8 @@ export interface ExtraContextFile {
     status: ExtraContextFileStatus;
     markedForRemoval?: boolean;
     previewable?: boolean;
+    /** Local/static prototype URL for iframe or open-in-new-tab. */
+    previewUrl?: string | null;
 }
 
 export interface DatasourceCatalogFile {
@@ -19,4 +21,5 @@ export interface DatasourceCatalogFile {
     fileType: string;
     sizeLabel?: string;
     previewable?: boolean;
+    previewUrl?: string | null;
 }

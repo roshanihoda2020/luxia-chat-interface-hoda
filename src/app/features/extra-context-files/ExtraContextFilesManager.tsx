@@ -33,6 +33,7 @@ export function ExtraContextFilesManager({
     closeRef,
     dirtyRef,
     hideChrome,
+    readOnly = false,
 }: {
     open: boolean;
     files: ExtraContextFile[];
@@ -42,6 +43,8 @@ export function ExtraContextFilesManager({
     closeRef?: MutableRefObject<(() => void) | null>;
     dirtyRef?: MutableRefObject<boolean>;
     hideChrome?: boolean;
+    /** When true, View/Preview stays available; mutations are blocked. */
+    readOnly?: boolean;
 }) {
     const isPage = presentation === "page";
     const effectiveOpen = isPage ? true : open;
@@ -82,7 +85,7 @@ export function ExtraContextFilesManager({
         };
     }, []);
 
-    const dirty = filesSignature(draft) !== filesSignature(initialRef.current);
+    const dirty = !readOnly && filesSignature(draft) !== filesSignature(initialRef.current);
     const filtered = useMemo(() => {
         const lowered = search.trim().toLowerCase();
         if (!lowered) return draft;
@@ -94,6 +97,10 @@ export function ExtraContextFilesManager({
     const count = activeFileCount(draft);
 
     function requestLeave() {
+        if (readOnly) {
+            onCancel();
+            return;
+        }
         if (dirty) {
             setDiscardIntent("leave");
             setDiscardOpen(true);
@@ -103,6 +110,10 @@ export function ExtraContextFilesManager({
     }
 
     function requestCancelEdits() {
+        if (readOnly) {
+            if (!isPage) onCancel();
+            return;
+        }
         if (!dirty) {
             if (!isPage) onCancel();
             return;
@@ -114,7 +125,7 @@ export function ExtraContextFilesManager({
     useManagerLeaveRegistration({ closeRef, dirtyRef, dirty, requestLeave });
 
     function confirmMarkRemove() {
-        if (!confirmRemoveId || removing) return;
+        if (readOnly || !confirmRemoveId || removing) return;
         const removeId = confirmRemoveId;
         setRemoving(true);
         removeTimerRef.current = window.setTimeout(() => {
@@ -136,10 +147,12 @@ export function ExtraContextFilesManager({
     }
 
     function addUpload(file: ExtraContextFile) {
+        if (readOnly) return;
         setDraft((current) => [...current, file]);
     }
 
     function addDatasource(items: DatasourceCatalogFile[]) {
+        if (readOnly) return;
         const next = items.map((item) => ({
             id: `ds-${item.id}-${Date.now()}`,
             name: item.name,
@@ -148,12 +161,13 @@ export function ExtraContextFilesManager({
             source: "datasource" as const,
             status: "new" as const,
             previewable: item.previewable,
+            previewUrl: item.previewUrl ?? null,
         }));
         setDraft((current) => [...current, ...next]);
     }
 
     function save() {
-        if (!dirty || saving) return;
+        if (readOnly || !dirty || saving) return;
         setSaving(true);
         setSaveError(null);
         window.setTimeout(() => {
@@ -181,7 +195,9 @@ export function ExtraContextFilesManager({
                                 </div>
                                 <div className="min-w-0 flex-1">
                                     <DialogTitle className="luxia-type-title-modal">Extra Context Files</DialogTitle>
-                                    <DialogDescription className="mt-1.5 luxia-type-metadata">Changes are local until saved.</DialogDescription>
+                                    <DialogDescription className="mt-1.5 luxia-type-metadata">
+                                        {readOnly ? "View only. Changes cannot be saved for your Project role." : "Changes are local until saved."}
+                                    </DialogDescription>
                                 </div>
                                 <Button
                                     type="button"
@@ -206,9 +222,11 @@ export function ExtraContextFilesManager({
                                 placeholder="Search extra context files…"
                                 aria-label="Search extra context files"
                             />
-                            <Button type="button" variant="primary" size="compact" onClick={() => setAddOpen(true)}>
-                                <Plus size={14} />Add Extra Context File
-                            </Button>
+                            {!readOnly ? (
+                                <Button type="button" variant="primary" size="compact" onClick={() => setAddOpen(true)}>
+                                    <Plus size={14} />Add Extra Context File
+                                </Button>
+                            ) : null}
                             </div>
                         </div>
 
@@ -223,12 +241,14 @@ export function ExtraContextFilesManager({
                                 ) : (
                                     <ListEmptyState
                                         title="No extra context files yet"
-                                        description="Add files to provide additional context."
+                                        description={readOnly ? "No extra context files are connected yet." : "Add files to provide additional context."}
                                         className="border-0 bg-transparent px-2 py-10"
                                         action={
-                                            <Button type="button" className="px-4" onClick={() => setAddOpen(true)}>
-                                                <Plus size={14} />Add files
-                                            </Button>
+                                            !readOnly ? (
+                                                <Button type="button" className="px-4" onClick={() => setAddOpen(true)}>
+                                                    <Plus size={14} />Add files
+                                                </Button>
+                                            ) : undefined
                                         }
                                     />
                                 )
@@ -239,7 +259,7 @@ export function ExtraContextFilesManager({
                                             key={file.id}
                                             file={file}
                                             onView={() => setPreviewId(file.id)}
-                                            onRemove={() => setConfirmRemoveId(file.id)}
+                                            onRemove={readOnly ? undefined : () => setConfirmRemoveId(file.id)}
                                         />
                                     ))}
                                 </div>
@@ -252,21 +272,23 @@ export function ExtraContextFilesManager({
                                 <span className="luxia-type-metadata" style={{ color: LX.textMuted }}>
                                     {count} {count === 1 ? "item" : "items"}{dirty ? " · Unsaved changes" : ""}
                                 </span>
-                                <div className="flex items-center gap-2">
-                                    <Button type="button" variant="secondary" className="px-4" onClick={requestCancelEdits} disabled={isPage && !dirty}>Cancel</Button>
-                                    <BusyButton
-                                        type="button"
-                                        variant="primary"
-                                        className="min-w-[132px] px-4 !bg-[var(--luxia-purple-70)] !bg-none disabled:!opacity-[0.45]"
-                                        disabled={!dirty}
-                                        busy={saving}
-                                        busyLabel="Saving…"
-                                        busyText="Saving…"
-                                        onClick={save}
-                                    >
-                                        Save Changes
-                                    </BusyButton>
-                                </div>
+                                {!readOnly ? (
+                                    <div className="flex items-center gap-2">
+                                        <Button type="button" variant="secondary" className="px-4" onClick={requestCancelEdits} disabled={isPage && !dirty}>Cancel</Button>
+                                        <BusyButton
+                                            type="button"
+                                            variant="primary"
+                                            className="min-w-[132px] px-4 !bg-[var(--luxia-purple-70)] !bg-none disabled:!opacity-[0.45]"
+                                            disabled={!dirty}
+                                            busy={saving}
+                                            busyLabel="Saving…"
+                                            busyText="Saving…"
+                                            onClick={save}
+                                        >
+                                            Save Changes
+                                        </BusyButton>
+                                    </div>
+                                ) : null}
                             </div>
                         </div>
                     </div>
@@ -284,38 +306,44 @@ export function ExtraContextFilesManager({
                 </Dialog>
             )}
 
-            <AddExtraContextFilesDialog
-                open={addOpen}
-                onOpenChange={setAddOpen}
-                catalog={DATASOURCE_CATALOG}
-                linkedFiles={draft}
-                onAddUpload={addUpload}
-                onAddDatasource={addDatasource}
-            />
+            {!readOnly ? (
+                <AddExtraContextFilesDialog
+                    open={addOpen}
+                    onOpenChange={setAddOpen}
+                    catalog={DATASOURCE_CATALOG}
+                    linkedFiles={draft}
+                    onAddUpload={addUpload}
+                    onAddDatasource={addDatasource}
+                />
+            ) : null}
 
             <ExtraContextFilePreview file={previewFile} open={!!previewFile} onOpenChange={(next) => { if (!next) setPreviewId(null); }} />
 
-            <RemoveExtraContextFileDialog
-                open={!!removeFile}
-                fileName={removeFile?.name ?? ""}
-                onOpenChange={(next) => { if (!next && !removing) setConfirmRemoveId(null); }}
-                onConfirm={confirmMarkRemove}
-                busy={removing}
-                chrome={isPage ? "standard" : "compact"}
-            />
+            {!readOnly ? (
+                <RemoveExtraContextFileDialog
+                    open={!!removeFile}
+                    fileName={removeFile?.name ?? ""}
+                    onOpenChange={(next) => { if (!next && !removing) setConfirmRemoveId(null); }}
+                    onConfirm={confirmMarkRemove}
+                    busy={removing}
+                    chrome={isPage ? "standard" : "compact"}
+                />
+            ) : null}
 
-            <DiscardExtraContextChangesDialog
-                open={discardOpen}
-                onOpenChange={setDiscardOpen}
-                onDiscard={() => {
-                    setDiscardOpen(false);
-                    if (discardIntent === "reset") {
-                        setDraft(cloneFiles(initialRef.current));
-                        return;
-                    }
-                    onCancel();
-                }}
-            />
+            {!readOnly ? (
+                <DiscardExtraContextChangesDialog
+                    open={discardOpen}
+                    onOpenChange={setDiscardOpen}
+                    onDiscard={() => {
+                        setDiscardOpen(false);
+                        if (discardIntent === "reset") {
+                            setDraft(cloneFiles(initialRef.current));
+                            return;
+                        }
+                        onCancel();
+                    }}
+                />
+            ) : null}
         </>
     );
 }
