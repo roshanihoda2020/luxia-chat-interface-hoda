@@ -15,6 +15,8 @@ import { BusyButton } from "./Loading";
  *
  * - `tone="neutral"` — non-destructive confirm (primary action)
  * - `tone="destructive"` — delete/remove/irreversible (destructive action)
+ * - `chrome="standard"` — dark structured header (default)
+ * - `chrome="compact"` — light title/body surface for nested confirms over an open feature modal
  *
  * Optional `impact` for dependency/consequence callouts.
  * Migrate page-specific confirms gradually; do not fork visual variants.
@@ -28,6 +30,7 @@ export function ConfirmDialog({
   confirmLabel = "Confirm",
   cancelLabel = "Cancel",
   tone = "neutral",
+  chrome = "standard",
   busy = false,
   busyLabel,
   onConfirm,
@@ -41,13 +44,19 @@ export function ConfirmDialog({
   confirmLabel?: string;
   cancelLabel?: string;
   tone?: "neutral" | "destructive";
+  /**
+   * `standard` — dark header band (feature confirms).
+   * `compact` — title + body on the light surface (lightweight nested discard/confirm).
+   */
+  chrome?: "standard" | "compact";
   busy?: boolean;
   busyLabel?: string;
   onConfirm: () => void | Promise<void>;
 }) {
   const destructive = tone === "destructive";
+  const compact = chrome === "compact";
   /** When impact is present, primary copy + impact sit in the light body for scan hierarchy. */
-  const bodyWithImpact = Boolean(impact);
+  const bodyWithImpact = Boolean(impact) && !compact;
 
   return (
     <AlertDialog
@@ -57,33 +66,52 @@ export function ConfirmDialog({
         onOpenChange(next);
       }}
     >
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{title}</AlertDialogTitle>
-          {!bodyWithImpact && description ? (
-            <AlertDialogDescription asChild>
-              <div className="space-y-2 text-[var(--luxia-purple-10)]">
-                {description}
-              </div>
-            </AlertDialogDescription>
-          ) : !bodyWithImpact ? (
-            <AlertDialogDescription className="sr-only">
+      <AlertDialogContent className={compact ? "sm:max-w-md" : undefined}>
+        {compact ? (
+          <div className="space-y-2 bg-[var(--luxia-surface)] px-6 pt-5 pb-4">
+            <AlertDialogTitle className="text-[var(--luxia-text-primary)]">
               {title}
-            </AlertDialogDescription>
-          ) : null}
-        </AlertDialogHeader>
-        {bodyWithImpact ? (
-          <AlertDialogDescription asChild>
-            <div className="space-y-3 border-t border-[var(--luxia-border-default)] bg-[var(--luxia-surface)] px-6 py-4">
-              {description ? (
-                <div className="space-y-1.5 luxia-type-body-dense text-[var(--luxia-text-primary)]">
+            </AlertDialogTitle>
+            {description ? (
+              <AlertDialogDescription asChild>
+                <div className="space-y-2 luxia-type-body-dense text-[var(--luxia-text-secondary)]">
                   {description}
                 </div>
+              </AlertDialogDescription>
+            ) : (
+              <AlertDialogDescription className="sr-only">{title}</AlertDialogDescription>
+            )}
+          </div>
+        ) : (
+          <>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{title}</AlertDialogTitle>
+              {!bodyWithImpact && description ? (
+                <AlertDialogDescription asChild>
+                  <div className="space-y-2 text-[var(--luxia-purple-10)]">
+                    {description}
+                  </div>
+                </AlertDialogDescription>
+              ) : !bodyWithImpact ? (
+                <AlertDialogDescription className="sr-only">
+                  {title}
+                </AlertDialogDescription>
               ) : null}
-              <div className="space-y-1.5">{impact}</div>
-            </div>
-          </AlertDialogDescription>
-        ) : null}
+            </AlertDialogHeader>
+            {bodyWithImpact ? (
+              <AlertDialogDescription asChild>
+                <div className="space-y-3 border-t border-[var(--luxia-border-default)] bg-[var(--luxia-surface)] px-6 py-4">
+                  {description ? (
+                    <div className="space-y-1.5 luxia-type-body-dense text-[var(--luxia-text-primary)]">
+                      {description}
+                    </div>
+                  ) : null}
+                  <div className="space-y-1.5">{impact}</div>
+                </div>
+              </AlertDialogDescription>
+            ) : null}
+          </>
+        )}
         <AlertDialogFooter>
           <AlertDialogCancel disabled={busy}>{cancelLabel}</AlertDialogCancel>
           <BusyButton
