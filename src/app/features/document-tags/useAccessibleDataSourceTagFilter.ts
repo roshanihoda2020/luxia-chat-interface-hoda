@@ -41,6 +41,13 @@ export function useAccessibleDataSourceTagFilter(sourceIds: readonly string[]) {
     ));
   }, []);
 
+  /** Apply a tag as an active filter without removing other selected tags. */
+  const selectTag = useCallback((tagId: string) => {
+    setSelectedTagIds((current) => (
+      current.includes(tagId) ? current : [...current, tagId]
+    ));
+  }, []);
+
   const toggleUntagged = useCallback(() => {
     setUntaggedSelected((current) => !current);
   }, []);
@@ -65,6 +72,7 @@ export function useAccessibleDataSourceTagFilter(sourceIds: readonly string[]) {
     untaggedSelected,
     hasActiveTagFilters,
     toggleTag,
+    selectTag,
     toggleUntagged,
     clear,
     matches,

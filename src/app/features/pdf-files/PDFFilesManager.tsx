@@ -308,6 +308,11 @@ export function PDFFilesManager({
                                         key={item.id}
                                         item={item}
                                         fileTagSourceIds={fileTagSourceIds}
+                                        onTagClick={
+                                          showFileTagFilter
+                                            ? (tag) => fileTagFilter.selectTag(tag.id)
+                                            : undefined
+                                        }
                                         onView={() => setViewId(item.id)}
                                         onRemove={readOnly ? undefined : () => setConfirmRemoveId(item.id)}
                                     />

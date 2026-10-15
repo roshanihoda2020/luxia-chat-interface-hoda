@@ -201,6 +201,7 @@ export function AddConstellationDataSourceDialog({
                         <DataSourceLibraryDocumentTags
                           dataSourceId={source.id}
                           className="mt-1.5 block"
+                          onTagClick={(tag) => tagFilter.selectTag(tag.id)}
                         />
                       </span>
                     </button>

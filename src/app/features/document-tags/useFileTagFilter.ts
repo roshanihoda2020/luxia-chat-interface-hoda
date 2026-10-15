@@ -44,6 +44,13 @@ export function useFileTagFilter(
     ));
   }, []);
 
+  /** Apply a tag as an active filter without removing other selected tags. */
+  const selectTag = useCallback((tagId: string) => {
+    setSelectedTagIds((current) => (
+      current.includes(tagId) ? current : [...current, tagId]
+    ));
+  }, []);
+
   const toggleUntagged = useCallback(() => {
     setUntaggedSelected((current) => !current);
   }, []);
@@ -68,6 +75,7 @@ export function useFileTagFilter(
     untaggedSelected,
     hasActiveTagFilters,
     toggleTag,
+    selectTag,
     toggleUntagged,
     clear,
     matches,

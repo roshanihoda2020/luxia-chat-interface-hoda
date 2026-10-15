@@ -29,10 +29,12 @@ function OverflowTagsTrigger({
   hiddenTags,
   overflow,
   overflowTitle,
+  onTagClick,
 }: {
   hiddenTags: readonly DocumentTagDefinition[];
   overflow: number;
   overflowTitle: string;
+  onTagClick?: (tag: DocumentTagDefinition) => void;
 }) {
   const [open, setOpen] = useState(false);
   const closeTimer = useRef<number | null>(null);
@@ -94,7 +96,20 @@ function OverflowTagsTrigger({
         </p>
         <div className={`mt-2 max-h-48 overflow-y-auto ${TAG_CHIP_LIST_CLASS}`}>
           {hiddenTags.map((tag) => (
-            <DocumentTagChip key={tag.id} tag={tag} />
+            <DocumentTagChip
+              key={tag.id}
+              tag={tag}
+              interactive={Boolean(onTagClick)}
+              aria-label={onTagClick ? `Filter by ${tag.name}` : undefined}
+              onClick={
+                onTagClick
+                  ? (event) => {
+                      event.stopPropagation();
+                      onTagClick(tag);
+                    }
+                  : undefined
+              }
+            />
           ))}
         </div>
       </PopoverContent>
@@ -107,11 +122,14 @@ export function DocumentTagSummary({
   maxVisible = VISIBLE_TAG_LIMIT,
   emptyLabel = null,
   overflowTitle = "More tags",
+  onTagClick,
 }: {
   tags: readonly DocumentTagDefinition[];
   maxVisible?: number;
   emptyLabel?: string | null;
   overflowTitle?: string;
+  /** When set, chips apply this tag as a list filter (no navigation). */
+  onTagClick?: (tag: DocumentTagDefinition) => void;
 }) {
   if (tags.length === 0) {
     if (!emptyLabel) return null;
@@ -130,7 +148,19 @@ export function DocumentTagSummary({
     <span className={TAG_CHIP_ROW_CLASS}>
       {visible.map((tag) => (
         <span key={tag.id} className="inline-flex min-w-0 max-w-[4.75rem]">
-          <DocumentTagChip tag={tag} />
+          <DocumentTagChip
+            tag={tag}
+            interactive={Boolean(onTagClick)}
+            aria-label={onTagClick ? `Filter by ${tag.name}` : undefined}
+            onClick={
+              onTagClick
+                ? (event) => {
+                    event.stopPropagation();
+                    onTagClick(tag);
+                  }
+                : undefined
+            }
+          />
         </span>
       ))}
       {overflow > 0 ? (
@@ -138,6 +168,7 @@ export function DocumentTagSummary({
           hiddenTags={hidden}
           overflow={overflow}
           overflowTitle={overflowTitle}
+          onTagClick={onTagClick}
         />
       ) : null}
     </span>
@@ -149,16 +180,20 @@ export function DataSourceLibraryDocumentTags({
   dataSourceId,
   emptyLabel = null,
   className,
+  onTagClick,
 }: {
   dataSourceId: string;
   emptyLabel?: string | null;
   className?: string;
+  onTagClick?: (tag: DocumentTagDefinition) => void;
 }) {
   const store = useDataSourceTagStore();
   void store;
   const tags = effectiveTagsForDataSource(dataSourceId);
   if (tags.length === 0 && !emptyLabel) return null;
-  const summary = <DocumentTagSummary tags={tags} emptyLabel={emptyLabel} />;
+  const summary = (
+    <DocumentTagSummary tags={tags} emptyLabel={emptyLabel} onTagClick={onTagClick} />
+  );
   if (!className) return summary;
   return <span className={className}>{summary}</span>;
 }
@@ -168,17 +203,23 @@ export function FileLibraryDocumentTags({
   fileName,
   sourceIds,
   className,
+  onTagClick,
 }: {
   fileName: string;
   sourceIds: readonly string[];
   className?: string;
+  onTagClick?: (tag: DocumentTagDefinition) => void;
 }) {
   const store = useDataSourceTagStore();
   void store;
   const tags = tagsForFileInSources(fileName, sourceIds);
   if (tags.length === 0) return null;
   const summary = (
-    <DocumentTagSummary tags={tags} overflowTitle="Tags on this file" />
+    <DocumentTagSummary
+      tags={tags}
+      overflowTitle="Tags on this file"
+      onTagClick={onTagClick}
+    />
   );
   if (!className) return summary;
   return <span className={className}>{summary}</span>;

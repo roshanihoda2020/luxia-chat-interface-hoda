@@ -22,12 +22,15 @@ export function PDFFilesSection({
     isOpen,
     onToggle,
     readOnly = false,
+    fileTagSourceIds = [],
 }: {
     files: PDFFileRecord[];
     onCommitFiles: (next: PDFFileRecord[]) => void;
     isOpen: boolean;
     onToggle: () => void;
     readOnly?: boolean;
+    /** Connected Data Source IDs for File Tag filter/chips in the manager. */
+    fileTagSourceIds?: readonly string[];
 }) {
     const [compactSearch, setCompactSearch] = useState("");
     const [managerOpen, setManagerOpen] = useState(false);
@@ -99,6 +102,7 @@ export function PDFFilesSection({
             <PDFFilesManager
                 open={managerOpen}
                 files={files}
+                fileTagSourceIds={fileTagSourceIds}
                 onCommit={(next) => {
                     if (readOnly) return;
                     onCommitFiles(next);

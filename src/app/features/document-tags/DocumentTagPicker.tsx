@@ -14,8 +14,10 @@ import {
 } from "@/app/components/ui/popover";
 import { TagDefinitionForm } from "./TagDefinitionForm";
 import { normalizeTag, tagsEqual } from "./model";
+import { countTagUsage, formatTagUsageSummary } from "./persistence";
 import { documentTagTone, suggestTagColor } from "./tagTone";
 import type { DocumentTagColorId, DocumentTagDefinition } from "./types";
+import { useDataSourceTagStore } from "./useDataSourceTags";
 
 function pickerEmptyCopy(input: {
   query: string;
@@ -57,6 +59,8 @@ export function DocumentTagPicker({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [creating, setCreating] = useState(false);
+  const store = useDataSourceTagStore();
+  void store;
 
   useEffect(() => {
     if (!open) {
@@ -66,6 +70,14 @@ export function DocumentTagPicker({
   }, [open]);
 
   const allTagDefinitions = catalog;
+  const usageByTagId = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const tag of allTagDefinitions) {
+      const summary = formatTagUsageSummary(countTagUsage(tag.id));
+      if (summary) map.set(tag.id, summary);
+    }
+    return map;
+  }, [allTagDefinitions, store]);
   const assignedTagIds = useMemo(() => new Set(excludeIds ?? []), [excludeIds]);
   const availableTagDefinitions = useMemo(
     () => allTagDefinitions.filter((tag) => !assignedTagIds.has(tag.id)),
@@ -189,6 +201,7 @@ export function DocumentTagPicker({
                   </p>
                   {filtered.map((tag) => {
                     const tone = documentTagTone(tag.color);
+                    const usage = usageByTagId.get(tag.id);
                     return (
                       <CommandItem
                         key={tag.id}
@@ -201,7 +214,15 @@ export function DocumentTagPicker({
                           style={{ background: tone.swatch }}
                           aria-hidden
                         />
-                        <span className="min-w-0 truncate">{tag.name}</span>
+                        <span className="min-w-0 flex-1 truncate">{tag.name}</span>
+                        {usage ? (
+                          <span
+                            className="ml-2 shrink-0 luxia-type-caption"
+                            style={{ color: "var(--luxia-text-muted)" }}
+                          >
+                            {usage}
+                          </span>
+                        ) : null}
                       </CommandItem>
                     );
                   })}

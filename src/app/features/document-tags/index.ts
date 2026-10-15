@@ -23,6 +23,7 @@ export { DataSourceTagsSection } from "./DataSourceTagsSection";
 export { DataSourceLibraryDocumentTags, DocumentTagSummary, FileLibraryDocumentTags, TableLibraryDocumentTags } from "./DocumentTagSummary";
 export { DocumentTagChip } from "./DocumentTagChip";
 export { DocumentTagPicker } from "./DocumentTagPicker";
+export { BulkRemoveTagButton } from "./BulkRemoveTagButton";
 export { DraftDataSourceTagsField } from "./DraftDataSourceTagsField";
 export { DraftFileTagRow } from "./DraftFileTagRow";
 export { DraftTableTagRow } from "./DraftTableTagRow";
@@ -52,7 +53,10 @@ export {
   tagsForTableInSources,
   effectiveTagsForDataSource,
   contentDerivedTagsForDataSource,
+  countTagUsage,
+  formatTagUsageSummary,
 } from "./persistence";
+export type { TagUsageCount } from "./persistence";
 export {
   documentTagTone,
   suggestTagColor,

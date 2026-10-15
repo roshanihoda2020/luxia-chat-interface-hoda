@@ -21,6 +21,7 @@ import type { PDFPreviewTarget } from "@/app/features/pdf-files/types";
 import { ConfirmDialog } from "@/app/features/shared/ConfirmDialog";
 import { luxiaToast } from "@/app/features/shared/luxiaToast";
 import { LUXIA_SETTINGS_LIST_SURFACE_CLASS } from "@/app/features/shared/luxiaSettingsUx";
+import { BulkRemoveTagButton } from "./BulkRemoveTagButton";
 import { DocumentTagChip, TAG_CHIP_LIST_CLASS } from "./DocumentTagChip";
 import { DocumentTagPicker } from "./DocumentTagPicker";
 import { resolveDocumentPreviewTarget } from "./documentPreviewMock";
@@ -74,6 +75,7 @@ export function FileDataSourceDocumentsPanel({
     applyTagToFiles,
     createAndApplyTagToFiles,
     removeTagFromFile,
+    removeTagFromFiles,
     clearFileAssignments,
     updateTag,
   } = useDataSourceTags(dataSourceId);
@@ -151,6 +153,22 @@ export function FileDataSourceDocumentsPanel({
     );
   }
 
+  function selectTagFilter(tagId: string) {
+    setSelectedTagIds((current) =>
+      current.includes(tagId) ? current : [...current, tagId],
+    );
+  }
+
+  const tagsOnSelection = useMemo(() => {
+    const byId = new Map<string, DocumentTagDefinition>();
+    for (const name of visibleSelected) {
+      for (const tag of tagsForFileName(name)) {
+        if (!byId.has(tag.id)) byId.set(tag.id, tag);
+      }
+    }
+    return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [visibleSelected, tagsForFileName]);
+
   function toggleFile(name: string, checked: boolean) {
     setSelected((current) => {
       if (checked) return current.includes(name) ? current : [...current, name];
@@ -180,6 +198,19 @@ export function FileDataSourceDocumentsPanel({
       fileTargets.length === 1
         ? "Tag added."
         : `Tag added to ${result.appliedCount} document${result.appliedCount === 1 ? "" : "s"}.`,
+    );
+  }
+
+  function handleRemoveFromSelected(tag: DocumentTagDefinition) {
+    const result = removeTagFromFiles(visibleSelected, tag.id);
+    if (result.removedCount === 0) {
+      toast.message(`“${tag.name}” is not on the selected documents.`);
+      return;
+    }
+    toast.message(
+      result.removedCount === 1
+        ? `Removed “${tag.name}”.`
+        : `Removed “${tag.name}” from ${result.removedCount} documents.`,
     );
   }
 
@@ -237,6 +268,10 @@ export function FileDataSourceDocumentsPanel({
         ariaLabel="Add tag to selected files"
         onApply={(tag) => handleApplyToFiles(visibleSelected, tag)}
         onCreate={(input) => handleCreateForFiles(visibleSelected, input)}
+      />
+      <BulkRemoveTagButton
+        tags={tagsOnSelection}
+        onRemove={handleRemoveFromSelected}
       />
       <Button type="button" variant="tertiary" size="compact" onClick={() => setSelected([])}>
         Clear selection
@@ -382,13 +417,28 @@ export function FileDataSourceDocumentsPanel({
                                   className="max-w-[min(100%,12rem)]"
                                   removeAriaLabel={`Remove ${tag.name} from ${name}`}
                                   onEdit={canManageDefinitions ? (input) => handleUpdate(tag, input) : undefined}
+                                  onActivate={
+                                    canManageDefinitions
+                                      ? undefined
+                                      : () => selectTagFilter(tag.id)
+                                  }
                                   onRemove={() => {
                                     removeTagFromFile(name, tag.id);
                                     toast.message(`Removed “${tag.name}”.`);
                                   }}
                                 />
                               ) : (
-                                <DocumentTagChip key={tag.id} tag={tag} className="max-w-[min(100%,12rem)]" />
+                                <DocumentTagChip
+                                  key={tag.id}
+                                  tag={tag}
+                                  className="max-w-[min(100%,12rem)]"
+                                  interactive
+                                  aria-label={`Filter by ${tag.name}`}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    selectTagFilter(tag.id);
+                                  }}
+                                />
                               ),
                             )}
                             {canEdit ? (

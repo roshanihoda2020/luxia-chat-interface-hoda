@@ -1261,6 +1261,7 @@ export function ConstellationCreatePage({
                     <DataSourceLibraryDocumentTags
                       dataSourceId={source.id}
                       className="mt-1.5 block"
+                      onTagClick={(tag) => sourceTagFilter.selectTag(tag.id)}
                     />
                   </div>
                 </label>

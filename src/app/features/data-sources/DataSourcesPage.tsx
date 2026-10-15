@@ -634,7 +634,10 @@ export function DataSourcesPage({
                     </td>
                     <td className={`${TABLE_BODY_CELL} ${COL_TAGS}`}>
                       <div className="flex min-w-0 items-center">
-                        <DataSourceLibraryDocumentTags dataSourceId={row.id} />
+                        <DataSourceLibraryDocumentTags
+                          dataSourceId={row.id}
+                          onTagClick={(tag) => tagFilter.selectTag(tag.id)}
+                        />
                       </div>
                     </td>
                     <td

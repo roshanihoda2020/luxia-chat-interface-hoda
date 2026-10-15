@@ -7987,6 +7987,7 @@ export default function App() {
               onCommitPdfFiles={(next) =>
                 handleCommitChatPdfFiles(activeConstellation.id, next)
               }
+              pdfFileTagSourceIds={resolveConnectedSourceIds(activeConstellation.id)}
               crawler={resolveCapabilityBundle(activeConstellation.id).crawler}
               onCommitCrawler={(next) =>
                 handleCommitChatCrawler(activeConstellation.id, next)

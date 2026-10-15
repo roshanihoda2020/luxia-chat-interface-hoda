@@ -1,5 +1,10 @@
 import { FileText } from "lucide-react";
-import { FileLibraryDocumentTags, TableLibraryDocumentTags, sourceIdsForFileRecord } from "@/app/features/document-tags";
+import {
+    FileLibraryDocumentTags,
+    TableLibraryDocumentTags,
+    sourceIdsForFileRecord,
+    type DocumentTagDefinition,
+} from "@/app/features/document-tags";
 import { PDFFileMenu } from "./PDFFileMenu";
 import { LX } from "./tokens";
 import type { PDFFileRecord } from "./types";
@@ -9,11 +14,13 @@ export function PDFFileRow({
     onView,
     onRemove,
     fileTagSourceIds = [],
+    onTagClick,
 }: {
     item: PDFFileRecord;
     onView: () => void;
     onRemove?: () => void;
     fileTagSourceIds?: readonly string[];
+    onTagClick?: (tag: DocumentTagDefinition) => void;
 }) {
     const metadata = item.source === "upload" ? `PDF · ${item.sizeLabel}` : `PDF · ${item.sizeLabel}`;
 
@@ -29,6 +36,7 @@ export function PDFFileRow({
                     fileName={item.name}
                     sourceIds={sourceIdsForFileRecord(item.catalogId, fileTagSourceIds)}
                     className="mt-1.5 block"
+                    onTagClick={onTagClick}
                 />
                 <TableLibraryDocumentTags
                     tableId={item.id}

@@ -19,12 +19,15 @@ export function ManagedTagChip({
   className,
   removeAriaLabel,
   onEdit,
+  onActivate,
   onRemove,
 }: {
   tag: DocumentTagDefinition;
   className?: string;
   removeAriaLabel: string;
   onEdit?: (input: { name: string; color: DocumentTagColorId }) => string | null;
+  /** When edit is unavailable, optional filter/activate action on the name. */
+  onActivate?: () => void;
   onRemove: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -69,6 +72,18 @@ export function ManagedTagChip({
             />
           </PopoverContent>
         </Popover>
+      ) : onActivate ? (
+        <button
+          type="button"
+          className={TAG_CHIP_NAME_BUTTON_CLASS}
+          aria-label={`Filter by ${tag.name}`}
+          onClick={(event) => {
+            event.stopPropagation();
+            onActivate();
+          }}
+        >
+          {tag.name}
+        </button>
       ) : (
         <span className={TAG_CHIP_NAME_BUTTON_CLASS}>{tag.name}</span>
       )}

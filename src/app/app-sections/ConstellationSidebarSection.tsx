@@ -780,6 +780,7 @@ export function ConstellationSidebar({
   onCommitMetrics,
   pdfFiles,
   onCommitPdfFiles,
+  pdfFileTagSourceIds = [],
   crawler,
   onCommitCrawler,
 }: {
@@ -812,6 +813,8 @@ export function ConstellationSidebar({
   onCommitMetrics: (next: MetricRecord[]) => void;
   pdfFiles: PDFFileRecord[];
   onCommitPdfFiles: (next: PDFFileRecord[]) => void;
+  /** Connected Data Source IDs for PDF File Tag filter/chips. */
+  pdfFileTagSourceIds?: readonly string[];
   crawler: CrawlerState;
   onCommitCrawler: (next: CrawlerState) => void;
 }) {
@@ -1276,6 +1279,7 @@ export function ConstellationSidebar({
                 key="pdfFiles"
                 files={pdfFiles}
                 onCommitFiles={onCommitPdfFiles}
+                fileTagSourceIds={pdfFileTagSourceIds}
                 isOpen={isOpen}
                 onToggle={() => setOpenSections(p => ({ ...p, pdfFiles: !p.pdfFiles }))}
                 readOnly={!canConfigure}

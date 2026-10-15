@@ -978,5 +978,59 @@ export function listOrganizationTagDefinitions(): DocumentTagDefinition[] {
   return listTagDefinitions(readOrganizationTagLibrary().definitions);
 }
 
+/** Lightweight assignment footprint for picker hints. Prototype client-side only. */
+export type TagUsageCount = {
+  dataSources: number;
+  files: number;
+  tables: number;
+  total: number;
+};
+
+export function countTagUsage(tagId: string): TagUsageCount {
+  const library = readOrganizationTagLibrary();
+  let dataSources = 0;
+  let files = 0;
+  let tables = 0;
+  for (const ids of Object.values(library.dataSourceAssignments)) {
+    if (ids.includes(tagId)) dataSources += 1;
+  }
+  for (const inner of Object.values(library.fileAssignments)) {
+    for (const ids of Object.values(inner)) {
+      if (ids.includes(tagId)) files += 1;
+    }
+  }
+  for (const inner of Object.values(library.tableAssignments ?? {})) {
+    for (const ids of Object.values(inner)) {
+      if (ids.includes(tagId)) tables += 1;
+    }
+  }
+  return {
+    dataSources,
+    files,
+    tables,
+    total: dataSources + files + tables,
+  };
+}
+
+export function formatTagUsageSummary(usage: TagUsageCount): string | null {
+  if (usage.total <= 0) return null;
+  const parts: string[] = [];
+  if (usage.dataSources > 0) {
+    parts.push(
+      `${usage.dataSources} data source${usage.dataSources === 1 ? "" : "s"}`,
+    );
+  }
+  if (usage.files > 0) {
+    parts.push(`${usage.files} file${usage.files === 1 ? "" : "s"}`);
+  }
+  if (usage.tables > 0) {
+    parts.push(`${usage.tables} table${usage.tables === 1 ? "" : "s"}`);
+  }
+  if (parts.length === 0) return null;
+  if (parts.length === 1) return `Used in ${parts[0]}`;
+  if (parts.length === 2) return `Used in ${parts[0]}, ${parts[1]}`;
+  return `Used in ${parts[0]}, ${parts[1]}, ${parts[2]}`;
+}
+
 export { emptyTagStore, emptyTagBucket, emptyTagLibrary, PROTOTYPE_ORGANIZATION_ID } from "./model";
 export { fileIdentity };

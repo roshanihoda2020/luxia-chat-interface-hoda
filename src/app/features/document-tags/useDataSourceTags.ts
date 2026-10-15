@@ -520,6 +520,25 @@ export function useDataSourceTags(dataSourceId: string) {
     writeOrganizationTagLibrary(next);
   }, [dataSourceId]);
 
+  /** Remove a tag from selected files only. Does not delete the tag definition. */
+  const removeTagFromFiles = useCallback((fileNames: readonly string[], tagId: string) => {
+    const next = latestLibrary();
+    const files = { ...(next.fileAssignments[dataSourceId] ?? {}) };
+    let removedCount = 0;
+    for (const fileName of fileNames) {
+      const fileId = fileIdentity(fileName);
+      const current = files[fileId] ?? [];
+      if (!current.includes(tagId)) continue;
+      files[fileId] = unassignTagId(current, tagId);
+      removedCount += 1;
+    }
+    if (removedCount > 0) {
+      next.fileAssignments[dataSourceId] = files;
+      writeOrganizationTagLibrary(next);
+    }
+    return { removedCount };
+  }, [dataSourceId]);
+
   /** Drop all tag assignments for a document (e.g. after the file is deleted). */
   const clearFileAssignments = useCallback((fileName: string) => {
     const next = latestLibrary();
@@ -624,6 +643,7 @@ export function useDataSourceTags(dataSourceId: string) {
     applyTagToFiles,
     createAndApplyTagToFiles,
     removeTagFromFile,
+    removeTagFromFiles,
     clearFileAssignments,
     tagsForTable,
     applyTagToTables,
