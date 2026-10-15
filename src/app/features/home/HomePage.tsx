@@ -16,6 +16,7 @@ import { GlobalSearch, type HomeSearchResult } from "./GlobalSearch";
 import { HomeHeader } from "./HomeHeader";
 import { HomeHero } from "./HomeHero";
 import { HS } from "./homeSurfaces";
+import { canCreateProject } from "@/app/features/permissions";
 import { ProjectsBrowser, ProjectsPreview } from "@/app/features/project";
 import { filterActiveProjects } from "@/app/features/project/data";
 import type {
@@ -271,6 +272,7 @@ export function HomePage({
         projects={activeProjects}
         pinnedProjectOrder={pinnedProjectIds}
         onViewAll={() => onBrowseModeChange("projects")}
+        onNewProject={canCreateProject() ? onNewProject : undefined}
         onToggleProjectPin={onToggleProjectPin}
         onArchiveProject={onArchiveProject}
         onRestoreProject={onRestoreProject}

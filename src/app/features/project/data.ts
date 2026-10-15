@@ -191,17 +191,75 @@ export function rankProjectsForPreview(
   });
 }
 
-/** Max Project cards on the Home preview (not the full Projects directory). */
+/** @deprecated Prefer HOME_PINNED_PREVIEW_LIMIT / HOME_RECENT_* limits. */
 export const HOME_PROJECT_PREVIEW_LIMIT = 4;
+
+/** Max pinned project cards on Home (card layout only). */
+export const HOME_PINNED_PREVIEW_LIMIT = 4;
+
+/** Max recent projects on Home in List mode (compact rows). */
+export const HOME_RECENT_LIST_PREVIEW_LIMIT = 8;
+
+/** Max recent projects on Home in Grid mode (cards). */
+export const HOME_RECENT_GRID_PREVIEW_LIMIT = 6;
+
+export function homeRecentPreviewLimit(
+  viewMode: "grid" | "list",
+): number {
+  return viewMode === "list"
+    ? HOME_RECENT_LIST_PREVIEW_LIMIT
+    : HOME_RECENT_GRID_PREVIEW_LIMIT;
+}
+
+function isPinnedProject(
+  project: HomeProjectCard,
+  pinnedProjectOrder: readonly string[],
+): boolean {
+  return pinnedProjectOrder.includes(project.id) || Boolean(project.isPinned);
+}
+
+/**
+ * Home overview sections: pinned (when any) + recent (excluding all pinned).
+ * Recent is ranked by updated time; pins keep pin-order from `rankProjectsForPreview`.
+ * Pinned preview is capped; recent limit should match List vs Grid density.
+ */
+export function getHomeProjectsSections(
+  projects: HomeProjectCard[],
+  pinnedProjectOrder: readonly string[] = [],
+  recentLimit: number = HOME_RECENT_LIST_PREVIEW_LIMIT,
+  pinnedLimit: number = HOME_PINNED_PREVIEW_LIMIT,
+) {
+  const ranked = rankProjectsForPreview(projects, pinnedProjectOrder);
+  const allPinned = ranked.filter((project) =>
+    isPinnedProject(project, pinnedProjectOrder),
+  );
+  const pinned = allPinned.slice(0, Math.max(0, pinnedLimit));
+  // Exclude every pinned project from Recent (not only the Home-visible slice).
+  const recent = ranked
+    .filter((project) => !isPinnedProject(project, pinnedProjectOrder))
+    .slice(0, Math.max(0, recentLimit));
+
+  return {
+    pinned,
+    recent,
+    ranked,
+    pinnedTotal: allPinned.length,
+    totalAccessible: ranked.length,
+    totalVisible: pinned.length + recent.length,
+    /** Always offer the full library from Home — this section is a subset. */
+    showViewAll: true,
+  };
+}
 
 /**
  * Home Project preview — first N of the shared filtered/sorted active list.
  * Full Projects page must use `rankProjectsForPreview` (or the unscoped catalog), not this slice.
+ * @deprecated Prefer `getHomeProjectsSections` for Home overview.
  */
 export function getProjectPreview(
   projects: HomeProjectCard[],
   pinnedProjectOrder: readonly string[] = [],
-  limit: number = HOME_PROJECT_PREVIEW_LIMIT,
+  limit: number = HOME_PINNED_PREVIEW_LIMIT,
 ) {
   const ranked = rankProjectsForPreview(projects, pinnedProjectOrder);
   const preview = ranked.slice(0, Math.max(0, limit));

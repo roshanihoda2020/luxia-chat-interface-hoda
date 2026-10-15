@@ -10,16 +10,26 @@ function storageKey(collector: CollectorViewKey): string {
   return `${STORAGE_PREFIX}${collector}`;
 }
 
-function parseMode(value: string | null): CollectorViewMode {
-  return value === "list" ? "list" : DEFAULT_MODE;
+function defaultModeFor(collector: CollectorViewKey): CollectorViewMode {
+  // Home Recent projects opens in List; full Projects/Dashboard keep Grid.
+  return collector === "home-projects" ? "list" : DEFAULT_MODE;
 }
 
-/** Invalid or missing values fall back to Grid (current approved default). */
+function parseMode(
+  value: string | null,
+  fallback: CollectorViewMode,
+): CollectorViewMode {
+  if (value === "list" || value === "grid") return value;
+  return fallback;
+}
+
+/** Invalid or missing values fall back to the collector default. */
 export function readCollectorViewMode(collector: CollectorViewKey): CollectorViewMode {
+  const fallback = defaultModeFor(collector);
   try {
-    return parseMode(localStorage.getItem(storageKey(collector)));
+    return parseMode(localStorage.getItem(storageKey(collector)), fallback);
   } catch {
-    return DEFAULT_MODE;
+    return fallback;
   }
 }
 
