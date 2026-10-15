@@ -136,6 +136,21 @@ export function getVidgetInboxPath(
   return search ? `${base}?${search}` : base;
 }
 
+/** External read-only review share — not a Project-scoped route. */
+export function getSharedReviewPath(shareId: string): string {
+  return `/shared-review/${encodeURIComponent(shareId)}`;
+}
+
+export function parseSharedReviewShareIdFromPath(pathname: string): string | null {
+  const match = pathname.match(/^\/shared-review\/([^/]+)\/?$/);
+  if (!match?.[1]) return null;
+  try {
+    return decodeURIComponent(match[1]).trim() || null;
+  } catch {
+    return match[1].trim() || null;
+  }
+}
+
 export function getAccessLevelsPath(): string {
   return "/organization/access-levels";
 }
@@ -490,6 +505,7 @@ export type LuxiaResolvedPath =
   | { kind: "admin-pipelines" }
   | { kind: "writing-assistant" }
   | { kind: "tools" }
+  | { kind: "shared-review"; shareId: string }
   | { kind: "personal-settings" }
   | { kind: "organization-settings" }
   | { kind: "chat"; chatId: string; projectId?: string; constellationId?: string }
@@ -501,6 +517,11 @@ export function resolveLuxiaPathname(pathname: string): LuxiaResolvedPath {
   }
   if (pathname === "/home" || pathname === "/home/") {
     return { kind: "home", normalizeToRoot: true };
+  }
+
+  const sharedReviewShareId = parseSharedReviewShareIdFromPath(pathname);
+  if (sharedReviewShareId) {
+    return { kind: "shared-review", shareId: sharedReviewShareId };
   }
 
   if (parseOrganizationUsersPath(pathname)) {

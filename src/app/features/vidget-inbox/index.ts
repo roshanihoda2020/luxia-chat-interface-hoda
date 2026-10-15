@@ -8,6 +8,8 @@ export type {
   VidgetInboxReviewShare,
   VidgetInboxReviewShareScope,
   VidgetInboxSession,
+  VidgetInboxShareAccess,
+  VidgetInboxShareExpiryDays,
   VidgetInboxTurn,
   VidgetInboxTurnRole,
   VidgetInboxVisitorTurn,
@@ -53,14 +55,23 @@ export {
 export type { VidgetInboxInteraction } from "./interactions";
 
 export {
+  absoluteSharedReviewUrl,
   conversationShareScope,
   createVidgetInboxReviewShare,
   describeShareScope,
+  formatShareExpiryLabel,
+  getSharedReviewPath,
+  getVidgetInboxReviewShareById,
+  listRecentVidgetInboxReviewShares,
   listVidgetInboxReviewShares,
+  resolveVidgetInboxShareAccess,
   reviewSessionsForVidget,
+  revokeVidgetInboxReviewShare,
   selectedShareScope,
   sessionIdsForShareScope,
+  sessionsForReviewShare,
   shareDialogCopy,
+  shareStatusLabel,
   vidgetShareScope,
 } from "./share";
 
@@ -80,3 +91,5 @@ export {
 
 export { VidgetInboxPage } from "./VidgetInboxPage";
 export type { VidgetInboxPageProps } from "./VidgetInboxPage";
+export { SharedReviewPage } from "./SharedReviewPage";
+export type { SharedReviewPageProps } from "./SharedReviewPage";

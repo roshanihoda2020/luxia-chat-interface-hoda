@@ -61,6 +61,8 @@ export {
   getPipelineRunPath,
   getVidgetSettingsPath,
   getVidgetInboxPath,
+  getSharedReviewPath,
+  parseSharedReviewShareIdFromPath,
   getAccessLevelsPath,
   getAccessLevelPath,
   getOrganizationUsersPath,

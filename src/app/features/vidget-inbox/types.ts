@@ -76,7 +76,12 @@ export type VidgetInboxReviewShareScope =
       sessionIds: string[];
     };
 
-/** Not a public token API. */
+/**
+ * Prototype external review share.
+ * Not a production token/ACL API — local UI mock only.
+ */
+export type VidgetInboxShareExpiryDays = 7 | 30 | null;
+
 export interface VidgetInboxReviewShare {
   id: string;
   projectId: string;
@@ -85,7 +90,18 @@ export interface VidgetInboxReviewShare {
   scopeType: VidgetInboxReviewShareScope["type"];
   anonymous: boolean;
   createdAt: string;
+  /** ISO timestamp, or null when the link does not expire. */
+  expiresAt: string | null;
+  /** ISO timestamp when revoked; null while active. */
+  revokedAt: string | null;
+  createdBy?: string | null;
 }
+
+export type VidgetInboxShareAccess =
+  | { status: "active"; share: VidgetInboxReviewShare }
+  | { status: "not-found" }
+  | { status: "expired"; share: VidgetInboxReviewShare }
+  | { status: "revoked"; share: VidgetInboxReviewShare };
 
 export interface VidgetInboxRefinePayload {
   projectId: string;

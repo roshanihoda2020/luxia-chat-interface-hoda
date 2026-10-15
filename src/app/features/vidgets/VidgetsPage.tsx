@@ -47,10 +47,7 @@ import {
 } from "./types";
 import { InboxShareDialog } from "@/app/features/vidget-inbox/InboxShareDialog";
 import { getVidgetInboxSessionsForProject } from "@/app/features/vidget-inbox/fixture";
-import {
-  createVidgetInboxReviewShare,
-  vidgetShareScope,
-} from "@/app/features/vidget-inbox/share";
+import { vidgetShareScope } from "@/app/features/vidget-inbox/share";
 import {
   getVidgetInboxCaptureVersion,
   subscribeVidgetInboxCapture,
@@ -80,6 +77,7 @@ export interface VidgetsPageProps {
   onDuplicate: (vidgetId: string) => void;
   onDelete: (vidgetId: string) => void;
   onPreview?: (vidgetId: string) => void;
+  onOpenSharedReview?: (shareId: string) => void;
 }
 
 export function VidgetsPage({
@@ -101,6 +99,7 @@ export function VidgetsPage({
   onDuplicate,
   onDelete,
   onPreview,
+  onOpenSharedReview,
 }: VidgetsPageProps) {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -567,17 +566,11 @@ export function VidgetsPage({
         onOpenChange={(open) => {
           if (!open) setShareVidgetId(null);
         }}
+        projectId={projectId}
         scope={vidgetShare}
         vidgetNames={sharingVidgetName ? [sharingVidgetName] : []}
         vidgetName={sharingVidgetName}
-        onShare={(anonymous) => {
-          if (!vidgetShare) return;
-          createVidgetInboxReviewShare({
-            projectId,
-            scope: vidgetShare,
-            anonymous,
-          });
-        }}
+        onOpenPreview={onOpenSharedReview}
       />
     </LuxiaPageFrame>
   );

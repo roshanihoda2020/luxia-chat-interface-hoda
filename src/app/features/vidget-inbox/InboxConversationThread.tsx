@@ -35,10 +35,16 @@ function InteractionActions({
   interaction,
   refineConstellationId,
   onRefine,
+  readOnly = false,
+  hideFeedback = false,
+  allowCopy = true,
 }: {
   interaction: VidgetInboxInteraction;
   refineConstellationId: string | null;
   onRefine?: (payload: Omit<VidgetInboxRefinePayload, "projectId">) => void;
+  readOnly?: boolean;
+  hideFeedback?: boolean;
+  allowCopy?: boolean;
 }) {
   const assistant = interaction.assistant;
 
@@ -53,12 +59,16 @@ function InteractionActions({
     }
   }
 
+  const showRefine = !readOnly && Boolean(assistant && refineConstellationId && onRefine);
+  const showFeedback = Boolean(assistant) && !hideFeedback;
+  if (!showFeedback && !allowCopy && !showRefine) return null;
+
   return (
     <div
       className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 px-4 pb-3 pt-1"
       style={{ borderTop: "1px solid var(--luxia-border-subtle)" }}
     >
-      {assistant ? (
+      {showFeedback && assistant ? (
         <span
           className="inline-flex items-center gap-1.5 luxia-type-caption"
           style={{ color: "var(--luxia-text-muted)" }}
@@ -88,16 +98,18 @@ function InteractionActions({
           {feedbackLabel(assistant.feedback)}
         </span>
       ) : null}
-      <button
-        type="button"
-        className="inline-flex h-7 items-center gap-1.5 rounded-[var(--luxia-radius-8)] px-2 luxia-type-caption outline-none hover:bg-[var(--luxia-opacity-brand-primary-08)] focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]"
-        style={{ color: "var(--luxia-text-muted)" }}
-        onClick={() => void handleCopy()}
-      >
-        <Copy size={13} strokeWidth={1.8} aria-hidden />
-        Copy
-      </button>
-      {assistant && refineConstellationId && onRefine ? (
+      {allowCopy ? (
+        <button
+          type="button"
+          className="inline-flex h-7 items-center gap-1.5 rounded-[var(--luxia-radius-8)] px-2 luxia-type-caption outline-none hover:bg-[var(--luxia-opacity-brand-primary-08)] focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]"
+          style={{ color: "var(--luxia-text-muted)" }}
+          onClick={() => void handleCopy()}
+        >
+          <Copy size={13} strokeWidth={1.8} aria-hidden />
+          Copy
+        </button>
+      ) : null}
+      {showRefine && assistant && refineConstellationId && onRefine ? (
         <button
           type="button"
           className="inline-flex h-7 items-center rounded-[var(--luxia-radius-8)] px-2 luxia-type-caption outline-none hover:bg-[var(--luxia-opacity-brand-primary-08)] focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]"
@@ -198,6 +210,8 @@ export function InboxConversationThread({
   constellationNameById,
   constellationTypeById,
   onRefine,
+  readOnly = false,
+  anonymous = false,
 }: {
   session: VidgetInboxSession;
   projectName: string;
@@ -206,18 +220,25 @@ export function InboxConversationThread({
   constellationNameById: Record<string, string>;
   constellationTypeById?: Record<string, string>;
   onRefine?: (payload: Omit<VidgetInboxRefinePayload, "projectId">) => void;
+  /** Shared external review: no Refine / writable controls. */
+  readOnly?: boolean;
+  /** Strip constellation routing and soften feedback labels in shared view. */
+  anonymous?: boolean;
 }) {
   const interactions = groupInboxInteractions(session.turns);
+  const hideInternalRouting = readOnly || anonymous;
+  const resolvedSourceType = hideInternalRouting ? null : sourceType;
+  const resolvedProjectName = anonymous ? "Shared review" : projectName;
 
   return (
     <div className="flex min-w-0 flex-col gap-6">
       {interactions.map((interaction) => {
         const assistant = interaction.assistant;
         const constellationId = assistant?.constellationId ?? null;
-        const constellationName = constellationId
+        const constellationName = !hideInternalRouting && constellationId
           ? constellationNameById[constellationId] ?? null
           : null;
-        const refineConstellationId = assistant
+        const refineConstellationId = !readOnly && assistant
           ? resolveRefineConstellationId({
               vidgetSourceType: sourceType,
               vidgetConstellationId,
@@ -232,11 +253,11 @@ export function InboxConversationThread({
               <div className="min-w-0">
                 <AssistantTurn
                   turn={assistant}
-                  projectName={projectName}
-                  sourceType={sourceType}
+                  projectName={resolvedProjectName}
+                  sourceType={resolvedSourceType}
                   constellationName={constellationName}
                   constellationType={
-                    constellationId
+                    !hideInternalRouting && constellationId
                       ? constellationTypeById?.[constellationId]
                       : undefined
                   }
@@ -244,11 +265,14 @@ export function InboxConversationThread({
                     <InteractionActions
                       interaction={interaction}
                       refineConstellationId={refineConstellationId}
-                      onRefine={onRefine}
+                      onRefine={readOnly ? undefined : onRefine}
+                      readOnly={readOnly}
+                      hideFeedback={anonymous}
+                      allowCopy
                     />
                   }
                 />
-                {assistantTurnIsProblematic(assistant) ? (
+                {!readOnly && assistantTurnIsProblematic(assistant) ? (
                   <span className="sr-only">Problematic interaction</span>
                 ) : null}
               </div>

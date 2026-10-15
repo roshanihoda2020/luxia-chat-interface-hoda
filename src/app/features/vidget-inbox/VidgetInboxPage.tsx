@@ -54,7 +54,7 @@ import { getVidgetInboxSessionById, getVidgetInboxSessionsForProject } from "./f
 import { formatProblemCount, formatProblemSummary } from "./problems";
 import { parseVidgetInboxQueryFromSearch, serializeVidgetInboxQuery } from "./query";
 import { getVidgetInboxCaptureVersion, subscribeVidgetInboxCapture } from "./sessionStore";
-import { conversationShareScope, createVidgetInboxReviewShare, selectedShareScope } from "./share";
+import { conversationShareScope, selectedShareScope } from "./share";
 import type {
   VidgetInboxDateFilter,
   VidgetInboxProblemsFilter,
@@ -175,6 +175,47 @@ function ShareConversationButton({
   );
 }
 
+function ShareSelectedHeaderButton({
+  selectedCount,
+  onShare,
+}: {
+  selectedCount: number;
+  onShare: () => void;
+}) {
+  const disabled = selectedCount === 0;
+  const label = selectedCount > 0
+    ? `Share selected (${selectedCount})`
+    : "Share selected";
+
+  const button = (
+    <Button
+      type="button"
+      variant="secondary"
+      size="compact"
+      className="shrink-0"
+      disabled={disabled}
+      onClick={onShare}
+      aria-label={label}
+    >
+      <Share2 size={14} strokeWidth={1.8} aria-hidden className="shrink-0" />
+      {label}
+    </Button>
+  );
+
+  if (!disabled) return button;
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className="inline-flex">{button}</span>
+      </TooltipTrigger>
+      <TooltipContent side="bottom">
+        Select one or more conversations to share
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 function queriesEqual(a: VidgetInboxQuery, b: VidgetInboxQuery): boolean {
   return serializeVidgetInboxQuery(a) === serializeVidgetInboxQuery(b);
 }
@@ -192,13 +233,6 @@ function uniqueVidgetNames(
     names.push(name);
   }
   return names;
-}
-
-function sharedVidgetId(sessions: readonly VidgetInboxSession[]): string | null {
-  if (sessions.length === 0) return null;
-  const first = sessions[0]?.vidgetId;
-  if (!first) return null;
-  return sessions.every((session) => session.vidgetId === first) ? first : null;
 }
 
 function useInboxSplitView(): boolean {
@@ -238,6 +272,7 @@ export interface VidgetInboxPageProps {
     history?: "push" | "replace";
   }) => void;
   onRefine?: (payload: VidgetInboxRefinePayload) => void;
+  onOpenSharedReview?: (shareId: string) => void;
 }
 
 export function VidgetInboxPage({
@@ -256,6 +291,7 @@ export function VidgetInboxPage({
   onCreateVidget,
   onNavigateInbox,
   onRefine,
+  onOpenSharedReview,
 }: VidgetInboxPageProps) {
   const splitView = useInboxSplitView();
   const [query, setQuery] = useState<VidgetInboxQuery>(() => {
@@ -381,16 +417,6 @@ export function VidgetInboxPage({
 
   function openConversationShare(id: string) {
     setShareScope(conversationShareScope(id));
-  }
-
-  function handleShare(anonymous: boolean) {
-    if (!shareScope) return;
-    createVidgetInboxReviewShare({
-      projectId,
-      scope: shareScope,
-      vidgetId: sharedVidgetId(scopedShareSessions),
-      anonymous,
-    });
   }
 
   const breadcrumbHandlers: LuxiaBreadcrumbHandlers = {
@@ -951,6 +977,14 @@ export function VidgetInboxPage({
           />
         }
         guide={VIDGETS_GUIDANCE.inboxPageDescription}
+        primaryAction={
+          !narrowDetail ? (
+            <ShareSelectedHeaderButton
+              selectedCount={selectedIds.length}
+              onShare={openSelectedShare}
+            />
+          ) : undefined
+        }
         secondaryAction={
           narrowDetail ? (
             <div className="flex flex-wrap items-center justify-end gap-2">
@@ -1007,10 +1041,11 @@ export function VidgetInboxPage({
         onOpenChange={(open) => {
           if (!open) setShareScope(null);
         }}
+        projectId={projectId}
         scope={shareScope}
         vidgetNames={uniqueVidgetNames(scopedShareSessions, vidgetById)}
         vidgetName={shareVidgetName}
-        onShare={handleShare}
+        onOpenPreview={onOpenSharedReview}
       />
     </LuxiaPageFrame>
   );

@@ -94,6 +94,7 @@ import {
   getAdminPipelinesPath,
   getWritingAssistantPath,
   getToolsPath,
+  getSharedReviewPath,
   isHomePath,
   resolveLuxiaPathname,
   homePrimaryPreferencesEqual,
@@ -338,6 +339,7 @@ import {
 } from "@/app/features/writing-assistant";
 import { ToolsPage } from "@/app/features/tools";
 import {
+  SharedReviewPage,
   VidgetInboxPage,
   serializeVidgetInboxQuery,
   parseVidgetInboxQueryFromSearch,
@@ -345,6 +347,7 @@ import {
   type VidgetInboxQuery,
   type VidgetInboxRefinePayload,
 } from "@/app/features/vidget-inbox";
+import { parseSharedReviewShareIdFromPath } from "@/app/features/project/projectPaths";
 import { parseLuxiaRelativeTimestamp } from "@/app/features/project-overview/projectOverviewPreview";
 import {
   LuxiaBreadcrumb,
@@ -605,7 +608,8 @@ type LuxiaAppView =
   | "data-source-settings"
   | "admin-pipelines"
   | "writing-assistant"
-  | "tools";
+  | "tools"
+  | "shared-review";
 
 function readInitialShellFromLocation(): {
   appView: LuxiaAppView;
@@ -618,6 +622,7 @@ function readInitialShellFromLocation(): {
   accessLevelId: string | null;
   organizationUserId: string | null;
   dataSourceSettingsId: string | null;
+  sharedReviewShareId: string | null;
 } {
   const defaults = {
     appView: "home" as LuxiaAppView,
@@ -630,10 +635,26 @@ function readInitialShellFromLocation(): {
     accessLevelId: null as string | null,
     organizationUserId: null as string | null,
     dataSourceSettingsId: null as string | null,
+    sharedReviewShareId: null as string | null,
   };
 
   if (typeof window === "undefined") {
     return defaults;
+  }
+
+  // External shared review must survive refresh so recipients can open the link.
+  const sharedReviewShareId = parseSharedReviewShareIdFromPath(window.location.pathname);
+  if (sharedReviewShareId) {
+    window.history.replaceState(
+      { luxiaView: "shared-review", shareId: sharedReviewShareId },
+      "",
+      getSharedReviewPath(sharedReviewShareId),
+    );
+    return {
+      ...defaults,
+      appView: "shared-review",
+      sharedReviewShareId,
+    };
   }
 
   // Prototype rule: full page load / refresh / fresh session always start at Home.
@@ -1072,6 +1093,9 @@ export default function App() {
   });
   const [vidgetInboxSessionId, setVidgetInboxSessionId] = useState<string | null>(null);
   const [vidgetInboxSearch, setVidgetInboxSearch] = useState("");
+  const [sharedReviewShareId, setSharedReviewShareId] = useState<string | null>(
+    INITIAL_SHELL.sharedReviewShareId,
+  );
   const [dashboardFocusOutputId, setDashboardFocusOutputId] = useState<string | null>(null);
   const [activeDashboardOutputId, setActiveDashboardOutputId] = useState<string | null>(null);
   const [dashboardViewResetKey, setDashboardViewResetKey] = useState(0);
@@ -1310,11 +1334,19 @@ export default function App() {
         if (resolved.normalizeToRoot && typeof window !== "undefined") {
           window.history.replaceState({ luxiaView: "home" }, "", "/");
         }
+        setSharedReviewShareId(null);
         setAppView("home");
         setHomeBrowseMode("overview");
         setActiveProjectId(null);
         setProjectBrowseMode("overview");
         clearSettingsRouteState();
+        return;
+      }
+
+      if (resolved.kind === "shared-review") {
+        clearSettingsRouteState();
+        setSharedReviewShareId(resolved.shareId);
+        setAppView("shared-review");
         return;
       }
 
@@ -2502,6 +2534,19 @@ export default function App() {
     );
     toast.success("Retry requested");
     return true;
+  }
+
+  function handleOpenSharedReview(shareId: string) {
+    const id = shareId.trim();
+    if (!id) return;
+    setSharedReviewShareId(id);
+    setAppView("shared-review");
+    if (typeof window !== "undefined") {
+      const next = getSharedReviewPath(id);
+      if (window.location.pathname !== next) {
+        window.history.pushState({ luxiaView: "shared-review", shareId: id }, "", next);
+      }
+    }
   }
 
   function handleOpenVidgetInbox(
@@ -6128,6 +6173,16 @@ export default function App() {
     constellationSettingsById,
   ]);
 
+  // External shared review: no LeftNav / Project membership required (prototype).
+  if (appView === "shared-review" && sharedReviewShareId) {
+    return (
+      <>
+        <SharedReviewPage shareId={sharedReviewShareId} />
+        <Toaster richColors closeButton position="top-right" />
+      </>
+    );
+  }
+
   if (!prototypeSignedIn) {
     return (
       <>
@@ -6885,6 +6940,7 @@ export default function App() {
                   onPreview={(id) =>
                     handleOpenVidgetSettings(projectId, id, "interface", true)
                   }
+                  onOpenSharedReview={handleOpenSharedReview}
                   onRename={(id, name) => {
                     if (!canManageVidgets(projectRoleFor(projectId))) {
                       toast.error(VIDGET_MANAGE_DENIED_MESSAGE);
@@ -7092,6 +7148,7 @@ export default function App() {
                     })
                   }
                   onRefine={handleRefineInboxInteraction}
+                  onOpenSharedReview={handleOpenSharedReview}
                 />
               );
             })()}
