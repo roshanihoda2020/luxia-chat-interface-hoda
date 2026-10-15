@@ -177,6 +177,94 @@ LuxiaPipelineIcon.displayName = "LuxiaPipelineIcon";
 
 export const PipelineIcon = LuxiaPipelineIcon;
 
+/**
+ * Writing Assistant feature icon — document/page + small AI sparkle.
+ * Canonical mark for Tools, page identity, and the right-side assistant panel.
+ */
+export function LuxiaWritingAssistantIcon({
+  size = 20,
+  color,
+  accentColor,
+  className,
+  style,
+  title,
+  "aria-hidden": ariaHidden = true,
+  "aria-label": ariaLabel,
+  role,
+  ...rest
+}: LuxiaIconProps & { accentColor?: string }) {
+  const resolvedColor = color ?? style?.color ?? "currentColor";
+  const sparkleColor = accentColor ?? "var(--luxia-purple-50, #8B5CF6)";
+  const isDecorative =
+    ariaHidden === true || ariaHidden === "true" || (!ariaLabel && !title && !role);
+
+  return (
+    <span
+      className={className}
+      role={isDecorative ? undefined : (role ?? (ariaLabel || title ? "img" : undefined))}
+      aria-hidden={isDecorative ? true : ariaHidden}
+      aria-label={isDecorative ? undefined : ariaLabel}
+      title={title}
+      style={{
+        display: "inline-flex",
+        width: size,
+        height: size,
+        flexShrink: 0,
+        alignItems: "center",
+        justifyContent: "center",
+        color: resolvedColor,
+        lineHeight: 0,
+        ...(style as CSSProperties | undefined),
+      }}
+      {...rest}
+    >
+      <svg
+        width="100%"
+        height="100%"
+        viewBox="0 0 24 24"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        aria-hidden
+        preserveAspectRatio="xMidYMid meet"
+      >
+        {/* Document / page */}
+        <path
+          d="M6.25 3.75h7.1L17.75 8.1v11.15c0 .83-.67 1.5-1.5 1.5H6.25c-.83 0-1.5-.67-1.5-1.5V5.25c0-.83.67-1.5 1.5-1.5Z"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M13.35 3.75V7.6c0 .55.45 1 1 1h3.4"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M8.1 12.25h6.3M8.1 15.5h4.4"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        {/* AI sparkle accent (Luxia 4-point star language) */}
+        <path
+          d="M19.1 2.35 19.85 4.05 21.55 4.8 19.85 5.55 19.1 7.25 18.35 5.55 16.65 4.8 18.35 4.05Z"
+          fill={sparkleColor}
+          stroke={sparkleColor}
+          strokeWidth="0.4"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </span>
+  );
+}
+LuxiaWritingAssistantIcon.displayName = "LuxiaWritingAssistantIcon";
+
+export const WritingAssistantIcon = LuxiaWritingAssistantIcon;
+
 export const LuxiaHomeIcon = createLuxiaIcon(homePageUrl, "LuxiaHomeIcon");
 export const LuxiaNotificationsIcon = createLuxiaIcon(notificationsUrl, "LuxiaNotificationsIcon");
 export const LuxiaProjectsIcon = createLuxiaIcon(projectsUrl, "LuxiaProjectsIcon");
@@ -210,3 +298,4 @@ export const LUXIA_ICON_URLS = {
   userPermissions: userPermissionsUrl,
   virtualAssistant: virtualAssistantUrl,
 } as const;
+

@@ -62,6 +62,8 @@ export {
   getDataSourcesPath,
   getDataSourceSettingsPath,
   getAdminPipelinesPath,
+  getWritingAssistantPath,
+  getToolsPath,
   getPersonalSettingsPath,
   getOrganizationSettingsPath,
   getChatPath,

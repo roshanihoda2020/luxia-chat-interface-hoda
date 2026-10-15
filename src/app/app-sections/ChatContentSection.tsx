@@ -159,11 +159,13 @@ export function AICard({
   constellationId,
   onOpenGalaxyConstellation,
   onViewGalaxyActivity,
+  onOpenInWritingAssistant,
 }: {
   message: Message;
   constellationId?: string;
   onOpenGalaxyConstellation?: () => void;
   onViewGalaxyActivity?: () => void;
+  onOpenInWritingAssistant?: (content: string) => void;
 }) {
   const hydrated = hydrateMessageResponsePresentation(message, constellationId);
   const presentation = hydrated.presentation;
@@ -188,6 +190,9 @@ export function AICard({
           <ResponseActionsFooter
             content={content}
             variant={hydrated.footerVariant}
+            onOpenInWritingAssistant={
+              hydrated.footerVariant === "full" ? onOpenInWritingAssistant : undefined
+            }
           />
         ) : null
       }

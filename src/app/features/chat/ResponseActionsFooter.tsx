@@ -3,6 +3,7 @@ import {
   BadgeCheck,
   Bookmark,
   Copy,
+  FileText,
   LayoutDashboard,
   MoreHorizontal,
   Pencil,
@@ -13,6 +14,7 @@ import {
   Users,
   type LucideIcon,
 } from "lucide-react";
+import { isEligibleWritingAssistantContent } from "@/app/features/writing-assistant";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -121,9 +123,11 @@ function ResponseActionButton({
 export function ResponseActionsFooter({
   content,
   variant = "full",
+  onOpenInWritingAssistant,
 }: {
   content: string;
   variant?: "full" | "copy-only";
+  onOpenInWritingAssistant?: (content: string) => void;
 }) {
   const barRef = useRef<HTMLDivElement>(null);
   const [barWidth, setBarWidth] = useState(680);
@@ -131,6 +135,9 @@ export function ResponseActionsFooter({
   const [verified, setVerified] = useState(false);
   const [addedToDashboard, setAddedToDashboard] = useState(false);
   const dashboardCompatible = isDashboardCompatibleOutput(content);
+  const writingAssistantEligible =
+    Boolean(onOpenInWritingAssistant)
+    && isEligibleWritingAssistantContent(content);
 
   useLayoutEffect(() => {
     const node = barRef.current;
@@ -183,10 +190,20 @@ export function ResponseActionsFooter({
     icon: Bookmark,
     onSelect: undefined as (() => void) | undefined,
   };
+  const writingAssistantAction = {
+    id: "open-writing-assistant",
+    label: "Open in Writing Assistant",
+    icon: FileText,
+    onSelect: () => onOpenInWritingAssistant?.(content),
+  };
+  const showWritingAssistantButton = writingAssistantEligible && barWidth >= DASHBOARD_BREAKPOINT;
 
   const overflowActions: MenuAction[] = [];
   if (!showVerify) overflowActions.push(verifyAction);
   if (dashboardCompatible && !showDashboard) overflowActions.push(dashboardAction);
+  if (writingAssistantEligible && !showWritingAssistantButton) {
+    overflowActions.push(writingAssistantAction);
+  }
 
   const secondaryActions: MenuAction[] = [
     { id: "regenerate", label: "Regenerate", icon: RefreshCw },
@@ -262,6 +279,14 @@ export function ResponseActionsFooter({
             pressed={addedToDashboard}
           onClick={dashboardAction.onSelect}
         />
+        ) : null}
+        {showWritingAssistantButton ? (
+          <ResponseActionButton
+            icon={writingAssistantAction.icon}
+            label={writingAssistantAction.label}
+            showLabel={showLabels}
+            onClick={writingAssistantAction.onSelect}
+          />
         ) : null}
           </>
         ) : null}

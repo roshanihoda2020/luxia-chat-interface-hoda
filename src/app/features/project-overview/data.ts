@@ -1,5 +1,6 @@
 import { HOME_PROJECTS } from "@/app/features/project/data";
 import { buildConstellationSourceCountMap, getProjectConstellations } from "@/app/features/constellation/catalog";
+import { listUserDashboardOutputs } from "./dashboardOutputStore";
 import type {
   ProjectActivityItem,
   ProjectDashboardItem,
@@ -334,10 +335,12 @@ export function getProjectActivity(projectId: string): ProjectActivityItem[] {
 }
 
 export function getProjectDashboardOutputs(projectId: string): ProjectDashboardOutput[] {
-  return PROJECT_DASHBOARD_OUTPUTS
-    .filter((item) => item.projectId === projectId)
-    .slice()
-    .sort((a, b) => b.updatedAtTimestamp - a.updatedAtTimestamp);
+  const seeded = PROJECT_DASHBOARD_OUTPUTS.filter((item) => item.projectId === projectId);
+  const userCreated = listUserDashboardOutputs(projectId);
+  const seededIds = new Set(seeded.map((item) => item.id));
+  return [...userCreated.filter((item) => !seededIds.has(item.id)), ...seeded].sort(
+    (a, b) => b.updatedAtTimestamp - a.updatedAtTimestamp,
+  );
 }
 
 export function getProjectDashboards(projectId: string): ProjectDashboardItem[] {

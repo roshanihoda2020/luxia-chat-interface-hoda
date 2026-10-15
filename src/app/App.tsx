@@ -92,6 +92,8 @@ import {
   getDataSourcesPath,
   getDataSourceSettingsPath,
   getAdminPipelinesPath,
+  getWritingAssistantPath,
+  getToolsPath,
   isHomePath,
   resolveLuxiaPathname,
   homePrimaryPreferencesEqual,
@@ -250,6 +252,8 @@ import {
   CONSTELLATION_SOURCE_COUNTS,
   getProjectActivity,
   getProjectDashboardOutputs,
+  canCreateDashboard,
+  canViewProjectDashboard,
   buildActivityNavigationContext,
   openProjectActivity,
   type ProjectNavSection,
@@ -328,6 +332,11 @@ import {
   customerPipelineIdFromMapping,
   subscribeAdminPipelines,
 } from "@/app/features/admin-pipelines";
+import {
+  WritingAssistantPage,
+  queueWritingAssistantHandoff,
+} from "@/app/features/writing-assistant";
+import { ToolsPage } from "@/app/features/tools";
 import {
   VidgetInboxPage,
   serializeVidgetInboxQuery,
@@ -594,7 +603,9 @@ type LuxiaAppView =
   | "access-level"
   | "data-sources"
   | "data-source-settings"
-  | "admin-pipelines";
+  | "admin-pipelines"
+  | "writing-assistant"
+  | "tools";
 
 function readInitialShellFromLocation(): {
   appView: LuxiaAppView;
@@ -1619,6 +1630,34 @@ export default function App() {
         return;
       }
 
+      if (resolved.kind === "writing-assistant") {
+        setActiveProjectId(null);
+        setSettingsConstellationId(null);
+        setSettingsCapabilityPath(null);
+        setAccessLevelId(null);
+        setOrganizationUserId(null);
+        setDataSourceSettingsId(null);
+        setAppView("writing-assistant");
+        if (typeof window !== "undefined") {
+          const next = getWritingAssistantPath();
+          if (window.location.pathname !== next) {
+            window.history.replaceState({ luxiaView: "writing-assistant" }, "", next);
+          }
+        }
+        return;
+      }
+
+      if (resolved.kind === "tools") {
+        setActiveProjectId(null);
+        setSettingsConstellationId(null);
+        setSettingsCapabilityPath(null);
+        setAccessLevelId(null);
+        setOrganizationUserId(null);
+        setDataSourceSettingsId(null);
+        setAppView("tools");
+        return;
+      }
+
       if (resolved.kind === "personal-settings") {
         setAccountSettingsSection(
           personalSettingsSectionToAccountSection(parsePersonalSettingsTabFromSearch(search)),
@@ -1853,6 +1892,8 @@ export default function App() {
     || appView === "data-sources"
     || appView === "data-source-settings"
     || appView === "admin-pipelines"
+    || appView === "writing-assistant"
+    || appView === "tools"
     ? null
     : appView === "project" || appView === "constellation-create" || appView === "constellation-settings" || appView === "galaxy-settings" || appView === "project-members" || appView === "project-vidgets" || appView === "project-pipelines" || appView === "pipeline-detail" || appView === "pipeline-run-detail" || appView === "vidget-inbox" || appView === "vidget-settings"
       ? activeProjectId
@@ -2756,6 +2797,47 @@ export default function App() {
     }
   }
 
+  function handleOpenWritingAssistant() {
+    setActiveProjectId(null);
+    setSettingsConstellationId(null);
+    setSettingsCapabilityPath(null);
+    setAccessLevelId(null);
+    setOrganizationUserId(null);
+    setDataSourceSettingsId(null);
+    setAppView("writing-assistant");
+    if (typeof window !== "undefined") {
+      const next = getWritingAssistantPath();
+      if (window.location.pathname !== next) {
+        window.history.pushState({ luxiaView: "writing-assistant" }, "", next);
+      }
+    }
+  }
+
+  function handleOpenChatInWritingAssistant(content: string) {
+    const projectId =
+      chats.find((chat) => chat.id === activeChat)?.projectId
+      ?? activeProjectId
+      ?? null;
+    if (!queueWritingAssistantHandoff(content, { projectId })) return;
+    handleOpenWritingAssistant();
+  }
+
+  function handleOpenTools() {
+    setActiveProjectId(null);
+    setSettingsConstellationId(null);
+    setSettingsCapabilityPath(null);
+    setAccessLevelId(null);
+    setOrganizationUserId(null);
+    setDataSourceSettingsId(null);
+    setAppView("tools");
+    if (typeof window !== "undefined") {
+      const next = getToolsPath();
+      if (window.location.pathname !== next) {
+        window.history.pushState({ luxiaView: "tools" }, "", next);
+      }
+    }
+  }
+
   function handleOpenAccountSettings(section: AccountSettingsSectionId = accountSettingsSection) {
     const next =
       section === "analytics" && !canViewOrganizationAnalytics(prototypeUserId)
@@ -3281,6 +3363,8 @@ export default function App() {
         || appView === "data-sources"
         || appView === "data-source-settings"
         || appView === "admin-pipelines"
+        || appView === "writing-assistant"
+        || appView === "tools"
         ? null
         : (activeProjectId
           ?? chats.find((chat) => chat.id === activeChat)?.projectId
@@ -5625,6 +5709,34 @@ export default function App() {
     ) ?? null;
   }, [contextProjectId, projectMembershipsState, prototypeUserId]);
 
+  const writingAssistantDashboardProjects = useMemo(() => {
+    return homeProjects
+      .map((project) => {
+        const membership = getActiveProjectMembership(
+          project.id,
+          projectMembershipsState,
+          prototypeUserId,
+        );
+        if (!canCreateDashboard(membership?.projectRole)) return null;
+        return { id: project.id, name: project.name };
+      })
+      .filter((project): project is { id: string; name: string } => Boolean(project));
+  }, [homeProjects, projectMembershipsState, prototypeUserId]);
+
+  const writingAssistantViewableProjects = useMemo(() => {
+    return homeProjects
+      .map((project) => {
+        const membership = getActiveProjectMembership(
+          project.id,
+          projectMembershipsState,
+          prototypeUserId,
+        );
+        if (!canViewProjectDashboard(membership?.projectRole)) return null;
+        return { id: project.id, name: project.name };
+      })
+      .filter((project): project is { id: string; name: string } => Boolean(project));
+  }, [homeProjects, projectMembershipsState, prototypeUserId]);
+
   const showProjectContext = Boolean(contextProjectId && contextProjectMembership);
 
   useEffect(() => {
@@ -6105,6 +6217,7 @@ export default function App() {
         accessLevelsActive={appView === "access-levels" || appView === "access-level"}
         dataSourcesActive={appView === "data-sources" || appView === "data-source-settings"}
         adminPipelinesActive={appView === "admin-pipelines"}
+        toolsActive={appView === "tools" || appView === "writing-assistant"}
         canAdministerPipelines={canAdministerAccessLevels(prototypeUserId)}
         collapsePipelinesCollector={
           viewportWidth < 1280
@@ -6148,6 +6261,7 @@ export default function App() {
         onAccessLevelsClick={() => whenUnsavedNavigationAllows(handleOpenAccessLevels)}
         onDataSourcesClick={() => whenUnsavedNavigationAllows(handleOpenDataSources)}
         onAdminPipelinesClick={() => whenUnsavedNavigationAllows(handleOpenAdminPipelines)}
+        onToolsClick={() => whenUnsavedNavigationAllows(handleOpenTools)}
         onProjectSectionClick={(section) => {
           whenUnsavedNavigationAllows(() => handleProjectNavSection(section));
         }}
@@ -7387,6 +7501,40 @@ export default function App() {
           <HomePageShell scrollRequest={homeScrollRequest} framed={false}>
             <AdminPipelinesPage onNavigateHome={handleNavigateHome} />
           </HomePageShell>
+        ) : appView === "tools" ? (
+          <HomePageShell scrollRequest={homeScrollRequest} framed={false}>
+            <ToolsPage
+              onNavigateHome={handleNavigateHome}
+              onOpenTool={(tool) => {
+                if (tool.id === "writing-assistant") {
+                  handleOpenWritingAssistant();
+                }
+              }}
+            />
+          </HomePageShell>
+        ) : appView === "writing-assistant" ? (
+          <HomePageShell
+            scrollRequest={homeScrollRequest}
+            framed={false}
+            containLayout
+          >
+            <WritingAssistantPage
+              onNavigateHome={handleNavigateHome}
+              onNavigateTools={handleOpenTools}
+              currentUserId={prototypeUserId}
+              dashboardEligibleProjects={writingAssistantDashboardProjects}
+              viewableProjects={writingAssistantViewableProjects}
+              onOpenDashboardOutput={(projectId, outputId) => {
+                whenUnsavedNavigationAllows(() => {
+                  if (outputId) {
+                    handleOpenDashboardOutput(projectId, outputId);
+                  } else {
+                    handleOpenProjectDashboard(projectId);
+                  }
+                });
+              }}
+            />
+          </HomePageShell>
         ) : appView === "access-level" ? (
           <HomePageShell scrollRequest={homeScrollRequest} framed={false}>
             {editingAccessLevel ? (
@@ -7580,6 +7728,7 @@ export default function App() {
                           onViewGalaxyActivity={
                             activeData?.chatType === "galaxy" ? handleViewGalaxyActivity : undefined
                           }
+                          onOpenInWritingAssistant={handleOpenChatInWritingAssistant}
                         />
                   )}
                   <div ref={messagesEndRef} className="h-2 flex-shrink-0" aria-hidden="true" />

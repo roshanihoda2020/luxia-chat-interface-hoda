@@ -1,4 +1,5 @@
 import {
+  Fragment,
   useCallback,
   useEffect,
   useId,
@@ -26,6 +27,7 @@ import { formatOrganizationRoleLabel, NO_PROJECT_ROLE_LABEL } from "@/app/featur
 import {
   getAccessLevelsPath,
   getAdminPipelinesPath,
+  getToolsPath,
   getConstellationSettingsPath,
   getConstellationsPath,
   getDashboardPath,
@@ -53,6 +55,7 @@ import {
   LuxiaPipelineIcon,
   LuxiaProjectsIcon,
   LuxiaSettingsIcon,
+  LuxiaToolsGalleryIcon,
   LuxiaUserPermissionsIcon,
   LuxiaVirtualAssistantIcon,
   type LuxiaIconProps,
@@ -101,6 +104,7 @@ function LuxiaOrgUsersIcon({
     </span>
   );
 }
+
 type FlyoutKind =
   | "constellations"
   | "chats"
@@ -171,6 +175,7 @@ export type LeftNavProps = {
   accessLevelsActive?: boolean;
   dataSourcesActive?: boolean;
   adminPipelinesActive?: boolean;
+  toolsActive?: boolean;
   /** When false, Pipeline Admin nav item is hidden (non–Org Admin). */
   canAdministerPipelines?: boolean;
   /**
@@ -204,6 +209,7 @@ export type LeftNavProps = {
   onAccessLevelsClick?: () => void;
   onDataSourcesClick?: () => void;
   onAdminPipelinesClick?: () => void;
+  onToolsClick?: () => void;
   onProjectSectionClick?: (section: ProjectNavSection) => void;
   onSwitchProject?: (projectId: string) => void;
   onOpenChat?: (chatId: string) => void;
@@ -236,6 +242,12 @@ const NAV_TOP_ITEMS: {
     id: "datasources",
     icon: LuxiaDatasourceIcon,
     label: "Data Sources",
+    available: true,
+  },
+  {
+    id: "tools",
+    icon: LuxiaToolsGalleryIcon,
+    label: "Tools",
     available: true,
   },
   {
@@ -880,6 +892,7 @@ export function LeftNav({
   accessLevelsActive,
   dataSourcesActive,
   adminPipelinesActive,
+  toolsActive,
   canAdministerPipelines = true,
   collapsePipelinesCollector = false,
   projectId,
@@ -908,6 +921,7 @@ export function LeftNav({
   onAccessLevelsClick,
   onDataSourcesClick,
   onAdminPipelinesClick,
+  onToolsClick,
   onProjectSectionClick,
   onSwitchProject,
   onOpenChat,
@@ -1681,73 +1695,92 @@ export function LeftNav({
                 {NAV_TOP_ITEMS.filter(
                   (item) => item.id !== "adminpipelines" || canAdministerPipelines,
                 ).map(({ id, icon, label, available, unavailableHint }) => (
-                  <NavItem
-                    key={id}
-                    icon={icon}
-                    label={label}
-                    collapsed={railCollapsed}
-                    active={
-                      id === "home"
-                        ? homeActive
-                        : id === "orgusers"
-                          ? organizationUsersActive
-                          : id === "accesslevels"
-                            ? accessLevelsActive
-                            : id === "datasources"
-                              ? dataSourcesActive
-                              : id === "adminpipelines"
-                                ? adminPipelinesActive
-                              : false
-                    }
-                    disabled={!available}
-                    tooltip={!available ? unavailableHint ?? label : label}
-                    href={
-                      id === "home" && available
-                        ? "/"
-                        : id === "orgusers" && available
-                          ? getOrganizationUsersPath()
-                          : id === "accesslevels" && available
-                            ? getAccessLevelsPath()
-                            : id === "datasources" && available
-                              ? getDataSourcesPath()
-                              : id === "adminpipelines" && available
-                                ? getAdminPipelinesPath()
-                              : undefined
-                    }
-                    onClick={
-                      id === "home"
-                        ? () => {
-                          closeFlyout();
-                          onHomeClick?.();
-                          onMobileClose?.();
-                        }
-                        : id === "orgusers"
+                  <Fragment key={id}>
+                    {id === "adminpipelines" ? (
+                      <div
+                        className={`my-2.5 ${railCollapsed ? "mx-2" : "mx-4"}`}
+                        style={{ height: 1, background: "rgba(255,255,255,0.07)" }}
+                        role="separator"
+                        aria-hidden
+                      />
+                    ) : null}
+                    <NavItem
+                      icon={icon}
+                      label={label}
+                      collapsed={railCollapsed}
+                      active={
+                        id === "home"
+                          ? homeActive
+                          : id === "orgusers"
+                            ? organizationUsersActive
+                            : id === "accesslevels"
+                              ? accessLevelsActive
+                              : id === "datasources"
+                                ? dataSourcesActive
+                                : id === "tools"
+                                  ? toolsActive
+                                  : id === "adminpipelines"
+                                    ? adminPipelinesActive
+                                    : false
+                      }
+                      disabled={!available}
+                      tooltip={!available ? unavailableHint ?? label : label}
+                      href={
+                        id === "home" && available
+                          ? "/"
+                          : id === "orgusers" && available
+                            ? getOrganizationUsersPath()
+                            : id === "accesslevels" && available
+                              ? getAccessLevelsPath()
+                              : id === "datasources" && available
+                                ? getDataSourcesPath()
+                                : id === "tools" && available
+                                  ? getToolsPath()
+                                  : id === "adminpipelines" && available
+                                    ? getAdminPipelinesPath()
+                                    : undefined
+                      }
+                      onClick={
+                        id === "home"
                           ? () => {
                             closeFlyout();
-                            onOrganizationUsersClick?.();
+                            onHomeClick?.();
                             onMobileClose?.();
                           }
-                          : id === "accesslevels"
+                          : id === "orgusers"
                             ? () => {
                               closeFlyout();
-                              onAccessLevelsClick?.();
+                              onOrganizationUsersClick?.();
                               onMobileClose?.();
                             }
-                          : id === "datasources"
-                            ? () => {
-                              closeFlyout();
-                              onDataSourcesClick?.();
-                              onMobileClose?.();
-                            }
-                          : id === "adminpipelines"
-                            ? () => {
-                              closeFlyout();
-                              onAdminPipelinesClick?.();
-                              onMobileClose?.();
-                            }
-                            : undefined
-                    }
-                  />
+                            : id === "accesslevels"
+                              ? () => {
+                                closeFlyout();
+                                onAccessLevelsClick?.();
+                                onMobileClose?.();
+                              }
+                              : id === "datasources"
+                                ? () => {
+                                  closeFlyout();
+                                  onDataSourcesClick?.();
+                                  onMobileClose?.();
+                                }
+                                : id === "tools"
+                                  ? () => {
+                                    closeFlyout();
+                                    onToolsClick?.();
+                                    onMobileClose?.();
+                                  }
+                                  : id === "adminpipelines"
+                                    ? () => {
+                                      closeFlyout();
+                                      onAdminPipelinesClick?.();
+                                      onMobileClose?.();
+                                    }
+                                    : undefined
+                      }
+                    />
+                  </Fragment>
                 ))}
               </nav>
 

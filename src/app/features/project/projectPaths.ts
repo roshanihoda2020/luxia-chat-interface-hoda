@@ -164,6 +164,14 @@ export function getAdminPipelinesPath(): string {
   return "/organization/pipelines";
 }
 
+export function getWritingAssistantPath(): string {
+  return "/document-ai";
+}
+
+export function getToolsPath(): string {
+  return "/tools";
+}
+
 export type PersonalSettingsTabQuery = "profile" | "my-data";
 
 export type OrganizationSettingsTabQuery =
@@ -409,6 +417,14 @@ export function parseAdminPipelinesPath(pathname: string): boolean {
   return /^\/organization\/pipelines\/?$/.test(pathname);
 }
 
+export function parseWritingAssistantPath(pathname: string): boolean {
+  return /^\/document-ai\/?$/.test(pathname) || /^\/writing-assistant\/?$/.test(pathname);
+}
+
+export function parseToolsPath(pathname: string): boolean {
+  return /^\/tools\/?$/.test(pathname);
+}
+
 export function parseChatIdFromPath(pathname: string): string | null {
   const nested = parseConstellationChatFromPath(pathname);
   if (nested) return nested.chatId;
@@ -472,6 +488,8 @@ export type LuxiaResolvedPath =
   | { kind: "data-sources" }
   | { kind: "data-source-settings"; dataSourceId: string }
   | { kind: "admin-pipelines" }
+  | { kind: "writing-assistant" }
+  | { kind: "tools" }
   | { kind: "personal-settings" }
   | { kind: "organization-settings" }
   | { kind: "chat"; chatId: string; projectId?: string; constellationId?: string }
@@ -514,6 +532,14 @@ export function resolveLuxiaPathname(pathname: string): LuxiaResolvedPath {
 
   if (parseAdminPipelinesPath(pathname)) {
     return { kind: "admin-pipelines" };
+  }
+
+  if (parseWritingAssistantPath(pathname)) {
+    return { kind: "writing-assistant" };
+  }
+
+  if (parseToolsPath(pathname)) {
+    return { kind: "tools" };
   }
 
   if (parsePersonalSettingsPath(pathname)) {

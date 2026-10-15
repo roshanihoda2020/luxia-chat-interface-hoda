@@ -59,6 +59,10 @@ import {
   outputTypeLabel,
 } from "./DashboardOutputPreviews";
 import { getProjectDashboardOutputs } from "./data";
+import {
+  createDashboardOutput,
+  subscribeDashboardOutputStore,
+} from "./dashboardOutputStore";
 import { ProjectNotFoundState } from "./ProjectHeader";
 import { ProjectModuleEmptyState } from "./ProjectModuleShared";
 import type {
@@ -180,6 +184,13 @@ export function ProjectDashboardPage({
     setDeleteOutputId(null);
     setRenameValue("");
     setRenameError(null);
+  }, [projectId]);
+
+  useEffect(() => {
+    if (!projectId) return;
+    return subscribeDashboardOutputStore(() => {
+      setOutputs(getProjectDashboardOutputs(projectId).map((item) => ({ ...item })));
+    });
   }, [projectId]);
 
   useEffect(() => {
@@ -401,19 +412,22 @@ export function ProjectDashboardPage({
       return;
     }
     outputCounterRef.current += 1;
-    const now = Date.now();
-    const record: ProjectDashboardOutput = {
-      id: `${projectId}-output-new-${now}-${outputCounterRef.current}`,
+    const record = createDashboardOutput({
       projectId,
       name: trimmed,
+      createdByUserId: currentUserId,
       outputType: "metric",
       conversationSource: "galaxy",
       sourceContext: "Galaxy",
-      updatedAt: "Just now",
-      updatedAtTimestamp: now,
-      createdByUserId: currentUserId,
-    };
-    setOutputs((prev) => [record, ...prev]);
+    });
+    if (!record) {
+      toast.error("Couldn’t create Dashboard output");
+      return;
+    }
+    setOutputs((prev) => {
+      if (prev.some((item) => item.id === record.id)) return prev;
+      return [record, ...prev];
+    });
     setCreateOpen(false);
     setCreateName("");
     setCreateError(null);

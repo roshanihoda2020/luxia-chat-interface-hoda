@@ -8,10 +8,11 @@ import flagDe from "@/assets/flags/de.svg";
 import flagEs from "@/assets/flags/es.svg";
 import flagCn from "@/assets/flags/cn.svg";
 import {
-  ChevronDown, Send, Mic, Check, AlignLeft, Layers, BarChart3,
+  ChevronDown, Mic, Check, AlignLeft, Layers, BarChart3,
 } from "lucide-react";
 import { GalaxyRouteSelector, type GalaxyMatchedConstellation } from "@/app/features/galaxy";
 import { LX } from "@/app/features/active-data-tables/tokens";
+import { ChatSendButton } from "@/app/features/shared/ChatSendButton";
 import type { ChatScope, ConstellationType } from "./appSectionShared";
 
 const LANGUAGES = [
@@ -370,19 +371,11 @@ export function PromptComposer({
           <Mic size={18} color="white" />
         </button>
 
-        <button
-          type="button"
+        <ChatSendButton
+          canSend={hasText}
           onClick={onSend}
-          disabled={!hasText}
-          className="flex-shrink-0 w-[46px] h-[46px] flex items-center justify-center rounded-full transition-all hover:opacity-90 outline-none"
-          style={{
-            background: hasText ? LX.gradient.button : "#E2E8F0",
-            boxShadow: hasText ? "0 4px 12px rgba(48,33,78,0.18)" : "none",
-          }}
           aria-label="Send message"
-        >
-          <Send size={17} color={hasText ? "white" : "#94A3B8"} />
-        </button>
+        />
       </div>
 
       {isConstellationChat ? (
