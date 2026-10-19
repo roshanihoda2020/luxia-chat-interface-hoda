@@ -1,5 +1,9 @@
 import { CANONICAL_CONSTELLATIONS } from "@/app/features/constellation/catalog";
-import { getProjectNameById } from "@/app/features/project/data";
+import {
+  getProjectNameById,
+  HOME_PROTOTYPE_PROJECT_TOTAL,
+  homeProjectIdAt,
+} from "@/app/features/project/data";
 import type {
   AccessLevelPermission,
   AccessLevelRecord,
@@ -404,7 +408,7 @@ export const ACCESS_LEVELS: AccessLevelRecord[] = [
   },
 ];
 
-export const PROJECT_MEMBERSHIPS: ProjectMembership[] = [
+const PROJECT_MEMBERSHIPS_SEED: ProjectMembership[] = [
   // project-01 — Owner: user-01
   {
     id: "pm-01-01",
@@ -588,6 +592,46 @@ export const PROJECT_MEMBERSHIPS: ProjectMembership[] = [
     joinedOrInvitedAt: "2026-05-05T10:00:00.000Z",
   },
 ];
+
+/**
+ * Ensure the active demo profile can access the full prototype Home catalog
+ * so Show 3 / 6 / 9 / All are functionally distinguishable.
+ */
+function withPrototypeHomeCatalogMemberships(
+  seed: readonly ProjectMembership[],
+  projectTotal: number,
+  userId: string,
+): ProjectMembership[] {
+  const covered = new Set(
+    seed
+      .filter(
+        (membership) =>
+          membership.userId === userId && membership.status === "active",
+      )
+      .map((membership) => membership.projectId),
+  );
+  const extras: ProjectMembership[] = [];
+  for (let index = 1; index <= projectTotal; index += 1) {
+    const projectId = homeProjectIdAt(index);
+    if (covered.has(projectId)) continue;
+    extras.push({
+      id: `pm-proto-${userId}-${projectId}`,
+      projectId,
+      userId,
+      projectRole: "Member",
+      status: "active",
+      joinedOrInvitedAt: "2026-06-01T10:00:00.000Z",
+    });
+  }
+  return [...seed, ...extras];
+}
+
+export const PROJECT_MEMBERSHIPS: ProjectMembership[] =
+  withPrototypeHomeCatalogMemberships(
+    PROJECT_MEMBERSHIPS_SEED,
+    HOME_PROTOTYPE_PROJECT_TOTAL,
+    CURRENT_USER_ID,
+  );
 
 const PERMISSION_RANK: Record<AccessLevelPermission, number> = {
   View: 1,

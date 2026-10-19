@@ -8,10 +8,17 @@ import {
 } from "@/app/components/LuxiaEntityOptionsMenu";
 import { EntityIdentityRow } from "@/app/features/home/entityIdentity";
 import { getHomeCardStyle, getProjectCardTypography, HS, HI } from "@/app/features/home/homeSurfaces";
+import { HomeRecentPreviewCountControl } from "@/app/features/home/HomeRecentPreviewCountControl";
+import {
+  readHomeRecentPreviewCount,
+  resolveHomeRecentPreviewLimit,
+  writeHomeRecentPreviewCount,
+  type HomeRecentPreviewCount,
+} from "@/app/features/home/homeRecentPreviewCount";
 import { PinButton } from "@/app/features/home/PinButton";
 import { SectionHeader } from "@/app/features/home/SectionHeader";
+import { ViewAllAction } from "@/app/features/home/ViewAllAction";
 import { NO_PROJECT_ROLE_LABEL } from "@/app/features/permissions/currentUser";
-import { ProjectViewAllLink } from "@/app/features/project-overview/ProjectModuleShared";
 import {
   CollectorViewToggle,
   readCollectorViewMode,
@@ -20,7 +27,6 @@ import {
 } from "@/app/features/shared";
 import {
   getHomeProjectsSections,
-  homeRecentPreviewLimit,
   isProjectArchived,
 } from "./data";
 import { getProjectPath } from "./projectPaths";
@@ -410,21 +416,6 @@ function ProjectListRow({
   );
 }
 
-/** Lightweight collection CTA — same pattern as Overview "View all Constellations →". */
-function RecentProjectsCollectionContinuation({
-  label,
-  onViewAll,
-}: {
-  label: string;
-  onViewAll: () => void;
-}) {
-  return (
-    <div className="mt-3 flex w-full min-w-0 items-center">
-      <ProjectViewAllLink label={label} onClick={onViewAll} />
-    </div>
-  );
-}
-
 /** Approved soft-purple create treatment — lighter than featured Project cards. */
 const NEW_PROJECT_AFFORDANCE = {
   bg: "var(--luxia-opacity-brand-primary-04)",
@@ -606,12 +597,7 @@ interface ProjectsPreviewProps {
   onNavigateProjectDestination?: (destination: ProjectDestination, projectId: string) => void;
 }
 
-function buildViewAllProjectsLabel(totalAccessible: number): string {
-  if (totalAccessible > 0) {
-    return `View all ${totalAccessible} projects`;
-  }
-  return "View all projects";
-}
+const VIEW_ALL_PROJECTS_LABEL = "View all projects";
 
 export function ProjectsPreview({
   projects,
@@ -634,15 +620,17 @@ export function ProjectsPreview({
   const [recentProjectsView, setRecentProjectsView] = useState<CollectorViewMode>(() =>
     readCollectorViewMode("home-projects"),
   );
+  const [recentPreviewCount, setRecentPreviewCount] = useState<HomeRecentPreviewCount>(() =>
+    readHomeRecentPreviewCount(),
+  );
   const {
     pinned,
     recent,
     ranked,
-    totalAccessible,
   } = getHomeProjectsSections(
     projects,
     pinnedProjectOrder,
-    homeRecentPreviewLimit(recentProjectsView),
+    resolveHomeRecentPreviewLimit(recentPreviewCount),
   );
 
   if (ranked.length === 0) return null;
@@ -666,24 +654,31 @@ export function ProjectsPreview({
     writeCollectorViewMode("home-projects", mode);
   }
 
-  const viewAllLabel = buildViewAllProjectsLabel(totalAccessible);
-  const visibleOnHome = pinned.length + recent.length;
-  const showRecentContinuation =
-    totalAccessible > 0 && visibleOnHome < totalAccessible;
+  function handleRecentPreviewCountChange(count: HomeRecentPreviewCount) {
+    setRecentPreviewCount(count);
+    writeHomeRecentPreviewCount(count);
+  }
 
+  // Display group (tight) | navigation (looser gap). Whole toolbar wraps as one unit.
   const recentHeaderActions = (
-    <CollectorViewToggle
-      value={recentProjectsView}
-      onChange={handleRecentViewChange}
-    />
+    <div className="flex flex-wrap items-center justify-end gap-x-5 gap-y-2">
+      <div className="flex items-center gap-2">
+        <CollectorViewToggle
+          value={recentProjectsView}
+          onChange={handleRecentViewChange}
+        />
+        <HomeRecentPreviewCountControl
+          value={recentPreviewCount}
+          onChange={handleRecentPreviewCountChange}
+        />
+      </div>
+      <ViewAllAction
+        label={VIEW_ALL_PROJECTS_LABEL}
+        ariaLabel="View all projects — open full project library"
+        onClick={onViewAll}
+      />
+    </div>
   );
-
-  const recentContinuation = showRecentContinuation ? (
-    <RecentProjectsCollectionContinuation
-      label={viewAllLabel}
-      onViewAll={onViewAll}
-    />
-  ) : null;
 
   return (
     <div className="space-y-8">
@@ -721,7 +716,6 @@ export function ProjectsPreview({
             listLabel="Recent projects"
             onNewProject={onNewProject}
           />
-          {recentContinuation}
         </section>
       ) : pinned.length > 0 ? (
         <section aria-labelledby="home-recent-projects-heading">
@@ -750,7 +744,6 @@ export function ProjectsPreview({
               />
             </div>
           ) : null}
-          {recentContinuation}
         </section>
       ) : null}
     </div>

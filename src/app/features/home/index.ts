@@ -1,5 +1,14 @@
 export { ContinueWorkingBrowser } from "./ContinueWorkingBrowser";
 export { HomePage, HomePageShell } from "./HomePage";
+export { HomeRecentPreviewCountControl } from "./HomeRecentPreviewCountControl";
+export {
+  HOME_RECENT_PREVIEW_COUNT_DEFAULT,
+  HOME_RECENT_PREVIEW_COUNT_OPTIONS,
+  readHomeRecentPreviewCount,
+  resolveHomeRecentPreviewLimit,
+  writeHomeRecentPreviewCount,
+} from "./homeRecentPreviewCount";
+export type { HomeRecentPreviewCount } from "./homeRecentPreviewCount";
 export { ViewAllAction } from "./ViewAllAction";
 export { HOME_RECENT_WORK, HERO_DESCRIPTION_PLACEHOLDER, resolveHeroDescription } from "./data";
 export {

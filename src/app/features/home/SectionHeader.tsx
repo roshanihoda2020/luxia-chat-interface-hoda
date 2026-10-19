@@ -41,7 +41,7 @@ export function SectionHeader({
     : undefined;
 
   return (
-    <div className={`${HI.sectionHeadingGap} flex flex-wrap items-start justify-between gap-x-4 gap-y-2`}>
+    <div className={`${HI.sectionHeadingGap} flex flex-wrap items-center justify-between gap-x-4 gap-y-2`}>
       <div className="flex min-w-0 items-start gap-3">
         <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center" style={{ color: iconColor }} aria-hidden>
           {icon}

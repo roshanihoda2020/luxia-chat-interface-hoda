@@ -1,3 +1,4 @@
+import { LuxiaArrowRightIcon } from "@/assets/icons";
 import { Button } from "@/app/components/ui/button";
 import { HS } from "./homeSurfaces";
 
@@ -7,6 +8,10 @@ interface ViewAllActionProps {
   onClick: () => void;
 }
 
+/**
+ * Shared Luxia text + right-arrow navigation action
+ * (same treatment as Project Overview “Open Dashboard”).
+ */
 export function ViewAllAction({
   label = "View all",
   ariaLabel,
@@ -18,10 +23,11 @@ export function ViewAllAction({
       variant="link"
       onClick={onClick}
       aria-label={ariaLabel}
-      className="luxia-type-body-small-strong"
+      className="min-h-8 gap-1 luxia-type-body-dense-strong"
       style={{ color: HS.viewAllText }}
     >
-      {label}
+      <span>{label}</span>
+      <LuxiaArrowRightIcon size={14} aria-hidden color="currentColor" />
     </Button>
   );
 }

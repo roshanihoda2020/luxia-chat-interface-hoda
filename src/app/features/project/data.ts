@@ -54,11 +54,68 @@ export function uniqueSourceCountForProject(projectId: string): number {
 }
 
 /**
- * Seeded prototype Projects only. Empty Projects are not seeded — they may appear
- * only when the user creates one during the session.
+ * Prototype catalog size so Show 3 / 6 / 9 / All are distinguishable on Home.
+ * Access still requires an active membership for the current profile.
  */
-const HOME_PROJECT_BASE: Omit<HomeProjectCard, "constellationCount" | "sourceCount">[] = [
-  {
+export const HOME_PROTOTYPE_PROJECT_TOTAL = 48;
+
+export function homeProjectIdAt(index: number): string {
+  return `project-${String(index).padStart(2, "0")}`;
+}
+
+type HomeProjectSeed = Omit<HomeProjectCard, "constellationCount" | "sourceCount">;
+
+/**
+ * Build N accessible-looking prototype project cards (1-based indexes).
+ * Used by the seeded catalog and large-collection verification.
+ */
+export function buildHomeProjectSeeds(count: number): HomeProjectSeed[] {
+  const safeCount = Math.max(0, Math.floor(count));
+  const seeds: HomeProjectSeed[] = [];
+  for (let i = 1; i <= safeCount; i += 1) {
+    const id = homeProjectIdAt(i);
+    const handcrafted = HANDCRAFTED_HOME_PROJECTS[id];
+    if (handcrafted) {
+      seeds.push({ ...handcrafted });
+      continue;
+    }
+    seeds.push({
+      id,
+      name: `Project name ${String(i).padStart(2, "0")}`,
+      galaxyId: `galaxy-${String(i).padStart(2, "0")}`,
+      memberCount: 2 + (i % 4),
+      updatedAt: `${(i % 23) + 1}h ago`,
+      updatedAtTimestamp: NOW - HOUR_MS * i,
+      isPinned: false,
+      isFeatured: false,
+      isEmpty: true,
+      status: "active",
+      description: PROJECT_DESCRIPTION_PLACEHOLDER,
+    });
+  }
+  return seeds;
+}
+
+export function materializeHomeProjects(
+  seeds: readonly HomeProjectSeed[],
+): HomeProjectCard[] {
+  return seeds.map((project) => {
+    const constellationCount = getProjectConstellationCount(project.id);
+    return {
+      ...project,
+      constellationCount,
+      sourceCount: uniqueSourceCountForProject(project.id),
+      isEmpty: constellationCount === 0 ? Boolean(project.isEmpty) : false,
+    };
+  });
+}
+
+/**
+ * Seeded prototype Projects. Empty Projects may appear when generated beyond
+ * handcrafted constellation data, or when the user creates one in-session.
+ */
+const HANDCRAFTED_HOME_PROJECTS: Record<string, HomeProjectSeed> = {
+  "project-01": {
     id: "project-01",
     name: "Project name 01",
     galaxyId: "galaxy-01",
@@ -72,7 +129,7 @@ const HOME_PROJECT_BASE: Omit<HomeProjectCard, "constellationCount" | "sourceCou
     recentPreview: "Galaxy and constellation activity",
     description: "Primary workspace for Project name 01 knowledge and conversations.",
   },
-  {
+  "project-02": {
     id: "project-02",
     name: "Project name 02",
     galaxyId: "galaxy-02",
@@ -85,7 +142,7 @@ const HOME_PROJECT_BASE: Omit<HomeProjectCard, "constellationCount" | "sourceCou
     status: "active",
     description: "Shared Project for ongoing analysis and Constellation work.",
   },
-  {
+  "project-03": {
     id: "project-03",
     name: "Project name 03",
     galaxyId: "galaxy-03",
@@ -98,7 +155,7 @@ const HOME_PROJECT_BASE: Omit<HomeProjectCard, "constellationCount" | "sourceCou
     status: "active",
     description: "Focused Project space for structured knowledge and Chats.",
   },
-  {
+  "project-04": {
     id: "project-04",
     name: "Project name 04",
     galaxyId: "galaxy-04",
@@ -111,7 +168,7 @@ const HOME_PROJECT_BASE: Omit<HomeProjectCard, "constellationCount" | "sourceCou
     status: "active",
     description: "Project for configuration and access settings.",
   },
-  {
+  "project-05": {
     id: "project-05",
     name: "Project name 05",
     galaxyId: "galaxy-05",
@@ -124,7 +181,7 @@ const HOME_PROJECT_BASE: Omit<HomeProjectCard, "constellationCount" | "sourceCou
     status: "active",
     description: "Exploration Project for Dashboard outputs and Vidgets.",
   },
-  {
+  "project-06": {
     id: "project-06",
     name: "Project name 06",
     galaxyId: "galaxy-06",
@@ -137,17 +194,11 @@ const HOME_PROJECT_BASE: Omit<HomeProjectCard, "constellationCount" | "sourceCou
     status: "active",
     description: "Broader Project with multiple Constellations and Chats.",
   },
-];
+};
 
-export const HOME_PROJECTS: HomeProjectCard[] = HOME_PROJECT_BASE.map((project) => {
-  const constellationCount = getProjectConstellationCount(project.id);
-  return {
-    ...project,
-    constellationCount,
-    sourceCount: uniqueSourceCountForProject(project.id),
-    isEmpty: constellationCount === 0 ? Boolean(project.isEmpty) : false,
-  };
-});
+export const HOME_PROJECTS: HomeProjectCard[] = materializeHomeProjects(
+  buildHomeProjectSeeds(HOME_PROTOTYPE_PROJECT_TOTAL),
+);
 
 export function isProjectActive(project: HomeProjectCard): boolean {
   return project.status !== "archived";
@@ -197,18 +248,23 @@ export const HOME_PROJECT_PREVIEW_LIMIT = 4;
 /** Max pinned project cards on Home (card layout only). */
 export const HOME_PINNED_PREVIEW_LIMIT = 4;
 
-/** Max recent projects on Home in List mode (compact rows). */
-export const HOME_RECENT_LIST_PREVIEW_LIMIT = 8;
+/**
+ * @deprecated Prefer user preference via `readHomeRecentPreviewCount` (3 / 6 / 9 / all).
+ * Kept as fallback defaults for legacy call sites.
+ */
+export const HOME_RECENT_LIST_PREVIEW_LIMIT = 6;
 
-/** Max recent projects on Home in Grid mode (cards). */
+/**
+ * @deprecated Prefer user preference via `readHomeRecentPreviewCount` (3 / 6 / 9 / all).
+ * Kept as fallback defaults for legacy call sites.
+ */
 export const HOME_RECENT_GRID_PREVIEW_LIMIT = 6;
 
+/** @deprecated Prefer explicit preview count from Home preference. */
 export function homeRecentPreviewLimit(
-  viewMode: "grid" | "list",
+  _viewMode: "grid" | "list",
 ): number {
-  return viewMode === "list"
-    ? HOME_RECENT_LIST_PREVIEW_LIMIT
-    : HOME_RECENT_GRID_PREVIEW_LIMIT;
+  return HOME_RECENT_GRID_PREVIEW_LIMIT;
 }
 
 function isPinnedProject(
@@ -219,30 +275,50 @@ function isPinnedProject(
 }
 
 /**
- * Home overview sections: pinned (when any) + recent (excluding all pinned).
- * Recent is ranked by updated time; pins keep pin-order from `rankProjectsForPreview`.
- * Pinned preview is capped; recent limit should match List vs Grid density.
+ * Active projects ordered by updated time only (no pin-priority).
+ * Used for Home Recent — pinned projects stay in this collection.
+ */
+export function rankProjectsByRecency(
+  projects: HomeProjectCard[],
+): HomeProjectCard[] {
+  return filterActiveProjects(projects).slice().sort(
+    (a, b) => (b.updatedAtTimestamp ?? 0) - (a.updatedAtTimestamp ?? 0),
+  );
+}
+
+/**
+ * Home overview sections: Pinned and Recent are independent presentations.
+ * The same project may appear in both — pinned status does not remove it from Recent.
+ *
+ * Order of operations:
+ * 1. Filter to accessible/active projects
+ * 2. Derive Pinned independently (pin order + preview cap)
+ * 3. Derive Recent independently from the full active collection (recency order)
+ * 4. Apply Show limit to Recent only (`null` = Show All, no slice)
  */
 export function getHomeProjectsSections(
   projects: HomeProjectCard[],
   pinnedProjectOrder: readonly string[] = [],
-  recentLimit: number = HOME_RECENT_LIST_PREVIEW_LIMIT,
+  recentLimit: number | null = HOME_RECENT_LIST_PREVIEW_LIMIT,
   pinnedLimit: number = HOME_PINNED_PREVIEW_LIMIT,
 ) {
-  const ranked = rankProjectsForPreview(projects, pinnedProjectOrder);
-  const allPinned = ranked.filter((project) =>
+  const ranked = rankProjectsByRecency(projects);
+  const pinOrdered = rankProjectsForPreview(projects, pinnedProjectOrder);
+  const allPinned = pinOrdered.filter((project) =>
     isPinnedProject(project, pinnedProjectOrder),
   );
   const pinned = allPinned.slice(0, Math.max(0, pinnedLimit));
-  // Exclude every pinned project from Recent (not only the Home-visible slice).
-  const recent = ranked
-    .filter((project) => !isPinnedProject(project, pinnedProjectOrder))
-    .slice(0, Math.max(0, recentLimit));
+  // Recent uses the full accessible collection — do not strip pinned IDs.
+  const recent =
+    recentLimit == null
+      ? ranked
+      : ranked.slice(0, Math.max(0, recentLimit));
 
   return {
     pinned,
     recent,
     ranked,
+    recentEligibleTotal: ranked.length,
     pinnedTotal: allPinned.length,
     totalAccessible: ranked.length,
     totalVisible: pinned.length + recent.length,

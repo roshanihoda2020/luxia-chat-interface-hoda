@@ -20,11 +20,15 @@ export {
 export { ProjectCornerMarker } from "./ProjectCornerMarker";
 export {
   HOME_PROJECTS,
+  HOME_PROTOTYPE_PROJECT_TOTAL,
   HOME_PROJECT_PREVIEW_LIMIT,
   HOME_PINNED_PREVIEW_LIMIT,
   HOME_RECENT_LIST_PREVIEW_LIMIT,
   HOME_RECENT_GRID_PREVIEW_LIMIT,
+  buildHomeProjectSeeds,
+  homeProjectIdAt,
   homeRecentPreviewLimit,
+  materializeHomeProjects,
   PROJECTS_BY_ID,
   PROJECT_DESCRIPTION_PLACEHOLDER,
   UNKNOWN_PROJECT_NAME,
@@ -38,6 +42,7 @@ export {
   getProjectPreview,
   isProjectActive,
   isProjectArchived,
+  rankProjectsByRecency,
   rankProjectsForPreview,
   uniqueSourceCountForProject,
 } from "./data";
