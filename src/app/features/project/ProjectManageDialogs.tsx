@@ -125,12 +125,12 @@ export function EditProjectDialog({
           </div>
 
           <div className="flex min-w-0 w-full flex-col gap-2">
-            <Label htmlFor={descriptionId}>Project description</Label>
+            <Label htmlFor={descriptionId}>Description (optional)</Label>
             <Textarea
               id={descriptionId}
               value={description}
               onChange={(event) => setDescription(event.target.value)}
-              placeholder="Add a short Project description"
+              placeholder="Add a short description..."
               rows={4}
               className="box-border min-h-24 w-full max-w-full min-w-0 resize-y"
             />

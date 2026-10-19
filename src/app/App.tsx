@@ -4887,7 +4887,7 @@ export default function App() {
     }
   }
 
-  function handleCreateProject(name: string) {
+  function handleCreateProject(name: string, description = "") {
     if (!canCreateProject(prototypeUserId)) {
       toast.error(PROJECT_CREATE_DENIED_MESSAGE);
       return;
@@ -4912,7 +4912,7 @@ export default function App() {
       isFeatured: false,
       isEmpty: true,
       status: "active",
-      description: undefined,
+      description: description.trim() || undefined,
     };
 
     setHomeProjects((prev) => [...prev, newProject]);
