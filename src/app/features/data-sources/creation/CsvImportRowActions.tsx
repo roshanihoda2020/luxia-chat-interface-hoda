@@ -1,5 +1,12 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Maximize2, Minimize2, X } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/app/components/ui/dialog";
 import { Input } from "@/app/components/ui/input";
 import {
   Select,
@@ -92,24 +99,19 @@ export function ExcludeRowButton({
 }
 
 function SchemaExcludeAction({
+  rowNumber,
   onExclude,
-  quiet = false,
 }: {
+  rowNumber: number;
   onExclude: () => void;
-  quiet?: boolean;
 }) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <button
           type="button"
-          className={cn(
-            "luxia-type-caption rounded-[4px] px-1 py-0.5 underline-offset-2 outline-none hover:underline",
-            "focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]",
-            quiet && "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100",
-          )}
-          style={{ color: "var(--luxia-text-secondary)" }}
-          aria-label={`Exclude row. ${EXCLUDE_ROW_HINT}`}
+          className="luxia-csv-schema-exclude luxia-type-caption"
+          aria-label={`Exclude row ${rowNumber}`}
           onClick={onExclude}
         >
           Exclude
@@ -279,18 +281,29 @@ function validExamplesForColumn(file: CsvImportFileDraft, columnId: string): str
   return examples;
 }
 
+function isGeneratedFallbackName(file: CsvImportFileDraft, column: CsvColumnDraft): boolean {
+  const name = column.name.trim();
+  if (!/^Column \d+$/.test(name)) return false;
+  if (column.originalName && column.originalName !== column.name) return false;
+  if (file.headerMode === "none") return true;
+  return (file.parsed?.issues ?? []).some((issue) => issue.message.includes("Column names were generated"));
+}
+
 export function ColumnNameEditor({
   name,
   originalName,
+  describedBy,
   onSave,
 }: {
   name: string;
   originalName?: string;
+  describedBy?: string;
   onSave: (nextName: string) => string | null;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(name);
   const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const original = originalName && originalName !== name ? originalName : null;
 
   useEffect(() => {
@@ -298,6 +311,14 @@ export function ColumnNameEditor({
     setError(null);
     setEditing(false);
   }, [name]);
+
+  useLayoutEffect(() => {
+    if (!editing) return;
+    const input = inputRef.current;
+    if (!input) return;
+    input.focus();
+    input.select();
+  }, [editing]);
 
   function cancel() {
     setDraft(name);
@@ -320,9 +341,11 @@ export function ColumnNameEditor({
       <div className="min-w-0">
         <button
           type="button"
-          className="max-w-full truncate rounded-[4px] text-left underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]"
+          className="luxia-type-body-dense-strong max-w-full truncate rounded-[4px] text-left underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]"
           style={{ color: "var(--luxia-text-primary)" }}
-          title="Rename column"
+          title={name}
+          aria-label={`Rename ${name} column`}
+          aria-describedby={describedBy}
           onClick={() => {
             setDraft(name);
             setError(null);
@@ -336,46 +359,48 @@ export function ColumnNameEditor({
   }
 
   return (
-    <div className="min-w-0 space-y-2">
-      <Input
-        value={draft}
-        onChange={(event) => {
-          setDraft(event.target.value);
-          setError(null);
-        }}
-        onKeyDown={(event) => {
-          if (event.key === "Enter") {
-            event.preventDefault();
-            save();
-          }
-          if (event.key === "Escape") {
-            event.preventDefault();
-            cancel();
-          }
-        }}
-        autoComplete="off"
-        aria-label="Working column name"
-        aria-invalid={Boolean(error)}
-        className="h-8"
-        autoFocus
-      />
+    <div className="luxia-csv-column-rename-block">
+      <div className="luxia-csv-column-rename">
+        <Input
+          ref={inputRef}
+          value={draft}
+          onChange={(event) => {
+            setDraft(event.target.value);
+            setError(null);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              save();
+            }
+            if (event.key === "Escape") {
+              event.preventDefault();
+              cancel();
+            }
+          }}
+          autoComplete="off"
+          aria-label={`Rename ${name} column`}
+          aria-invalid={Boolean(error)}
+          className="luxia-csv-column-rename-field h-7 min-h-7 w-auto"
+        />
+        <div className="luxia-csv-column-rename-actions">
+          <Button type="button" variant="secondary" size="compact" className="h-7 min-h-7 px-2" onClick={save}>
+            Save
+          </Button>
+          <Button type="button" variant="outline" size="compact" className="h-7 min-h-7 px-2" onClick={cancel}>
+            Cancel
+          </Button>
+        </div>
+      </div>
       {error ? (
-        <p className="luxia-type-caption" style={{ color: "var(--luxia-error-70)" }} role="alert">
+        <p className="luxia-csv-column-rename-note" style={{ color: "var(--luxia-error-70)" }} role="alert">
           {error}
         </p>
       ) : original ? (
-        <p className="luxia-type-caption" style={{ color: "var(--luxia-text-muted)" }}>
+        <p className="luxia-csv-column-rename-note truncate" style={{ color: "var(--luxia-text-muted)" }} title={`Original: ${original}`}>
           Original: {original}
         </p>
       ) : null}
-      <div className="flex flex-wrap gap-2">
-        <Button type="button" variant="outline" size="compact" onClick={cancel}>
-          Cancel
-        </Button>
-        <Button type="button" variant="secondary" size="compact" onClick={save}>
-          Save
-        </Button>
-      </div>
     </div>
   );
 }
@@ -407,6 +432,9 @@ export function SchemaDataPreview({
   const [editingDraft, setEditingDraft] = useState("");
   const [editingError, setEditingError] = useState<string | null>(null);
   const [issuesOnly, setIssuesOnly] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollMemory = useRef({ left: 0, top: 0 });
   const firstIssueCellRef = useRef<HTMLButtonElement | null>(null);
   const [similarBusy, setSimilarBusy] = useState<string | null>(null);
   const [aiOutcome, setAiOutcome] = useState<string | null>(null);
@@ -415,6 +443,7 @@ export function SchemaDataPreview({
 
   useEffect(() => {
     setIssuesOnly(false);
+    setExpanded(false);
     setEditingKey(null);
     setEditingDraft("");
     setEditingError(null);
@@ -540,6 +569,29 @@ export function SchemaDataPreview({
     setEditingError(null);
   }
 
+  function captureScroll() {
+    const node = scrollRef.current;
+    if (!node) return;
+    scrollMemory.current = { left: node.scrollLeft, top: node.scrollTop };
+  }
+
+  function openExpanded() {
+    captureScroll();
+    setExpanded(true);
+  }
+
+  function closeExpanded() {
+    captureScroll();
+    setExpanded(false);
+  }
+
+  useLayoutEffect(() => {
+    const node = scrollRef.current;
+    if (!node) return;
+    node.scrollLeft = scrollMemory.current.left;
+    node.scrollTop = scrollMemory.current.top;
+  }, [expanded]);
+
   function saveEdit() {
     if (!editingIssue) {
       cancelEdit();
@@ -558,8 +610,8 @@ export function SchemaDataPreview({
     cancelEdit();
   }
 
-  return (
-    <div className="min-w-0 space-y-2">
+  const workspace = (
+    <div className={cn("flex min-w-0 flex-col gap-2", expanded && "min-h-0 flex-1")}>
       {similarGroups.length > 0 ? (
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           {similarGroups.map((group) => (
@@ -576,9 +628,24 @@ export function SchemaDataPreview({
           ))}
         </div>
       ) : null}
-      <p className="luxia-type-caption" style={{ color: "var(--luxia-text-muted)" }}>
-        {`Previewing ${previewCount.toLocaleString()} sample row${previewCount === 1 ? "" : "s"} of ${records.length.toLocaleString()} total rows`}
-      </p>
+      <div className="flex min-w-0 items-center justify-between gap-3">
+        <p className="min-w-0 luxia-type-caption" style={{ color: "var(--luxia-text-muted)" }}>
+          {`Previewing ${previewCount.toLocaleString()} sample row${previewCount === 1 ? "" : "s"} of ${records.length.toLocaleString()} total rows`}
+        </p>
+        {file.columns.length > 0 && !expanded ? (
+          <Button
+            type="button"
+            variant="secondary"
+            size="compact"
+            className="h-7 min-h-7 shrink-0 gap-1.5 px-2"
+            aria-label="Expand Schema table"
+            onClick={openExpanded}
+          >
+            <Maximize2 size={14} aria-hidden />
+            Expand table
+          </Button>
+        ) : null}
+      </div>
       {issueCount > 0 ? (
         <div className="luxia-csv-schema-issue-bar">
           <p
@@ -611,7 +678,14 @@ export function SchemaDataPreview({
           </p>
         </div>
       ) : (
-        <div className="luxia-settings-table-surface luxia-csv-schema-scroll luxia-scrollbar luxia-scrollbar-light min-w-0">
+        <div
+          ref={scrollRef}
+          className={cn(
+            "luxia-settings-table-surface luxia-csv-schema-scroll luxia-scrollbar luxia-scrollbar-light min-w-0",
+            expanded && "is-expanded",
+          )}
+          onScroll={captureScroll}
+        >
           <div
             role="table"
             className="luxia-csv-schema-grid"
@@ -622,12 +696,15 @@ export function SchemaDataPreview({
               className="luxia-csv-schema-grid-row is-header luxia-type-caption"
               style={{ color: "var(--luxia-text-secondary)" }}
             >
-              <div role="columnheader" className="luxia-csv-schema-grid-cell px-2 py-2 font-normal">
+              <div role="columnheader" className="luxia-csv-schema-grid-cell is-sticky-start px-2 py-2 font-normal">
                 Row
               </div>
               {file.columns.map((col) => {
                 const issueCountForColumn = issueCountByColumn.get(col.id) ?? 0;
                 const needsConfirm = col.status === "needs-review";
+                const detectedType = selectedColumnType(col);
+                const generatedName = isGeneratedFallbackName(file, col);
+                const generatedNameId = `csv-generated-name-${col.id}`;
                 return (
                   <div
                     key={col.id}
@@ -638,29 +715,26 @@ export function SchemaDataPreview({
                     }}
                   >
                     <div className="flex min-w-0 flex-col gap-1">
-                      <div className="flex min-w-0 items-center gap-1.5">
-                        <div className="min-w-0 flex-1">
-                          <ColumnNameEditor
-                            name={col.name}
-                            originalName={col.originalName}
-                            onSave={(nextName) => onRenameColumn(col.id, nextName)}
-                          />
-                        </div>
-                        {issueCountForColumn > 0 ? (
-                          <span
-                            className="shrink-0 luxia-type-caption"
-                            style={{ color: "var(--luxia-warning-90)" }}
-                            title={`${issueCountForColumn.toLocaleString()} values need attention`}
-                          >
-                            ⚠ {issueCountForColumn.toLocaleString()}
-                          </span>
-                        ) : null}
-                      </div>
-                      <div className="flex min-w-0 items-center gap-1">
-                        <div className="min-w-0 flex-1">
+                      <ColumnNameEditor
+                        name={col.name}
+                        originalName={col.originalName}
+                        describedBy={generatedName ? generatedNameId : undefined}
+                        onSave={(nextName) => onRenameColumn(col.id, nextName)}
+                      />
+                      {generatedName ? (
+                        <p
+                          id={generatedNameId}
+                          className="luxia-type-caption"
+                          style={{ color: "var(--luxia-text-muted)", fontWeight: 400 }}
+                        >
+                          Generated name
+                        </p>
+                      ) : null}
+                      <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
+                        <div className="min-w-[5.5rem] max-w-[8.5rem] flex-1">
                           <Select
                             key={`${file.id}:${col.id}:type:${col.type}`}
-                            value={selectedColumnType(col)}
+                            value={detectedType}
                             onValueChange={(value) => {
                               if (value === col.type) return;
                               onTypeChange(col.id, value);
@@ -682,28 +756,38 @@ export function SchemaDataPreview({
                             </SelectContent>
                           </Select>
                         </div>
-                        {needsConfirm ? (
+                        {issueCountForColumn > 0 ? (
+                          <span
+                            className="shrink-0 luxia-type-caption"
+                            style={{ color: "var(--luxia-warning-90)" }}
+                            title={`${issueCountForColumn.toLocaleString()} values need attention`}
+                          >
+                            ⚠ {issueCountForColumn.toLocaleString()}
+                          </span>
+                        ) : null}
+                      </div>
+                      {needsConfirm ? (
+                        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                          <p className="luxia-type-caption" style={{ color: "var(--luxia-warning-90)" }}>
+                            {`Detected as ${detectedType} · Needs confirmation`}
+                          </p>
                           <Button
                             type="button"
                             variant="secondary"
                             size="compact"
                             className="h-7 min-h-7 shrink-0 px-2"
+                            aria-label={`Accept ${detectedType} type for ${col.name} column`}
                             onClick={() => onConfirmType(col.id)}
                           >
-                            Confirm
+                            Accept type
                           </Button>
-                        ) : null}
-                      </div>
-                      {needsConfirm && issueCountForColumn === 0 ? (
-                        <p className="truncate luxia-type-caption" style={{ color: "var(--luxia-warning-90)" }}>
-                          Type needs confirmation
-                        </p>
+                        </div>
                       ) : null}
                     </div>
                   </div>
                 );
               })}
-              <div role="columnheader" className="luxia-csv-schema-grid-cell is-actions px-2 py-2 font-normal">
+              <div role="columnheader" className="luxia-csv-schema-grid-cell is-actions is-sticky-end px-2 py-2 font-normal">
                 Actions
               </div>
             </div>
@@ -742,7 +826,7 @@ export function SchemaDataPreview({
                     <div
                       role="row"
                       className={cn(
-                        "luxia-csv-schema-grid-row is-body group luxia-type-caption",
+                        "luxia-csv-schema-grid-row is-body luxia-type-caption",
                         excluded && "is-excluded",
                         invalid && "is-error",
                       )}
@@ -750,16 +834,9 @@ export function SchemaDataPreview({
                     >
                       <div
                         role="cell"
-                        className="luxia-csv-schema-grid-cell whitespace-nowrap px-2 py-1.5 tabular-nums"
+                        className="luxia-csv-schema-grid-cell is-sticky-start whitespace-nowrap px-2 py-1.5 tabular-nums"
                       >
-                        <span className="inline-flex min-w-0 items-baseline gap-1 truncate">
-                          <span style={{ color: "var(--luxia-text-primary)" }}>{row.rowNumber}</span>
-                          {statusLabel ? (
-                            <span style={{ color: statusColor }}>
-                              · {statusLabel}
-                            </span>
-                          ) : null}
-                        </span>
+                        <span style={{ color: "var(--luxia-text-primary)" }}>{row.rowNumber}</span>
                       </div>
                       {file.columns.map((column, cellIndex) => {
                         const value = file.overrides[row.rowNumber]?.[column.id] ?? row.fields[cellIndex] ?? "";
@@ -795,19 +872,34 @@ export function SchemaDataPreview({
                           </div>
                         );
                       })}
-                      <div role="cell" className="luxia-csv-schema-grid-cell is-actions whitespace-nowrap px-2 py-1.5">
-                        {excluded ? (
-                          <Button type="button" variant="secondary" size="compact" className="h-7 min-h-7 px-2" onClick={() => onUndo(row.rowNumber)}>
-                            Undo
-                          </Button>
-                        ) : invalid ? (
-                          <SchemaExcludeAction onExclude={() => {
-                            if (rowEditing) cancelEdit();
-                            onExclude(row.rowNumber);
-                          }} />
-                        ) : (
-                          <SchemaExcludeAction quiet onExclude={() => onExclude(row.rowNumber)} />
-                        )}
+                      <div role="cell" className="luxia-csv-schema-grid-cell is-actions is-sticky-end px-2 py-1.5">
+                        <div className="flex min-w-0 flex-col items-start gap-0.5">
+                          {statusLabel ? (
+                            <span className="luxia-type-caption" style={{ color: statusColor }}>
+                              {statusLabel}
+                            </span>
+                          ) : null}
+                          {excluded ? (
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="compact"
+                              className="h-7 min-h-7 px-2"
+                              aria-label={`Restore row ${row.rowNumber}`}
+                              onClick={() => onUndo(row.rowNumber)}
+                            >
+                              Undo
+                            </Button>
+                          ) : (
+                            <SchemaExcludeAction
+                              rowNumber={row.rowNumber}
+                              onExclude={() => {
+                                if (rowEditing) cancelEdit();
+                                onExclude(row.rowNumber);
+                              }}
+                            />
+                          )}
+                        </div>
                       </div>
                     </div>
                     {rowEditing && editingIssue ? (
@@ -841,6 +933,75 @@ export function SchemaDataPreview({
         </div>
       )}
     </div>
+  );
+
+  return (
+    <>
+      {expanded ? null : workspace}
+      <Dialog
+        open={expanded}
+        onOpenChange={(next) => {
+          if (!next) closeExpanded();
+        }}
+      >
+        <DialogContent
+          hideCloseButton
+          data-csv-schema-expanded="true"
+          overlayClassName="z-[70]"
+          className="z-[70] flex h-[92vh] max-h-[92vh] w-[96vw] max-w-[96vw] flex-col gap-0 overflow-hidden p-0 sm:max-w-[96vw]"
+          onPointerDownOutside={(event) => {
+            const target = event.target;
+            if (target instanceof Element && target.closest("[data-slot=select-content], [role=listbox]")) {
+              event.preventDefault();
+            }
+          }}
+          onInteractOutside={(event) => {
+            const target = event.target;
+            if (target instanceof Element && target.closest("[data-slot=select-content], [role=listbox]")) {
+              event.preventDefault();
+            }
+          }}
+        >
+          <div className="flex h-full min-h-0 flex-col">
+            <div
+              className="flex shrink-0 items-center justify-between gap-3 border-b px-4 py-3"
+              style={{ borderColor: "var(--luxia-border-default)" }}
+            >
+              <div className="min-w-0">
+                <DialogTitle className="truncate text-left text-[var(--luxia-text-primary)]">
+                  {file.fileName}
+                </DialogTitle>
+                <DialogDescription className="sr-only">Expanded Schema table</DialogDescription>
+              </div>
+              <div className="flex shrink-0 items-center gap-1.5">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="compact"
+                  className="h-7 min-h-7 gap-1.5 px-2"
+                  onClick={closeExpanded}
+                >
+                  <Minimize2 size={14} aria-hidden />
+                  Exit expanded view
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="iconCompact"
+                  aria-label="Close expanded Schema table"
+                  onClick={closeExpanded}
+                >
+                  <X size={15} aria-hidden />
+                </Button>
+              </div>
+            </div>
+            <div className="flex min-h-0 flex-1 flex-col px-4 py-3">
+              {expanded ? workspace : null}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

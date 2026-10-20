@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { cn } from "@/app/components/ui/utils";
 import { Plus } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import {
@@ -43,6 +44,7 @@ export function DocumentTagPicker({
   searchPlaceholder = "Search tags…",
   excludeIds,
   iconOnly = false,
+  triggerClassName,
   onApply,
   onCreate,
 }: {
@@ -53,6 +55,7 @@ export function DocumentTagPicker({
   searchPlaceholder?: string;
   excludeIds?: readonly string[];
   iconOnly?: boolean;
+  triggerClassName?: string;
   onApply: (tag: DocumentTagDefinition) => void;
   onCreate: (input: { name: string; color: DocumentTagColorId }) => string | null;
 }) {
@@ -118,7 +121,7 @@ export function DocumentTagPicker({
           type="button"
           variant={variant}
           size={iconOnly ? "iconCompact" : "compact"}
-          className="shrink-0"
+          className={cn("shrink-0", triggerClassName)}
           aria-haspopup="listbox"
           aria-expanded={open}
           aria-label={ariaLabel}
