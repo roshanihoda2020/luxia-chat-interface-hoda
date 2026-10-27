@@ -77,6 +77,8 @@ import {
   csvFileIsStructurallyUsable,
   csvFileNeedsParsingReview,
   csvFileNeedsSchemaReview,
+  csvFileSchemaReady,
+  csvFileValidationReportReady,
   csvFileNotices,
   csvFileSchemaUiStatus,
   csvFileUiStatus,
@@ -103,6 +105,13 @@ import {
   tableDescriptionNeedsAi,
   tableMetaStatusLabel,
   tableNameConflictKey,
+  csvFileOutcome,
+  asTextColumns,
+  clearCellFix,
+  hasFixOrigin,
+  keptReviewedProposals,
+  restoreColumnSnapshot,
+  writeCellFix,
   validateCsvRows,
   valueMatchesType,
   valueContextTabLabel,
@@ -110,6 +119,7 @@ import {
   unsavedValueContextColumnIds,
   type CsvAiProposal,
   type CsvColumnType,
+  type CsvValidationStrategy,
   type CsvColumnTypeMismatch,
   type CsvResolutionKind,
   type CsvTypeSuggestion,
@@ -353,19 +363,6 @@ function StepMarker({ state, index }: { state: "done" | "current" | "open" | "mu
   );
 }
 
-function resolutionReceiptLabel(file: CsvImportFileDraft): string {
-  if (file.importAsText) return "Import as text";
-  const labels: Record<CsvResolutionKind, string> = {
-    "skip-affected": "Skipped rows",
-    manual: "Manual",
-    "ai-accepted": "AI-fixed",
-    reupload: "Re-uploaded",
-    "import-as-text": "Import as text",
-  };
-  if (file.appliedResolutions.length === 0) return "No issues";
-  return file.appliedResolutions.map((kind) => labels[kind]).join(", ");
-}
-
 function railStateLabel(state: RailState): string {
   if (state === "current") return "Current";
   if (state === "completed") return "Completed";
@@ -405,30 +402,11 @@ function schemaStatusForType(type: string, detectedType: string): NonNullable<Cs
 }
 
 function liveValidationForFile(file: CsvImportFileDraft): CsvValidationSummary {
-  if (!file.parsed || file.columns.length === 0) {
-    return {
-      ...EMPTY_VALIDATION,
-      totalRows: file.parsed?.records.length ?? 0,
-    };
-  }
-  return validateCsvRows({
-    parsed: file.parsed,
-    columns: file.columns,
-    overrides: file.overrides,
-    skipped: new Set(file.skipped),
-    previouslyInvalid: new Set(file.lastInvalidRows),
-  });
+  return csvFileOutcome(file).summary;
 }
 
 function validationForFile(file: CsvImportFileDraft): CsvValidationSummary {
-  if (!file.validationRan || file.validationStale || !file.parsed || !csvFileIsStructurallyUsable(file)) {
-    return {
-      ...EMPTY_VALIDATION,
-      totalRows: file.parsed?.records.length ?? 0,
-      skippedRows: file.skipped.length,
-    };
-  }
-  return liveValidationForFile(file);
+  return csvFileOutcome(file).summary;
 }
 
 function mismatchesForFile(
@@ -530,7 +508,7 @@ function validationFileStatus(
   if (csvFileNeedsParsingReview(file) || !csvFileIsStructurallyUsable(file)) return "needs-review";
   if (!file.validationRan || file.validationStale) return "not-run";
   if (mismatchesForFile(file, summary).length > 0) return "schema-mismatch";
-  if (summary.invalidRows > 0) return "errors";
+  if (summary.invalidRows > 0 || csvFileOutcome(file).strategyOpen) return "errors";
   return "valid";
 }
 
@@ -540,17 +518,16 @@ function validationStatusLabel(
   summary?: CsvValidationSummary,
 ): string {
   if (status === "valid") {
-    const resolved = file.importAsText
-      || file.skipped.length > 0
-      || Object.keys(file.overrides).length > 0
-      || (summary?.resolvedRows ?? 0) > 0;
-    return resolved ? "Resolved" : "No issues";
+    const outcome = csvFileOutcome(file);
+    if (outcome.resolution === "needs-resolution") return "Needs resolution";
+    if (outcome.resolution === "resolved") return "Resolved";
+    return "No issues";
   }
   if (status === "excluded") return "Excluded";
   if (status === "not-run") return "Not checked";
   if (status === "schema-mismatch" || status === "errors") {
-    const count = summary?.issues.length || summary?.invalidRows || 0;
-    if (count > 0) return `${count.toLocaleString()} issue${count === 1 ? "" : "s"}`;
+    const count = summary?.invalidRows || summary?.issues.length || 0;
+    if (count > 0) return "Needs resolution";
     return "Needs review";
   }
   return "Needs review";
@@ -716,11 +693,16 @@ export function CsvImportFlow({
     ?? files[0]
     ?? null;
 
-  const validations = useMemo(() => {
-    const map = new Map<string, CsvValidationSummary>();
-    for (const file of files) map.set(file.id, validationForFile(file));
+  const outcomes = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof csvFileOutcome>>();
+    for (const file of files) map.set(file.id, csvFileOutcome(file));
     return map;
   }, [files]);
+  const validations = useMemo(() => {
+    const map = new Map<string, CsvValidationSummary>();
+    for (const [id, outcome] of outcomes) map.set(id, outcome.summary);
+    return map;
+  }, [outcomes]);
 
   const activeValidation = activeFile
     ? validations.get(activeFile.id) ?? EMPTY_VALIDATION
@@ -728,10 +710,10 @@ export function CsvImportFlow({
   const duplicateNames = useMemo(() => duplicateTableNameKeys(files), [files]);
   const importOutcomeSignature = useMemo(
     () => included.map((file) => {
-      const live = liveValidationForFile(file);
-      return `${file.id}:${file.tableName.trim()}:${live.readyRows}:${live.skippedRows}:${live.totalRows}`;
+      const outcome = outcomes.get(file.id) ?? csvFileOutcome(file);
+      return `${file.id}:${file.tableName.trim()}:${outcome.importedRows}:${outcome.skippedRows}:${outcome.rejectedRows}:${outcome.strategyOpen ? "open" : "done"}:${outcome.totalRows}`;
     }).join("|"),
-    [included],
+    [included, outcomes],
   );
   const importLocked = confirmedImportSignature !== null && confirmedImportSignature === importOutcomeSignature;
 
@@ -740,15 +722,12 @@ export function CsvImportFlow({
   const schemaComplete =
     uploadComplete
     && included.every((file) => csvFileIsStructurallyUsable(file) && !csvFileNeedsSchemaReview(file));
-  const filesNeedingParsingReview = included.filter((file) => csvFileNeedsParsingReview(file));
-  const filesNeedingValidationRun = included.filter(
-    (file) => csvFileIsStructurallyUsable(file) && (!file.validationRan || file.validationStale),
-  );
+  const filesNeedingValidationRun = included.filter((file) => !csvFileValidationReportReady(file));
   const validationComplete =
     schemaComplete
     && included.every((file) => {
-      const summary = validations.get(file.id) ?? EMPTY_VALIDATION;
-      return file.validationRan && !file.validationStale && summary.invalidRows === 0;
+      const outcome = outcomes.get(file.id) ?? csvFileOutcome(file);
+      return outcome.fresh && outcome.rejectedRows === 0 && !outcome.strategyOpen;
     });
   const tablesComplete =
     validationComplete
@@ -757,16 +736,16 @@ export function CsvImportFlow({
   const validationHasRun = included.some((file) => file.validationRan);
   const includedTotals = included.reduce(
     (acc, file) => {
-      if (!file.validationRan || file.validationStale) return acc;
-      const summary = validations.get(file.id) ?? EMPTY_VALIDATION;
-      acc.ready += summary.readyRows;
-      acc.skipped += summary.skippedRows;
-      acc.resolved += summary.resolvedRows;
-      acc.errors += summary.invalidRows;
-      acc.total += summary.totalRows;
+      const outcome = outcomes.get(file.id) ?? csvFileOutcome(file);
+      acc.ready += outcome.importedRows;
+      acc.skipped += outcome.skippedRows;
+      acc.rejected += outcome.rejectedRows;
+      acc.resolved += outcome.summary.resolvedRows;
+      acc.errors += outcome.rejectedRows;
+      acc.total += outcome.totalRows;
       return acc;
     },
-    { ready: 0, skipped: 0, resolved: 0, errors: 0, total: 0 },
+    { ready: 0, skipped: 0, rejected: 0, resolved: 0, errors: 0, total: 0 },
   );
   const unsavedSampleValueColumns = useMemo(
     () => unsavedValueContextColumnCount(included),
@@ -795,14 +774,14 @@ export function CsvImportFlow({
 
   useEffect(() => {
     if (created) return;
-    if (!schemaComplete && step >= CSV_STEP.validation && step < CSV_STEP.summary) {
-      setStep(CSV_STEP.columns);
+    if (!uploadComplete && step > CSV_STEP.upload && step < CSV_STEP.summary) {
+      setStep(CSV_STEP.upload);
       return;
     }
     if (!importLocked && step > CSV_STEP.import && step < CSV_STEP.summary) {
       setStep(CSV_STEP.import);
     }
-  }, [schemaComplete, importLocked, step, created]);
+  }, [uploadComplete, importLocked, step, created]);
 
   useEffect(() => {
     const request = focusRequestRef.current;
@@ -1448,9 +1427,10 @@ export function CsvImportFlow({
     const current = target.columns.find((column) => column.id === columnId);
     if (!current || current.type === type) return;
     updateFile(target.id, (file) => {
+      const base = file.importAsText ? restoreColumnSnapshot(file) : file;
       const nextFile: CsvImportFileDraft = {
-        ...file,
-        columns: file.columns.map((item) => {
+        ...base,
+        columns: base.columns.map((item) => {
           if (item.id !== columnId) return item;
           return {
             ...item,
@@ -1458,7 +1438,9 @@ export function CsvImportFlow({
             status: schemaStatusForType(type, item.detectedType),
           };
         }),
-        aiProposals: file.aiProposals.filter((proposal) => proposal.columnId !== columnId),
+        aiProposals: base.aiProposals.filter((proposal) =>
+          proposal.columnId !== columnId || proposal.status === "accepted" || proposal.status === "rejected",
+        ),
         importAsText: false,
       };
       return nextFile.parsed && csvFileIsStructurallyUsable(nextFile)
@@ -1476,9 +1458,10 @@ export function CsvImportFlow({
         if (!current || current.type === detectedType) {
           return file.parsed ? runValidationFor(file) : file;
         }
+        const base = file.importAsText ? restoreColumnSnapshot(file) : file;
         const nextFile: CsvImportFileDraft = {
-          ...file,
-          columns: file.columns.map((item) => {
+          ...base,
+          columns: base.columns.map((item) => {
             if (item.id !== columnId) return item;
             return {
               ...item,
@@ -1486,7 +1469,9 @@ export function CsvImportFlow({
               status: schemaStatusForType(detectedType, item.detectedType),
             };
           }),
-          aiProposals: file.aiProposals.filter((proposal) => proposal.columnId !== columnId),
+          aiProposals: base.aiProposals.filter((proposal) =>
+            proposal.columnId !== columnId || proposal.status === "accepted" || proposal.status === "rejected",
+          ),
           importAsText: false,
         };
         return nextFile.parsed && csvFileIsStructurallyUsable(nextFile)
@@ -1605,17 +1590,38 @@ export function CsvImportFlow({
     });
   }
 
-  function skipAffectedRows(fileId?: string) {
+  function selectValidationStrategy(strategy: CsvValidationStrategy, fileId?: string) {
     const target = fileFor(fileId);
     if (!target) return;
     updateFile(target.id, (file) => {
-      const live = liveValidationForFile(file);
-      const rows = [...new Set(live.issues.map((issue) => issue.rowNumber))];
-      return runValidationFor(withResolution({
-        ...file,
-        skipped: [...new Set([...file.skipped, ...rows])],
-        aiProposals: [],
-      }, "skip-affected"));
+      if (strategy === "text") {
+        return runValidationFor(withResolution({
+          ...asTextColumns(file),
+          validationStrategy: "text",
+          reuploadPending: false,
+        }, "import-as-text"));
+      }
+      const leavingText = file.validationStrategy === "text" || file.importAsText;
+      let next = leavingText ? restoreColumnSnapshot(file) : file;
+      next = {
+        ...next,
+        validationStrategy: strategy,
+        reuploadPending: strategy === "reupload",
+      };
+      if (strategy === "skip") {
+        const rows = [...new Set(csvFileOutcome(next).summary.issues.map((issue) => issue.rowNumber))];
+        const skipped = new Set([...next.skipped, ...rows]);
+        return runValidationFor(withResolution({
+          ...next,
+          skipped: [...skipped],
+          aiProposals: next.aiProposals.filter((proposal) =>
+            proposal.status === "accepted" || proposal.status === "rejected" || !skipped.has(proposal.rowNumber),
+          ),
+        }, "skip-affected"));
+      }
+      return next.parsed && csvFileIsStructurallyUsable(next)
+        ? runValidationFor(next)
+        : { ...next, validationRan: false, validationStale: true };
     });
   }
 
@@ -1628,104 +1634,115 @@ export function CsvImportFlow({
     });
   }
 
-  function importFileAsText(fileId?: string) {
-    const target = fileFor(fileId);
-    if (!target) return;
-    updateFile(target.id, (file) => runValidationFor(withResolution({
-      ...file,
-      importAsText: true,
-      aiProposals: [],
-      columns: file.columns.map((column) => ({
-        ...column,
-        type: "Text",
-        status: column.detectedType === "Text" ? column.status === "needs-review" ? "confirmed" : column.status : "modified",
-        warning: undefined,
-      })),
-    }, "import-as-text")));
-  }
-
   function restoreDetectedTypes(fileId?: string) {
     const target = fileFor(fileId);
     if (!target) return;
     updateFile(target.id, (file) => {
-      const next: CsvImportFileDraft = {
-        ...file,
-        importAsText: false,
-        aiProposals: [],
-        appliedResolutions: file.appliedResolutions.filter((kind) => kind !== "import-as-text"),
-        columns: file.columns.map((column, index) => {
-          const values = (file.parsed?.records ?? []).map((record) => record.fields[index] ?? "");
-          const inferred = inferColumnType(values);
-          return {
-            ...column,
-            type: inferred.type,
-            detectedType: inferred.type,
-            dateFormat: inferred.dateFormat,
-            status: inferred.needsReview ? "needs-review" as const : "inferred" as const,
-            warning: inferred.needsReview
-              ? columnReviewReason({ type: inferred.type, values })
-              : undefined,
-          };
-        }),
-      };
-      return next.parsed && csvFileIsStructurallyUsable(next)
-        ? runValidationFor(next)
-        : { ...next, validationRan: false, validationStale: true };
+      const restored = restoreColumnSnapshot(file);
+      return restored.parsed && csvFileIsStructurallyUsable(restored)
+        ? runValidationFor(restored)
+        : { ...restored, validationRan: false, validationStale: true };
     });
   }
 
   function applyProposal(proposal: CsvAiProposal, fileId?: string) {
     const target = fileFor(fileId);
-    if (!target) return;
+    if (!target || proposal.status !== "proposed") return;
     const issue = liveValidationForFile(target).issues.find(
       (item) => item.rowNumber === proposal.rowNumber && item.columnId === proposal.columnId,
     );
     if (!issue) return;
-    updateFile(target.id, (file) => runValidationFor(withResolution({
-      ...file,
-      overrides: {
-        ...file.overrides,
-        [proposal.rowNumber]: {
-          ...(file.overrides[proposal.rowNumber] ?? {}),
-          [proposal.columnId]: proposal.suggestedValue,
-        },
-      },
-      aiProposals: file.aiProposals.filter(
-        (item) => !(item.rowNumber === proposal.rowNumber && item.columnId === proposal.columnId),
-      ),
-    }, "ai-accepted")));
+    updateFile(target.id, (file) => {
+      const next = writeCellFix(
+        file,
+        proposal.rowNumber,
+        proposal.columnId,
+        proposal.suggestedValue,
+        "ai",
+        file.fixMeta[proposal.rowNumber]?.[proposal.columnId]?.originalValue ?? proposal.currentValue,
+      );
+      return runValidationFor(withResolution({
+        ...next,
+        aiProposals: next.aiProposals.map((item) =>
+          item.rowNumber === proposal.rowNumber && item.columnId === proposal.columnId
+            ? { ...item, status: "accepted" }
+            : item,
+        ),
+      }, "ai-accepted"));
+    });
   }
 
   function applyAllProposals(fileId?: string) {
     const target = fileFor(fileId);
     if (!target) return;
     updateFile(target.id, (file) => {
-      let overrides = file.overrides;
+      let next = file;
+      const accepted = new Set<string>();
       for (const proposal of file.aiProposals) {
+        if (proposal.status !== "proposed") continue;
         const column = file.columns.find((item) => item.id === proposal.columnId);
         const expected = column ? selectedColumnType(column) : "Text";
         if (!valueMatchesType(proposal.suggestedValue, expected)) continue;
-        overrides = {
-          ...overrides,
-          [proposal.rowNumber]: {
-            ...(overrides[proposal.rowNumber] ?? {}),
-            [proposal.columnId]: proposal.suggestedValue,
-          },
-        };
+        const key = `${proposal.rowNumber}:${proposal.columnId}`;
+        next = writeCellFix(
+          next,
+          proposal.rowNumber,
+          proposal.columnId,
+          proposal.suggestedValue,
+          "ai",
+          next.fixMeta[proposal.rowNumber]?.[proposal.columnId]?.originalValue ?? proposal.currentValue,
+        );
+        accepted.add(key);
       }
-      return runValidationFor(withResolution({ ...file, overrides, aiProposals: [] }, "ai-accepted"));
+      if (accepted.size === 0) return file;
+      return runValidationFor(withResolution({
+        ...next,
+        aiProposals: next.aiProposals.map((item) =>
+          accepted.has(`${item.rowNumber}:${item.columnId}`)
+            ? { ...item, status: "accepted" }
+            : item,
+        ),
+      }, "ai-accepted"));
     });
   }
 
   function rejectProposal(proposal: CsvAiProposal, fileId?: string) {
     const target = fileFor(fileId);
-    if (!target) return;
+    if (!target || proposal.status !== "proposed") return;
     updateFile(target.id, (file) => ({
       ...file,
-      aiProposals: file.aiProposals.filter(
-        (item) => !(item.rowNumber === proposal.rowNumber && item.columnId === proposal.columnId),
+      aiProposals: file.aiProposals.map((item) =>
+        item.rowNumber === proposal.rowNumber && item.columnId === proposal.columnId
+          ? { ...item, status: "rejected" }
+          : item,
       ),
     }));
+  }
+
+  function undoCellFix(rowNumber: number, columnId: string, fileId?: string) {
+    const target = fileFor(fileId);
+    if (!target?.fixMeta[rowNumber]?.[columnId]) return;
+    updateFile(target.id, (file) => {
+      const meta = file.fixMeta[rowNumber]?.[columnId];
+      if (!meta) return file;
+      const cleared = clearCellFix(file, rowNumber, columnId);
+      const next: CsvImportFileDraft = {
+        ...cleared,
+        aiProposals: cleared.aiProposals.map((proposal) =>
+          proposal.rowNumber === rowNumber && proposal.columnId === columnId && proposal.status === "accepted"
+            ? { ...proposal, status: "proposed" }
+            : proposal,
+        ),
+        appliedResolutions: cleared.appliedResolutions.filter((kind) => {
+          if (kind === "ai-accepted" && meta.origin === "ai" && !hasFixOrigin(cleared, "ai")) return false;
+          if (kind === "manual" && meta.origin === "manual" && !hasFixOrigin(cleared, "manual")) return false;
+          return true;
+        }),
+      };
+      return next.parsed && csvFileIsStructurallyUsable(next)
+        ? runValidationFor(next)
+        : { ...next, validationRan: false, validationStale: true };
+    });
   }
 
   async function proposeAiFixes(fileId?: string) {
@@ -1743,17 +1760,35 @@ export function CsvImportFlow({
         byColumn.set(issue.columnId, list);
       }
       const proposals: CsvAiProposal[] = [];
+      const replaced = new Set<string>();
       for (const [columnId, issues] of byColumn) {
         const column = file.columns.find((item) => item.id === columnId);
         const expected = column ? selectedColumnType(column) : issues[0]?.expected ?? "Text";
         const examples = (column?.examples ?? []).filter((value) => valueMatchesType(value, expected as CsvColumnType));
-        const repairable = issues.filter((issue) => suggestedRepairValue(issue.value, expected, examples));
+        const columnName = column?.name ?? issues[0]?.columnName ?? "Column";
+        const repairable: typeof issues = [];
+        for (const issue of issues) {
+          const key = `${issue.rowNumber}:${issue.columnId}`;
+          replaced.add(key);
+          if (suggestedRepairValue(issue.value, expected, examples)) {
+            repairable.push(issue);
+            continue;
+          }
+          proposals.push({
+            rowNumber: issue.rowNumber,
+            columnId,
+            columnName,
+            currentValue: issue.value,
+            suggestedValue: "",
+            status: "unrecoverable",
+          });
+        }
         if (repairable.length === 0) continue;
         const result = await proposeCsvSimilarRepairs({
           fileId: file.id,
           fileName: file.fileName,
           columnId,
-          columnName: column?.name ?? repairable[0]!.columnName,
+          columnName,
           selectedType: expected,
           validExamples: examples,
           issues: repairable.map((issue) => ({
@@ -1761,20 +1796,44 @@ export function CsvImportFlow({
             currentValue: issue.value,
           })),
         });
-        if (result.status !== "ok") continue;
-        for (const change of result.data.changes) {
-          if (!valueMatchesType(change.suggestedValue, expected as CsvColumnType)) continue;
+        const returned = new Set<string>();
+        if (result.status === "ok") {
+          for (const change of result.data.changes) {
+            if (!valueMatchesType(change.suggestedValue, expected as CsvColumnType)) continue;
+            const key = `${change.rowNumber}:${columnId}`;
+            returned.add(key);
+            proposals.push({
+              rowNumber: change.rowNumber,
+              columnId,
+              columnName,
+              currentValue: change.currentValue,
+              suggestedValue: change.suggestedValue,
+              status: "proposed",
+            });
+          }
+        }
+        for (const issue of repairable) {
+          const key = `${issue.rowNumber}:${issue.columnId}`;
+          if (returned.has(key)) continue;
           proposals.push({
-            rowNumber: change.rowNumber,
+            rowNumber: issue.rowNumber,
             columnId,
-            columnName: column?.name ?? repairable[0]!.columnName,
-            currentValue: change.currentValue,
-            suggestedValue: change.suggestedValue,
+            columnName,
+            currentValue: issue.value,
+            suggestedValue: "",
+            status: "unrecoverable",
           });
         }
       }
-      updateFile(file.id, (current) => ({ ...current, aiProposals: proposals }));
-      if (proposals.length === 0) setProposeNotice("No reliable correction for these values.");
+      updateFile(file.id, (current) => ({
+        ...current,
+        validationStrategy: current.validationStrategy ?? "ai",
+        aiProposalsGenerated: true,
+        aiProposals: [...keptReviewedProposals(current, replaced), ...proposals],
+      }));
+      if (proposals.some((proposal) => proposal.status === "unrecoverable")) {
+        setProposeNotice("Some values could not be repaired.");
+      }
     } finally {
       setAiBusyFileId(null);
     }
@@ -1815,21 +1874,19 @@ export function CsvImportFlow({
     if (!valueMatchesType(value, expected)) {
       return `This value does not match ${csvColumnTypeLabel(expected)}.`;
     }
-    updateFile(target.id, (file) =>
-      runValidationFor(withResolution({
-        ...file,
-        overrides: {
-          ...file.overrides,
-          [issue.rowNumber]: {
-            ...(file.overrides[issue.rowNumber] ?? {}),
-            [issue.columnId]: value,
-          },
-        },
-        aiProposals: file.aiProposals.filter(
-          (proposal) => !(proposal.rowNumber === issue.rowNumber && proposal.columnId === issue.columnId),
+    updateFile(target.id, (file) => {
+      const originalValue = file.fixMeta[issue.rowNumber]?.[issue.columnId]?.originalValue ?? issue.value;
+      const next = writeCellFix(file, issue.rowNumber, issue.columnId, value, "manual", originalValue);
+      return runValidationFor(withResolution({
+        ...next,
+        aiProposals: next.aiProposals.map((proposal) =>
+          proposal.rowNumber === issue.rowNumber && proposal.columnId === issue.columnId
+            && proposal.status !== "rejected"
+            ? { ...proposal, status: "rejected" }
+            : proposal,
         ),
-      }, "manual")),
-    );
+      }, "manual"));
+    });
     return null;
   }
 
@@ -1856,17 +1913,21 @@ export function CsvImportFlow({
       return rejected > 0 ? "Suggested values do not match the column type." : null;
     }
     updateFile(target.id, (file) => {
-      let overrides = file.overrides;
+      let next = file;
+      const touched = new Set<string>();
       for (const { issue, value } of accepted) {
-        overrides = {
-          ...overrides,
-          [issue.rowNumber]: {
-            ...(overrides[issue.rowNumber] ?? {}),
-            [issue.columnId]: value,
-          },
-        };
+        const originalValue = next.fixMeta[issue.rowNumber]?.[issue.columnId]?.originalValue ?? issue.value;
+        next = writeCellFix(next, issue.rowNumber, issue.columnId, value, "manual", originalValue);
+        touched.add(`${issue.rowNumber}:${issue.columnId}`);
       }
-      return runValidationFor(withResolution({ ...file, overrides }, "manual"));
+      return runValidationFor(withResolution({
+        ...next,
+        aiProposals: next.aiProposals.map((proposal) =>
+          touched.has(`${proposal.rowNumber}:${proposal.columnId}`) && proposal.status !== "rejected"
+            ? { ...proposal, status: "rejected" }
+            : proposal,
+        ),
+      }, "manual"));
     });
     if (rejected === 0) return null;
     return `Applied ${accepted.length.toLocaleString()}. ${rejected.toLocaleString()} did not match the column type.`;
@@ -1875,7 +1936,7 @@ export function CsvImportFlow({
   function completePayload(): CsvImportCompletePayload {
     return {
       tables: included.map((file) => {
-        const summary = validations.get(file.id) ?? EMPTY_VALIDATION;
+        const outcome = outcomes.get(file.id) ?? csvFileOutcome(file);
         const valueContext = file.columns.flatMap((column) => {
           const entry = file.valueContext?.[column.id];
           if (!entry) return [];
@@ -1899,8 +1960,8 @@ export function CsvImportFlow({
           tableDescription: file.tableDescription.trim(),
           delimiter: CSV_DELIMITER_LABELS[file.delimiter],
           encoding: CSV_ENCODING_LABELS[file.encoding],
-          importedRows: summary.readyRows,
-          skippedRows: summary.skippedRows,
+          importedRows: outcome.importedRows,
+          skippedRows: outcome.skippedRows,
           valueContext: valueContext.length > 0 ? valueContext : undefined,
         };
       }),
@@ -1921,13 +1982,13 @@ export function CsvImportFlow({
       return id <= maxReachedStep ? "needs-review" : "future";
     }
     if (id === CSV_STEP.validation) {
-      if (!schemaComplete) return id <= maxReachedStep ? "blocked" : "future";
+      if (!uploadComplete) return id <= maxReachedStep ? "blocked" : "future";
       if (validationComplete) return "completed";
       if (id <= maxReachedStep) return "needs-review";
       return "future";
     }
     if (id === CSV_STEP.import) {
-      if (!validationComplete) return id <= maxReachedStep ? "blocked" : "future";
+      if (!uploadComplete) return id <= maxReachedStep ? "blocked" : "future";
       if (importLocked && step > CSV_STEP.import) return "completed";
       if (id <= maxReachedStep) return importLocked ? "completed" : "needs-review";
       return "future";
@@ -1946,8 +2007,8 @@ export function CsvImportFlow({
     ) return false;
     if (id > maxReachedStep) return false;
     if (id === CSV_STEP.columns) return uploadComplete;
-    if (id === CSV_STEP.validation) return schemaComplete;
-    if (id === CSV_STEP.import) return validationComplete;
+    if (id === CSV_STEP.validation) return uploadComplete;
+    if (id === CSV_STEP.import) return uploadComplete;
     if (
       id === CSV_STEP.tableDescriptions
       || id === CSV_STEP.sampleValues
@@ -1977,12 +2038,8 @@ export function CsvImportFlow({
     ) return false;
     if (step === CSV_STEP.upload) return uploadComplete;
     if (step === CSV_STEP.columns && schemaParseDirty()) return false;
-    if (step === CSV_STEP.columns) return schemaComplete;
-    if (step === CSV_STEP.validation) {
-      if (!schemaComplete) return false;
-      if (filesNeedingValidationRun.length > 0) return true;
-      return validationComplete;
-    }
+    if (step === CSV_STEP.columns) return Boolean(activeFile && csvFileSchemaReady(activeFile));
+    if (step === CSV_STEP.validation) return true;
     if (step === CSV_STEP.import) return tablesComplete;
     if (step === CSV_STEP.tableDescriptions) return tablesComplete && importLocked && !bulkTableAiBusy;
     if (step === CSV_STEP.sampleValues) return tablesComplete && importLocked;
@@ -1996,12 +2053,10 @@ export function CsvImportFlow({
   function handlePrimary() {
     if (blockSchemaParseLeave()) return;
     if (!canAdvance()) return;
-    if (step === CSV_STEP.validation && !schemaComplete) return;
     if (step === CSV_STEP.validation && filesNeedingValidationRun.length > 0) {
       runValidation();
       return;
     }
-    if (step === CSV_STEP.validation && !validationComplete) return;
     if (step === CSV_STEP.import) {
       if (!tablesComplete) return;
       setConfirmedImportSignature(importOutcomeSignature);
@@ -2095,18 +2150,14 @@ export function CsvImportFlow({
   }, 0);
 
   function schemaAdvanceBlockReason(): string | null {
-    if (filesNeedingParsingReview.length > 0) {
-      const rows = filesNeedingParsingReview.reduce(
-        (sum, file) => sum + (file.parsed?.records.length ?? 0),
-        0,
-      );
+    if (!activeFile) return null;
+    if (csvFileNeedsParsingReview(activeFile)) {
+      const rows = activeFile.parsed?.records.length ?? 0;
       if (rows >= 8) return `Review parsing — ${rows.toLocaleString()} rows are affected.`;
       return "Review parsing to continue.";
     }
-    for (const file of included) {
-      const column = file.columns.find((item) => item.status === "needs-review");
-      if (column) return `Accept the ${column.name} column type to continue.`;
-    }
+    const column = activeFile.columns.find((item) => item.status === "needs-review");
+    if (column) return `Accept the ${column.name} column type to continue.`;
     return null;
   }
 
@@ -2153,6 +2204,9 @@ export function CsvImportFlow({
       if (unresolved > 0) {
         return `${file.fileName} still has ${unresolved.toLocaleString()} unresolved row${unresolved === 1 ? "" : "s"}.`;
       }
+    }
+    for (const file of included) {
+      if (!csvFileSchemaReady(file)) return `${file.fileName} still needs a column type confirmed.`;
     }
     for (const file of included) {
       if (!file.tableName.trim()) return `${file.fileName} needs a table name.`;
@@ -2238,15 +2292,14 @@ export function CsvImportFlow({
   }
 
   function renderValidationFile(file: CsvImportFileDraft) {
-    const summary = validations.get(file.id) ?? EMPTY_VALIDATION;
     return (
       <section key={file.id} className="min-w-0" aria-label={file.fileName}>
         <CsvValidationWorkspace
           file={file}
-          summary={summary}
           proposing={aiBusyFileId === file.id}
           proposeNotice={file.id === activeFileId ? proposeNotice : null}
-          onSkipAffected={() => skipAffectedRows(file.id)}
+          onSelectStrategy={(strategy) => selectValidationStrategy(strategy, file.id)}
+          onUndoFix={(rowNumber, columnId) => undoCellFix(rowNumber, columnId, file.id)}
           onUndoSkip={(rowNumber) => unskipRow(rowNumber, file.id)}
           onUndoAllSkipped={() => undoAllSkipped(file.id)}
           onSaveFix={(issue, value) => applyCellFix(issue, value, file.id)}
@@ -2254,7 +2307,6 @@ export function CsvImportFlow({
           onApplyProposal={(proposal) => applyProposal(proposal, file.id)}
           onApplyAll={() => applyAllProposals(file.id)}
           onRejectProposal={(proposal) => rejectProposal(proposal, file.id)}
-          onImportAsText={() => importFileAsText(file.id)}
           onRestoreDetectedTypes={() => restoreDetectedTypes(file.id)}
           onReplaceFile={(next) => void replaceCurrentFile(next, file.id)}
           onUseSuggestion={(suggestion) => changeColumnType(suggestion.columnId, suggestion.suggestedType, file.id)}
@@ -2312,7 +2364,7 @@ export function CsvImportFlow({
                   && (active || maxReachedStep >= CSV_STEP.columns);
                 const validationNeedsReview =
                   item.id === CSV_STEP.validation
-                  && schemaComplete
+                  && uploadComplete
                   && !validationComplete
                   && (active || maxReachedStep >= CSV_STEP.validation);
                 const showNeedsReview =
@@ -2649,10 +2701,7 @@ export function CsvImportFlow({
                       {`“${sourceName}” is ready`}
                     </h3>
                     <p className="mt-2 luxia-type-body-dense" style={{ color: "var(--luxia-text-secondary)" }}>
-                      {`${includedTotals.ready.toLocaleString()} rows imported`}
-                      {includedTotals.skipped > 0
-                        ? ` · ${includedTotals.skipped.toLocaleString()} rows skipped`
-                        : " · 0 rows skipped"}
+                      {`${includedTotals.ready.toLocaleString()} rows imported · ${includedTotals.skipped.toLocaleString()} rows skipped · ${includedTotals.rejected.toLocaleString()} rows rejected`}
                     </p>
                   </div>
                   <div className="luxia-settings-table-surface overflow-x-auto">
@@ -2663,16 +2712,14 @@ export function CsvImportFlow({
                           <th className="px-3 py-2 font-normal">Table</th>
                           <th className="px-3 py-2 font-normal">Imported</th>
                           <th className="px-3 py-2 font-normal">Skipped</th>
+                          <th className="px-3 py-2 font-normal">Rejected</th>
                           <th className="px-3 py-2 font-normal">AI-fixed</th>
                           <th className="px-3 py-2 font-normal">Resolution</th>
                         </tr>
                       </thead>
                       <tbody>
                         {included.map((file) => {
-                          const summary = validations.get(file.id) ?? EMPTY_VALIDATION;
-                          const aiFixed = file.appliedResolutions.includes("ai-accepted")
-                            ? correctedValueCount(file)
-                            : 0;
+                          const outcome = outcomes.get(file.id) ?? csvFileOutcome(file);
                           return (
                             <tr
                               key={file.id}
@@ -2686,10 +2733,11 @@ export function CsvImportFlow({
                                 </span>
                               </td>
                               <td className="px-3 py-2">{file.tableName.trim() || "imported_table"}</td>
-                              <td className="px-3 py-2 tabular-nums">{summary.readyRows.toLocaleString()}</td>
-                              <td className="px-3 py-2 tabular-nums">{summary.skippedRows.toLocaleString()}</td>
-                              <td className="px-3 py-2 tabular-nums">{aiFixed.toLocaleString()}</td>
-                              <td className="px-3 py-2">{resolutionReceiptLabel(file)}</td>
+                              <td className="px-3 py-2 tabular-nums">{outcome.importedRows.toLocaleString()}</td>
+                              <td className="px-3 py-2 tabular-nums">{outcome.skippedRows.toLocaleString()}</td>
+                              <td className="px-3 py-2 tabular-nums">{outcome.rejectedRows.toLocaleString()}</td>
+                              <td className="px-3 py-2 tabular-nums">{outcome.aiFixedRows.toLocaleString()}</td>
+                              <td className="px-3 py-2">{outcome.resolutionLabel}</td>
                             </tr>
                           );
                         })}
@@ -3056,7 +3104,7 @@ function describeReviewFile(
   file: CsvImportFileDraft,
   duplicateNames: Set<string>,
 ): ReviewFileOutcome {
-  const live = liveValidationForFile(file);
+  const counted = csvFileOutcome(file);
   const tableName = file.tableName.trim();
   const blank = tableName.length === 0;
   const duplicate = !blank && duplicateNames.has(tableNameConflictKey(file.tableName));
@@ -3064,28 +3112,42 @@ function describeReviewFile(
   const wholeFileText = file.importAsText;
   const correctedValues = correctedValueCount(file);
   const blockers: ReviewFileBlocker[] = [];
-  if (live.invalidRows > 0) {
-    const count = live.invalidRows;
+  if (!counted.fresh) {
     blockers.push({
-      text: `${count.toLocaleString()} row${count === 1 ? "" : "s"} still need${count === 1 ? "s" : ""} a resolution.`,
+      text: "Check this file again before importing.",
       action: "validation",
     });
+  } else {
+    if (counted.strategyOpen && file.validationStrategy === "ai") {
+      blockers.push({ text: "AI fixes are not finished.", action: "validation" });
+    } else if (counted.strategyOpen && file.validationStrategy === "reupload") {
+      blockers.push({ text: "Replace this file or choose another resolution.", action: "validation" });
+    }
+    if (counted.rejectedRows > 0) {
+      const count = counted.rejectedRows;
+      blockers.push({
+        text: `${count.toLocaleString()} row${count === 1 ? "" : "s"} rejected.`,
+        action: "validation",
+      });
+    }
   }
   if (blank) blockers.push({ text: "Table name is required.", action: "tables" });
   else if (duplicate) blockers.push({ text: "Table name must be unique.", action: "tables" });
-  const showSchemaAction = live.skippedRows > 0 || correctedValues > 0 || textColumns.length > 0 || wholeFileText;
+  const showSchemaAction = counted.skippedRows > 0 || correctedValues > 0 || textColumns.length > 0 || wholeFileText;
   const expanded = blockers.length > 0 || showSchemaAction;
-  const importedLabel = `${reviewImportLabel(live.readyRows, live.totalRows)}.`;
+  const importedLabel = `${reviewImportLabel(counted.importedRows, counted.totalRows)}.`;
+  const skippedLabel = counted.skippedRows > 0 ? reviewSkippedLabel(counted.skippedRows) : "";
   const accessibleName = [
     `${file.fileName}, table ${tableName || "unnamed"}, ${importedLabel}`,
+    skippedLabel,
     ...blockers.map((blocker) => blocker.text),
-  ].join(" ");
+  ].filter(Boolean).join(" ");
   return {
     fileName: file.fileName,
     tableName,
-    importedRows: live.readyRows,
-    totalRows: live.totalRows,
-    skippedRows: live.skippedRows,
+    importedRows: counted.importedRows,
+    totalRows: counted.totalRows,
+    skippedRows: counted.skippedRows,
     correctedValues,
     textColumns: wholeFileText ? [] : textColumns,
     wholeFileText,
@@ -3222,11 +3284,11 @@ function ReviewFileCard({
         <p className="luxia-csv-review-file-outcome">
           {reviewImportLabel(outcome.importedRows, outcome.totalRows)}
         </p>
+        {outcome.skippedRows > 0 ? (
+          <p className="luxia-csv-review-file-note">{reviewSkippedLabel(outcome.skippedRows)}</p>
+        ) : null}
         {outcome.expanded ? (
           <div className="luxia-csv-review-file-details">
-            {outcome.skippedRows > 0 ? (
-              <p className="luxia-csv-review-file-note">{reviewSkippedLabel(outcome.skippedRows)}</p>
-            ) : null}
             {outcome.correctedValues > 0 ? (
               <p className="luxia-csv-review-file-note">{reviewCorrectedLabel(outcome.correctedValues)}</p>
             ) : null}
@@ -3529,7 +3591,7 @@ function FileSwitcher({
           <span
             className="luxia-csv-file-switcher-tab-status"
             data-status={status.kind}
-            style={structuredTabs ? undefined : { color: tone.color }}
+            style={mode === "validation" ? { color: tone.color } : undefined}
           >
             <span className="shrink-0 rounded-full" style={{ background: tone.dot }} aria-hidden />
             <span>{status.label}</span>
@@ -3554,7 +3616,7 @@ function FileSwitcher({
         Imported files · {files.length.toLocaleString()}
       </p>
       {structuredTabs ? (
-        <div className={`luxia-csv-file-switcher luxia-csv-file-switcher--schema luxia-settings-tablist${structuredTabs ? " luxia-csv-file-switcher--columns" : ""}`}>
+        <div className={`luxia-csv-file-switcher luxia-csv-file-switcher--schema luxia-settings-tablist luxia-csv-file-switcher--columns${mode === "validation" ? " luxia-csv-file-switcher--validation" : ""}`}>
           <div
             ref={listRef}
             role="listbox"

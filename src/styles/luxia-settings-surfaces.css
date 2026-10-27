@@ -1505,8 +1505,155 @@
 }
 
 .luxia-csv-resolution-option input {
-  margin-top: 4px;
+  margin-top: 2px;
   accent-color: var(--luxia-brand-primary);
+}
+
+.luxia-csv-file-switcher--validation .luxia-csv-file-switcher-tab-status {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.luxia-csv-file-switcher--validation .luxia-csv-file-switcher-tab-status > span:first-child {
+  width: 7px;
+  height: 7px;
+}
+
+.luxia-csv-validation-result,
+.luxia-csv-validation-issue-summary {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--luxia-border-subtle);
+  border-radius: 12px;
+  background: var(--luxia-neutral-white);
+}
+
+.luxia-csv-validation-result-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--luxia-neutral-50);
+  color: var(--luxia-success-70);
+}
+
+.luxia-csv-validation-result-icon[data-tone="attention"] {
+  color: var(--luxia-warning-90);
+}
+
+.luxia-csv-validation-result-icon[data-tone="muted"] {
+  color: var(--luxia-text-secondary);
+}
+
+.luxia-csv-validation-kicker {
+  margin: 0;
+  color: var(--luxia-text-secondary);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+}
+
+.luxia-csv-validation-title {
+  margin: 2px 0 0;
+  color: var(--luxia-text-primary);
+  font-size: 16px;
+  line-height: 22px;
+  font-weight: 600;
+}
+
+.luxia-csv-validation-meta {
+  margin: 2px 0 0;
+  color: var(--luxia-text-secondary);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.luxia-csv-resolution-legend {
+  margin: 0 0 8px;
+  padding: 0;
+  color: var(--luxia-text-secondary);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+}
+
+.luxia-csv-resolution-option {
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-color: var(--luxia-border-subtle);
+  background: var(--luxia-neutral-white);
+}
+
+.luxia-csv-resolution-option:hover {
+  background: var(--luxia-neutral-50);
+}
+
+.luxia-csv-resolution-option:has(input:focus-visible) {
+  outline: 2px solid var(--luxia-settings-tab-focus-ring);
+  outline-offset: 2px;
+}
+
+.luxia-csv-resolution-option:has(input:checked) {
+  border-color: var(--luxia-brand-primary);
+  background: var(--luxia-neutral-50);
+}
+
+.luxia-csv-resolution-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: var(--luxia-neutral-50);
+  color: var(--luxia-text-secondary);
+}
+
+.luxia-csv-resolution-option:has(input:checked) .luxia-csv-resolution-icon {
+  background: var(--luxia-brand-primary);
+  color: var(--luxia-text-inverse);
+}
+
+.luxia-csv-resolution-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--luxia-border-subtle);
+  border-radius: 10px;
+  background: var(--luxia-neutral-white);
+}
+
+.luxia-csv-validation-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--luxia-settings-row-divider);
+}
+
+.luxia-csv-validation-row p {
+  min-width: 0;
+  margin: 0;
+}
+
+.luxia-csv-validation-unrecoverable {
+  padding: 8px 10px;
+  border: 1px solid var(--luxia-border-subtle);
+  border-radius: 8px;
+  background: var(--luxia-neutral-50);
+}
+
+.luxia-csv-validation-settled {
+  color: var(--luxia-text-muted);
 }
 
 .luxia-csv-upload-files {

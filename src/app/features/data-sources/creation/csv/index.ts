@@ -41,6 +41,17 @@ export {
   selectedColumnType,
   valueMatchesType,
 } from "./schema";
+export { csvFileOutcome, csvStrategyOpen } from "./outcome";
+export type { CsvFileOutcome, CsvOutcomeResolution } from "./outcome";
+export {
+  asTextColumns,
+  clearCellFix,
+  columnTypeSnapshot,
+  hasFixOrigin,
+  keptReviewedProposals,
+  restoreColumnSnapshot,
+  writeCellFix,
+} from "./resolution";
 export { detectColumnTypeMismatches, validateCsvRows } from "./validate";
 export type { CsvColumnTypeMismatch } from "./validate";
 export {
@@ -51,6 +62,8 @@ export {
   csvFileIsStructurallyUsable,
   csvFileNeedsParsingReview,
   csvFileNeedsSchemaReview,
+  csvFileSchemaReady,
+  csvFileValidationReportReady,
   csvFileNotices,
   csvFileSchemaUiStatus,
   csvFileUiStatus,
@@ -64,10 +77,13 @@ export {
 } from "./fileDraft";
 export type {
   CsvAiProposal,
+  CsvColumnTypeSnapshot,
   CsvFileUiStatus,
+  CsvFixMeta,
   CsvImportFileDraft,
   CsvResolutionKind,
   CsvTypeSuggestion,
+  CsvValidationStrategy,
   CsvRowDescriptionEntry,
   CsvRowDescriptionOrigin,
   CsvTableMetaOrigin,

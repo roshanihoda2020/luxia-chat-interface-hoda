@@ -1,18 +1,21 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { CheckCircle2, CircleAlert, Pencil, SkipForward, Type, Upload } from "lucide-react";
+import { LuxiaAiIcon } from "@/assets/icons";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import {
   columnProblemCopy,
   csvColumnTypeLabel,
+  csvFileOutcome,
   selectedColumnType,
   type CsvAiProposal,
   type CsvColumnType,
+  type CsvFileOutcome,
   type CsvImportFileDraft,
   type CsvTypeSuggestion,
+  type CsvValidationStrategy,
 } from "./csv";
-import { suggestedRepairValue } from "./csvAi";
-import { CsvFileGlyph } from "./DataSourceTypeIcon";
-import type { CsvValidationIssue, CsvValidationSummary } from "./types";
+import type { CsvValidationIssue } from "./types";
 
 function quoteExample(issue: CsvValidationIssue): string {
   const value = issue.value.replace(/\s+/g, " ").trim();
@@ -42,15 +45,59 @@ function groupIssues(file: CsvImportFileDraft, issues: CsvValidationIssue[]) {
   });
 }
 
-type ValidationChoice = "skip" | "ai" | "manual" | "reupload" | "text";
-const validationChoiceMemory = new Map<string, ValidationChoice | null>();
+function fileCorrections(file: CsvImportFileDraft) {
+  const items: Array<{
+    rowNumber: number;
+    columnId: string;
+    columnName: string;
+    origin: "ai" | "manual";
+    value: string;
+  }> = [];
+  for (const [rowKey, cells] of Object.entries(file.fixMeta ?? {})) {
+    const rowNumber = Number(rowKey);
+    for (const [columnId, meta] of Object.entries(cells)) {
+      const value = file.overrides[rowNumber]?.[columnId];
+      if (value === undefined) continue;
+      const column = file.columns.find((item) => item.id === columnId);
+      items.push({
+        rowNumber,
+        columnId,
+        columnName: column?.name ?? columnId,
+        origin: meta.origin,
+        value,
+      });
+    }
+  }
+  return items.sort((left, right) => left.rowNumber - right.rowNumber || left.columnName.localeCompare(right.columnName));
+}
+
+function resultTitle(outcome: CsvFileOutcome): string {
+  if (outcome.resolution === "resolved") return "Resolved";
+  if (outcome.resolution === "needs-resolution") return "Needs resolution";
+  return "Ready to import";
+}
+
+function resultDetail(file: CsvImportFileDraft, outcome: CsvFileOutcome): string {
+  if (outcome.resolution === "no-issues") {
+    const count = outcome.totalRows;
+    return `${count.toLocaleString()} ${count === 1 ? "row" : "rows"} · No issues found`;
+  }
+  const ready = `${outcome.importedRows.toLocaleString()} ${outcome.importedRows === 1 ? "row" : "rows"} ready`;
+  if (outcome.skippedRows > 0) return `${ready} · ${outcome.skippedRows.toLocaleString()} skipped`;
+  if (file.importAsText) return `${ready} · Imported as text`;
+  return ready;
+}
+
+function rowAttentionLabel(count: number): string {
+  return `${count.toLocaleString()} ${count === 1 ? "row needs" : "rows need"} attention`;
+}
 
 export function CsvValidationWorkspace({
   file,
-  summary,
   proposing,
   proposeNotice,
-  onSkipAffected,
+  onSelectStrategy,
+  onUndoFix,
   onUndoSkip,
   onUndoAllSkipped,
   onSaveFix,
@@ -58,16 +105,15 @@ export function CsvValidationWorkspace({
   onApplyProposal,
   onApplyAll,
   onRejectProposal,
-  onImportAsText,
   onRestoreDetectedTypes,
   onReplaceFile,
   onUseSuggestion,
 }: {
   file: CsvImportFileDraft;
-  summary: CsvValidationSummary;
   proposing: boolean;
   proposeNotice: string | null;
-  onSkipAffected: () => void;
+  onSelectStrategy: (strategy: CsvValidationStrategy) => void;
+  onUndoFix: (rowNumber: number, columnId: string) => void;
   onUndoSkip: (rowNumber: number) => void;
   onUndoAllSkipped: () => void;
   onSaveFix: (issue: CsvValidationIssue, value: string) => string | null;
@@ -75,47 +121,25 @@ export function CsvValidationWorkspace({
   onApplyProposal: (proposal: CsvAiProposal) => void;
   onApplyAll: () => void;
   onRejectProposal: (proposal: CsvAiProposal) => void;
-  onImportAsText: () => void;
   onRestoreDetectedTypes: () => void;
   onReplaceFile: (next: File) => void;
   onUseSuggestion: (suggestion: CsvTypeSuggestion) => void;
 }) {
   const replaceInputId = useId();
   const replaceRef = useRef<HTMLInputElement>(null);
-  const [manualOpen, setManualOpen] = useState(false);
-  const [choice, setChoice] = useState<ValidationChoice | null>(null);
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [editError, setEditError] = useState<string | null>(null);
+  const outcome = csvFileOutcome(file);
+  const summary = outcome.summary;
   const previousIssueCount = useRef(summary.issues.length);
-  const previousProposalCount = useRef(0);
-  const choiceFileRef = useRef(file.id);
+  const choice = file.validationStrategy;
 
   useEffect(() => {
-    const remembered = validationChoiceMemory.has(file.id)
-      ? validationChoiceMemory.get(file.id) ?? null
-      : (file.aiProposals ?? []).length > 0
-        ? "ai"
-        : null;
-    choiceFileRef.current = file.id;
-    setManualOpen(remembered === "manual");
-    setChoice(remembered);
     setEditingKey(null);
     setDraft("");
     setEditError(null);
-    previousProposalCount.current = (file.aiProposals ?? []).length;
   }, [file.id]);
-
-  useEffect(() => {
-    if (choiceFileRef.current !== file.id) return;
-    validationChoiceMemory.set(file.id, choice);
-  }, [choice, file.id]);
-
-  useEffect(() => {
-    const count = (file.aiProposals ?? []).length;
-    if (previousProposalCount.current === 0 && count > 0) setChoice("ai");
-    previousProposalCount.current = count;
-  }, [file.aiProposals]);
 
   useEffect(() => {
     if (summary.issues.length < previousIssueCount.current) {
@@ -123,29 +147,38 @@ export function CsvValidationWorkspace({
       (next ?? document.getElementById(`csv-validation-summary-${file.id}`))?.focus();
     }
     previousIssueCount.current = summary.issues.length;
-  }, [summary.issues.length, file.aiProposals.length]);
+  }, [summary.issues.length, file.aiProposals.length, file.id]);
 
-  if (!file.validationRan || file.validationStale) {
+  if (!outcome.fresh) {
     return (
-      <p className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }} role="status">
-        {file.validationStale ? "Check this file again after parsing or type changes." : "Checking this file…"}
-      </p>
+      <div className="luxia-csv-validation-result" role="status">
+        <span className="luxia-csv-validation-result-icon" data-tone="muted">
+          <CircleAlert size={20} aria-hidden />
+        </span>
+        <div className="min-w-0">
+          <p className="luxia-csv-validation-title">{file.fileName}</p>
+          <p className="luxia-csv-validation-meta">
+            {file.validationStale ? "Check this file again after parsing or type changes." : "Checking this file…"}
+          </p>
+        </div>
+      </div>
     );
   }
 
   const issues = summary.issues;
   const groups = groupIssues(file, issues);
-  const repairable = issues.some((issue) => {
-    const column = file.columns.find((item) => item.id === issue.columnId);
-    const examples = column?.examples ?? [];
-    return Boolean(suggestedRepairValue(issue.value, issue.expected, examples));
-  });
-  const proposals = file.aiProposals ?? [];
+  const proposals = (file.aiProposals ?? []).filter((item) => item.status === "proposed");
+  const unrecoverable = (file.aiProposals ?? []).filter((item) => item.status === "unrecoverable");
   const proposalsFor = (columnId: string) => proposals.filter((item) => item.columnId === columnId);
+  const corrections = fileCorrections(file);
+  const rejected = (file.aiProposals ?? []).filter((proposal) =>
+    proposal.status === "rejected"
+    && !corrections.some((item) => item.rowNumber === proposal.rowNumber && item.columnId === proposal.columnId),
+  );
   const skippedRows = [...new Set(file.skipped)].sort((a, b) => a - b);
+  const calm = outcome.resolution === "no-issues" || outcome.resolution === "resolved";
 
   function startEdit(issue: CsvValidationIssue) {
-    setManualOpen(true);
     setEditingKey(`${issue.rowNumber}:${issue.columnId}`);
     setDraft(issue.value);
     setEditError(null);
@@ -163,32 +196,28 @@ export function CsvValidationWorkspace({
   }
 
   if (issues.length === 0) {
-    const resolved = file.importAsText || skippedRows.length > 0 || summary.resolvedRows > 0;
-    const resolvedLine = [
-      `${summary.readyRows.toLocaleString()} ready`,
-      summary.skippedRows > 0 ? `${summary.skippedRows.toLocaleString()} excluded` : "",
-      summary.resolvedRows > 0 ? `${summary.resolvedRows.toLocaleString()} fixed` : "",
-    ].filter(Boolean).join(" · ");
     return (
-      <div id={`csv-validation-summary-${file.id}`} className="space-y-2" role="status" tabIndex={-1}>
-        <ValidationFileHeading
-          fileName={file.fileName}
-          detail={resolved ? "Resolved" : "No issues"}
-          tone="ok"
-        />
-        <p className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
-          {resolved
-            ? resolvedLine
-            : summary.totalRows === 1
-              ? "The row can be imported as it is."
-              : `All ${summary.totalRows.toLocaleString()} rows can be imported as they are.`}
-        </p>
+      <div id={`csv-validation-summary-${file.id}`} className="space-y-3" tabIndex={-1}>
+        <div className="luxia-csv-validation-result" role="status">
+          <span className="luxia-csv-validation-result-icon" data-tone={calm ? "ok" : "attention"}>
+            {calm ? <CheckCircle2 size={20} aria-hidden /> : <CircleAlert size={20} aria-hidden />}
+          </span>
+          <div className="min-w-0">
+            <p className="luxia-csv-validation-kicker">{file.fileName}</p>
+            <p className="luxia-csv-validation-title">{resultTitle(outcome)}</p>
+            <p className="luxia-csv-validation-meta">{resultDetail(file, outcome)}</p>
+          </div>
+        </div>
         {file.importAsText ? (
-          <p className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
-            All columns will be imported as Text.
-          </p>
+          <div className="luxia-csv-resolution-detail">
+            <p className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
+              All columns in this file will be imported as Text.
+            </p>
+            <Button type="button" variant="outline" size="compact" onClick={onRestoreDetectedTypes}>
+              Restore detected types
+            </Button>
+          </div>
         ) : null}
-        {file.typeSuggestions.length > 0 ? <TypeSuggestions file={file} onUseSuggestion={onUseSuggestion} /> : null}
         {skippedRows.length > 0 ? (
           <div className="flex flex-wrap items-center gap-2">
             <Button type="button" variant="secondary" size="compact" onClick={onUndoAllSkipped}>
@@ -208,32 +237,32 @@ export function CsvValidationWorkspace({
             ))}
           </div>
         ) : null}
-        {file.importAsText ? (
-          <Button type="button" variant="outline" size="compact" onClick={onRestoreDetectedTypes}>
-            Restore detected types
-          </Button>
-        ) : null}
+        <CorrectionUndoList items={corrections} onUndoFix={onUndoFix} />
+        {file.typeSuggestions.length > 0 ? <TypeSuggestions file={file} onUseSuggestion={onUseSuggestion} /> : null}
       </div>
     );
   }
 
   return (
     <div id={`csv-validation-summary-${file.id}`} className="space-y-4" tabIndex={-1}>
-      <div role="status">
-        <ValidationFileHeading
-          fileName={file.fileName}
-          detail={`${issues.length.toLocaleString()} cell${issues.length === 1 ? "" : "s"} · ${summary.invalidRows.toLocaleString()} row${summary.invalidRows === 1 ? "" : "s"}`}
-          tone="attention"
-        />
+      <div className="luxia-csv-validation-issue-summary" role="status">
+        <span className="luxia-csv-validation-result-icon" data-tone="attention">
+          <CircleAlert size={20} aria-hidden />
+        </span>
+        <div className="min-w-0">
+          <p className="luxia-csv-validation-kicker">{file.fileName} · Needs resolution</p>
+          <p className="luxia-csv-validation-title">{rowAttentionLabel(outcome.rejectedRows)}</p>
+        </div>
       </div>
+
       <div className="luxia-settings-table-surface overflow-x-auto">
         <table className="w-full min-w-[36rem] border-collapse text-left">
           <thead>
             <tr className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
               <th scope="col" className="px-3 py-2 font-normal">Column</th>
-              <th scope="col" className="px-3 py-2 font-normal">Affected</th>
-              <th scope="col" className="px-3 py-2 font-normal">Example lines</th>
               <th scope="col" className="px-3 py-2 font-normal">Problem</th>
+              <th scope="col" className="px-3 py-2 font-normal">Example</th>
+              <th scope="col" className="px-3 py-2 font-normal">Rows</th>
             </tr>
           </thead>
           <tbody>
@@ -246,13 +275,13 @@ export function CsvValidationWorkspace({
                 <th scope="row" className="px-3 py-2 font-normal" style={{ color: "var(--luxia-text-primary)" }}>
                   {group.columnName}
                 </th>
-                <td className="px-3 py-2 tabular-nums">{group.affected.toLocaleString()}</td>
+                <td className="px-3 py-2">{group.problem}</td>
                 <td className="px-3 py-2">
                   {group.examples.map((example) => (
                     <p key={example}>{example}</p>
                   ))}
                 </td>
-                <td className="px-3 py-2">{group.problem}</td>
+                <td className="px-3 py-2 tabular-nums">{group.affected.toLocaleString()}</td>
               </tr>
             ))}
           </tbody>
@@ -260,66 +289,80 @@ export function CsvValidationWorkspace({
       </div>
 
       <fieldset className="luxia-csv-resolution">
-        <legend className="sr-only">Ways to resolve these issues</legend>
+        <legend className="luxia-csv-resolution-legend">Resolution</legend>
         <div role="radiogroup" aria-label="Ways to resolve these issues" className="space-y-2">
           <ResolutionOption
             name={`csv-resolution-${file.id}`}
             checked={choice === "skip"}
-            label="Skip the affected rows"
-            hint="Those rows stay out of the import. You can restore them later."
-            onSelect={() => {
-              setChoice("skip");
-              onSkipAffected();
-            }}
+            icon={<SkipForward size={16} aria-hidden />}
+            label="Skip affected rows"
+            hint="Import the valid rows and leave the affected rows out."
+            onSelect={() => onSelectStrategy("skip")}
           />
-          {repairable || proposals.length > 0 ? (
-            <ResolutionOption
-              name={`csv-resolution-${file.id}`}
-              checked={choice === "ai"}
-              label="Let AI propose fixes"
-              hint="Review each suggestion before it changes a value."
-              onSelect={() => setChoice("ai")}
-            />
-          ) : null}
+          <ResolutionOption
+            name={`csv-resolution-${file.id}`}
+            checked={choice === "ai"}
+            icon={<LuxiaAiIcon size={16} aria-hidden />}
+            label="Let AI propose fixes"
+            hint="Review suggested corrections before applying them."
+            onSelect={() => onSelectStrategy("ai")}
+          />
           <ResolutionOption
             name={`csv-resolution-${file.id}`}
             checked={choice === "manual"}
+            icon={<Pencil size={16} aria-hidden />}
             label="Fix manually"
-            hint="Edit a value, then save and validate it."
-            onSelect={() => {
-              setChoice("manual");
-              setManualOpen(true);
-            }}
+            hint="Edit the affected values yourself."
+            onSelect={() => onSelectStrategy("manual")}
           />
           <ResolutionOption
             name={`csv-resolution-${file.id}`}
             checked={choice === "reupload"}
+            icon={<Upload size={16} aria-hidden />}
             label="Fix the file myself and re-upload"
-            hint="Replace this file and check it again."
-            onSelect={() => setChoice("reupload")}
+            hint="Upload a corrected version of this CSV."
+            onSelect={() => onSelectStrategy("reupload")}
           />
           <ResolutionOption
             name={`csv-resolution-${file.id}`}
             checked={choice === "text"}
+            icon={<Type size={16} aria-hidden />}
             label="Import everything as text"
-            hint="Every column in this file will be imported as Text."
-            onSelect={() => {
-              setChoice("text");
-              onImportAsText();
-            }}
+            hint="Keep all values without enforcing detected types."
+            onSelect={() => onSelectStrategy("text")}
           />
         </div>
       </fieldset>
 
       {choice === "ai" ? (
-        <div className="space-y-3" aria-live="polite">
-          <Button type="button" variant="secondary" size="compact" disabled={proposing || !repairable} aria-busy={proposing} onClick={onPropose}>
+        <div className="luxia-csv-resolution-detail" aria-live="polite">
+          {!file.aiProposalsGenerated ? (
+            <p className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }} role="status">
+              No suggestions yet
+            </p>
+          ) : null}
+          <Button type="button" variant="secondary" size="compact" disabled={proposing} aria-busy={proposing} onClick={onPropose}>
+            <LuxiaAiIcon size={16} aria-hidden />
             {proposing ? "Preparing suggestions…" : "Propose fixes"}
           </Button>
           {proposeNotice ? (
             <p className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }} role="status">
               {proposeNotice}
             </p>
+          ) : null}
+          {unrecoverable.length > 0 ? (
+            <ul className="space-y-2">
+              {unrecoverable.map((proposal) => (
+                <li key={`${proposal.rowNumber}:${proposal.columnId}`} className="luxia-csv-validation-unrecoverable">
+                  <p className="luxia-type-caption" style={{ color: "var(--luxia-text-primary)" }}>
+                    {`${proposal.columnName} · Row ${proposal.rowNumber.toLocaleString()} · ${proposal.currentValue || "empty"}`}
+                  </p>
+                  <p className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
+                    Could not be repaired
+                  </p>
+                </li>
+              ))}
+            </ul>
           ) : null}
           {proposals.length > 0 ? (
             <div className="space-y-2">
@@ -329,20 +372,13 @@ export function CsvValidationWorkspace({
                 return (
                   <div key={group.columnId} className="space-y-2">
                     <p className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
-                      {`${group.columnName} suggestions`}
+                      {`${group.columnName} · Suggested`}
                     </p>
                     <ul className="space-y-2">
                       {columnProposals.map((proposal) => (
-                        <li
-                          key={`${proposal.rowNumber}:${proposal.columnId}`}
-                          className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t py-2"
-                          style={{ borderColor: "var(--luxia-settings-row-divider)" }}
-                        >
-                          <p className="min-w-0 luxia-type-caption" style={{ color: "var(--luxia-text-primary)" }}>
-                            <span style={{ color: "var(--luxia-text-muted)" }}>Current </span>
-                            {proposal.currentValue || "empty"}
-                            <span style={{ color: "var(--luxia-text-muted)" }}> · Suggested </span>
-                            {proposal.suggestedValue}
+                        <li key={`${proposal.rowNumber}:${proposal.columnId}`} className="luxia-csv-validation-row">
+                          <p className="luxia-type-caption" style={{ color: "var(--luxia-text-primary)" }}>
+                            {`Row ${proposal.rowNumber.toLocaleString()} · ${proposal.currentValue || "empty"} → ${proposal.suggestedValue}`}
                           </p>
                           <Button
                             type="button"
@@ -375,22 +411,79 @@ export function CsvValidationWorkspace({
               ) : null}
             </div>
           ) : null}
+          <CorrectionUndoList
+            items={corrections.filter((item) => item.origin === "ai")}
+            statusLabel="Accepted"
+            onUndoFix={onUndoFix}
+          />
+          {rejected.length > 0 ? (
+            <ul className="space-y-1">
+              {rejected.map((proposal) => (
+                <li key={`${proposal.rowNumber}:${proposal.columnId}`} className="luxia-type-caption luxia-csv-validation-settled">
+                  {`${proposal.columnName} · Row ${proposal.rowNumber.toLocaleString()} · Rejected`}
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </div>
       ) : null}
 
       {choice === "manual" ? (
-        <ul className="space-y-2">
-          {issues.map((issue) => {
-            const key = `${issue.rowNumber}:${issue.columnId}`;
-            const editing = editingKey === key;
-            const column = file.columns.find((item) => item.id === issue.columnId);
-            const expected = column ? csvColumnTypeLabel(selectedColumnType(column)) : csvColumnTypeLabel(issue.expected);
-            return (
-              <li key={key} className="border-t py-2" style={{ borderColor: "var(--luxia-settings-row-divider)" }}>
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="luxia-type-caption" style={{ color: "var(--luxia-text-primary)" }}>
-                    {`Row ${issue.rowNumber.toLocaleString()} · ${issue.columnName} · ${issue.value || "empty"}`}
-                  </p>
+        <div className="luxia-csv-resolution-detail">
+          <ul className="space-y-2">
+            {issues.map((issue) => {
+              const key = `${issue.rowNumber}:${issue.columnId}`;
+              const editing = editingKey === key;
+              const column = file.columns.find((item) => item.id === issue.columnId);
+              const expected = column ? csvColumnTypeLabel(selectedColumnType(column)) : csvColumnTypeLabel(issue.expected);
+              return (
+                <li key={key} className="luxia-csv-validation-row">
+                  <div className="min-w-0 flex-1">
+                    <p className="luxia-type-caption" style={{ color: "var(--luxia-text-primary)" }}>
+                      {`${issue.columnName} · Row ${issue.rowNumber.toLocaleString()}`}
+                    </p>
+                    <p className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
+                      {`Current ${issue.value || "empty"} · Expected ${expected}`}
+                    </p>
+                    {editing ? (
+                      <div className="mt-2 space-y-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Input
+                            value={draft}
+                            onChange={(event) => {
+                              setDraft(event.target.value);
+                              setEditError(null);
+                            }}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter") {
+                                event.preventDefault();
+                                saveEdit(issue);
+                              }
+                              if (event.key === "Escape") {
+                                event.preventDefault();
+                                setEditingKey(null);
+                              }
+                            }}
+                            aria-label={`Value for row ${issue.rowNumber}, ${issue.columnName}`}
+                            aria-invalid={Boolean(editError)}
+                            autoFocus
+                            className="h-9 min-h-9 min-w-[12rem] flex-1"
+                          />
+                          <Button type="button" variant="outline" size="compact" onClick={() => setEditingKey(null)}>
+                            Cancel
+                          </Button>
+                          <Button type="button" variant="primary" size="compact" onClick={() => saveEdit(issue)}>
+                            Save & validate
+                          </Button>
+                        </div>
+                        {editError ? (
+                          <p className="luxia-type-caption" style={{ color: "var(--luxia-error-70)" }} role="alert">
+                            {editError}
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
                   {editing ? null : (
                     <Button
                       type="button"
@@ -400,59 +493,24 @@ export function CsvValidationWorkspace({
                       aria-label={`Edit row ${issue.rowNumber}, ${issue.columnName}`}
                       onClick={() => startEdit(issue)}
                     >
+                      <Pencil size={14} aria-hidden />
                       Edit
                     </Button>
                   )}
-                </div>
-                {editing ? (
-                  <div className="mt-2 space-y-2">
-                    <p className="luxia-type-caption" style={{ color: "var(--luxia-text-muted)" }}>
-                      {`Expected: ${expected}`}
-                    </p>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Input
-                        value={draft}
-                        onChange={(event) => {
-                          setDraft(event.target.value);
-                          setEditError(null);
-                        }}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter") {
-                            event.preventDefault();
-                            saveEdit(issue);
-                          }
-                          if (event.key === "Escape") {
-                            event.preventDefault();
-                            setEditingKey(null);
-                          }
-                        }}
-                        aria-label={`Value for row ${issue.rowNumber}, ${issue.columnName}`}
-                        aria-invalid={Boolean(editError)}
-                        autoFocus
-                        className="h-9 min-h-9 min-w-[12rem] flex-1"
-                      />
-                      <Button type="button" variant="outline" size="compact" onClick={() => setEditingKey(null)}>
-                        Cancel
-                      </Button>
-                      <Button type="button" variant="primary" size="compact" onClick={() => saveEdit(issue)}>
-                        Save & validate
-                      </Button>
-                    </div>
-                    {editError ? (
-                      <p className="luxia-type-caption" style={{ color: "var(--luxia-error-70)" }} role="alert">
-                        {editError}
-                      </p>
-                    ) : null}
-                  </div>
-                ) : null}
-              </li>
-            );
-          })}
-        </ul>
+                </li>
+              );
+            })}
+          </ul>
+          <CorrectionUndoList
+            items={corrections.filter((item) => item.origin === "manual")}
+            statusLabel="Saved"
+            onUndoFix={onUndoFix}
+          />
+        </div>
       ) : null}
 
       {choice === "reupload" ? (
-        <div>
+        <div className="luxia-csv-resolution-detail">
           <Button
             type="button"
             variant="secondary"
@@ -460,6 +518,7 @@ export function CsvValidationWorkspace({
             aria-label={`Replace ${file.fileName}`}
             onClick={() => replaceRef.current?.click()}
           >
+            <Upload size={16} aria-hidden />
             Replace this file
           </Button>
           <input
@@ -479,15 +538,41 @@ export function CsvValidationWorkspace({
       ) : null}
 
       {choice === "text" ? (
-        <p className="luxia-type-caption" style={{ color: "var(--luxia-warning-90)" }} role="status">
-          Every column in this file will be stored as Text.
-        </p>
+        <div className="luxia-csv-resolution-detail">
+          <p className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }} role="status">
+            All columns in this file will be imported as Text.
+          </p>
+          <Button type="button" variant="outline" size="compact" onClick={onRestoreDetectedTypes}>
+            Restore detected types
+          </Button>
+        </div>
       ) : null}
 
       {choice === "skip" ? (
-        <p className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }} role="status">
-          {`${summary.invalidRows.toLocaleString()} row${summary.invalidRows === 1 ? "" : "s"} will be skipped.`}
-        </p>
+        <div className="luxia-csv-resolution-detail">
+          <p className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }} role="status">
+            {`${outcome.skippedRows.toLocaleString()} ${outcome.skippedRows === 1 ? "row" : "rows"} will stay out of the import.`}
+          </p>
+          {skippedRows.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <Button type="button" variant="secondary" size="compact" onClick={onUndoAllSkipped}>
+                Undo
+              </Button>
+              {skippedRows.slice(0, 8).map((rowNumber) => (
+                <Button
+                  key={rowNumber}
+                  type="button"
+                  variant="outline"
+                  size="compact"
+                  aria-label={`Restore row ${rowNumber}`}
+                  onClick={() => onUndoSkip(rowNumber)}
+                >
+                  {`Restore row ${rowNumber}`}
+                </Button>
+              ))}
+            </div>
+          ) : null}
+        </div>
       ) : null}
 
       {file.typeSuggestions.length > 0 ? <TypeSuggestions file={file} onUseSuggestion={onUseSuggestion} /> : null}
@@ -495,42 +580,49 @@ export function CsvValidationWorkspace({
   );
 }
 
-function ValidationFileHeading({
-  fileName,
-  detail,
-  tone,
+function CorrectionUndoList({
+  items,
+  statusLabel,
+  onUndoFix,
 }: {
-  fileName: string;
-  detail: string;
-  tone: "ok" | "attention";
+  items: Array<{ rowNumber: number; columnId: string; columnName: string; value: string }>;
+  statusLabel?: string;
+  onUndoFix: (rowNumber: number, columnId: string) => void;
 }) {
+  if (items.length === 0) return null;
   return (
-    <div className="luxia-csv-file-heading">
-      <CsvFileGlyph />
-      <div className="min-w-0">
-        <h3 className="truncate luxia-type-body-dense-strong" style={{ color: "var(--luxia-text-primary)" }} title={fileName}>
-          {fileName}
-        </h3>
-        <p
-          className="mt-0.5 luxia-type-caption"
-          style={{ color: tone === "ok" ? "var(--luxia-success-70)" : "var(--luxia-text-secondary)" }}
-        >
-          {detail}
-        </p>
-      </div>
-    </div>
+    <ul className="space-y-2">
+      {items.map((item) => (
+        <li key={`${item.rowNumber}:${item.columnId}`} className="luxia-csv-validation-row">
+          <p className="luxia-type-caption" style={{ color: "var(--luxia-text-primary)" }}>
+            {`${statusLabel ? `${statusLabel} · ` : ""}${item.columnName} · Row ${item.rowNumber.toLocaleString()} · ${item.value || "empty"}`}
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="compact"
+            aria-label={`Undo correction for row ${item.rowNumber}, ${item.columnName}`}
+            onClick={() => onUndoFix(item.rowNumber, item.columnId)}
+          >
+            Undo
+          </Button>
+        </li>
+      ))}
+    </ul>
   );
 }
 
 function ResolutionOption({
   name,
   checked,
+  icon,
   label,
   hint,
   onSelect,
 }: {
   name: string;
   checked: boolean;
+  icon: ReactNode;
   label: string;
   hint: string;
   onSelect: () => void;
@@ -545,8 +637,9 @@ function ResolutionOption({
         checked={checked}
         onChange={onSelect}
       />
-      <span>
-        <span className="block" style={{ color: "var(--luxia-text-primary)" }}>{label}</span>
+      <span className="luxia-csv-resolution-icon">{icon}</span>
+      <span className="min-w-0">
+        <span className="block luxia-type-body-dense-strong" style={{ color: "var(--luxia-text-primary)" }}>{label}</span>
         <span className="block luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>{hint}</span>
       </span>
     </label>

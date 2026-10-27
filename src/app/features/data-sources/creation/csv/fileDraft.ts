@@ -32,12 +32,31 @@ export type CsvResolutionKind =
   | "reupload"
   | "import-as-text";
 
+export type CsvValidationStrategy = "skip" | "ai" | "manual" | "reupload" | "text";
+
+export type CsvAiProposalStatus = "proposed" | "accepted" | "rejected" | "unrecoverable";
+
 export interface CsvAiProposal {
   rowNumber: number;
   columnId: string;
   columnName: string;
   currentValue: string;
   suggestedValue: string;
+  status: CsvAiProposalStatus;
+}
+
+export interface CsvFixMeta {
+  origin: "ai" | "manual";
+  originalValue: string;
+}
+
+export interface CsvColumnTypeSnapshot {
+  id: string;
+  type: string;
+  detectedType: string;
+  status?: "inferred" | "needs-review" | "modified" | "confirmed";
+  dateFormat?: string;
+  warning?: string;
 }
 
 export interface CsvTypeSuggestion {
@@ -101,10 +120,20 @@ export interface CsvImportFileDraft {
   valueContextDraft: Record<string, CsvColumnValueContext>;
   /** Explicit validation decisions already applied. A file may record more than one. */
   appliedResolutions: CsvResolutionKind[];
+  /** The strategy selected for this file. Null until the user chooses one. */
+  validationStrategy: CsvValidationStrategy | null;
   /** Whole-file text fallback, distinct from columns that were inferred as Text. */
   importAsText: boolean;
-  /** Pending AI repairs. Nothing is written until Apply. */
+  /** Column types saved before import-as-text, restored if that strategy is left. */
+  columnTypeSnapshot: CsvColumnTypeSnapshot[] | null;
+  /** True after Propose finishes, including when nothing can be repaired. */
+  aiProposalsGenerated: boolean;
+  /** True after re-upload is chosen and before this file is replaced. */
+  reuploadPending: boolean;
+  /** AI proposals, including accepted, rejected, and unrecoverable values. */
   aiProposals: CsvAiProposal[];
+  /** Origin of each accepted cell correction. Keyed like `overrides`. */
+  fixMeta: Record<number, Record<string, CsvFixMeta>>;
   /** Type ideas after resolution. Never applied automatically. */
   typeSuggestions: CsvTypeSuggestion[];
 }
@@ -190,6 +219,15 @@ export function csvFileNeedsSchemaReview(file: CsvImportFileDraft): boolean {
   if (!csvFileHasUsableParse(file)) return true;
   if (csvFileNeedsParsingReview(file)) return true;
   return file.columns.some((column) => column.status === "needs-review");
+}
+
+export function csvFileSchemaReady(file: CsvImportFileDraft): boolean {
+  return file.included && csvFileIsStructurallyUsable(file) && !csvFileNeedsSchemaReview(file);
+}
+
+export function csvFileValidationReportReady(file: CsvImportFileDraft): boolean {
+  if (!file.included || !csvFileIsStructurallyUsable(file)) return true;
+  return file.validationRan && !file.validationStale;
 }
 
 export function csvFileSchemaUiStatus(file: CsvImportFileDraft): CsvFileUiStatus {
@@ -279,8 +317,13 @@ export function reparseCsvImportFile(
     valueContext: {},
     valueContextDraft: {},
     appliedResolutions: [],
+    validationStrategy: null,
     importAsText: false,
+    columnTypeSnapshot: null,
+    aiProposalsGenerated: false,
+    reuploadPending: false,
     aiProposals: [],
+    fixMeta: {},
     typeSuggestions: [],
   };
 }
@@ -311,8 +354,13 @@ export function replaceCsvImportFileContents(
     tableNameOrigin: file.tableNameOrigin,
     tableDescriptionOrigin: file.tableDescriptionOrigin,
     appliedResolutions: ["reupload"],
+    validationStrategy: null,
     importAsText: false,
+    columnTypeSnapshot: null,
+    aiProposalsGenerated: false,
+    reuploadPending: false,
     aiProposals: [],
+    fixMeta: {},
     typeSuggestions: [],
   };
 }
@@ -362,8 +410,13 @@ export function buildCsvImportFile(
       valueContext: {},
       valueContextDraft: {},
       appliedResolutions: [],
+      validationStrategy: null,
       importAsText: false,
+      columnTypeSnapshot: null,
+      aiProposalsGenerated: false,
+      reuploadPending: false,
       aiProposals: [],
+      fixMeta: {},
       typeSuggestions: [],
     },
     { encoding: detected.encoding },
