@@ -92,7 +92,6 @@ import {
   csvPhysicalRows,
   validateCsvHeaderRowNumber,
   csvColumnNameConflict,
-  defaultTableNameFromFile,
   duplicateTableNameKeys,
   includedCsvFiles,
   csvColumnTypeLabel,
@@ -103,7 +102,7 @@ import {
   selectedColumnType,
   bulkTableMetaNotice,
   tableDescriptionNeedsAi,
-  tableMetaStatusLabel,
+  rowDescriptionStats,
   tableNameConflictKey,
   csvFileOutcome,
   asTextColumns,
@@ -137,6 +136,7 @@ import {
   type DisplayCsvIssue,
 } from "./CsvImportRowActions";
 import { CsvValidationWorkspace } from "./CsvValidationWorkspace";
+import { CsvAiOriginBadge } from "./CsvAiOriginBadge";
 import { CsvRowDescriptionsSection } from "./CsvRowDescriptions";
 import { CsvValueContextSection } from "./CsvValueContextSection";
 import { DocumentTagSummary, DraftDataSourceTagsField, DraftTableTagRow, type DocumentTagDefinition, type DraftDataSourceTagsApi } from "@/app/features/document-tags";
@@ -621,7 +621,11 @@ function displayIssuesFor(
 
 export interface CsvImportFlowProps {
   open: boolean;
+  /** Trimmed name, for display. */
   sourceName: string;
+  /** The same draft name, untrimmed, for the Step 01 input. */
+  sourceNameDraft: string;
+  onSourceNameChange: (value: string) => void;
   ownershipLabel: string;
   tagDraft: DraftDataSourceTagsApi;
   onBackToChooser: () => void;
@@ -635,6 +639,8 @@ export interface CsvImportFlowProps {
 export function CsvImportFlow({
   open,
   sourceName,
+  sourceNameDraft,
+  onSourceNameChange,
   ownershipLabel,
   tagDraft,
   onBackToChooser,
@@ -669,9 +675,10 @@ export function CsvImportFlow({
   const [created, setCreated] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [confirmedImportSignature, setConfirmedImportSignature] = useState<string | null>(null);
-  const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const [bulkTableAiBusy, setBulkTableAiBusy] = useState(false);
   const [bulkTableAiNotice, setBulkTableAiNotice] = useState<string | null>(null);
+  const [tableAiBusy, setTableAiBusy] = useState(false);
+  const tableDescriptionAiBusy = bulkTableAiBusy || tableAiBusy;
   const [parseResetNotice, setParseResetNotice] = useState<string | null>(null);
   const [schemaParseLeaveAttempt, setSchemaParseLeaveAttempt] = useState(0);
   const [previewFileId, setPreviewFileId] = useState<string | null>(null);
@@ -870,16 +877,6 @@ export function CsvImportFlow({
         ?? (current && included.some((file) => file.id === current) ? current : included[0]?.id ?? null),
       );
     }
-    if (next === CSV_STEP.tableDescriptions) {
-      setSelectedTableId((current) => {
-        if (focusFileId) return focusFileId;
-        const preferred =
-          activeFileId && included.some((file) => file.id === activeFileId) ? activeFileId : current;
-        return preferred && included.some((file) => file.id === preferred)
-          ? preferred
-          : included[0]?.id ?? null;
-      });
-    }
     setStep(next);
     setMaxReachedStep((current) => (next > current ? next : current) as StepId);
   }
@@ -992,6 +989,7 @@ export function CsvImportFlow({
   }
 
   function patchTableDescription(fileId: string, value: string) {
+    setBulkTableAiNotice(null);
     updateFile(fileId, (current) => ({
       ...current,
       tableDescription: value,
@@ -1001,6 +999,7 @@ export function CsvImportFlow({
   }
 
   function applyAiTableDescription(fileId: string, tableDescription: string) {
+    setBulkTableAiNotice(null);
     updateFile(fileId, (current) => ({
       ...current,
       tableDescription,
@@ -1010,7 +1009,7 @@ export function CsvImportFlow({
   }
 
   async function generateBulkTableMeta() {
-    if (bulkTableAiBusy) return;
+    if (tableDescriptionAiBusy) return;
     const includedNow = includedCsvFiles(files);
     const alreadyComplete = includedNow.filter((file) => !tableDescriptionNeedsAi(file)).length;
     const targets = includedNow.filter((file) => tableDescriptionNeedsAi(file));
@@ -1076,7 +1075,6 @@ export function CsvImportFlow({
     setParseDraft(null);
     setFocusedColumnId(null);
     setActiveFileId(fileId);
-    setSelectedTableId(fileId);
   }
 
   function snapActiveToIncluded(nextFiles: CsvImportFileDraft[]) {
@@ -1148,7 +1146,6 @@ export function CsvImportFlow({
           setParseDraft(null);
           setFocusedColumnId(null);
           setActiveFileId(built[0]!.id);
-          setSelectedTableId(built[0]!.id);
         }
       }
       if (notices.length === 0) {
@@ -1231,7 +1228,6 @@ export function CsvImportFlow({
       setMaxReachedStep(1);
       setStep(1);
       setActiveFileId(next[0]?.id ?? null);
-      setSelectedTableId(null);
       return;
     }
 
@@ -1242,16 +1238,6 @@ export function CsvImportFlow({
           : undefined;
       const nextId = neighbor && neighbor.id !== fileId ? neighbor.id : includedAfter[0]!.id;
       setActiveFileId(nextId);
-      setSelectedTableId(nextId);
-      return;
-    }
-
-    if (selectedTableId === fileId) {
-      const keepId =
-        activeFileId && includedAfter.some((file) => file.id === activeFileId)
-          ? activeFileId
-          : includedAfter[0]!.id;
-      setSelectedTableId(keepId);
     }
   }
 
@@ -1534,8 +1520,12 @@ export function CsvImportFlow({
       file.skipped.includes(issue.rowNumber),
     );
     const snapshotKeys = new Set(next.issues.map((issue) => `${issue.rowNumber}:${issue.columnId}`));
+    // Skip is a one-shot action over the rows that were invalid when it was chosen. Once a row is
+    // restored or a fix is undone, Skip no longer covers the live issues, so it must be choosable again.
+    const skipStillCovers = file.validationStrategy !== "skip" || next.invalidRows === 0;
     return {
       ...file,
+      validationStrategy: skipStillCovers ? file.validationStrategy : null,
       lastInvalidRows: [...merged],
       validationRan: true,
       validationStale: false,
@@ -2031,6 +2021,7 @@ export function CsvImportFlow({
 
   function canAdvance() {
     if (created && step === CSV_STEP.summary) return true;
+    if (!sourceName) return false;
     if (creating || reading || applyingParse) return false;
     if (
       step === CSV_STEP.upload
@@ -2041,7 +2032,7 @@ export function CsvImportFlow({
     if (step === CSV_STEP.columns) return Boolean(activeFile && csvFileSchemaReady(activeFile));
     if (step === CSV_STEP.validation) return true;
     if (step === CSV_STEP.import) return tablesComplete;
-    if (step === CSV_STEP.tableDescriptions) return tablesComplete && importLocked && !bulkTableAiBusy;
+    if (step === CSV_STEP.tableDescriptions) return tablesComplete && importLocked && !tableDescriptionAiBusy;
     if (step === CSV_STEP.sampleValues) return tablesComplete && importLocked;
     if (step === CSV_STEP.columnDescriptions) {
       const unresolved = included.some((file) => liveValidationForFile(file).invalidRows > 0);
@@ -2183,6 +2174,8 @@ export function CsvImportFlow({
 
   function advanceBlockedReason(): string | null {
     if (canAdvance()) return null;
+    // Step 01 shows this under the name field itself.
+    if (!created && !sourceName) return step === CSV_STEP.upload ? null : "Enter a Data Source name.";
     if (step === CSV_STEP.upload) return null;
     if (step === CSV_STEP.columns) return schemaAdvanceBlockReason();
     if (step === CSV_STEP.validation) return validationBlockedCopy();
@@ -2198,7 +2191,7 @@ export function CsvImportFlow({
 
   function importAdvanceBlocker(): string {
     if (reading || applyingParse) return "Wait until the current action finishes.";
-    if (bulkTableAiBusy) return "Wait for AI generation to finish.";
+    if (tableDescriptionAiBusy) return "Wait for AI generation to finish.";
     for (const file of included) {
       const unresolved = liveValidationForFile(file).invalidRows;
       if (unresolved > 0) {
@@ -2446,7 +2439,8 @@ export function CsvImportFlow({
               {step === CSV_STEP.upload ? (
                 <div className="flex flex-col gap-5">
                   <UploadSourceSummary
-                    name={sourceName}
+                    name={sourceNameDraft}
+                    onNameChange={onSourceNameChange}
                     ownershipLabel={ownershipLabel}
                     tagDraft={tagDraft}
                   />
@@ -2551,52 +2545,50 @@ export function CsvImportFlow({
               ) : null}
 
               {step === CSV_STEP.tableDescriptions && activeFile ? (
-                <div className="space-y-6">
+                <div className="space-y-5">
                   <StepIntro
                     title="What does each table hold?"
                     body="Describe the contents so Luxia can choose the right table."
                   />
-                  <div className="flex flex-wrap items-center gap-3">
-                    <LuxiaAiButton
-                      disabled={bulkTableAiBusy || included.every((file) => !tableDescriptionNeedsAi(file))}
-                      aria-busy={bulkTableAiBusy}
-                      onClick={() => void generateBulkTableMeta()}
-                    >
-                      {bulkTableAiBusy ? "Generating…" : "Generate descriptions"}
-                    </LuxiaAiButton>
-                    {bulkTableAiNotice ? (
-                      <p className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }} role="status" aria-live="polite">
-                        {bulkTableAiNotice}
-                      </p>
-                    ) : null}
-                  </div>
-                  {stackSections ? null : (
-                    <FileSwitcher
-                      files={included}
-                      activeId={activeFile.id}
-                      validations={validations}
-                      mode="tables"
-                      onSelect={selectFile}
-                      onRequestRemove={requestRemoveFile}
-                    />
-                  )}
-                  {(stackSections ? included : [activeFile]).map((file) => (
-                    <TableMetadataEditor
-                      key={file.id}
-                      file={file}
-                      tagDraft={tagDraft}
-                      descriptionOnly
-                      aiLocked={bulkTableAiBusy}
-                      conflict={false}
-                      onNameChange={() => undefined}
-                      onDescriptionChange={(value) => patchTableDescription(file.id, value)}
-                      onApplyAiMeta={(_tableName, tableDescription) =>
-                        applyAiTableDescription(file.id, tableDescription)
-                      }
-                      onRowDescriptionSave={(rowNumber, text) => saveRowDescription(file.id, rowNumber, text)}
-                      onApplyRowDescriptions={(changes) => applyAiRowDescriptions(file.id, changes)}
-                    />
-                  ))}
+                  {included.length > 1 ? (
+                    <div className="luxia-csv-table-desc-toolbar">
+                      <FileSwitcher
+                        files={included}
+                        activeId={activeFile.id}
+                        validations={validations}
+                        mode="tables"
+                        onSelect={selectFile}
+                        onRequestRemove={requestRemoveFile}
+                      />
+                      <div className="flex flex-wrap items-center gap-3">
+                        <LuxiaAiButton
+                          disabled={tableDescriptionAiBusy || included.every((file) => !tableDescriptionNeedsAi(file))}
+                          aria-busy={bulkTableAiBusy}
+                          onClick={() => void generateBulkTableMeta()}
+                        >
+                          {bulkTableAiBusy ? "Generating…" : "Generate missing descriptions"}
+                        </LuxiaAiButton>
+                        {bulkTableAiNotice ? (
+                          <p className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }} role="status" aria-live="polite">
+                            {bulkTableAiNotice}
+                          </p>
+                        ) : null}
+                      </div>
+                    </div>
+                  ) : null}
+                  <TableDescriptionEditor
+                    key={activeFile.id}
+                    file={activeFile}
+                    tagDraft={tagDraft}
+                    aiLocked={bulkTableAiBusy}
+                    onAiBusyChange={setTableAiBusy}
+                    onDescriptionChange={(value) => patchTableDescription(activeFile.id, value)}
+                    onApplyAiDescription={(tableDescription) =>
+                      applyAiTableDescription(activeFile.id, tableDescription)
+                    }
+                    onRowDescriptionSave={(rowNumber, text) => saveRowDescription(activeFile.id, rowNumber, text)}
+                    onApplyRowDescriptions={(changes) => applyAiRowDescriptions(activeFile.id, changes)}
+                  />
                 </div>
               ) : null}
 
@@ -3039,20 +3031,36 @@ export function CsvImportFlow({
 
 function UploadSourceSummary({
   name,
+  onNameChange,
   ownershipLabel,
   tagDraft,
 }: {
   name: string;
+  onNameChange: (value: string) => void;
   ownershipLabel: string;
   tagDraft: DraftDataSourceTagsApi;
 }) {
+  const blank = !name.trim();
   return (
-    <section className="luxia-csv-step1-summary" aria-label={`${name}, ${ownershipLabel}`}>
-      <div className="luxia-csv-step1-summary-identity">
-        <p className="luxia-csv-step1-summary-name" title={name}>
-          {name}
-        </p>
-        <p className="luxia-csv-step1-summary-ownership">{ownershipLabel}</p>
+    <section className="luxia-csv-step1-summary" aria-label="Data Source details">
+      <div className="luxia-csv-step1-name-field">
+        <div className="luxia-csv-step1-summary-identity">
+          <Label htmlFor="csv-source-name" className="luxia-type-label-form">Data Source name</Label>
+          <p className="luxia-csv-step1-summary-ownership">{ownershipLabel}</p>
+        </div>
+        <Input
+          id="csv-source-name"
+          value={name}
+          onChange={(event) => onNameChange(event.target.value)}
+          autoComplete="off"
+          aria-invalid={blank}
+          aria-describedby={blank ? "csv-source-name-error" : undefined}
+        />
+        {blank ? (
+          <p id="csv-source-name-error" className="luxia-type-caption" style={{ color: "var(--luxia-error-70)" }}>
+            Enter a Data Source name.
+          </p>
+        ) : null}
       </div>
       <DraftDataSourceTagsField
         draft={tagDraft}
@@ -3068,10 +3076,6 @@ function UploadSourceSummary({
   );
 }
 
-function correctedValueCount(file: CsvImportFileDraft): number {
-  return Object.values(file.overrides).reduce((sum, row) => sum + Object.keys(row).length, 0);
-}
-
 function textFallbackColumnNames(file: CsvImportFileDraft): string[] {
   return file.columns
     .filter((column) => selectedColumnType(column) === "Text" && column.detectedType !== "Text")
@@ -3085,18 +3089,19 @@ type ReviewFileBlocker = {
   action: ReviewFileAction;
 };
 
+type ReviewOutcomeLine = {
+  text: string;
+  tone?: "skipped" | "rejected";
+  ai?: boolean;
+};
+
 type ReviewFileOutcome = {
   fileName: string;
-  tableName: string;
   importedRows: number;
   totalRows: number;
-  skippedRows: number;
-  correctedValues: number;
-  textColumns: string[];
-  wholeFileText: boolean;
-  expanded: boolean;
+  /** Secondary outcome lines, in reading order. Only what applies to the final resolution. */
+  lines: ReviewOutcomeLine[];
   blockers: ReviewFileBlocker[];
-  showSchemaAction: boolean;
   accessibleName: string;
 };
 
@@ -3108,52 +3113,56 @@ function describeReviewFile(
   const tableName = file.tableName.trim();
   const blank = tableName.length === 0;
   const duplicate = !blank && duplicateNames.has(tableNameConflictKey(file.tableName));
-  const textColumns = textFallbackColumnNames(file);
   const wholeFileText = file.importAsText;
-  const correctedValues = correctedValueCount(file);
   const blockers: ReviewFileBlocker[] = [];
   if (!counted.fresh) {
-    blockers.push({
-      text: "Check this file again before importing.",
-      action: "validation",
-    });
+    blockers.push({ text: "Check this file again before importing", action: "validation" });
   } else {
     if (counted.strategyOpen && file.validationStrategy === "ai") {
-      blockers.push({ text: "AI fixes are not finished.", action: "validation" });
+      blockers.push({ text: "AI fixes are not finished", action: "validation" });
     } else if (counted.strategyOpen && file.validationStrategy === "reupload") {
-      blockers.push({ text: "Replace this file or choose another resolution.", action: "validation" });
+      blockers.push({ text: "Replace this file or choose another resolution", action: "validation" });
     }
     if (counted.rejectedRows > 0) {
-      const count = counted.rejectedRows;
-      blockers.push({
-        text: `${count.toLocaleString()} row${count === 1 ? "" : "s"} rejected.`,
-        action: "validation",
-      });
+      blockers.push({ text: `${reviewRowCount(counted.rejectedRows)} rejected`, action: "validation" });
     }
   }
-  if (blank) blockers.push({ text: "Table name is required.", action: "tables" });
-  else if (duplicate) blockers.push({ text: "Table name must be unique.", action: "tables" });
-  const showSchemaAction = counted.skippedRows > 0 || correctedValues > 0 || textColumns.length > 0 || wholeFileText;
-  const expanded = blockers.length > 0 || showSchemaAction;
-  const importedLabel = `${reviewImportLabel(counted.importedRows, counted.totalRows)}.`;
-  const skippedLabel = counted.skippedRows > 0 ? reviewSkippedLabel(counted.skippedRows) : "";
+  if (blank) blockers.push({ text: "Table name is required", action: "tables" });
+  else if (duplicate) blockers.push({ text: "Table name must be unique", action: "tables" });
+
+  // Import as text supersedes earlier value fixes, so only fix-based resolutions report them.
+  const lines: ReviewOutcomeLine[] = [];
+  if (wholeFileText) {
+    lines.push({ text: "All columns imported as Text" });
+  } else {
+    if (counted.aiFixedRows > 0) {
+      lines.push({ text: `${reviewValueCount(counted.aiFixedRows)} fixed by AI`, ai: true });
+    }
+    if (counted.manuallyFixedRows > 0) {
+      lines.push({ text: `${reviewValueCount(counted.manuallyFixedRows)} fixed manually` });
+    }
+    const textColumns = textFallbackColumnNames(file);
+    if (textColumns.length > 0) lines.push({ text: `${textColumns.join(", ")} imported as Text` });
+  }
+  if (counted.skippedRows > 0) {
+    lines.push({ text: `${reviewRowCount(counted.skippedRows)} skipped`, tone: "skipped" });
+  }
+  for (const blocker of blockers) {
+    if (blocker.action === "validation") lines.push({ text: blocker.text, tone: "rejected" });
+  }
+  if (lines.length === 0) lines.push({ text: "Ready to import" });
+
   const accessibleName = [
-    `${file.fileName}, table ${tableName || "unnamed"}, ${importedLabel}`,
-    skippedLabel,
-    ...blockers.map((blocker) => blocker.text),
-  ].filter(Boolean).join(" ");
+    `${file.fileName}, table ${tableName || "unnamed"}, ${reviewImportLabel(counted.importedRows, counted.totalRows)}.`,
+    ...lines.map((line) => `${line.text}.`),
+    ...blockers.filter((blocker) => blocker.action === "tables").map((blocker) => `${blocker.text}.`),
+  ].join(" ");
   return {
     fileName: file.fileName,
-    tableName,
     importedRows: counted.importedRows,
     totalRows: counted.totalRows,
-    skippedRows: counted.skippedRows,
-    correctedValues,
-    textColumns: wholeFileText ? [] : textColumns,
-    wholeFileText,
-    expanded,
+    lines,
     blockers,
-    showSchemaAction,
     accessibleName,
   };
 }
@@ -3172,16 +3181,12 @@ function reviewImportLabel(importedRows: number, totalRows: number): string {
   return `${imported} of ${total} rows will be imported`;
 }
 
-function reviewSkippedLabel(count: number): string {
-  return `${count.toLocaleString()} row${count === 1 ? "" : "s"} will be skipped`;
+function reviewRowCount(count: number): string {
+  return `${count.toLocaleString()} row${count === 1 ? "" : "s"}`;
 }
 
-function reviewCorrectedLabel(count: number): string {
-  return `${count.toLocaleString()} value${count === 1 ? "" : "s"} corrected`;
-}
-
-function reviewTextLabel(names: string[]): string {
-  return `${names.join(", ")} will be imported as Text`;
+function reviewValueCount(count: number): string {
+  return `${count.toLocaleString()} value${count === 1 ? "" : "s"}`;
 }
 
 function ReviewSourceSummary({
@@ -3220,130 +3225,82 @@ function ReviewSourceSummary({
 
 function ReviewFileCard({
   outcome,
+  tableName,
+  nameInputId,
+  nameConflict,
+  onTableNameChange,
   onEditSchema,
   onReviewValidation,
-  onEditTable,
-  tableName,
-  onTableNameChange,
-  nameInputId,
-  nameConflict = false,
 }: {
   outcome: ReviewFileOutcome;
+  tableName: string;
+  nameInputId: string;
+  nameConflict: boolean;
+  onTableNameChange: (value: string) => void;
   onEditSchema: () => void;
   onReviewValidation: () => void;
-  onEditTable?: () => void;
-  tableName?: string;
-  onTableNameChange?: (value: string) => void;
-  nameInputId?: string;
-  nameConflict?: boolean;
 }) {
-  const tableLabel = outcome.tableName || "Unnamed table";
-  const editingName = Boolean(onTableNameChange);
-  const visibleBlockers = editingName
-    ? outcome.blockers.filter((blocker) => blocker.action !== "tables")
-    : outcome.blockers;
-  const showValidation = visibleBlockers.some((blocker) => blocker.action === "validation");
-  const showTable = !editingName && Boolean(onEditTable) && outcome.blockers.some((blocker) => blocker.action === "tables");
-  const nameFieldId = nameInputId ?? "csv-import-table-name";
+  const blank = !tableName.trim();
+  const nameError = nameConflict ? "Table names must be unique." : blank ? "Enter a table name." : null;
+  const showValidation = outcome.blockers.some((blocker) => blocker.action === "validation");
+  const total = outcome.totalRows;
   return (
     <li className="min-w-0">
-      <article
-        className={`luxia-csv-review-file${outcome.expanded ? " is-expanded" : " is-clean"}`}
-        aria-label={outcome.accessibleName}
-      >
+      <article className="luxia-csv-import-card" aria-label={outcome.accessibleName}>
         <h4 className="luxia-csv-review-file-name" title={outcome.fileName}>
           <CsvFileGlyph size={18} />
           <span className="min-w-0 truncate">{outcome.fileName}</span>
         </h4>
-        {editingName ? (
-          <div className="mt-2 max-w-sm space-y-1.5">
-            <Label htmlFor={nameFieldId}>Table name</Label>
+        <div className="luxia-csv-import-card-grid">
+          <div className="luxia-csv-import-card-field">
+            <Label htmlFor={nameInputId}>Table name</Label>
             <Input
-              id={nameFieldId}
-              value={tableName ?? ""}
-              onChange={(event) => onTableNameChange?.(event.target.value)}
+              id={nameInputId}
+              value={tableName}
+              onChange={(event) => onTableNameChange(event.target.value)}
               autoComplete="off"
-              aria-invalid={nameConflict || !(tableName ?? "").trim()}
+              aria-invalid={Boolean(nameError)}
+              aria-describedby={nameError ? `${nameInputId}-error` : undefined}
             />
-            {nameConflict ? (
-              <p className="luxia-type-caption" style={{ color: "var(--luxia-error-70)" }}>
-                Table names must be unique.
-              </p>
-            ) : null}
-            {!(tableName ?? "").trim() ? (
-              <p className="luxia-type-caption" style={{ color: "var(--luxia-error-70)" }}>
-                Enter a table name.
-              </p>
+            {nameError ? (
+              <p id={`${nameInputId}-error`} className="luxia-csv-import-card-error">{nameError}</p>
             ) : null}
           </div>
-        ) : (
-          <p className="luxia-csv-review-file-meta">
-            Table: <span className="luxia-csv-review-file-table">{tableLabel}</span>
-          </p>
-        )}
-        <p className="luxia-csv-review-file-outcome">
-          {reviewImportLabel(outcome.importedRows, outcome.totalRows)}
-        </p>
-        {outcome.skippedRows > 0 ? (
-          <p className="luxia-csv-review-file-note">{reviewSkippedLabel(outcome.skippedRows)}</p>
-        ) : null}
-        {outcome.expanded ? (
-          <div className="luxia-csv-review-file-details">
-            {outcome.correctedValues > 0 ? (
-              <p className="luxia-csv-review-file-note">{reviewCorrectedLabel(outcome.correctedValues)}</p>
-            ) : null}
-            {outcome.textColumns.length > 0 ? (
-              <p className="luxia-csv-review-file-note">{reviewTextLabel(outcome.textColumns)}</p>
-            ) : null}
-            {outcome.wholeFileText ? (
-              <p className="luxia-csv-review-caution" role="note">
-                All columns will be imported as Text.
-              </p>
-            ) : null}
-            {visibleBlockers.map((blocker) => (
-              <p key={blocker.text} className="luxia-csv-review-blocker" role="alert">
-                {blocker.text}
+          <div className="luxia-csv-import-card-outcome">
+            <p className="luxia-csv-import-card-label">Import outcome</p>
+            <p className="luxia-csv-import-card-primary">
+              {`${outcome.importedRows.toLocaleString()} of ${total.toLocaleString()} ${total === 1 ? "row" : "rows"}`}
+            </p>
+            {outcome.lines.map((line) => (
+              <p key={line.text} className="luxia-csv-import-card-line" data-tone={line.tone}>
+                {line.text}
+                {line.ai ? <CsvAiOriginBadge /> : null}
               </p>
             ))}
-            {showValidation || showTable || outcome.showSchemaAction ? (
-              <div className="luxia-csv-review-actions">
-                {showValidation ? (
-                  <Button
-                    type="button"
-                    variant="tertiary"
-                    size="compact"
-                    aria-label={`Review validation for ${outcome.fileName}`}
-                    onClick={onReviewValidation}
-                  >
-                    Review validation
-                  </Button>
-                ) : null}
-                {showTable ? (
-                  <Button
-                    type="button"
-                    variant="tertiary"
-                    size="compact"
-                    aria-label={`Edit table details for ${outcome.fileName}`}
-                    onClick={() => onEditTable?.()}
-                  >
-                    Edit table details
-                  </Button>
-                ) : null}
-                {outcome.showSchemaAction ? (
-                  <Button
-                    type="button"
-                    variant="tertiary"
-                    size="compact"
-                    aria-label={`Edit schema for ${outcome.fileName}`}
-                    onClick={onEditSchema}
-                  >
-                    Edit schema
-                  </Button>
-                ) : null}
-              </div>
-            ) : null}
           </div>
-        ) : null}
+          <div className="luxia-csv-import-card-actions">
+            {showValidation ? (
+              <Button
+                type="button"
+                variant="tertiary"
+                size="compact"
+                aria-label={`Review validation for ${outcome.fileName}`}
+                onClick={onReviewValidation}
+              >
+                Review validation
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              variant="tertiary"
+              size="compact"
+              aria-label={`Edit schema for ${outcome.fileName}`}
+              onClick={onEditSchema}
+            >
+              Edit schema
+            </Button>
+          </div>
+        </div>
       </article>
     </li>
   );
@@ -3862,40 +3819,19 @@ function CsvDropzone({
   onDragLeave: () => void;
 }) {
   const drop = disabled ? {} : bindCsvDrop(onDragEnter, onDragLeave, onDrop);
-  if (compact) {
-    return (
-      <button
-        id="csv-add-more-files"
-        type="button"
-        disabled={disabled}
-        aria-busy={disabled || undefined}
-        aria-label="Add CSV files"
-        onClick={onBrowse}
-        {...drop}
-        className={`luxia-csv-dropzone luxia-csv-dropzone--compact w-full focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)] ${
-          dragActive ? "is-active" : ""
-        }`}
-      >
-        <FileSpreadsheet
-          className="luxia-csv-dropzone-icon"
-          size={14}
-          strokeWidth={1.5}
-          aria-hidden
-        />
-        <span className="luxia-csv-dropzone-label">Add files</span>
-      </button>
-    );
-  }
+  // With files added the drop target stays full size (as in Luxia), only slightly shorter.
   return (
     <button
-      id="csv-empty-dropzone"
+      id={compact ? "csv-add-more-files" : "csv-empty-dropzone"}
       type="button"
-      aria-label="Drop CSV files here or browse. Browse files from your device."
+      aria-label={compact
+        ? "Add more CSV files. Drop files here or browse from your device."
+        : "Drop CSV files here or browse. Browse files from your device."}
       disabled={disabled}
       aria-busy={disabled || undefined}
       onClick={onBrowse}
       {...drop}
-      className={`luxia-csv-dropzone w-full px-4 py-8 focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)] ${
+      className={`luxia-csv-dropzone w-full px-4 ${compact ? "py-6" : "py-8"} focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)] ${
         dragActive ? "is-active" : ""
       }`}
     >
@@ -4889,49 +4825,49 @@ function SchemaPanel({
   );
 }
 
-function TableMetadataEditor({
+function TableDescriptionEditor({
   file,
   tagDraft,
-  conflict,
-  embedded,
-  descriptionOnly = false,
   aiLocked,
-  onNameChange,
+  onAiBusyChange,
   onDescriptionChange,
-  onApplyAiMeta,
+  onApplyAiDescription,
   onRowDescriptionSave,
   onApplyRowDescriptions,
 }: {
   file: CsvImportFileDraft;
   tagDraft: DraftDataSourceTagsApi;
-  conflict: boolean;
-  embedded?: boolean;
-  descriptionOnly?: boolean;
   aiLocked?: boolean;
-  onNameChange: (value: string) => void;
+  onAiBusyChange: (busy: boolean) => void;
   onDescriptionChange: (value: string) => void;
-  onApplyAiMeta: (tableName: string, tableDescription: string) => void;
+  onApplyAiDescription: (tableDescription: string) => void;
   onRowDescriptionSave: (rowNumber: number, text: string) => void;
   onApplyRowDescriptions: (changes: Array<{ rowNumber: number; description: string }>) => void;
 }) {
   const [insightsOpen, setInsightsOpen] = useState(false);
+  const [rowsOpen, setRowsOpen] = useState(false);
   const [aiBusy, setAiBusy] = useState(false);
   const [aiNotice, setAiNotice] = useState<string | null>(null);
-  const [pendingMeta, setPendingMeta] = useState<{
-    tableName: string;
-    tableDescription: string;
-  } | null>(null);
+  const [pendingDescription, setPendingDescription] = useState<string | null>(null);
+  // The AI result arrives after a delay; decide against the latest draft, not the one from the click.
+  const latest = useRef({ file, onApplyAiDescription, onAiBusyChange });
+  latest.current = { file, onApplyAiDescription, onAiBusyChange };
+  const descriptionId = `csv-table-desc-${file.id}`;
+  const tableLabel = file.tableName.trim() || "Unnamed table";
+  const hasDescription = file.tableDescription.trim() !== "";
+  const rowStats = rowDescriptionStats(file);
 
   useEffect(() => {
-    setPendingMeta(null);
+    setPendingDescription(null);
     setAiNotice(null);
   }, [file.id]);
 
-  async function generateTableMeta() {
+  async function generateDescription() {
     if (aiBusy || aiLocked) return;
     setAiBusy(true);
+    onAiBusyChange(true);
     setAiNotice(null);
-    setPendingMeta(null);
+    setPendingDescription(null);
     const result = await proposeCsvTableMetadata({
       fileId: file.id,
       fileName: file.fileName,
@@ -4942,214 +4878,158 @@ function TableMetadataEditor({
       sampleRows: (file.parsed?.records ?? []).slice(0, 5).map((record) => record.fields),
     });
     setAiBusy(false);
-    if (result.status === "ok") {
-      const defaultName = defaultTableNameFromFile(file.fileName);
-      const nameCustom =
-        file.tableNameOrigin === "edited"
-        || (
-          file.tableName.trim() !== ""
-          && file.tableName.trim() !== result.data.tableName
-          && file.tableName.trim() !== defaultName
-        );
-      const descCustom =
-        file.tableDescriptionOrigin === "edited"
-        || (
-          file.tableDescription.trim() !== ""
-          && file.tableDescription.trim() !== result.data.tableDescription
-        );
-      if (descriptionOnly) {
-        if (descCustom) {
-          setPendingMeta(result.data);
-          return;
-        }
-        onApplyAiMeta(file.tableName, result.data.tableDescription);
-        return;
-      }
-      if (nameCustom || descCustom) {
-        setPendingMeta(result.data);
-        return;
-      }
-      onApplyAiMeta(result.data.tableName, result.data.tableDescription);
+    latest.current.onAiBusyChange(false);
+    if (result.status !== "ok") {
+      setAiNotice(result.message);
       return;
     }
-    setAiNotice(result.message);
+    const current = latest.current.file;
+    const suggestion = result.data.tableDescription;
+    const custom =
+      current.tableDescriptionOrigin === "edited"
+      || (current.tableDescription.trim() !== "" && current.tableDescription.trim() !== suggestion);
+    if (custom) {
+      setPendingDescription(suggestion);
+      return;
+    }
+    latest.current.onApplyAiDescription(suggestion);
   }
 
-  const fields = (
-    <div className="space-y-4">
-        {!embedded ? (
-          <div>
-            <p className="luxia-type-caption" style={{ color: "var(--luxia-text-muted)" }}>
-              File name
-            </p>
-            <p className="mt-1 truncate luxia-type-body-dense" style={{ color: "var(--luxia-text-secondary)" }} title={file.fileName}>
-              {file.fileName}
-            </p>
-          </div>
-        ) : null}
-        <div className="max-w-xl space-y-2">
-          {descriptionOnly ? (
-            <div>
-              <p className="luxia-type-caption" style={{ color: "var(--luxia-text-muted)" }}>
-                Table
-              </p>
-              <p className="mt-1 luxia-type-body-dense" style={{ color: "var(--luxia-text-primary)" }}>
-                {file.tableName.trim() || "Unnamed table"}
-              </p>
-            </div>
-          ) : (
-            <>
-              <div className="flex items-baseline justify-between gap-3">
-                <Label htmlFor={`csv-table-name-${file.id}`}>Table name</Label>
-                {!embedded ? (
-                  <span className="luxia-type-caption" style={{ color: "var(--luxia-text-muted)" }}>
-                    {tableMetaStatusLabel(file)}
-                  </span>
-                ) : null}
-              </div>
-              <Input
-                id={`csv-table-name-${file.id}`}
-                value={file.tableName}
-                onChange={(event) => onNameChange(event.target.value)}
-                autoComplete="off"
-                aria-invalid={conflict || !file.tableName.trim()}
-              />
-              {conflict ? (
-                <p className="luxia-type-caption" style={{ color: "var(--luxia-error-70)" }}>
-                  Table names must be unique.
-                </p>
-              ) : null}
-              {!file.tableName.trim() ? (
-                <p className="luxia-type-caption" style={{ color: "var(--luxia-error-70)" }}>
-                  Enter a table name.
-                </p>
-              ) : null}
-            </>
-          )}
-          <DraftTableTagRow
-            tableId={file.id}
-            tableLabel={file.tableName.trim() || file.fileName}
-            draft={tagDraft}
-          />
+  return (
+    <section className={`${LUXIA_SETTINGS_SECTION_SURFACE_CLASS} luxia-csv-table-desc`} aria-label={tableLabel}>
+      <header className="luxia-csv-table-desc-header">
+        <div className="min-w-0">
+          <h3 className="luxia-csv-table-desc-title" title={tableLabel}>{tableLabel}</h3>
+          <p className="luxia-csv-table-desc-file" title={file.fileName}>{file.fileName}</p>
         </div>
-        <div className="max-w-xl space-y-2">
-          <Label htmlFor={`csv-table-desc-${file.id}`}>Table description</Label>
-          <Textarea
-            id={`csv-table-desc-${file.id}`}
-            value={file.tableDescription}
-            onChange={(event) => onDescriptionChange(event.target.value)}
-            rows={3}
-            placeholder="Optional description"
-          />
+        <DraftTableTagRow tableId={file.id} tableLabel={tableLabel} draft={tagDraft} />
+      </header>
+
+      <div className="luxia-csv-table-desc-field">
+        <div className="flex items-baseline justify-between gap-3">
+          <span className="inline-flex items-center gap-1.5">
+            <Label htmlFor={descriptionId}>Table description</Label>
+            {file.tableDescriptionOrigin === "ai" && hasDescription ? <CsvAiOriginBadge /> : null}
+          </span>
+          <span className="luxia-type-caption" style={{ color: "var(--luxia-text-muted)" }}>Optional</span>
         </div>
-        <div className="max-w-xl space-y-2">
-          <LuxiaAiButton disabled={aiBusy || aiLocked} onClick={() => void generateTableMeta()}>
-            {aiBusy
-              ? "Generating…"
-              : file.tableMetaAiGenerated
-                ? "Regenerate with AI"
-                : "Generate with AI"}
+        <Textarea
+          id={descriptionId}
+          value={file.tableDescription}
+          onChange={(event) => onDescriptionChange(event.target.value)}
+          readOnly={aiBusy}
+          aria-busy={aiBusy}
+          rows={3}
+          placeholder="What does this table contain?"
+        />
+        <div className="flex flex-wrap items-center gap-3">
+          <LuxiaAiButton disabled={aiBusy || aiLocked} aria-busy={aiBusy} onClick={() => void generateDescription()}>
+            {aiBusy ? "Generating…" : hasDescription ? "Regenerate with AI" : "Generate with AI"}
           </LuxiaAiButton>
           {aiNotice ? (
             <p className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }} role="status">
               {aiNotice}
             </p>
           ) : null}
-          {pendingMeta ? (
-            <div className="space-y-2">
-              <p className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
-                {descriptionOnly
-                  ? "Replace the current description with this suggestion?"
-                  : "Replace the current name and description with this suggestion?"}
-              </p>
-              {descriptionOnly ? null : (
-                <p className="luxia-type-body-dense" style={{ color: "var(--luxia-text-primary)" }}>
-                  {pendingMeta.tableName}
-                </p>
-              )}
-              <p className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
-                {pendingMeta.tableDescription}
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <Button type="button" variant="outline" size="compact" onClick={() => setPendingMeta(null)}>
-                  Dismiss
-                </Button>
-                <Button
-                  type="button"
-                  variant="primary"
-                  size="compact"
-                  onClick={() => {
-                    onApplyAiMeta(
-                      descriptionOnly ? file.tableName : pendingMeta.tableName,
-                      pendingMeta.tableDescription,
-                    );
-                    setPendingMeta(null);
-                  }}
-                >
-                  Apply
-                </Button>
-              </div>
-            </div>
-          ) : null}
         </div>
-        {file.columns.length > 0 ? (
-          <Collapsible open={insightsOpen} onOpenChange={setInsightsOpen}>
-            <CollapsibleTrigger asChild>
-              <Button type="button" variant="tertiary" size="compact" className="-ml-1">
-                <ChevronDown
-                  size={14}
-                  strokeWidth={1.75}
-                  aria-hidden
-                  className={`mr-1.5 transition-transform ${insightsOpen ? "rotate-180" : ""}`}
-                />
-                Table insights
+        {pendingDescription !== null ? (
+          <div className="luxia-csv-table-desc-suggestion" role="status">
+            <p className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
+              Replace your description with this suggestion?
+            </p>
+            <p className="luxia-type-body-dense" style={{ color: "var(--luxia-text-primary)" }}>
+              {pendingDescription}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="outline" size="compact" onClick={() => setPendingDescription(null)}>
+                Dismiss
               </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <p className="mt-2 luxia-type-caption" style={{ color: "var(--luxia-text-muted)" }}>
-                From selected column types.
-              </p>
-              <div className="mt-2 overflow-x-auto">
-                <table className="w-full border-collapse text-left">
-                  <thead>
-                    <tr className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
-                      <th className="px-0 py-1.5 pr-3 font-normal">Column</th>
-                      <th className="px-0 py-1.5 pr-3 font-normal">Meaning</th>
-                      <th className="px-0 py-1.5 font-normal">Suggested usage</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {file.columns.map((column) => (
-                      <tr
-                        key={column.id}
-                        className="border-t luxia-type-caption"
-                        style={{ borderColor: "var(--luxia-settings-row-divider)", color: "var(--luxia-text-secondary)" }}
-                      >
-                        <td className="px-0 py-1.5 pr-3 align-top" style={{ color: "var(--luxia-text-primary)" }}>
-                          {column.name}
-                        </td>
-                        <td className="px-0 py-1.5 pr-3 align-top">{columnInsightMeaning(column)}</td>
-                        <td className="px-0 py-1.5 align-top">{columnInsightUsage(column)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
+              <Button
+                type="button"
+                variant="primary"
+                size="compact"
+                onClick={() => {
+                  onApplyAiDescription(pendingDescription);
+                  setPendingDescription(null);
+                }}
+              >
+                Apply
+              </Button>
+            </div>
+          </div>
         ) : null}
-        <CsvRowDescriptionsSection
-          file={file}
-          onSaveDescription={onRowDescriptionSave}
-          onApplyAiDescriptions={onApplyRowDescriptions}
-        />
-    </div>
-  );
+      </div>
 
-  if (embedded) return fields;
-  return (
-    <div className={LUXIA_SETTINGS_SECTION_SURFACE_CLASS}>
-      <div className="px-4 py-4">{fields}</div>
-    </div>
+      {file.columns.length > 0 ? (
+        <Collapsible open={insightsOpen} onOpenChange={setInsightsOpen} className="luxia-csv-table-desc-more">
+          <CollapsibleTrigger asChild>
+            <button type="button" className="luxia-csv-table-desc-disclosure">
+              <ChevronDown
+                size={14}
+                strokeWidth={1.75}
+                aria-hidden
+                className={`transition-transform ${insightsOpen ? "rotate-180" : ""}`}
+              />
+              <span>Table insights</span>
+              <span className="luxia-csv-table-desc-disclosure-meta">From selected column types</span>
+            </button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="mt-2 overflow-x-auto">
+              <table className="w-full border-collapse text-left">
+                <thead>
+                  <tr className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
+                    <th className="px-0 py-1.5 pr-3 font-normal">Column</th>
+                    <th className="px-0 py-1.5 pr-3 font-normal">Meaning</th>
+                    <th className="px-0 py-1.5 font-normal">Suggested usage</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {file.columns.map((column) => (
+                    <tr
+                      key={column.id}
+                      className="border-t luxia-type-caption"
+                      style={{ borderColor: "var(--luxia-settings-row-divider)", color: "var(--luxia-text-secondary)" }}
+                    >
+                      <td className="px-0 py-1.5 pr-3 align-top" style={{ color: "var(--luxia-text-primary)" }}>
+                        {column.name}
+                      </td>
+                      <td className="px-0 py-1.5 pr-3 align-top">{columnInsightMeaning(column)}</td>
+                      <td className="px-0 py-1.5 align-top">{columnInsightUsage(column)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      ) : null}
+
+      <Collapsible open={rowsOpen} onOpenChange={setRowsOpen} className="luxia-csv-table-desc-more">
+        <CollapsibleTrigger asChild>
+          <button type="button" className="luxia-csv-table-desc-disclosure">
+            <ChevronDown
+              size={14}
+              strokeWidth={1.75}
+              aria-hidden
+              className={`transition-transform ${rowsOpen ? "rotate-180" : ""}`}
+            />
+            <span>Row descriptions</span>
+            <span className="luxia-csv-table-desc-disclosure-meta">
+              {`Optional · ${rowStats.described.toLocaleString()} of ${rowStats.total.toLocaleString()} described`}
+            </span>
+          </button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div className="mt-2">
+            <CsvRowDescriptionsSection
+              file={file}
+              onSaveDescription={onRowDescriptionSave}
+              onApplyAiDescriptions={onApplyRowDescriptions}
+            />
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+    </section>
   );
 }

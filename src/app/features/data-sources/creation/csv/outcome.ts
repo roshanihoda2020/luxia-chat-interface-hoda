@@ -52,11 +52,14 @@ const RESOLUTION_LABELS: Record<CsvResolutionKind, string> = {
   "import-as-text": "Import as text",
 };
 
+/** Only fixes that reach the import count; a fix inside a skipped row is reported with that row instead. */
 function correctionCounts(file: CsvImportFileDraft): { ai: number; manual: number } {
   let ai = 0;
   let manual = 0;
+  const skipped = new Set(file.skipped);
   for (const [rowKey, cells] of Object.entries(file.fixMeta ?? {})) {
     const rowNumber = Number(rowKey);
+    if (skipped.has(rowNumber)) continue;
     for (const [columnId, meta] of Object.entries(cells)) {
       if (file.overrides[rowNumber]?.[columnId] === undefined) continue;
       if (meta.origin === "ai") ai += 1;

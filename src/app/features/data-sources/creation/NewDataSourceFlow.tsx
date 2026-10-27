@@ -363,6 +363,8 @@ export function NewDataSourceFlow({
         key={`csv-${sessionKey}`}
         open={open && phase === "csv"}
         sourceName={name.trim()}
+        sourceNameDraft={name}
+        onSourceNameChange={setName}
         ownershipLabel={ownershipLabel}
         tagDraft={tagDraft}
         onBackToChooser={() => setPhase("chooser")}

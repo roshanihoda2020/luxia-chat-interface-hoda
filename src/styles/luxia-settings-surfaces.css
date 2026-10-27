@@ -221,42 +221,17 @@
   color: var(--luxia-purple-70);
 }
 
-.luxia-csv-dropzone--compact {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-height: 36px;
-  padding: 6px 12px;
-}
-
-.luxia-csv-dropzone--compact .luxia-csv-dropzone-icon {
-  width: 14px;
-  height: 14px;
-  margin: 0;
-  color: var(--luxia-text-secondary);
-}
-
-.luxia-csv-dropzone--compact .luxia-csv-dropzone-label {
-  font-family: var(--luxia-font-family);
-  font-size: 12px;
-  line-height: 16px;
-  font-weight: 400;
-  color: var(--luxia-text-secondary);
-}
-
-.luxia-csv-dropzone--compact:disabled {
+.luxia-csv-dropzone:disabled {
   cursor: not-allowed;
   opacity: 0.6;
 }
 
-.luxia-csv-dropzone--compact:disabled:hover {
+.luxia-csv-dropzone:disabled:hover {
   border-color: var(--luxia-border-strong);
   background: var(--luxia-surface);
 }
 
-.luxia-csv-dropzone--compact:disabled:hover .luxia-csv-dropzone-icon {
+.luxia-csv-dropzone:disabled:hover .luxia-csv-dropzone-icon {
   color: var(--luxia-text-secondary);
 }
 
@@ -271,6 +246,13 @@
   border-radius: var(--luxia-radius-8);
   background: var(--luxia-neutral-50);
   box-shadow: none;
+}
+
+.luxia-csv-step1-name-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 28rem;
 }
 
 .luxia-csv-step1-summary-identity {
@@ -1095,38 +1077,6 @@
   color: var(--luxia-text-secondary);
 }
 
-.luxia-csv-review-files {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.luxia-csv-review-file {
-  min-width: 0;
-  padding: 10px 12px;
-  border: 1px solid var(--luxia-border-default);
-  border-radius: var(--luxia-radius-8);
-  background: var(--luxia-neutral-50);
-}
-
-.luxia-csv-review-file.is-clean {
-  display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr) minmax(0, 1.3fr);
-  gap: 4px 16px;
-  align-items: baseline;
-}
-
-.luxia-csv-review-file.is-expanded {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 12px;
-  background: var(--luxia-settings-panel-bg);
-}
-
 .luxia-csv-review-file-name {
   display: flex;
   align-items: center;
@@ -1140,69 +1090,110 @@
   color: var(--luxia-text-primary);
 }
 
-.luxia-csv-review-file-meta,
-.luxia-csv-review-file-outcome,
-.luxia-csv-review-file-note {
-  margin: 0;
-  min-width: 0;
-  font-family: var(--font-family);
-  font-size: 12px;
-  line-height: 16px;
-  font-weight: 400;
-  color: var(--luxia-text-secondary);
+.luxia-csv-table-desc-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
-.luxia-csv-review-file.is-clean .luxia-csv-review-file-meta,
-.luxia-csv-review-file.is-clean .luxia-csv-review-file-outcome {
+.luxia-csv-table-desc {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+}
+
+.luxia-csv-table-desc-header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--luxia-settings-row-divider);
+}
+
+.luxia-csv-table-desc-title {
+  margin: 0;
   overflow: hidden;
+  color: var(--luxia-text-primary);
+  font-family: var(--font-family);
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.luxia-csv-review-file-table,
-.luxia-csv-review-file-outcome {
-  color: var(--luxia-text-primary);
-}
-
-.luxia-csv-review-file-details {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
-}
-
-.luxia-csv-review-caution,
-.luxia-csv-review-blocker {
-  margin: 0;
-  max-width: 100%;
-  padding: 6px 8px;
-  border-radius: 6px;
-  font-family: var(--font-family);
+.luxia-csv-table-desc-file {
+  margin: 2px 0 0;
+  overflow: hidden;
+  color: var(--luxia-text-muted);
   font-size: 12px;
   line-height: 16px;
-  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.luxia-csv-review-caution {
-  background: var(--luxia-warning-10);
-  color: var(--luxia-warning-90);
-}
-
-.luxia-csv-review-blocker {
-  background: var(--luxia-error-10);
-  color: var(--luxia-error-70);
-}
-
-.luxia-csv-review-actions {
+.luxia-csv-table-desc-field {
   display: flex;
-  flex-wrap: wrap;
-  gap: 4px 8px;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 40rem;
 }
 
-@media (max-width: 640px) {
-  .luxia-csv-review-file.is-clean {
-    grid-template-columns: minmax(0, 1fr);
-  }
+.luxia-csv-table-desc-suggestion {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--luxia-border-subtle);
+  border-radius: 8px;
+  background: var(--luxia-neutral-50);
+}
+
+.luxia-csv-table-desc-suggestion p {
+  margin: 0;
+}
+
+.luxia-csv-table-desc-more {
+  padding-top: 10px;
+  border-top: 1px solid var(--luxia-settings-row-divider);
+}
+
+.luxia-csv-table-desc-more + .luxia-csv-table-desc-more {
+  margin-top: -6px;
+}
+
+.luxia-csv-table-desc-disclosure {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px;
+  margin-left: -4px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--luxia-text-primary);
+  font-family: var(--font-family);
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.luxia-csv-table-desc-disclosure:hover {
+  background: var(--luxia-neutral-50);
+}
+
+.luxia-csv-table-desc-disclosure:focus-visible {
+  outline: 2px solid var(--luxia-settings-tab-focus-ring);
+  outline-offset: 2px;
+}
+
+.luxia-csv-table-desc-disclosure-meta {
+  color: var(--luxia-text-muted);
+  font-size: 12px;
+  font-weight: 400;
 }
 
 .luxia-csv-wizard {
@@ -1524,10 +1515,15 @@
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  padding: 14px 16px;
+  padding: 12px 14px;
   border: 1px solid var(--luxia-border-subtle);
   border-radius: 12px;
   background: var(--luxia-neutral-white);
+}
+
+.luxia-csv-validation-issue-summary {
+  align-items: center;
+  padding: 10px 14px;
 }
 
 .luxia-csv-validation-result-icon {
@@ -1535,8 +1531,8 @@
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   border-radius: 8px;
   background: var(--luxia-neutral-50);
   color: var(--luxia-success-70);
@@ -1574,7 +1570,7 @@
 }
 
 .luxia-csv-resolution-legend {
-  margin: 0 0 8px;
+  margin: 0 0 6px;
   padding: 0;
   color: var(--luxia-text-secondary);
   font-size: 12px;
@@ -1584,8 +1580,8 @@
 
 .luxia-csv-resolution-option {
   align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
+  gap: 10px;
+  padding: 7px 10px;
   border-color: var(--luxia-border-subtle);
   background: var(--luxia-neutral-white);
 }
@@ -1600,8 +1596,8 @@
 }
 
 .luxia-csv-resolution-option:has(input:checked) {
-  border-color: var(--luxia-brand-primary);
-  background: var(--luxia-neutral-50);
+  border-color: var(--luxia-purple-30);
+  background: var(--luxia-primary-4);
 }
 
 .luxia-csv-resolution-icon {
@@ -1609,35 +1605,172 @@
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   border-radius: 6px;
   background: var(--luxia-neutral-50);
   color: var(--luxia-text-secondary);
 }
 
 .luxia-csv-resolution-option:has(input:checked) .luxia-csv-resolution-icon {
-  background: var(--luxia-brand-primary);
-  color: var(--luxia-text-inverse);
+  background: var(--luxia-primary-8);
+  color: var(--luxia-brand-primary);
+}
+
+/* Problem → resolution read as one group: summary, issue table and choices sit close together. */
+.luxia-csv-validation-problem {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.luxia-csv-resolution-options {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .luxia-csv-resolution-detail {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 12px;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
   border: 1px solid var(--luxia-border-subtle);
   border-radius: 10px;
   background: var(--luxia-neutral-white);
+}
+
+.luxia-csv-resolution-detail > ul,
+.luxia-csv-resolution-detail > div {
+  align-self: stretch;
 }
 
 .luxia-csv-validation-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px 12px;
+  gap: 6px 12px;
+  padding-top: 6px;
+  border-top: 1px solid var(--luxia-settings-row-divider);
+}
+
+.luxia-csv-validation-outcome-facts {
+  margin: 4px 0 0;
+  color: var(--luxia-text-secondary);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+/* Resolved detail: secondary to the outcome line, separated by a hairline, no nested cards. */
+.luxia-csv-resolved-details {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
   padding-top: 8px;
   border-top: 1px solid var(--luxia-settings-row-divider);
+}
+
+.luxia-csv-resolved-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px;
+  margin-left: -4px;
+  border-radius: 6px;
+  color: var(--luxia-text-secondary);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+
+.luxia-csv-resolved-summary::-webkit-details-marker {
+  display: none;
+}
+
+.luxia-csv-resolved-summary:hover {
+  color: var(--luxia-text-primary);
+}
+
+.luxia-csv-resolved-summary:focus-visible {
+  outline: 2px solid var(--luxia-settings-tab-focus-ring);
+  outline-offset: 2px;
+}
+
+.luxia-csv-resolved-chevron {
+  transform: rotate(-90deg);
+  transition: transform 120ms ease;
+}
+
+.luxia-csv-resolved-section[open] .luxia-csv-resolved-chevron {
+  transform: rotate(0deg);
+}
+
+.luxia-csv-resolved-count {
+  color: var(--luxia-text-muted);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+.luxia-csv-resolved-list {
+  margin: 2px 0 0;
+  padding: 0 0 0 20px;
+  list-style: none;
+}
+
+.luxia-csv-resolved-row-text .luxia-csv-ai-origin,
+.luxia-csv-validation-row .luxia-csv-ai-origin {
+  margin: 0 2px 0 6px;
+  vertical-align: 1px;
+}
+
+.luxia-csv-resolved-row[data-nested] {
+  min-height: 24px;
+  padding-left: 14px;
+}
+
+.luxia-csv-resolved-list[data-flush] {
+  align-self: stretch;
+  margin: 0;
+  padding-left: 0;
+}
+
+.luxia-csv-resolved-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 28px;
+}
+
+.luxia-csv-resolved-row-text {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--luxia-text-primary);
+  font-size: 12px;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.luxia-csv-resolved-row-text[data-tone="muted"],
+.luxia-csv-resolved-row-note {
+  color: var(--luxia-text-muted);
+}
+
+.luxia-csv-validation-result-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.luxia-csv-resolution-detail > ul:first-child > .luxia-csv-validation-row:first-child {
+  padding-top: 0;
+  border-top: 0;
 }
 
 .luxia-csv-validation-row p {
@@ -1646,7 +1779,7 @@
 }
 
 .luxia-csv-validation-unrecoverable {
-  padding: 8px 10px;
+  padding: 6px 10px;
   border: 1px solid var(--luxia-border-subtle);
   border-radius: 8px;
   background: var(--luxia-neutral-50);
@@ -1768,4 +1901,106 @@
   margin: 0;
   padding: 0;
   list-style: none;
+  container-type: inline-size;
+}
+
+/* Step 04 — one compact confirmation row per file; every card shares the same grid. */
+.luxia-csv-import-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 18px;
+  border: 1px solid var(--luxia-border-default);
+  border-radius: var(--luxia-radius-8);
+  background: var(--luxia-settings-panel-bg);
+}
+
+.luxia-csv-import-card-grid {
+  display: grid;
+  /* Fixed action column so every card's columns line up, whatever actions it shows. */
+  grid-template-columns: minmax(12rem, 20rem) minmax(10rem, 1fr) 9rem;
+  align-items: start;
+  gap: 8px 28px;
+}
+
+.luxia-csv-import-card-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.luxia-csv-import-card-error {
+  margin: 0;
+  color: var(--luxia-error-70);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.luxia-csv-import-card-outcome {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.luxia-csv-import-card-label {
+  margin: 0 0 4px;
+  color: var(--luxia-text-secondary);
+  font-family: var(--font-family);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+}
+
+.luxia-csv-import-card-primary {
+  margin: 0;
+  color: var(--luxia-text-primary);
+  font-family: var(--font-family);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.luxia-csv-import-card-line {
+  margin: 0;
+  color: var(--luxia-text-secondary);
+  font-family: var(--font-family);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.luxia-csv-import-card-line[data-tone="skipped"] {
+  color: var(--luxia-warning-90);
+}
+
+.luxia-csv-import-card-line[data-tone="rejected"] {
+  color: var(--luxia-error-70);
+}
+
+.luxia-csv-import-card-line .luxia-csv-ai-origin {
+  margin-left: 6px;
+  vertical-align: 1px;
+}
+
+.luxia-csv-import-card-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  /* Line the action up with the inputs, below the field labels. */
+  padding-top: 20px;
+}
+
+@container (max-width: 640px) {
+  .luxia-csv-import-card-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .luxia-csv-import-card-actions {
+    flex-direction: row;
+    align-items: center;
+    padding-top: 0;
+  }
 }

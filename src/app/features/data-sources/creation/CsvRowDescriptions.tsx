@@ -16,6 +16,7 @@ import {
   type CsvRowDescriptionEntry,
 } from "./csv";
 import { proposeCsvRowDescriptions } from "./csvAi";
+import { CsvAiOriginBadge } from "./CsvAiOriginBadge";
 
 function statusLabel(entry: CsvRowDescriptionEntry | undefined): string {
   if (!entry?.text.trim()) return "Missing";
@@ -54,7 +55,7 @@ function DescriptionEditor({
     return (
       <button
         type="button"
-        className="block w-full max-w-full truncate rounded-[4px] px-1 py-0.5 text-left underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]"
+        className="block w-full max-w-full truncate rounded-[4px] px-1 py-0.5 text-left luxia-type-caption underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]"
         style={{ color: value.trim() ? "var(--luxia-text-primary)" : "var(--luxia-text-muted)" }}
         title={value.trim() || "Add a description"}
         onClick={() => {
@@ -198,20 +199,15 @@ export function CsvRowDescriptionsSection({
 
   return (
     <div className="space-y-3">
-      <div>
-        <p className="luxia-type-body-dense" style={{ color: "var(--luxia-text-primary)" }}>
-          Row descriptions
-        </p>
-        <p className="mt-1 luxia-type-caption" style={{ color: "var(--luxia-text-muted)" }}>
-          Add a short description for each record. Generate them with AI or edit them manually.
-        </p>
-      </div>
+      <p className="luxia-type-caption" style={{ color: "var(--luxia-text-muted)" }}>
+        Add a short description for each record. Generate them with AI or edit them manually.
+      </p>
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
         <LuxiaAiButton disabled={aiBusy || stats.missing === 0} onClick={() => void generateDescriptions()}>
           {aiBusy
             ? "Generating…"
             : stats.described > 0
-              ? "Generate missing descriptions"
+              ? "Generate missing row descriptions"
               : "Generate row descriptions with AI"}
         </LuxiaAiButton>
         <p className="luxia-type-caption" style={{ color: "var(--luxia-text-muted)" }}>
@@ -281,7 +277,7 @@ export function CsvRowDescriptionsSection({
                       />
                     </td>
                     <td className="whitespace-nowrap px-3 py-2 luxia-type-caption" style={{ color: "var(--luxia-text-muted)" }}>
-                      {statusLabel(entry)}
+                      {entry?.text.trim() && entry.origin === "ai" ? <CsvAiOriginBadge /> : statusLabel(entry)}
                     </td>
                   </tr>
                 );
