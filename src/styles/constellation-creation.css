@@ -470,6 +470,48 @@
   box-shadow: none;
 }
 
+.luxia-creation-ownership--quiet {
+  max-width: none;
+}
+
+.luxia-creation-ownership--quiet .luxia-creation-ownership-list {
+  gap: 2px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  overflow: visible;
+}
+
+.luxia-creation-ownership--quiet .luxia-creation-ownership-divider {
+  display: none;
+}
+
+.luxia-creation-ownership--quiet .luxia-creation-ownership-row {
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+}
+
+.luxia-creation-ownership--quiet .luxia-creation-ownership-row.is-selected {
+  background: color-mix(in srgb, var(--luxia-brand-primary) 6%, transparent);
+}
+
+.luxia-creation-ownership--quiet .luxia-creation-ownership-row-title {
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 500;
+}
+
+.luxia-creation-ownership--quiet .luxia-creation-ownership-row.is-selected .luxia-creation-ownership-row-title {
+  font-weight: 600;
+}
+
+.luxia-creation-ownership--quiet .luxia-creation-ownership-row-desc {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--luxia-text-muted);
+}
+
 .luxia-creation-ownership-readonly {
   max-width: 28rem;
   display: flex;

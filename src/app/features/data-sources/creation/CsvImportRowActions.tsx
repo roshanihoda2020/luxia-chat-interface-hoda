@@ -21,17 +21,21 @@ import {
   TooltipTrigger,
 } from "@/app/components/ui/tooltip";
 import { cn } from "@/app/components/ui/utils";
-import { LuxiaAiButton } from "@/app/components/LuxiaAiButton";
+import { CsvFileGlyph } from "./DataSourceTypeIcon";
 import {
   CSV_COLUMN_TYPES,
+  CSV_ENCODING_LABELS,
+  CSV_DELIMITER_LABELS,
+  columnTypeConfidence,
+  csvColumnTypeLabel,
+  csvHeaderConfigFor,
+  csvHeaderSummaryLabel,
+  csvFileNotices,
   selectedColumnType,
   valueMatchesType,
   type CsvImportFileDraft,
 } from "./csv";
 import type { CsvColumnDraft, CsvValidationIssue, CsvValidationSummary } from "./types";
-import {
-  proposeCsvSimilarRepairs,
-} from "./csvAi";
 
 export const EXCLUDE_ROW_HINT =
   "Exclude this row from import. You can restore it before creating the Data Source.";
@@ -248,7 +252,7 @@ export function schemaIssueViewActionLabel(count: number, issuesOnly: boolean): 
 function schemaDataColumnTrack(column: CsvColumnDraft, index: number, total: number): string {
   const type = selectedColumnType(column);
   const name = column.name.trim().toLowerCase();
-  if (type === "Date" || /date|time|timestamp/.test(name)) return "minmax(180px, 1.15fr)";
+  if (type === "Date" || type === "Timestamp" || /date|time|timestamp/.test(name)) return "minmax(180px, 1.15fr)";
   if (/host|server|machine/.test(name)) return "minmax(180px, 1.1fr)";
   if (/service/.test(name)) return "minmax(110px, 0.7fr)";
   if (index === total - 1 || /content|message|log|text/.test(name)) return "minmax(220px, 1.6fr)";
@@ -405,6 +409,171 @@ export function ColumnNameEditor({
   );
 }
 
+function evidenceValues(file: CsvImportFileDraft, column: CsvColumnDraft): string[] {
+  const index = file.columns.findIndex((item) => item.id === column.id);
+  if (index < 0) return [];
+  const skipped = new Set(file.skipped);
+  return (file.parsed?.records ?? [])
+    .filter((record) => !skipped.has(record.rowNumber))
+    .map((record) => file.overrides[record.rowNumber]?.[column.id] ?? record.fields[index] ?? "");
+}
+
+export function ColumnStructureTable({
+  file,
+  suggestions = [],
+  onTypeChange,
+  onConfirmType,
+  onRenameColumn,
+  onUseSuggestion,
+}: {
+  file: CsvImportFileDraft;
+  suggestions?: Array<{ columnId: string; suggestedType: string }>;
+  onTypeChange: (columnId: string, type: string) => void;
+  onConfirmType: (columnId: string) => void;
+  onRenameColumn: (columnId: string, nextName: string) => string | null;
+  onUseSuggestion?: (columnId: string, type: string) => void;
+}) {
+  const rowCount = file.parsed?.records.length ?? 0;
+  const columnCount = file.columns.length;
+  const notices = csvFileNotices(file).filter((issue) => issue.severity !== "info");
+  const suggestionByColumn = new Map(suggestions.map((item) => [item.columnId, item.suggestedType]));
+  return (
+    <div className="luxia-csv-file-section min-w-0">
+      <div className="luxia-csv-file-heading">
+        <CsvFileGlyph />
+        <div className="min-w-0">
+          <p className="luxia-type-body-dense-strong truncate" style={{ color: "var(--luxia-text-primary)" }} title={file.fileName}>
+            {file.fileName}
+          </p>
+          <p className="mt-0.5 luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
+            {`${rowCount.toLocaleString()} ${rowCount === 1 ? "row" : "rows"} · ${columnCount.toLocaleString()} ${columnCount === 1 ? "column" : "columns"}`}
+          </p>
+        </div>
+      </div>
+      {notices.map((issue) => (
+          <p
+            key={`${issue.severity}-${issue.message}`}
+            className="luxia-csv-file-note"
+            data-severity={issue.severity}
+            role="status"
+          >
+            {issue.message}
+          </p>
+        ))}
+      {file.columns.length === 0 ? (
+        <p className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
+          No columns were found in this file.
+        </p>
+      ) : (
+        <div className="luxia-settings-table-surface overflow-x-auto">
+          <table className="luxia-csv-structure-table w-full min-w-[36rem] border-collapse text-left">
+            <thead>
+              <tr className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
+                <th scope="col" className="px-3 py-2 font-normal">Column</th>
+                <th scope="col" className="px-3 py-2 font-normal">Type</th>
+                <th scope="col" className="px-3 py-2 font-normal">Confidence</th>
+                <th scope="col" className="px-3 py-2 font-normal">Examples</th>
+              </tr>
+            </thead>
+            <tbody>
+              {file.columns.map((column) => {
+                const type = selectedColumnType(column);
+                const needsConfirm = column.status === "needs-review";
+                const confidence = columnTypeConfidence(evidenceValues(file, column), type, needsConfirm);
+                const examples = column.examples.filter(Boolean).slice(0, 3).join(", ") || "—";
+                const suggestion = suggestionByColumn.get(column.id);
+                const format = (type === "Date" || type === "Timestamp") ? column.dateFormat : undefined;
+                return (
+                  <tr
+                    key={column.id}
+                    className="border-t"
+                    style={{ borderColor: "var(--luxia-settings-row-divider)" }}
+                  >
+                    <th scope="row" className="px-3 py-2 align-middle font-normal">
+                      <ColumnNameEditor
+                        name={column.name}
+                        originalName={column.originalName}
+                        onSave={(nextName) => onRenameColumn(column.id, nextName)}
+                      />
+                    </th>
+                    <td className="px-3 py-2 align-middle">
+                      <div className="flex flex-nowrap items-center gap-2">
+                        <Select
+                          key={`${file.id}:${column.id}:type:${column.type}`}
+                          value={type}
+                          onValueChange={(value) => {
+                            if (value === column.type) return;
+                            onTypeChange(column.id, value);
+                          }}
+                        >
+                          <SelectTrigger size="sm" aria-label={`Type for ${column.name}`} className="h-8 min-h-8 w-[9.5rem]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="!z-[80]">
+                            {CSV_COLUMN_TYPES.map((option) => (
+                              <SelectItem key={option} value={option}>
+                                {csvColumnTypeLabel(option)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {format ? (
+                          <span className="luxia-csv-format-chip" title={format}>{format}</span>
+                        ) : null}
+                        {needsConfirm ? (
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="compact"
+                            className="h-8 min-h-8 w-fit px-2"
+                            aria-label={`Accept ${csvColumnTypeLabel(type)} type for ${column.name} column`}
+                            onClick={() => onConfirmType(column.id)}
+                          >
+                            Accept type
+                          </Button>
+                        ) : null}
+                      </div>
+                    </td>
+                    <td className="luxia-csv-confidence px-3 py-2 align-middle">
+                      <p
+                        className="luxia-csv-confidence-status"
+                        data-warning={confidence.label === "Needs confirmation" ? "true" : undefined}
+                      >
+                        {confidence.label}
+                      </p>
+                      {confidence.detail || (suggestion && suggestion !== type) ? (
+                        <p className="luxia-csv-confidence-meta">
+                          {confidence.detail ? <span>{confidence.detail}</span> : null}
+                          {confidence.detail && suggestion && suggestion !== type ? <span aria-hidden="true"> · </span> : null}
+                          {suggestion && suggestion !== type ? (
+                            <span>{`Suggested: ${csvColumnTypeLabel(suggestion)}`}</span>
+                          ) : null}
+                          {suggestion && suggestion !== type && onUseSuggestion ? (
+                            <button
+                              type="button"
+                              className="luxia-csv-confidence-use"
+                              onClick={() => onUseSuggestion(column.id, suggestion)}
+                            >
+                              Use type
+                            </button>
+                          ) : null}
+                        </p>
+                      ) : null}
+                    </td>
+                    <td className="luxia-csv-structure-examples max-w-[16rem] truncate px-3 py-2 align-middle" title={examples}>
+                      {examples}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function SchemaDataPreview({
   file,
   live,
@@ -416,6 +585,7 @@ export function SchemaDataPreview({
   onSaveFixes,
   onExclude,
   onUndo,
+  inlinePreview = true,
 }: {
   file: CsvImportFileDraft;
   live: CsvValidationSummary;
@@ -427,6 +597,8 @@ export function SchemaDataPreview({
   onSaveFixes: (fixes: Array<{ issue: CsvValidationIssue; value: string }>) => string | null;
   onExclude: (rowNumber: number) => void;
   onUndo: (rowNumber: number) => void;
+  /** When false, the data grid opens only from Expand table. */
+  inlinePreview?: boolean;
 }) {
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editingDraft, setEditingDraft] = useState("");
@@ -436,9 +608,6 @@ export function SchemaDataPreview({
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollMemory = useRef({ left: 0, top: 0 });
   const firstIssueCellRef = useRef<HTMLButtonElement | null>(null);
-  const [similarBusy, setSimilarBusy] = useState<string | null>(null);
-  const [aiOutcome, setAiOutcome] = useState<string | null>(null);
-  const [aiFixedRows, setAiFixedRows] = useState<Set<number>>(() => new Set());
   const [editedRows, setEditedRows] = useState<Set<number>>(() => new Set());
 
   useEffect(() => {
@@ -447,16 +616,8 @@ export function SchemaDataPreview({
     setEditingKey(null);
     setEditingDraft("");
     setEditingError(null);
-    setAiOutcome(null);
-    setAiFixedRows(new Set());
     setEditedRows(new Set());
   }, [file.id]);
-
-  useEffect(() => {
-    if (!aiOutcome) return;
-    const timer = globalThis.setTimeout(() => setAiOutcome(null), 8000);
-    return () => globalThis.clearTimeout(timer);
-  }, [aiOutcome]);
 
   useEffect(() => {
     if (editedRows.size === 0) return;
@@ -464,17 +625,7 @@ export function SchemaDataPreview({
     return () => globalThis.clearTimeout(timer);
   }, [editedRows]);
 
-  useEffect(() => {
-    if (aiFixedRows.size === 0) return;
-    const timer = globalThis.setTimeout(() => setAiFixedRows(new Set()), 4000);
-    return () => globalThis.clearTimeout(timer);
-  }, [aiFixedRows]);
-
   const skipped = useMemo(() => new Set(file.skipped), [file.skipped]);
-  const openIssues: DisplayCsvIssue[] = live.issues.map((issue) => ({
-    ...issue,
-    resolution: "open",
-  }));
   const invalidRowNumbers = useMemo(
     () => new Set(live.issues.map((issue) => issue.rowNumber)),
     [live.issues],
@@ -500,8 +651,6 @@ export function SchemaDataPreview({
     }
     return counts;
   }, [live.issues]);
-  const similarGroups = useMemo(() => similarIssueGroups(openIssues), [openIssues]);
-
   useEffect(() => {
     if (issueCount === 0) setIssuesOnly(false);
   }, [issueCount]);
@@ -510,50 +659,6 @@ export function SchemaDataPreview({
     if (!viewingIssues) return;
     firstIssueCellRef.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
   }, [viewingIssues, file.id, firstIssueKey]);
-
-  async function requestSimilar(group: ReturnType<typeof similarIssueGroups>[number]) {
-    if (similarBusy) return;
-    setSimilarBusy(group.columnId);
-    setAiOutcome(null);
-    const reviewed = group.issues.length;
-    const column = file.columns.find((item) => item.id === group.columnId);
-    const expectedType = column ? selectedColumnType(column) : "Text";
-    try {
-      const result = await proposeCsvSimilarRepairs({
-        fileId: file.id,
-        fileName: file.fileName,
-        columnId: group.columnId,
-        columnName: group.columnName,
-        selectedType: expectedType,
-        validExamples: validExamplesForColumn(file, group.columnId),
-        issues: group.issues.map((issue) => ({
-          rowNumber: issue.rowNumber,
-          currentValue: issue.value,
-        })),
-      });
-      const changes = result.status === "ok" ? result.data.changes : [];
-      const accepted: Array<{ issue: CsvValidationIssue; value: string }> = [];
-      for (const change of changes) {
-        const issue = group.issues.find((item) => item.rowNumber === change.rowNumber);
-        if (!issue || !valueMatchesType(change.suggestedValue, expectedType)) continue;
-        accepted.push({ issue, value: change.suggestedValue });
-      }
-      if (accepted.length > 0) {
-        onSaveFixes(accepted);
-        setAiFixedRows((current) => {
-          const next = new Set(current);
-          for (const fix of accepted) next.add(fix.issue.rowNumber);
-          return next;
-        });
-      }
-      const remaining = Math.max(0, reviewed - accepted.length);
-      setAiOutcome(
-        `${reviewed.toLocaleString()} values reviewed · ${accepted.length.toLocaleString()} corrected · ${remaining.toLocaleString()} remaining`,
-      );
-    } finally {
-      setSimilarBusy(null);
-    }
-  }
 
   const editingIssue = editingKey ? issueByCell.get(editingKey) : undefined;
 
@@ -612,22 +717,6 @@ export function SchemaDataPreview({
 
   const workspace = (
     <div className={cn("flex min-w-0 flex-col gap-2", expanded && "min-h-0 flex-1")}>
-      {similarGroups.length > 0 ? (
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          {similarGroups.map((group) => (
-            <LuxiaAiButton
-              key={group.columnId}
-              disabled={similarBusy !== null}
-              aria-busy={similarBusy === group.columnId}
-              onClick={() => void requestSimilar(group)}
-            >
-              {similarBusy === group.columnId
-                ? `Fixing ${group.issues.length.toLocaleString()} issues…`
-                : `Fix ${group.issues.length.toLocaleString()} similar issues with AI`}
-            </LuxiaAiButton>
-          ))}
-        </div>
-      ) : null}
       <div className="flex min-w-0 items-center justify-between gap-3">
         <p className="min-w-0 luxia-type-caption" style={{ color: "var(--luxia-text-muted)" }}>
           {`Previewing ${previewCount.toLocaleString()} sample row${previewCount === 1 ? "" : "s"} of ${records.length.toLocaleString()} total rows`}
@@ -665,11 +754,6 @@ export function SchemaDataPreview({
             {schemaIssueViewActionLabel(issueCount, viewingIssues)}
           </Button>
         </div>
-      ) : null}
-      {aiOutcome ? (
-        <p className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }} role="status">
-          {aiOutcome}
-        </p>
       ) : null}
       {file.columns.length === 0 ? (
         <div className="luxia-settings-section-surface">
@@ -750,7 +834,7 @@ export function SchemaDataPreview({
                             <SelectContent className="!z-[80]">
                               {CSV_COLUMN_TYPES.map((type) => (
                                 <SelectItem key={type} value={type}>
-                                  {type}
+                                  {csvColumnTypeLabel(type)}
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -769,14 +853,14 @@ export function SchemaDataPreview({
                       {needsConfirm ? (
                         <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                           <p className="luxia-type-caption" style={{ color: "var(--luxia-warning-90)" }}>
-                            {`Detected as ${detectedType} · Needs confirmation`}
+                            {`Detected as ${csvColumnTypeLabel(detectedType)} · Needs confirmation`}
                           </p>
                           <Button
                             type="button"
                             variant="secondary"
                             size="compact"
                             className="h-7 min-h-7 shrink-0 px-2"
-                            aria-label={`Accept ${detectedType} type for ${col.name} column`}
+                            aria-label={`Accept ${csvColumnTypeLabel(detectedType)} type for ${col.name} column`}
                             onClick={() => onConfirmType(col.id)}
                           >
                             Accept type
@@ -806,8 +890,7 @@ export function SchemaDataPreview({
                 const excluded = skipped.has(row.rowNumber);
                 const rowIssues = live.issues.filter((issue) => issue.rowNumber === row.rowNumber);
                 const invalid = !excluded && rowIssues.length > 0;
-                const aiFixed = !excluded && !invalid && aiFixedRows.has(row.rowNumber);
-                const edited = !excluded && !invalid && !aiFixed && editedRows.has(row.rowNumber);
+                const edited = !excluded && !invalid && editedRows.has(row.rowNumber);
                 const rowEditing = Boolean(editingIssue && editingIssue.rowNumber === row.rowNumber);
                 const statusLabel = excluded
                   ? "Excluded"
@@ -911,7 +994,7 @@ export function SchemaDataPreview({
                         <div role="cell" className="luxia-csv-schema-editor-cell" style={{ gridColumn: "1 / -1" }}>
                           <div className="luxia-csv-schema-editor-inner">
                             <SchemaRowEditorStrip
-                              expected={editingIssue.expected}
+                              expected={csvColumnTypeLabel(editingIssue.expected)}
                               value={editingDraft}
                               error={editingError}
                               onChange={(next) => {
@@ -937,7 +1020,23 @@ export function SchemaDataPreview({
 
   return (
     <>
-      {expanded ? null : workspace}
+      {inlinePreview && !expanded ? workspace : null}
+      {!inlinePreview ? (
+        <div className="flex justify-end">
+          <Button
+            type="button"
+            variant="secondary"
+            size="compact"
+            className="h-7 min-h-7 shrink-0 gap-1.5 px-2"
+            aria-label="Expand Schema table"
+            disabled={file.columns.length === 0}
+            onClick={openExpanded}
+          >
+            <Maximize2 size={14} aria-hidden />
+            Expand table
+          </Button>
+        </div>
+      ) : null}
       <Dialog
         open={expanded}
         onOpenChange={(next) => {

@@ -1,5 +1,6 @@
 export {
   CSV_COLUMN_TYPES,
+  CSV_COLUMN_TYPE_LABELS,
   CSV_DELIMITER_CHARS,
   CSV_DELIMITER_IDS,
   CSV_DELIMITER_LABELS,
@@ -33,7 +34,10 @@ export type {
 export {
   inferColumnType,
   inferCsvSchema,
+  columnProblemCopy,
   columnReviewReason,
+  columnTypeConfidence,
+  csvColumnTypeLabel,
   selectedColumnType,
   valueMatchesType,
 } from "./schema";
@@ -54,12 +58,16 @@ export {
   duplicateTableNameKeys,
   csvColumnNameConflict,
   includedCsvFiles,
+  replaceCsvImportFileContents,
   reparseCsvImportFile,
   tableNameConflictKey,
 } from "./fileDraft";
 export type {
+  CsvAiProposal,
   CsvFileUiStatus,
   CsvImportFileDraft,
+  CsvResolutionKind,
+  CsvTypeSuggestion,
   CsvRowDescriptionEntry,
   CsvRowDescriptionOrigin,
   CsvTableMetaOrigin,

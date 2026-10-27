@@ -36,7 +36,7 @@ function columnIndex(file: CsvImportFileDraft, columnId: string): number {
 
 function isNumericColumn(column: CsvColumnDraft): boolean {
   const type = selectedColumnType(column);
-  return type === "Integer" || type === "Number";
+  return type === "Integer" || type === "BigInt" || type === "Number";
 }
 
 export function numericAggregateColumns(

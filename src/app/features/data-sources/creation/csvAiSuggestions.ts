@@ -1,7 +1,7 @@
 /** Prototype-only deterministic AI fallback; no backend endpoint. UI must call csvAi.ts. Do not surface “prototype” in product copy. */
 
 import type { CsvColumnType } from "./csv/parse";
-import { inferColumnType, isDateValue, valueMatchesType } from "./csv/schema";
+import { inferColumnType, isDateValue, isTimestampValue, valueMatchesType } from "./csv/schema";
 import type {
   CsvAiColumnTypeRequest,
   CsvAiColumnTypeSuccess,
@@ -150,6 +150,14 @@ function prototypeDateFix(currentValue: string, validExamples: string[]): string
   return null;
 }
 
+export function suggestedRepairValue(
+  currentValue: string,
+  selectedType: string,
+  validExamples: string[] = [],
+): string | null {
+  return repairForType(currentValue, selectedType, validExamples);
+}
+
 function repairForType(
   currentValue: string,
   selectedType: string,
@@ -159,16 +167,18 @@ function repairForType(
   if (valueMatchesType(trimmed, selectedType as CsvColumnType)) {
     return trimmed === currentValue ? null : trimmed;
   }
-  if (selectedType === "Date") {
+  if (selectedType === "Date" || selectedType === "Timestamp") {
     const next = prototypeDateFix(trimmed, validExamples);
-    return next && isDateValue(next) && next !== trimmed ? next : null;
+    if (!next || next === trimmed) return null;
+    if (selectedType === "Timestamp") return isTimestampValue(next) ? next : null;
+    return isDateValue(next) && !isTimestampValue(next) ? next : null;
   }
   if (looksUnrecoverable(trimmed)) return null;
-  if (selectedType === "Integer") {
+  if (selectedType === "Integer" || selectedType === "BigInt") {
     const compact = trimmed.replace(/,/g, "");
     if (/^-?\d+(?:\.0+)?$/.test(compact)) {
       const asInt = String(Number.parseInt(compact, 10));
-      return valueMatchesType(asInt, "Integer") ? asInt : null;
+      return valueMatchesType(asInt, selectedType as CsvColumnType) ? asInt : null;
     }
     return null;
   }

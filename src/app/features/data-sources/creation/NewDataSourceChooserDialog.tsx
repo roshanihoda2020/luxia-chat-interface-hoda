@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Button } from "@/app/components/ui/button";
 import {
   Dialog,
@@ -28,7 +29,7 @@ export interface NewDataSourceChooserDialogProps {
   open: boolean;
   connector: DataSourceConnector | null;
   name: string;
-  ownership: DataSourceOwnershipChoice;
+  ownership: DataSourceOwnershipChoice | null;
   allowOrganizational: boolean;
   onConnectorChange: (connector: DataSourceConnector) => void;
   onNameChange: (name: string) => void;
@@ -52,8 +53,21 @@ export function NewDataSourceChooserDialog({
   tagDraft,
 }: NewDataSourceChooserDialogProps) {
   const nameTrimmed = name.trim();
-  const canContinue = Boolean(connector && nameTrimmed);
+  const canContinue = Boolean(connector && nameTrimmed && ownership);
   const selectedOption = getConnectorOption(connector);
+  const [nameTouched, setNameTouched] = useState(false);
+  const [ownershipTouched, setOwnershipTouched] = useState(false);
+  const [continueAttempted, setContinueAttempted] = useState(false);
+
+  useEffect(() => {
+    if (open) return;
+    setNameTouched(false);
+    setOwnershipTouched(false);
+    setContinueAttempted(false);
+  }, [open]);
+
+  const showNameFeedback = (nameTouched || continueAttempted) && !nameTrimmed;
+  const showOwnershipFeedback = (ownershipTouched || continueAttempted) && !ownership;
 
   return (
     <Dialog
@@ -62,7 +76,7 @@ export function NewDataSourceChooserDialog({
         if (!next) onCancel();
       }}
     >
-      <DialogContent className="flex max-h-[min(92vh,40rem)] w-full max-w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-5xl [&>button]:!right-6">
+      <DialogContent className="flex max-h-[min(92vh,40rem)] w-full max-w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-5xl">
         <DialogHeader className="shrink-0">
           <DialogTitle>New Data Source</DialogTitle>
           <DialogDescription>
@@ -78,19 +92,17 @@ export function NewDataSourceChooserDialog({
             />
           </div>
 
-          <div
-            className="min-w-0 border-t px-6 py-4 md:w-[22rem] md:shrink-0 md:border-t-0 md:border-l"
-            style={{
-              borderColor: "var(--luxia-border-subtle)",
-              background: "var(--luxia-opacity-brand-primary-04)",
-            }}
-          >
+          <div className="luxia-creation-side-rail min-w-0 border-t border-[var(--luxia-border-subtle)] md:border-t-0 md:border-l">
             <DataSourceChooserDetails
               selectedOption={selectedOption}
               name={name}
               ownership={ownership}
               allowOrganizational={allowOrganizational}
               tagDraft={tagDraft}
+              showNameFeedback={showNameFeedback}
+              showOwnershipFeedback={showOwnershipFeedback}
+              onNameBlur={() => setNameTouched(true)}
+              onOwnershipBlur={() => setOwnershipTouched(true)}
               onNameChange={onNameChange}
               onOwnershipChange={onOwnershipChange}
             />
@@ -101,15 +113,29 @@ export function NewDataSourceChooserDialog({
           <Button type="button" variant="secondary" size="compact" onClick={onCancel}>
             Cancel
           </Button>
-          <Button
-            type="button"
-            variant="primary"
-            size="compact"
-            disabled={!canContinue}
-            onClick={onNext}
+          <span
+            className="inline-flex"
+            onClick={() => {
+              if (!canContinue) setContinueAttempted(true);
+            }}
           >
-            Next
-          </Button>
+            <Button
+              type="button"
+              variant="primary"
+              size="compact"
+              aria-disabled={!canContinue}
+              tabIndex={canContinue ? 0 : -1}
+              onClick={() => {
+                if (!canContinue) {
+                  setContinueAttempted(true);
+                  return;
+                }
+                onNext();
+              }}
+            >
+              Next
+            </Button>
+          </span>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -262,58 +288,77 @@ function DataSourceChooserDetails({
   ownership,
   allowOrganizational,
   tagDraft,
+  showNameFeedback,
+  showOwnershipFeedback,
+  onNameBlur,
+  onOwnershipBlur,
   onNameChange,
   onOwnershipChange,
 }: {
   selectedOption: DataSourceConnectorOption | undefined;
   name: string;
-  ownership: DataSourceOwnershipChoice;
+  ownership: DataSourceOwnershipChoice | null;
   allowOrganizational: boolean;
   tagDraft: DraftDataSourceTagsApi;
+  showNameFeedback: boolean;
+  showOwnershipFeedback: boolean;
+  onNameBlur: () => void;
+  onOwnershipBlur: () => void;
   onNameChange: (name: string) => void;
   onOwnershipChange: (ownership: DataSourceOwnershipChoice) => void;
 }) {
   return (
-    <section aria-labelledby="ds-chooser-details-heading">
-      <h3
-        id="ds-chooser-details-heading"
-        className="luxia-type-title-section border-b border-[var(--luxia-border-subtle)] pb-3 text-[var(--luxia-text-primary)]"
+    <section className="space-y-6" aria-label="Data Source details">
+      <div className="space-y-2">
+        <Label htmlFor="ds-create-name" className="text-[var(--luxia-text-primary)]">
+          Data Source name
+        </Label>
+        <Input
+          id="ds-create-name"
+          value={name}
+          onChange={(event) => onNameChange(event.target.value)}
+          onBlur={onNameBlur}
+          autoComplete="off"
+          aria-invalid={showNameFeedback}
+          aria-describedby={showNameFeedback ? "ds-create-name-error" : undefined}
+        />
+        {showNameFeedback ? (
+          <p id="ds-create-name-error" className="luxia-type-caption text-[var(--luxia-text-secondary)]">
+            Enter a Data Source name.
+          </p>
+        ) : null}
+      </div>
+
+      <div
+        onBlur={(event) => {
+          const next = event.relatedTarget;
+          if (next instanceof Node && event.currentTarget.contains(next)) return;
+          onOwnershipBlur();
+        }}
       >
-        Data Source details
-      </h3>
-
-      <div className="mt-6 space-y-6">
-        <div className="space-y-2">
-          <Label htmlFor="ds-create-name" className="text-[var(--luxia-text-primary)]">
-            Data Source name
-          </Label>
-          <Input
-            id="ds-create-name"
-            value={name}
-            onChange={(event) => onNameChange(event.target.value)}
-            placeholder="Data source name 01"
-            autoComplete="off"
-          />
-        </div>
-
         <DataSourceOwnershipField
           value={ownership}
           onChange={onOwnershipChange}
           allowOrganizational={allowOrganizational}
         />
-
-        {selectedOption ? (
-          <DraftDataSourceTagsField
-            draft={tagDraft}
-            labeledAdd
-            quiet
-            titleClassName="luxia-type-label-form text-[var(--luxia-text-primary)]"
-            addTriggerClassName="!h-[22px] !min-h-[22px] !gap-1 !rounded-[var(--luxia-radius-8)] !px-2 !text-[12px] !leading-4"
-            listClassName="mt-2 flex w-full items-center gap-2"
-            chipClassName="max-w-full"
-          />
+        {showOwnershipFeedback ? (
+          <p id="ds-create-ownership-error" className="mt-2 luxia-type-caption text-[var(--luxia-text-secondary)]">
+            Select an ownership.
+          </p>
         ) : null}
       </div>
+
+      {selectedOption ? (
+        <DraftDataSourceTagsField
+          draft={tagDraft}
+          labeledAdd
+          quiet
+          titleClassName="luxia-csv-step1-summary-tags-label luxia-type-label-form"
+          addTriggerClassName="luxia-csv-step1-add-tag"
+          listClassName="luxia-csv-step1-tag-list"
+          chipClassName="max-w-full"
+        />
+      ) : null}
     </section>
   );
 }

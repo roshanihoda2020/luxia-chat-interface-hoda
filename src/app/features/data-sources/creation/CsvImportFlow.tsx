@@ -93,23 +93,26 @@ import {
   defaultTableNameFromFile,
   duplicateTableNameKeys,
   includedCsvFiles,
-  mergeGeneratedTableMeta,
+  csvColumnTypeLabel,
+  inferColumnType,
+  columnReviewReason,
+  replaceCsvImportFileContents,
   reparseCsvImportFile,
-  rowDescriptionReviewLabel,
   selectedColumnType,
-  bulkTableMetaActionLabel,
   bulkTableMetaNotice,
-  tableMetaNeedsAi,
+  tableDescriptionNeedsAi,
   tableMetaStatusLabel,
   tableNameConflictKey,
   validateCsvRows,
   valueMatchesType,
-  valueContextReviewLabel,
   valueContextTabLabel,
   unsavedValueContextColumnCount,
   unsavedValueContextColumnIds,
+  type CsvAiProposal,
   type CsvColumnType,
   type CsvColumnTypeMismatch,
+  type CsvResolutionKind,
+  type CsvTypeSuggestion,
   type CsvDelimiterId,
   type CsvEncodingId,
   type CsvFileUiStatus,
@@ -117,27 +120,43 @@ import {
   type CsvImportFileDraft,
   type CsvColumnValueContext,
 } from "./csv";
+import { CsvFileGlyph } from "./DataSourceTypeIcon";
 import {
-  ExcludedRowsTable,
+  ColumnStructureTable,
   SchemaDataPreview,
   type DisplayCsvIssue,
 } from "./CsvImportRowActions";
+import { CsvValidationWorkspace } from "./CsvValidationWorkspace";
 import { CsvRowDescriptionsSection } from "./CsvRowDescriptions";
 import { CsvValueContextSection } from "./CsvValueContextSection";
 import { DocumentTagSummary, DraftDataSourceTagsField, DraftTableTagRow, type DocumentTagDefinition, type DraftDataSourceTagsApi } from "@/app/features/document-tags";
 import { LuxiaAiButton } from "@/app/components/LuxiaAiButton";
 import { luxiaToast } from "@/app/features/shared/luxiaToast";
-import { proposeCsvTableMetadata } from "./csvAi";
+import { proposeCsvSimilarRepairs, proposeCsvTableMetadata, suggestedRepairValue } from "./csvAi";
 import type { DataSourceHandoffProject } from "../constellationHandoff";
 
+const CSV_STEP = {
+  upload: 1,
+  columns: 2,
+  validation: 3,
+  import: 4,
+  tableDescriptions: 5,
+  sampleValues: 6,
+  columnDescriptions: 7,
+  summary: 8,
+} as const;
+
+const CSV_STACKED_SECTION_MAX = 5;
+
 const STEPS = [
-  { id: 1, label: "Upload" },
-  { id: 2, label: "Schema" },
-  { id: 3, label: "Validation" },
-  { id: 4, label: "Sample Values" },
-  { id: 5, label: "Tables" },
-  { id: 6, label: "Review" },
-  { id: 7, label: "Summary" },
+  { id: CSV_STEP.upload, label: "Upload File" },
+  { id: CSV_STEP.columns, label: "Columns & Types" },
+  { id: CSV_STEP.validation, label: "Validation" },
+  { id: CSV_STEP.import, label: "Import" },
+  { id: CSV_STEP.tableDescriptions, label: "Table Descriptions" },
+  { id: CSV_STEP.sampleValues, label: "Sample Values" },
+  { id: CSV_STEP.columnDescriptions, label: "Column Descriptions" },
+  { id: CSV_STEP.summary, label: "Summary" },
 ] as const;
 
 type StepId = (typeof STEPS)[number]["id"];
@@ -326,33 +345,25 @@ function unsavedValueContextLeaveCopy(columnCount: number, fileCount: number): s
   return `${columnCount.toLocaleString()} columns have unsaved value context.`;
 }
 
-function StepMarker({ state }: { state: RailState }) {
-  const current = state === "current";
-  const completed = state === "completed";
+function StepMarker({ state, index }: { state: "done" | "current" | "open" | "muted"; index: number }) {
   return (
-    <span
-      className="relative z-[1] flex size-[22px] shrink-0 items-center justify-center rounded-full border"
-      style={{
-        borderColor: current
-          ? "var(--luxia-text-inverse)"
-          : "var(--luxia-opacity-white-32)",
-        background: current
-          ? "var(--luxia-text-inverse)"
-          : "var(--luxia-brand-primary-dark)",
-        color: current ? "var(--luxia-brand-primary-dark)" : "var(--luxia-opacity-white-80)",
-      }}
-      aria-hidden
-    >
-      {completed ? (
-        <Check size={12} strokeWidth={2.5} />
-      ) : current ? (
-        <span
-          className="size-1.5 rounded-full"
-          style={{ background: "var(--luxia-brand-primary-dark)" }}
-        />
-      ) : null}
+    <span className="luxia-csv-step-marker" data-state={state} aria-hidden>
+      {state === "done" ? <Check size={15} strokeWidth={2.5} /> : String(index).padStart(2, "0")}
     </span>
   );
+}
+
+function resolutionReceiptLabel(file: CsvImportFileDraft): string {
+  if (file.importAsText) return "Import as text";
+  const labels: Record<CsvResolutionKind, string> = {
+    "skip-affected": "Skipped rows",
+    manual: "Manual",
+    "ai-accepted": "AI-fixed",
+    reupload: "Re-uploaded",
+    "import-as-text": "Import as text",
+  };
+  if (file.appliedResolutions.length === 0) return "No issues";
+  return file.appliedResolutions.map((kind) => labels[kind]).join(", ");
 }
 
 function railStateLabel(state: RailState): string {
@@ -372,10 +383,10 @@ function truncateCsvCell(value: string, max = 36): string {
 
 function columnInsightMeaning(column: CsvColumnDraft): string {
   const type = selectedColumnType(column);
-  if (type === "Date") {
-    return column.dateFormat ? `Date values · ${column.dateFormat}` : "Date values";
+  if (type === "Date" || type === "Timestamp") {
+    return column.dateFormat ? `${csvColumnTypeLabel(type)} · ${column.dateFormat}` : `${csvColumnTypeLabel(type)} values`;
   }
-  if (type === "Integer") return "Whole numbers";
+  if (type === "Integer" || type === "BigInt") return "Whole numbers";
   if (type === "Number") return "Numeric values";
   if (type === "Boolean") return "True or false values";
   return "Text values";
@@ -383,8 +394,8 @@ function columnInsightMeaning(column: CsvColumnDraft): string {
 
 function columnInsightUsage(column: CsvColumnDraft): string {
   const type = selectedColumnType(column);
-  if (type === "Date") return "Time filters";
-  if (type === "Integer" || type === "Number") return "Counts and measures";
+  if (type === "Date" || type === "Timestamp") return "Time filters";
+  if (type === "Integer" || type === "BigInt" || type === "Number") return "Counts and measures";
   if (type === "Boolean") return "Flags and filters";
   return "Labels and search";
 }
@@ -523,16 +534,52 @@ function validationFileStatus(
   return "valid";
 }
 
-function validationStatusLabel(status: ValidationFileStatus, summary?: CsvValidationSummary): string {
-  if (status === "valid") return "Ready";
+function validationStatusLabel(
+  file: CsvImportFileDraft,
+  status: ValidationFileStatus,
+  summary?: CsvValidationSummary,
+): string {
+  if (status === "valid") {
+    const resolved = file.importAsText
+      || file.skipped.length > 0
+      || Object.keys(file.overrides).length > 0
+      || (summary?.resolvedRows ?? 0) > 0;
+    return resolved ? "Resolved" : "No issues";
+  }
   if (status === "excluded") return "Excluded";
   if (status === "not-run") return "Not checked";
-  if (status === "schema-mismatch") return "Needs review";
-  if (status === "errors") {
-    const count = summary?.invalidRows ?? 0;
-    return `${count.toLocaleString()} issue${count === 1 ? "" : "s"}`;
+  if (status === "schema-mismatch" || status === "errors") {
+    const count = summary?.issues.length || summary?.invalidRows || 0;
+    if (count > 0) return `${count.toLocaleString()} issue${count === 1 ? "" : "s"}`;
+    return "Needs review";
   }
   return "Needs review";
+}
+
+function typeSuggestionsFor(file: CsvImportFileDraft): CsvTypeSuggestion[] {
+  if (file.importAsText || !file.parsed) return [];
+  const skipped = new Set(file.skipped);
+  const suggestions: CsvTypeSuggestion[] = [];
+  file.columns.forEach((column, index) => {
+    const values = file.parsed!.records
+      .filter((record) => !skipped.has(record.rowNumber))
+      .map((record) => file.overrides[record.rowNumber]?.[column.id] ?? record.fields[index] ?? "");
+    const inferred = inferColumnType(values);
+    const selected = selectedColumnType(column);
+    if (inferred.needsReview || inferred.type === selected) return;
+    suggestions.push({
+      columnId: column.id,
+      columnName: column.name,
+      currentType: selected,
+      suggestedType: inferred.type,
+    });
+  });
+  return suggestions;
+}
+
+function withResolution(file: CsvImportFileDraft, kind: CsvResolutionKind): CsvImportFileDraft {
+  if (file.appliedResolutions.includes(kind)) return file;
+  return { ...file, appliedResolutions: [...file.appliedResolutions, kind] };
 }
 
 function fileRowCount(file: CsvImportFileDraft): number {
@@ -644,7 +691,7 @@ export function CsvImportFlow({
   const [creating, setCreating] = useState(false);
   const [created, setCreated] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
-  const [reviewDetailsOpen, setReviewDetailsOpen] = useState(false);
+  const [confirmedImportSignature, setConfirmedImportSignature] = useState<string | null>(null);
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const [bulkTableAiBusy, setBulkTableAiBusy] = useState(false);
   const [bulkTableAiNotice, setBulkTableAiNotice] = useState<string | null>(null);
@@ -655,6 +702,8 @@ export function CsvImportFlow({
   const [handoffProjectId, setHandoffProjectId] = useState<string | null>(null);
   const [sampleValuesLeaveStep, setSampleValuesLeaveStep] = useState<StepId | null>(null);
   const [pendingRemoveFileId, setPendingRemoveFileId] = useState<string | null>(null);
+  const [aiBusyFileId, setAiBusyFileId] = useState<string | null>(null);
+  const [proposeNotice, setProposeNotice] = useState<string | null>(null);
 
   const included = useMemo(() => includedCsvFiles(files), [files]);
   const previewFile = previewFileId
@@ -677,6 +726,14 @@ export function CsvImportFlow({
     ? validations.get(activeFile.id) ?? EMPTY_VALIDATION
     : EMPTY_VALIDATION;
   const duplicateNames = useMemo(() => duplicateTableNameKeys(files), [files]);
+  const importOutcomeSignature = useMemo(
+    () => included.map((file) => {
+      const live = liveValidationForFile(file);
+      return `${file.id}:${file.tableName.trim()}:${live.readyRows}:${live.skippedRows}:${live.totalRows}`;
+    }).join("|"),
+    [included],
+  );
+  const importLocked = confirmedImportSignature !== null && confirmedImportSignature === importOutcomeSignature;
 
   const uploadComplete =
     included.length > 0 && included.every((file) => csvFileHasUsableParse(file));
@@ -724,7 +781,7 @@ export function CsvImportFlow({
     : null;
 
   useEffect(() => {
-    if (focusedColumnId && step === 2) return;
+    if (focusedColumnId && step === CSV_STEP.columns) return;
     contentScrollRef.current?.scrollTo({ top: 0 });
   }, [step, focusedColumnId]);
 
@@ -738,10 +795,14 @@ export function CsvImportFlow({
 
   useEffect(() => {
     if (created) return;
-    if (!schemaComplete && step >= 3 && step < 7) {
-      setStep(2);
+    if (!schemaComplete && step >= CSV_STEP.validation && step < CSV_STEP.summary) {
+      setStep(CSV_STEP.columns);
+      return;
     }
-  }, [schemaComplete, step, created]);
+    if (!importLocked && step > CSV_STEP.import && step < CSV_STEP.summary) {
+      setStep(CSV_STEP.import);
+    }
+  }, [schemaComplete, importLocked, step, created]);
 
   useEffect(() => {
     const request = focusRequestRef.current;
@@ -770,23 +831,23 @@ export function CsvImportFlow({
     skipValueContextPrompt?: boolean;
     fileId?: string;
   }) {
-    if (created && next !== 7) return;
+    if (created && next !== CSV_STEP.summary) return;
     if (
-      step === 1
-      && next !== 1
+      step === CSV_STEP.upload
+      && next !== CSV_STEP.upload
       && parseDraftIsDirty(parseDraft, files.find((file) => file.id === parseDraft?.fileId))
     ) return;
     if (
-      step === 2
-      && next !== 2
+      step === CSV_STEP.columns
+      && next !== CSV_STEP.columns
       && parseDraftIsDirty(parseDraft, files.find((file) => file.id === parseDraft?.fileId))
     ) {
       setSchemaParseLeaveAttempt((attempt) => attempt + 1);
       return;
     }
     if (
-      step === 4
-      && (next === 5 || next === 6)
+      step === CSV_STEP.sampleValues
+      && next > CSV_STEP.sampleValues
       && !options?.skipValueContextPrompt
       && unsavedSampleValueColumns > 0
     ) {
@@ -803,7 +864,7 @@ export function CsvImportFlow({
     } else {
       setFocusedColumnId(null);
     }
-    if (next === 3) {
+    if (next === CSV_STEP.validation) {
       setFiles((prev) =>
         prev.map((file) =>
           file.included && file.parsed && csvFileIsStructurallyUsable(file) && (!file.validationRan || file.validationStale)
@@ -816,16 +877,21 @@ export function CsvImportFlow({
       options?.fileId && included.some((file) => file.id === options.fileId)
         ? options.fileId
         : null;
-    if (focusFileId && (next === 2 || next === 3)) {
+    if (focusFileId && (next === CSV_STEP.columns || next === CSV_STEP.validation)) {
       setActiveFileId(focusFileId);
     }
-    if (next === 4 || next === 5) {
+    if (
+      next === CSV_STEP.import
+      || next === CSV_STEP.tableDescriptions
+      || next === CSV_STEP.sampleValues
+      || next === CSV_STEP.columnDescriptions
+    ) {
       setActiveFileId((current) =>
         focusFileId
         ?? (current && included.some((file) => file.id === current) ? current : included[0]?.id ?? null),
       );
     }
-    if (next === 5) {
+    if (next === CSV_STEP.tableDescriptions) {
       setSelectedTableId((current) => {
         if (focusFileId) return focusFileId;
         const preferred =
@@ -955,22 +1021,20 @@ export function CsvImportFlow({
     }));
   }
 
-  function applyAiTableMeta(fileId: string, tableName: string, tableDescription: string) {
+  function applyAiTableDescription(fileId: string, tableDescription: string) {
     updateFile(fileId, (current) => ({
       ...current,
-      tableName,
       tableDescription,
       tableMetaAiGenerated: true,
-      tableNameOrigin: "ai",
-      tableDescriptionOrigin: "ai",
+      tableDescriptionOrigin: tableDescription.trim() ? "ai" : "unset",
     }));
   }
 
   async function generateBulkTableMeta() {
     if (bulkTableAiBusy) return;
     const includedNow = includedCsvFiles(files);
-    const alreadyComplete = includedNow.filter((file) => !tableMetaNeedsAi(file)).length;
-    const targets = includedNow.filter((file) => tableMetaNeedsAi(file));
+    const alreadyComplete = includedNow.filter((file) => !tableDescriptionNeedsAi(file)).length;
+    const targets = includedNow.filter((file) => tableDescriptionNeedsAi(file));
     if (targets.length === 0) {
       setBulkTableAiNotice(bulkTableMetaNotice({ generated: 0, alreadyComplete, failed: 0 }));
       return;
@@ -995,10 +1059,17 @@ export function CsvImportFlow({
           continue;
         }
         generated += 1;
+        const description = result.data.tableDescription.trim();
         setFiles((current) =>
-          current.map((item) =>
-            item.id === file.id ? mergeGeneratedTableMeta(item, result.data) : item,
-          ),
+          current.map((item) => {
+            if (item.id !== file.id || !description || !tableDescriptionNeedsAi(item)) return item;
+            return {
+              ...item,
+              tableDescription: description,
+              tableDescriptionOrigin: "ai" as const,
+              tableMetaAiGenerated: true,
+            };
+          }),
         );
       }
       setBulkTableAiNotice(bulkTableMetaNotice({ generated, alreadyComplete, failed }));
@@ -1008,7 +1079,7 @@ export function CsvImportFlow({
   }
 
   function schemaParseDirty(): boolean {
-    return step === 2 && parseDraftIsDirty(
+    return step === CSV_STEP.columns && parseDraftIsDirty(
       parseDraft,
       files.find((file) => file.id === parseDraft?.fileId),
     );
@@ -1136,13 +1207,13 @@ export function CsvImportFlow({
   function removeFile(fileId: string) {
     const removed = files.find((file) => file.id === fileId);
     if (!removed) {
-      if (step === 1) luxiaToast.error("Couldn't remove the file.");
+      if (step === CSV_STEP.upload) luxiaToast.error("Couldn't remove the file.");
       return;
     }
     try {
       tagDraft.clearTableAssignments(fileId);
     } catch {
-      if (step === 1) luxiaToast.error(`Couldn't remove "${removed.fileName}".`);
+      if (step === CSV_STEP.upload) luxiaToast.error(`Couldn't remove "${removed.fileName}".`);
       return;
     }
     const removedIndex = files.findIndex((file) => file.id === fileId);
@@ -1160,7 +1231,7 @@ export function CsvImportFlow({
     if (removingActive) setFocusedColumnId(null);
 
     setFiles(next);
-    if (step === 1) {
+    if (step === CSV_STEP.upload) {
       const nextFile = files[removedIndex + 1];
       const previousFile = files[removedIndex - 1];
       focusRequestRef.current = nextFile
@@ -1223,7 +1294,7 @@ export function CsvImportFlow({
     const fileId = pendingRemoveFileId;
     if (!fileId) return;
     setPendingRemoveFileId(null);
-    if (step === 1) focusRequestRef.current = { type: "more", fileId };
+    if (step === CSV_STEP.upload) focusRequestRef.current = { type: "more", fileId };
   }
 
   function toggleIncluded(fileId: string) {
@@ -1243,7 +1314,7 @@ export function CsvImportFlow({
   function startParseEdit(fileId: string) {
     if (applyingParse) return;
     if (
-      step === 1
+      step === CSV_STEP.upload
       && editingFileId
       && editingFileId !== fileId
       && parseDraftIsDirty(parseDraft, files.find((item) => item.id === editingFileId))
@@ -1253,7 +1324,7 @@ export function CsvImportFlow({
     setActiveFileId(fileId);
     setParseDraft(parseDraftFromFile(file));
     setEditingFileId(fileId);
-    if (step === 1) focusRequestRef.current = { type: "editor", fileId };
+    if (step === CSV_STEP.upload) focusRequestRef.current = { type: "editor", fileId };
   }
 
   function reparseEditedFile() {
@@ -1275,14 +1346,14 @@ export function CsvImportFlow({
           invalidateDownstream: true,
         }),
       );
-      if (step >= 2 || maxReachedStep >= 2) {
+      if (step >= CSV_STEP.columns || maxReachedStep >= CSV_STEP.columns) {
         setParseResetNotice("Columns were updated.");
       }
       setEditingFileId(null);
       setParseDraft(null);
-      if (step === 1) focusRequestRef.current = { type: "parse-trigger", fileId: draft.fileId };
+      if (step === CSV_STEP.upload) focusRequestRef.current = { type: "parse-trigger", fileId: draft.fileId };
     };
-    if (step !== 1) {
+    if (step !== CSV_STEP.upload) {
       run();
       return;
     }
@@ -1304,7 +1375,7 @@ export function CsvImportFlow({
     const fileId = editingFileId;
     setEditingFileId(null);
     setParseDraft(null);
-    if (step === 1 && fileId) focusRequestRef.current = { type: "parse-trigger", fileId };
+    if (step === CSV_STEP.upload && fileId) focusRequestRef.current = { type: "parse-trigger", fileId };
   }
 
   function updateParseDraftEncoding(encoding: CsvEncodingId) {
@@ -1366,11 +1437,17 @@ export function CsvImportFlow({
     });
   }
 
-  function changeColumnType(columnId: string, type: string) {
-    if (!activeFile) return;
-    const current = activeFile.columns.find((column) => column.id === columnId);
+  function fileFor(fileId?: string): CsvImportFileDraft | null {
+    if (fileId) return files.find((file) => file.id === fileId) ?? null;
+    return activeFile;
+  }
+
+  function changeColumnType(columnId: string, type: string, fileId?: string) {
+    const target = fileFor(fileId);
+    if (!target) return;
+    const current = target.columns.find((column) => column.id === columnId);
     if (!current || current.type === type) return;
-    updateFile(activeFile.id, (file) => {
+    updateFile(target.id, (file) => {
       const nextFile: CsvImportFileDraft = {
         ...file,
         columns: file.columns.map((item) => {
@@ -1381,6 +1458,8 @@ export function CsvImportFlow({
             status: schemaStatusForType(type, item.detectedType),
           };
         }),
+        aiProposals: file.aiProposals.filter((proposal) => proposal.columnId !== columnId),
+        importAsText: false,
       };
       return nextFile.parsed && csvFileIsStructurallyUsable(nextFile)
         ? runValidationFor(nextFile)
@@ -1407,6 +1486,8 @@ export function CsvImportFlow({
               status: schemaStatusForType(detectedType, item.detectedType),
             };
           }),
+          aiProposals: file.aiProposals.filter((proposal) => proposal.columnId !== columnId),
+          importAsText: false,
         };
         return nextFile.parsed && csvFileIsStructurallyUsable(nextFile)
           ? runValidationFor(nextFile)
@@ -1417,12 +1498,13 @@ export function CsvImportFlow({
 
   function reviewColumnType(fileId: string, columnId: string) {
     setActiveFileId(fileId);
-    goToStep(2, { focusColumnId: columnId });
+    goToStep(CSV_STEP.columns, { focusColumnId: columnId });
   }
 
-  function confirmColumnType(columnId: string) {
-    if (!activeFile) return;
-    updateFile(activeFile.id, (file) => ({
+  function confirmColumnType(columnId: string, fileId?: string) {
+    const target = fileFor(fileId);
+    if (!target) return;
+    updateFile(target.id, (file) => ({
       ...file,
       columns: file.columns.map((item) => {
         if (item.id !== columnId) return item;
@@ -1435,12 +1517,13 @@ export function CsvImportFlow({
     }));
   }
 
-  function renameColumn(columnId: string, nextName: string): string | null {
-    if (!activeFile) return "This file is not available.";
-    const conflict = csvColumnNameConflict(activeFile.columns, columnId, nextName);
+  function renameColumn(columnId: string, nextName: string, fileId?: string): string | null {
+    const target = fileFor(fileId);
+    if (!target) return "This file is not available.";
+    const conflict = csvColumnNameConflict(target.columns, columnId, nextName);
     if (conflict) return conflict;
     const trimmed = nextName.trim();
-    updateFile(activeFile.id, (file) => ({
+    updateFile(target.id, (file) => ({
       ...file,
       columns: file.columns.map((item) =>
         item.id === columnId
@@ -1475,6 +1558,11 @@ export function CsvImportFlow({
         ...next.issues,
         ...skippedKept.filter((issue) => !snapshotKeys.has(`${issue.rowNumber}:${issue.columnId}`)),
       ],
+      typeSuggestions: typeSuggestionsFor({
+        ...file,
+        validationRan: true,
+        validationStale: false,
+      }),
     };
   }
 
@@ -1488,9 +1576,10 @@ export function CsvImportFlow({
     );
   }
 
-  function skipRow(rowNumber: number) {
-    if (!activeFile) return;
-    updateFile(activeFile.id, (file) => {
+  function skipRow(rowNumber: number, fileId?: string) {
+    const target = fileFor(fileId);
+    if (!target) return;
+    updateFile(target.id, (file) => {
       const live = liveValidationForFile(file);
       const extra = live.issues.filter((issue) => issue.rowNumber === rowNumber);
       const keys = new Set((file.issueSnapshot ?? []).map((issue) => `${issue.rowNumber}:${issue.columnId}`));
@@ -1505,25 +1594,229 @@ export function CsvImportFlow({
     });
   }
 
-  function unskipRow(rowNumber: number) {
-    if (!activeFile) return;
-    updateFile(activeFile.id, (file) =>
-      runValidationFor({
-        ...file,
-        skipped: file.skipped.filter((row) => row !== rowNumber),
-      }),
-    );
+  function unskipRow(rowNumber: number, fileId?: string) {
+    const target = fileFor(fileId);
+    if (!target) return;
+    updateFile(target.id, (file) => {
+      const skipped = file.skipped.filter((row) => row !== rowNumber);
+      const next = runValidationFor({ ...file, skipped });
+      if (skipped.length > 0) return next;
+      return { ...next, appliedResolutions: next.appliedResolutions.filter((kind) => kind !== "skip-affected") };
+    });
   }
 
-  function applyCellFix(issue: CsvValidationIssue, value: string): string | null {
-    if (!activeFile) return "This file is not available.";
-    const column = activeFile.columns.find((item) => item.id === issue.columnId);
+  function skipAffectedRows(fileId?: string) {
+    const target = fileFor(fileId);
+    if (!target) return;
+    updateFile(target.id, (file) => {
+      const live = liveValidationForFile(file);
+      const rows = [...new Set(live.issues.map((issue) => issue.rowNumber))];
+      return runValidationFor(withResolution({
+        ...file,
+        skipped: [...new Set([...file.skipped, ...rows])],
+        aiProposals: [],
+      }, "skip-affected"));
+    });
+  }
+
+  function undoAllSkipped(fileId?: string) {
+    const target = fileFor(fileId);
+    if (!target) return;
+    updateFile(target.id, (file) => {
+      const next = runValidationFor({ ...file, skipped: [] });
+      return { ...next, appliedResolutions: next.appliedResolutions.filter((kind) => kind !== "skip-affected") };
+    });
+  }
+
+  function importFileAsText(fileId?: string) {
+    const target = fileFor(fileId);
+    if (!target) return;
+    updateFile(target.id, (file) => runValidationFor(withResolution({
+      ...file,
+      importAsText: true,
+      aiProposals: [],
+      columns: file.columns.map((column) => ({
+        ...column,
+        type: "Text",
+        status: column.detectedType === "Text" ? column.status === "needs-review" ? "confirmed" : column.status : "modified",
+        warning: undefined,
+      })),
+    }, "import-as-text")));
+  }
+
+  function restoreDetectedTypes(fileId?: string) {
+    const target = fileFor(fileId);
+    if (!target) return;
+    updateFile(target.id, (file) => {
+      const next: CsvImportFileDraft = {
+        ...file,
+        importAsText: false,
+        aiProposals: [],
+        appliedResolutions: file.appliedResolutions.filter((kind) => kind !== "import-as-text"),
+        columns: file.columns.map((column, index) => {
+          const values = (file.parsed?.records ?? []).map((record) => record.fields[index] ?? "");
+          const inferred = inferColumnType(values);
+          return {
+            ...column,
+            type: inferred.type,
+            detectedType: inferred.type,
+            dateFormat: inferred.dateFormat,
+            status: inferred.needsReview ? "needs-review" as const : "inferred" as const,
+            warning: inferred.needsReview
+              ? columnReviewReason({ type: inferred.type, values })
+              : undefined,
+          };
+        }),
+      };
+      return next.parsed && csvFileIsStructurallyUsable(next)
+        ? runValidationFor(next)
+        : { ...next, validationRan: false, validationStale: true };
+    });
+  }
+
+  function applyProposal(proposal: CsvAiProposal, fileId?: string) {
+    const target = fileFor(fileId);
+    if (!target) return;
+    const issue = liveValidationForFile(target).issues.find(
+      (item) => item.rowNumber === proposal.rowNumber && item.columnId === proposal.columnId,
+    );
+    if (!issue) return;
+    updateFile(target.id, (file) => runValidationFor(withResolution({
+      ...file,
+      overrides: {
+        ...file.overrides,
+        [proposal.rowNumber]: {
+          ...(file.overrides[proposal.rowNumber] ?? {}),
+          [proposal.columnId]: proposal.suggestedValue,
+        },
+      },
+      aiProposals: file.aiProposals.filter(
+        (item) => !(item.rowNumber === proposal.rowNumber && item.columnId === proposal.columnId),
+      ),
+    }, "ai-accepted")));
+  }
+
+  function applyAllProposals(fileId?: string) {
+    const target = fileFor(fileId);
+    if (!target) return;
+    updateFile(target.id, (file) => {
+      let overrides = file.overrides;
+      for (const proposal of file.aiProposals) {
+        const column = file.columns.find((item) => item.id === proposal.columnId);
+        const expected = column ? selectedColumnType(column) : "Text";
+        if (!valueMatchesType(proposal.suggestedValue, expected)) continue;
+        overrides = {
+          ...overrides,
+          [proposal.rowNumber]: {
+            ...(overrides[proposal.rowNumber] ?? {}),
+            [proposal.columnId]: proposal.suggestedValue,
+          },
+        };
+      }
+      return runValidationFor(withResolution({ ...file, overrides, aiProposals: [] }, "ai-accepted"));
+    });
+  }
+
+  function rejectProposal(proposal: CsvAiProposal, fileId?: string) {
+    const target = fileFor(fileId);
+    if (!target) return;
+    updateFile(target.id, (file) => ({
+      ...file,
+      aiProposals: file.aiProposals.filter(
+        (item) => !(item.rowNumber === proposal.rowNumber && item.columnId === proposal.columnId),
+      ),
+    }));
+  }
+
+  async function proposeAiFixes(fileId?: string) {
+    const target = fileFor(fileId);
+    if (!target || aiBusyFileId) return;
+    const file = target;
+    setAiBusyFileId(file.id);
+    setProposeNotice(null);
+    try {
+      const live = liveValidationForFile(file);
+      const byColumn = new Map<string, typeof live.issues>();
+      for (const issue of live.issues) {
+        const list = byColumn.get(issue.columnId) ?? [];
+        list.push(issue);
+        byColumn.set(issue.columnId, list);
+      }
+      const proposals: CsvAiProposal[] = [];
+      for (const [columnId, issues] of byColumn) {
+        const column = file.columns.find((item) => item.id === columnId);
+        const expected = column ? selectedColumnType(column) : issues[0]?.expected ?? "Text";
+        const examples = (column?.examples ?? []).filter((value) => valueMatchesType(value, expected as CsvColumnType));
+        const repairable = issues.filter((issue) => suggestedRepairValue(issue.value, expected, examples));
+        if (repairable.length === 0) continue;
+        const result = await proposeCsvSimilarRepairs({
+          fileId: file.id,
+          fileName: file.fileName,
+          columnId,
+          columnName: column?.name ?? repairable[0]!.columnName,
+          selectedType: expected,
+          validExamples: examples,
+          issues: repairable.map((issue) => ({
+            rowNumber: issue.rowNumber,
+            currentValue: issue.value,
+          })),
+        });
+        if (result.status !== "ok") continue;
+        for (const change of result.data.changes) {
+          if (!valueMatchesType(change.suggestedValue, expected as CsvColumnType)) continue;
+          proposals.push({
+            rowNumber: change.rowNumber,
+            columnId,
+            columnName: column?.name ?? repairable[0]!.columnName,
+            currentValue: change.currentValue,
+            suggestedValue: change.suggestedValue,
+          });
+        }
+      }
+      updateFile(file.id, (current) => ({ ...current, aiProposals: proposals }));
+      if (proposals.length === 0) setProposeNotice("No reliable correction for these values.");
+    } finally {
+      setAiBusyFileId(null);
+    }
+  }
+
+  async function replaceCurrentFile(next: File, fileId?: string) {
+    const target = fileFor(fileId);
+    if (!target) return;
+    if (!next.name.toLowerCase().endsWith(".csv")) {
+      setProposeNotice("Only a CSV file can replace this file.");
+      return;
+    }
+    const targetId = target.id;
+    try {
+      const buffer = await next.arrayBuffer();
+      updateFile(targetId, (file) => {
+        const replaced = replaceCsvImportFileContents(file, new Uint8Array(buffer), {
+          fileName: next.name || file.fileName,
+          size: next.size,
+          lastModified: next.lastModified,
+        });
+        if (csvFileIsStructurallyUsable(replaced) && !csvFileNeedsSchemaReview(replaced)) {
+          return runValidationFor(replaced);
+        }
+        return replaced;
+      });
+      setProposeNotice(null);
+    } catch {
+      setProposeNotice(`${next.name} could not be read.`);
+    }
+  }
+
+  function applyCellFix(issue: CsvValidationIssue, value: string, fileId?: string): string | null {
+    const target = fileFor(fileId);
+    if (!target) return "This file is not available.";
+    const column = target.columns.find((item) => item.id === issue.columnId);
     const expected = column ? selectedColumnType(column) : (issue.expected as CsvColumnType);
     if (!valueMatchesType(value, expected)) {
-      return `This value does not match ${expected}.`;
+      return `This value does not match ${csvColumnTypeLabel(expected)}.`;
     }
-    updateFile(activeFile.id, (file) =>
-      runValidationFor({
+    updateFile(target.id, (file) =>
+      runValidationFor(withResolution({
         ...file,
         overrides: {
           ...file.overrides,
@@ -1532,19 +1825,24 @@ export function CsvImportFlow({
             [issue.columnId]: value,
           },
         },
-      }),
+        aiProposals: file.aiProposals.filter(
+          (proposal) => !(proposal.rowNumber === issue.rowNumber && proposal.columnId === issue.columnId),
+        ),
+      }, "manual")),
     );
     return null;
   }
 
   function applyCellFixes(
     fixes: Array<{ issue: CsvValidationIssue; value: string }>,
+    fileId?: string,
   ): string | null {
-    if (!activeFile) return "This file is not available.";
+    const target = fileFor(fileId);
+    if (!target) return "This file is not available.";
     const accepted: Array<{ issue: CsvValidationIssue; value: string }> = [];
     let rejected = 0;
     for (const fix of fixes) {
-      const column = activeFile.columns.find((item) => item.id === fix.issue.columnId);
+      const column = target.columns.find((item) => item.id === fix.issue.columnId);
       const expected = column
         ? selectedColumnType(column)
         : (fix.issue.expected as CsvColumnType);
@@ -1557,7 +1855,7 @@ export function CsvImportFlow({
     if (accepted.length === 0) {
       return rejected > 0 ? "Suggested values do not match the column type." : null;
     }
-    updateFile(activeFile.id, (file) => {
+    updateFile(target.id, (file) => {
       let overrides = file.overrides;
       for (const { issue, value } of accepted) {
         overrides = {
@@ -1568,7 +1866,7 @@ export function CsvImportFlow({
           },
         };
       }
-      return runValidationFor({ ...file, overrides });
+      return runValidationFor(withResolution({ ...file, overrides }, "manual"));
     });
     if (rejected === 0) return null;
     return `Applied ${accepted.length.toLocaleString()}. ${rejected.toLocaleString()} did not match the column type.`;
@@ -1611,82 +1909,86 @@ export function CsvImportFlow({
 
   function railState(id: StepId): RailState {
     if (created) {
-      if (id === 7) return "current";
+      if (id === CSV_STEP.summary) return "current";
       return "completed";
     }
-    if (id === 7) return "future";
+    if (id === CSV_STEP.summary) return "future";
     if (id === step) return "current";
-    if (id === 1) return uploadComplete ? "completed" : "future";
-    if (id === 2) {
+    if (id === CSV_STEP.upload) return uploadComplete ? "completed" : "future";
+    if (id === CSV_STEP.columns) {
       if (!uploadComplete) return id <= maxReachedStep ? "blocked" : "future";
-      if (step > 2 && schemaComplete) return "completed";
+      if (step > CSV_STEP.columns && schemaComplete) return "completed";
       return id <= maxReachedStep ? "needs-review" : "future";
     }
-    if (id === 3) {
+    if (id === CSV_STEP.validation) {
       if (!schemaComplete) return id <= maxReachedStep ? "blocked" : "future";
       if (validationComplete) return "completed";
       if (id <= maxReachedStep) return "needs-review";
       return "future";
     }
-    if (id === 4) {
+    if (id === CSV_STEP.import) {
       if (!validationComplete) return id <= maxReachedStep ? "blocked" : "future";
-      return id <= maxReachedStep ? "completed" : "future";
+      if (importLocked && step > CSV_STEP.import) return "completed";
+      if (id <= maxReachedStep) return importLocked ? "completed" : "needs-review";
+      return "future";
     }
-    if (id === 5) {
-      if (!validationComplete) return id <= maxReachedStep ? "blocked" : "future";
-      return tablesComplete ? "completed" : id <= maxReachedStep ? "needs-review" : "future";
-    }
-    if (!tablesComplete) return id <= maxReachedStep ? "needs-review" : "future";
+    if (!importLocked || !tablesComplete) return id <= maxReachedStep ? "blocked" : "future";
     return id <= maxReachedStep ? "completed" : "future";
   }
 
   function canOpenStep(id: StepId): boolean {
     if (created) return false;
-    if (id === 7) return false;
-    if (id === 1) return true;
+    if (id === CSV_STEP.summary) return false;
+    if (id === CSV_STEP.upload) return true;
     if (
-      step === 1
+      step === CSV_STEP.upload
       && parseDraftIsDirty(parseDraft, files.find((file) => file.id === parseDraft?.fileId))
     ) return false;
     if (id > maxReachedStep) return false;
-    if (id === 2) return uploadComplete;
-    if (id === 3) return schemaComplete;
-    if (id === 4) return validationComplete;
-    if (id === 5) return validationComplete;
-    // Once Review has been reached, it stays available so a blocker can be inspected again.
-    if (id === 6) return tablesComplete || maxReachedStep >= 6;
+    if (id === CSV_STEP.columns) return uploadComplete;
+    if (id === CSV_STEP.validation) return schemaComplete;
+    if (id === CSV_STEP.import) return validationComplete;
+    if (
+      id === CSV_STEP.tableDescriptions
+      || id === CSV_STEP.sampleValues
+      || id === CSV_STEP.columnDescriptions
+    ) {
+      return importLocked && tablesComplete;
+    }
     return false;
   }
 
   function primaryLabel() {
-    if (step === 3 && filesNeedingValidationRun.length > 0) {
+    if (step === CSV_STEP.validation && filesNeedingValidationRun.length > 0) {
       return validationHasRun ? "Revalidate all files" : "Validate all files";
     }
-    if (step === 6) return creating ? "Creating Data Source…" : "Create Data Source";
-    if (step === 7) return "Done";
+    if (step === CSV_STEP.import) return "Import data";
+    if (step === CSV_STEP.columnDescriptions) return creating ? "Creating Data Source…" : "Create Data Source";
+    if (step === CSV_STEP.summary) return "Done";
     return "Next";
   }
 
   function canAdvance() {
-    if (created && step === 7) return true;
+    if (created && step === CSV_STEP.summary) return true;
     if (creating || reading || applyingParse) return false;
     if (
-      step === 1
+      step === CSV_STEP.upload
       && parseDraftIsDirty(parseDraft, files.find((file) => file.id === parseDraft?.fileId))
     ) return false;
-    if (step === 1) return uploadComplete;
-    if (step === 2 && schemaParseDirty()) return false;
-    if (step === 2) return schemaComplete;
-    if (step === 3) {
+    if (step === CSV_STEP.upload) return uploadComplete;
+    if (step === CSV_STEP.columns && schemaParseDirty()) return false;
+    if (step === CSV_STEP.columns) return schemaComplete;
+    if (step === CSV_STEP.validation) {
       if (!schemaComplete) return false;
       if (filesNeedingValidationRun.length > 0) return true;
       return validationComplete;
     }
-    if (step === 4) return validationComplete;
-    if (step === 5) return tablesComplete && !bulkTableAiBusy;
-    if (step === 6) {
+    if (step === CSV_STEP.import) return tablesComplete;
+    if (step === CSV_STEP.tableDescriptions) return tablesComplete && importLocked && !bulkTableAiBusy;
+    if (step === CSV_STEP.sampleValues) return tablesComplete && importLocked;
+    if (step === CSV_STEP.columnDescriptions) {
       const unresolved = included.some((file) => liveValidationForFile(file).invalidRows > 0);
-      return tablesComplete && includedTotals.errors === 0 && !unresolved && !created;
+      return tablesComplete && importLocked && includedTotals.errors === 0 && !unresolved && !created;
     }
     return true;
   }
@@ -1694,17 +1996,24 @@ export function CsvImportFlow({
   function handlePrimary() {
     if (blockSchemaParseLeave()) return;
     if (!canAdvance()) return;
-    if (step === 3 && !schemaComplete) return;
-    if (step === 3 && filesNeedingValidationRun.length > 0) {
+    if (step === CSV_STEP.validation && !schemaComplete) return;
+    if (step === CSV_STEP.validation && filesNeedingValidationRun.length > 0) {
       runValidation();
       return;
     }
-    if (step === 3 && !validationComplete) return;
-    if (step === 6) {
+    if (step === CSV_STEP.validation && !validationComplete) return;
+    if (step === CSV_STEP.import) {
+      if (!tablesComplete) return;
+      setConfirmedImportSignature(importOutcomeSignature);
+      goToStep(CSV_STEP.tableDescriptions);
+      return;
+    }
+    if (step === CSV_STEP.columnDescriptions) {
       if (
         creating
         || created
         || !tablesComplete
+        || !importLocked
         || includedTotals.errors > 0
         || included.some((file) => liveValidationForFile(file).invalidRows > 0)
       ) return;
@@ -1713,7 +2022,7 @@ export function CsvImportFlow({
       try {
         onComplete(completePayload());
         setCreated(true);
-        goToStep(7);
+        goToStep(CSV_STEP.summary);
       } catch {
         setCreateError("The Data Source could not be created.");
       } finally {
@@ -1721,22 +2030,22 @@ export function CsvImportFlow({
       }
       return;
     }
-    if (step === 7) {
+    if (step === CSV_STEP.summary) {
       onFinish();
       return;
     }
-    if (step === 1 && included[0]) setActiveFileId(included[0].id);
-    goToStep(Math.min(step + 1, 7) as StepId);
+    if (step === CSV_STEP.upload && included[0]) setActiveFileId(included[0].id);
+    goToStep(Math.min(step + 1, CSV_STEP.summary) as StepId);
   }
 
   function handleBack() {
     if (created) return;
     if (blockSchemaParseLeave()) return;
-    if (step === 1) {
+    if (step === CSV_STEP.upload) {
       onBackToChooser();
       return;
     }
-    goToStep(Math.max(step - 1, 1) as StepId);
+    goToStep(Math.max(step - 1, CSV_STEP.upload) as StepId);
   }
 
   function handleDialogOpenChange(next: boolean) {
@@ -1802,7 +2111,7 @@ export function CsvImportFlow({
   }
 
   function validationBlockedCopy(): string | null {
-    if (step !== 3 || filesNeedingValidationRun.length > 0) return null;
+    if (step !== CSV_STEP.validation || filesNeedingValidationRun.length > 0) return null;
     const unresolved = included.flatMap((file) => {
       const rows = liveValidationForFile(file).invalidRows;
       return rows > 0 ? [{ fileName: file.fileName, rows }] : [];
@@ -1813,7 +2122,9 @@ export function CsvImportFlow({
     }
     const total = unresolved.reduce((sum, item) => sum + item.rows, 0);
     if (total > 0) {
-      return `Resolve or exclude ${total.toLocaleString()} row${total === 1 ? "" : "s"} to continue.`;
+      return total === 1
+        ? "1 row still needs a resolution."
+        : `${total.toLocaleString()} rows still need a resolution.`;
     }
     if (blockingErrorCount === 0) return null;
     return `Resolve or exclude ${blockingErrorCount.toLocaleString()} row${blockingErrorCount === 1 ? "" : "s"} to continue.`;
@@ -1821,14 +2132,20 @@ export function CsvImportFlow({
 
   function advanceBlockedReason(): string | null {
     if (canAdvance()) return null;
-    if (step === 1) return null;
-    if (step === 2) return schemaAdvanceBlockReason();
-    if (step === 3) return validationBlockedCopy();
-    if (step === 5 || step === 6) return reviewAdvanceBlocker();
+    if (step === CSV_STEP.upload) return null;
+    if (step === CSV_STEP.columns) return schemaAdvanceBlockReason();
+    if (step === CSV_STEP.validation) return validationBlockedCopy();
+    if (
+      step === CSV_STEP.import
+      || step === CSV_STEP.tableDescriptions
+      || step === CSV_STEP.columnDescriptions
+    ) {
+      return importAdvanceBlocker();
+    }
     return null;
   }
 
-  function reviewAdvanceBlocker(): string {
+  function importAdvanceBlocker(): string {
     if (reading || applyingParse) return "Wait until the current action finishes.";
     if (bulkTableAiBusy) return "Wait for AI generation to finish.";
     for (const file of included) {
@@ -1850,19 +2167,20 @@ export function CsvImportFlow({
       const count = includedTotals.errors;
       return `Resolve or exclude ${count.toLocaleString()} row${count === 1 ? "" : "s"} to continue.`;
     }
-    if (step === 5) return "Resolve the table details to continue.";
-    return "Resolve the remaining issues before creating this Data Source.";
+    if (!importLocked && step > CSV_STEP.import) return "Import the data before continuing.";
+    if (step === CSV_STEP.columnDescriptions) return "Resolve the remaining issues before creating this Data Source.";
+    return "Choose a unique table name for each file.";
   }
 
   const nextReason = advanceBlockedReason();
-  const step1ParseDirty = step === 1 && parseDraftIsDirty(
+  const step1ParseDirty = step === CSV_STEP.upload && parseDraftIsDirty(
     parseDraft,
     files.find((file) => file.id === parseDraft?.fileId),
   );
   const step2ParseDirty = schemaParseDirty();
-  const step2BlockedWithReason = step === 2 && !canAdvance() && !step2ParseDirty && Boolean(nextReason);
+  const step2BlockedWithReason = step === CSV_STEP.columns && !canAdvance() && !step2ParseDirty && Boolean(nextReason);
   const step1NextReason = (() => {
-    if (step !== 1 || step1ParseDirty || canAdvance()) return null;
+    if (step !== CSV_STEP.upload || step1ParseDirty || canAdvance()) return null;
     if (applyingParse) return "Applying parsing changes.";
     if (reading) return "Reading files. Wait until the files finish loading.";
     if (files.length === 0) return "Add at least one CSV file to continue.";
@@ -1879,11 +2197,76 @@ export function CsvImportFlow({
   const pendingRemoveHasUnsavedValues = pendingRemoveFile
     ? unsavedValueContextColumnCount([pendingRemoveFile]) > 0
     : false;
+  const stackSections = included.length <= CSV_STACKED_SECTION_MAX;
+
+  function renderSchemaFile(file: CsvImportFileDraft) {
+    const draftForFile = parseDraft?.fileId === file.id ? parseDraft : null;
+    return (
+      <SchemaPanel
+        key={file.id}
+        file={file}
+        focusedColumnId={file.id === activeFile?.id ? focusedColumnId : null}
+        editingParse={editingFileId === file.id}
+        draftEncoding={draftForFile?.encoding ?? file.encoding}
+        draftDelimiter={draftForFile?.delimiter ?? file.delimiter}
+        draftHeaderChoice={draftForFile?.headerChoice ?? headerChoiceFromFile(file)}
+        draftCustomHeaderRow={
+          draftForFile
+            ? draftForFile.customHeaderRow
+            : headerChoiceFromFile(file) === "custom" && file.headerRow
+              ? String(file.headerRow)
+              : ""
+        }
+        onTypeChange={(columnId, type) => changeColumnType(columnId, type, file.id)}
+        onConfirmType={(columnId) => confirmColumnType(columnId, file.id)}
+        onRenameColumn={(columnId, nextName) => renameColumn(columnId, nextName, file.id)}
+        onSaveFix={(issue, value) => applyCellFix(issue, value, file.id)}
+        onSaveFixes={(fixes) => applyCellFixes(fixes, file.id)}
+        onExclude={(rowNumber) => skipRow(rowNumber, file.id)}
+        onUndo={(rowNumber) => unskipRow(rowNumber, file.id)}
+        onStartParseEdit={() => startParseEdit(file.id)}
+        onReparseFile={reparseEditedFile}
+        onCancelParseEdit={cancelParseEdit}
+        onEncoding={updateParseDraftEncoding}
+        onDelimiter={updateParseDraftDelimiter}
+        onHeaderChoice={updateParseDraftHeaderChoice}
+        onCustomHeaderRow={updateParseDraftCustomHeaderRow}
+        draftDirty={Boolean(draftForFile) && schemaParseDirty()}
+        leaveAttempt={editingFileId === file.id ? schemaParseLeaveAttempt : 0}
+      />
+    );
+  }
+
+  function renderValidationFile(file: CsvImportFileDraft) {
+    const summary = validations.get(file.id) ?? EMPTY_VALIDATION;
+    return (
+      <section key={file.id} className="min-w-0" aria-label={file.fileName}>
+        <CsvValidationWorkspace
+          file={file}
+          summary={summary}
+          proposing={aiBusyFileId === file.id}
+          proposeNotice={file.id === activeFileId ? proposeNotice : null}
+          onSkipAffected={() => skipAffectedRows(file.id)}
+          onUndoSkip={(rowNumber) => unskipRow(rowNumber, file.id)}
+          onUndoAllSkipped={() => undoAllSkipped(file.id)}
+          onSaveFix={(issue, value) => applyCellFix(issue, value, file.id)}
+          onPropose={() => void proposeAiFixes(file.id)}
+          onApplyProposal={(proposal) => applyProposal(proposal, file.id)}
+          onApplyAll={() => applyAllProposals(file.id)}
+          onRejectProposal={(proposal) => rejectProposal(proposal, file.id)}
+          onImportAsText={() => importFileAsText(file.id)}
+          onRestoreDetectedTypes={() => restoreDetectedTypes(file.id)}
+          onReplaceFile={(next) => void replaceCurrentFile(next, file.id)}
+          onUseSuggestion={(suggestion) => changeColumnType(suggestion.columnId, suggestion.suggestedType, file.id)}
+        />
+      </section>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={handleDialogOpenChange}>
       <DialogContent
-        className="flex min-h-[min(540px,82vh)] max-h-[min(82vh,760px)] max-w-5xl flex-col gap-0 overflow-hidden p-0 sm:max-w-5xl"
+        className="luxia-csv-wizard flex flex-col gap-0 overflow-hidden p-0"
         onEscapeKeyDown={(event) => {
           if (document.querySelector("[data-csv-schema-expanded='true']")) {
             event.preventDefault();
@@ -1893,7 +2276,7 @@ export function CsvImportFlow({
         }}
       >
         <DialogHeader
-          className="shrink-0 space-y-1 px-6 pt-5 pb-4 pr-14 text-left"
+          className="luxia-csv-wizard-header shrink-0 space-y-0 pr-14 text-left"
           style={STRUCTURED_MODAL_DARK_CHROME_STYLE}
         >
           <DialogTitle className="text-left" style={{ color: "var(--luxia-text-inverse)" }}>
@@ -1914,8 +2297,7 @@ export function CsvImportFlow({
 
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row md:items-stretch">
           <nav
-            className="luxia-scrollbar luxia-scrollbar-dark luxia-scrollbar-vertical shrink-0 px-3 py-3 md:flex md:w-44 md:min-h-0 md:flex-col md:self-stretch md:overflow-y-auto"
-            style={STRUCTURED_MODAL_DARK_CHROME_STYLE}
+            className="luxia-creation-side-rail luxia-csv-wizard-rail luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical shrink-0 md:flex md:min-h-0 md:flex-col md:self-stretch md:overflow-y-auto"
             aria-label="CSV import steps"
           >
             <ol className="relative z-[1] flex gap-2 overflow-x-auto md:flex-col md:gap-0">
@@ -1925,40 +2307,47 @@ export function CsvImportFlow({
                 const disabled = !canOpenStep(item.id);
                 const isLast = index === STEPS.length - 1;
                 const schemaNeedsReview =
-                  item.id === 2
+                  item.id === CSV_STEP.columns
                   && !schemaComplete
-                  && (active || maxReachedStep >= 2);
+                  && (active || maxReachedStep >= CSV_STEP.columns);
                 const validationNeedsReview =
-                  item.id === 3
+                  item.id === CSV_STEP.validation
                   && schemaComplete
                   && !validationComplete
-                  && (active || maxReachedStep >= 3);
+                  && (active || maxReachedStep >= CSV_STEP.validation);
                 const showNeedsReview =
                   state === "needs-review"
                   || (active && schemaNeedsReview)
                   || validationNeedsReview;
-                const showCompleted = state === "completed";
+                const showCompleted = !active && state === "completed";
                 const statusText = showNeedsReview ? "Needs review" : showCompleted ? "Completed" : null;
+                const markerState = active
+                  ? "current"
+                  : state === "completed"
+                    ? "done"
+                    : showNeedsReview
+                      ? "open"
+                      : "muted";
+                const previousCompleted = index > 0 && railState(STEPS[index - 1].id) === "completed";
                 const stepLabel = `${String(item.id).padStart(2, "0")} ${item.label}`;
-                const connectorColor = "var(--luxia-opacity-white-16)";
                 return (
-                  <li key={item.id} className={`relative z-[1] flex min-w-0 shrink-0 items-stretch gap-2 md:w-full ${isLast ? "" : "md:pb-3"}`}>
-                    <div className="relative z-[1] hidden w-[22px] shrink-0 items-start justify-center md:flex">
+                  <li key={item.id} className="luxia-csv-step relative z-[1] flex min-w-0 shrink-0 items-center md:w-full">
+                    <div className="luxia-csv-step-track relative z-[1] hidden shrink-0 items-center justify-center self-stretch md:flex">
                       {index > 0 ? (
                         <span
                           aria-hidden
-                          className="absolute left-1/2 top-0 h-[11px] w-px -translate-x-1/2"
-                          style={{ background: connectorColor }}
+                          className="luxia-csv-step-line luxia-csv-step-line-before"
+                          data-progress={previousCompleted ? "done" : "next"}
                         />
                       ) : null}
                       {!isLast ? (
                         <span
                           aria-hidden
-                          className="absolute left-1/2 top-[11px] bottom-0 w-px -translate-x-1/2"
-                          style={{ background: connectorColor }}
+                          className="luxia-csv-step-line luxia-csv-step-line-after"
+                          data-progress={state === "completed" ? "done" : "next"}
                         />
                       ) : null}
-                      <StepMarker state={active ? "current" : state} />
+                      <StepMarker index={item.id} state={markerState} />
                     </div>
                     <button
                       type="button"
@@ -1971,38 +2360,17 @@ export function CsvImportFlow({
                         if (disabled) return;
                         goToStep(item.id);
                       }}
-                      className="min-w-0 flex-1 rounded-[8px] px-1.5 py-1.5 text-left luxia-type-caption whitespace-nowrap outline-none focus-visible:ring-2 focus-visible:ring-[var(--luxia-opacity-white-32)] disabled:cursor-not-allowed enabled:cursor-pointer enabled:hover:bg-[var(--luxia-opacity-white-08)] md:whitespace-normal"
-                      style={{
-                        color: active
-                          ? "var(--luxia-text-inverse)"
-                          : state === "future" || state === "blocked"
-                            ? "var(--luxia-opacity-white-48)"
-                            : "var(--luxia-opacity-white-80)",
-                        background: active ? "var(--luxia-opacity-white-12)" : "transparent",
-                        fontWeight: active ? 600 : 400,
-                      }}
+                      className="luxia-csv-step-button min-w-0 flex-1 rounded-[6px] px-1 py-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)] disabled:cursor-not-allowed enabled:cursor-pointer"
+                      data-state={active ? "current" : state}
                     >
-                      <span className="flex items-start gap-2 md:block">
+                      <span className="flex items-center gap-3 md:block">
                         <span className="md:hidden">
-                          <StepMarker state={state} />
+                          <StepMarker index={item.id} state={markerState} />
                         </span>
                         <span className="min-w-0">
-                          <span className="block">
-                            <span className="tabular-nums opacity-70">
-                              {String(item.id).padStart(2, "0")}
-                            </span>
-                            {" "}
-                            {item.label}
-                          </span>
+                          <span className="luxia-csv-step-label block">{item.label}</span>
                           {statusText ? (
-                            <span
-                              className="mt-0.5 block"
-                              style={{
-                                color: showNeedsReview
-                                  ? "var(--luxia-warning-50)"
-                                  : "var(--luxia-opacity-white-48)",
-                              }}
-                            >
+                            <span className="luxia-csv-step-status" data-kind={showNeedsReview ? "review" : "done"}>
                               {statusText}
                             </span>
                           ) : null}
@@ -2021,9 +2389,9 @@ export function CsvImportFlow({
           >
             <div
               ref={contentScrollRef}
-              className="luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical min-h-0 flex-1 overflow-y-auto px-6 py-5"
+              className="luxia-csv-wizard-canvas luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical min-h-0 flex-1 overflow-y-auto px-8 py-7"
             >
-              {step === 1 ? (
+              {step === CSV_STEP.upload ? (
                 <div className="flex flex-col gap-5">
                   <UploadSourceSummary
                     name={sourceName}
@@ -2052,14 +2420,14 @@ export function CsvImportFlow({
                     onDelimiter={updateParseDraftDelimiter}
                     onHeaderChoice={updateParseDraftHeaderChoice}
                     onCustomHeaderRow={updateParseDraftCustomHeaderRow}
-                    warnParseReset={maxReachedStep >= 2}
+                    warnParseReset={maxReachedStep >= CSV_STEP.columns}
                   />
                 </div>
               ) : null}
 
-              {step === 2 && activeFile ? (
-                <div className="min-w-0 space-y-4">
-                  <StepIntro title="Schema" body="Inspect columns and correct values here." />
+              {step === CSV_STEP.columns && activeFile ? (
+                <div className="min-w-0 space-y-6">
+                  <StepIntro title="Columns & Types" body="Confirm the structure of each file." />
                   <FileSwitcher
                     files={included}
                     activeId={activeFile.id}
@@ -2080,47 +2448,16 @@ export function CsvImportFlow({
                       {parseResetNotice}
                     </p>
                   ) : null}
-                  <SchemaPanel
-                    file={activeFile}
-                    focusedColumnId={focusedColumnId}
-                    editingParse={editingFileId === activeFile.id}
-                    draftEncoding={parseDraft?.fileId === activeFile.id ? parseDraft.encoding : activeFile.encoding}
-                    draftDelimiter={parseDraft?.fileId === activeFile.id ? parseDraft.delimiter : activeFile.delimiter}
-                    draftHeaderChoice={
-                      parseDraft?.fileId === activeFile.id
-                        ? parseDraft.headerChoice
-                        : headerChoiceFromFile(activeFile)
-                    }
-                    draftCustomHeaderRow={
-                      parseDraft?.fileId === activeFile.id
-                        ? parseDraft.customHeaderRow
-                        : headerChoiceFromFile(activeFile) === "custom" && activeFile.headerRow
-                          ? String(activeFile.headerRow)
-                          : ""
-                    }
-                    onTypeChange={changeColumnType}
-                    onConfirmType={confirmColumnType}
-                    onRenameColumn={renameColumn}
-                    onSaveFix={applyCellFix}
-                    onSaveFixes={applyCellFixes}
-                    onExclude={skipRow}
-                    onUndo={unskipRow}
-                    onStartParseEdit={() => startParseEdit(activeFile.id)}
-                    onReparseFile={reparseEditedFile}
-                    onCancelParseEdit={cancelParseEdit}
-                    onEncoding={updateParseDraftEncoding}
-                    onDelimiter={updateParseDraftDelimiter}
-                    onHeaderChoice={updateParseDraftHeaderChoice}
-                    onCustomHeaderRow={updateParseDraftCustomHeaderRow}
-                    draftDirty={schemaParseDirty()}
-                    leaveAttempt={schemaParseLeaveAttempt}
-                  />
+                  {renderSchemaFile(activeFile)}
                 </div>
               ) : null}
 
-              {step === 3 && activeFile ? (
-                <div className="space-y-4">
-                  <StepIntro title="Validation" body="Confirm the rows now fit the column types." />
+              {step === CSV_STEP.validation && activeFile ? (
+                <div className="min-w-0 space-y-6">
+                  <StepIntro
+                    title="Validation"
+                    body="Resolve values that do not match the column types."
+                  />
                   <FileSwitcher
                     files={included}
                     activeId={activeFile.id}
@@ -2129,31 +2466,104 @@ export function CsvImportFlow({
                     onSelect={selectFile}
                     onRequestRemove={requestRemoveFile}
                   />
-                  <ValidationPanel
-                    file={activeFile}
-                    summary={activeValidation}
-                    remainingIssues={activeValidation.invalidRows}
-                    excludedIssues={skippedDisplayIssues(activeFile)}
-                    onReviewInSchema={() => goToStep(2)}
-                    onUndo={unskipRow}
-                  />
+                  {renderValidationFile(activeFile)}
                 </div>
               ) : null}
 
-              {step === 4 && activeFile ? (
-                <div className="space-y-4">
+              {step === CSV_STEP.import ? (
+                <div className="space-y-6">
                   <StepIntro
-                    title="Sample Values"
-                    body="Add representative examples for columns where formatting or value patterns matter. This helps Luxia interpret those values when answering questions."
+                    title={`Ready to import “${sourceName}”`}
+                    body="Nothing has been written yet. Confirm to create the tables and import the rows."
                   />
-                  <FileSwitcher
-                    files={included}
-                    activeId={activeFile.id}
-                    validations={validations}
-                    mode="sample-values"
-                    onSelect={selectFile}
-                    onRequestRemove={requestRemoveFile}
+                  {!validationComplete ? (
+                    <p className="luxia-type-caption" style={{ color: "var(--luxia-warning-90)" }} role="status">
+                      A validation choice is still incomplete. Go back to Validation or choose another resolution.
+                    </p>
+                  ) : null}
+                  <ul className="luxia-csv-import-files">
+                    {included.map((file) => (
+                      <ReviewFileCard
+                        key={file.id}
+                        outcome={describeReviewFile(file, duplicateNames)}
+                        tableName={file.tableName}
+                        nameInputId={`csv-import-table-${file.id}`}
+                        nameConflict={Boolean(file.tableName.trim()) && duplicateNames.has(tableNameConflictKey(file.tableName))}
+                        onTableNameChange={(value) => patchTableName(file.id, value)}
+                        onEditSchema={() => goToStep(CSV_STEP.columns, { fileId: file.id })}
+                        onReviewValidation={() => goToStep(CSV_STEP.validation, { fileId: file.id })}
+                      />
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              {step === CSV_STEP.tableDescriptions && activeFile ? (
+                <div className="space-y-6">
+                  <StepIntro
+                    title="What does each table hold?"
+                    body="Describe the contents so Luxia can choose the right table."
                   />
+                  <div className="flex flex-wrap items-center gap-3">
+                    <LuxiaAiButton
+                      disabled={bulkTableAiBusy || included.every((file) => !tableDescriptionNeedsAi(file))}
+                      aria-busy={bulkTableAiBusy}
+                      onClick={() => void generateBulkTableMeta()}
+                    >
+                      {bulkTableAiBusy ? "Generating…" : "Generate descriptions"}
+                    </LuxiaAiButton>
+                    {bulkTableAiNotice ? (
+                      <p className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }} role="status" aria-live="polite">
+                        {bulkTableAiNotice}
+                      </p>
+                    ) : null}
+                  </div>
+                  {stackSections ? null : (
+                    <FileSwitcher
+                      files={included}
+                      activeId={activeFile.id}
+                      validations={validations}
+                      mode="tables"
+                      onSelect={selectFile}
+                      onRequestRemove={requestRemoveFile}
+                    />
+                  )}
+                  {(stackSections ? included : [activeFile]).map((file) => (
+                    <TableMetadataEditor
+                      key={file.id}
+                      file={file}
+                      tagDraft={tagDraft}
+                      descriptionOnly
+                      aiLocked={bulkTableAiBusy}
+                      conflict={false}
+                      onNameChange={() => undefined}
+                      onDescriptionChange={(value) => patchTableDescription(file.id, value)}
+                      onApplyAiMeta={(_tableName, tableDescription) =>
+                        applyAiTableDescription(file.id, tableDescription)
+                      }
+                      onRowDescriptionSave={(rowNumber, text) => saveRowDescription(file.id, rowNumber, text)}
+                      onApplyRowDescriptions={(changes) => applyAiRowDescriptions(file.id, changes)}
+                    />
+                  ))}
+                </div>
+              ) : null}
+
+              {step === CSV_STEP.sampleValues && activeFile ? (
+                <div className="space-y-6">
+                  <StepIntro
+                    title="Which columns need example values?"
+                    body="Retrieve a few representative values, then save the ones Luxia should remember."
+                  />
+                  {included.length > 1 ? (
+                    <FileSwitcher
+                      files={included}
+                      activeId={activeFile.id}
+                      validations={validations}
+                      mode="sample-values"
+                      onSelect={selectFile}
+                      onRequestRemove={requestRemoveFile}
+                    />
+                  ) : null}
                   <CsvValueContextSection
                     file={activeFile}
                     onPatchDrafts={(entries) => saveValueContextDrafts(activeFile.id, entries)}
@@ -2162,111 +2572,63 @@ export function CsvImportFlow({
                 </div>
               ) : null}
 
-              {step === 5 && activeFile ? (
-                <div className="space-y-4">
-                  <StepIntro title="Tables" body="Name and describe each table in this Data Source." />
-                  {included.length > 1 ? (
-                    <div className="space-y-2">
-                      <LuxiaAiButton
-                        disabled={bulkTableAiBusy || included.every((file) => !tableMetaNeedsAi(file))}
-                        aria-busy={bulkTableAiBusy}
-                        onClick={() => void generateBulkTableMeta()}
-                      >
-                        {bulkTableAiBusy ? "Generating…" : bulkTableMetaActionLabel(included)}
-                      </LuxiaAiButton>
-                      {bulkTableAiNotice ? (
-                        <p className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }} role="status" aria-live="polite">
-                          {bulkTableAiNotice}
+              {step === CSV_STEP.columnDescriptions && activeFile ? (
+                <div className="space-y-6">
+                  <StepIntro
+                    title="What does each column mean?"
+                    body="Review the accepted type and examples for each column."
+                  />
+                  {stackSections ? null : (
+                    <FileSwitcher
+                      files={included}
+                      activeId={activeFile.id}
+                      validations={validations}
+                      mode="schema"
+                      onSelect={selectFile}
+                      onRequestRemove={requestRemoveFile}
+                    />
+                  )}
+                  {(stackSections ? included : [activeFile]).map((file) => (
+                    <section key={file.id} className="luxia-csv-file-section" aria-label={file.tableName || file.fileName}>
+                      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+                        <h3 className="inline-flex min-w-0 items-center gap-2 luxia-type-body-dense-strong" style={{ color: "var(--luxia-text-primary)" }} title={file.fileName}>
+                          <CsvFileGlyph size={16} />
+                          <span className="truncate">{file.tableName.trim() || file.fileName}</span>
+                        </h3>
+                        <p className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
+                          {`0 of ${file.columns.length.toLocaleString()} described`}
                         </p>
-                      ) : null}
-                    </div>
-                  ) : null}
-                  <FileSwitcher
-                    files={included}
-                    activeId={activeFile.id}
-                    validations={validations}
-                    mode="tables"
-                    onSelect={selectFile}
-                    onRequestRemove={requestRemoveFile}
-                  />
-                  <TableMetadataEditor
-                    file={activeFile}
-                    tagDraft={tagDraft}
-                    aiLocked={bulkTableAiBusy}
-                    conflict={Boolean(activeFile.tableName.trim()) && duplicateNames.has(tableNameConflictKey(activeFile.tableName))}
-                    onNameChange={(value) => patchTableName(activeFile.id, value)}
-                    onDescriptionChange={(value) => patchTableDescription(activeFile.id, value)}
-                    onApplyAiMeta={(tableName, tableDescription) =>
-                      applyAiTableMeta(activeFile.id, tableName, tableDescription)
-                    }
-                    onRowDescriptionSave={(rowNumber, text) => saveRowDescription(activeFile.id, rowNumber, text)}
-                    onApplyRowDescriptions={(changes) => applyAiRowDescriptions(activeFile.id, changes)}
-                  />
-                </div>
-              ) : null}
-
-              {step === 6 ? (
-                <div className="space-y-4">
-                  <StepIntro title="Review" body="What am I about to create?" />
-                  <ReviewSourceSummary
-                    name={sourceName}
-                    ownershipLabel={ownershipLabel}
-                    tags={tagDraft.tags}
-                    fileCount={included.length}
-                    importedRows={included.reduce(
-                      (sum, file) => sum + liveValidationForFile(file).readyRows,
-                      0,
-                    )}
-                    skippedRows={included.reduce(
-                      (sum, file) => sum + liveValidationForFile(file).skippedRows,
-                      0,
-                    )}
-                  />
-                  <ul className="luxia-csv-review-files">
-                    {included.map((file) => (
-                      <ReviewFileCard
-                        key={file.id}
-                        outcome={describeReviewFile(file, duplicateNames)}
-                        onEditSchema={() => goToStep(2, { fileId: file.id })}
-                        onReviewValidation={() => goToStep(3, { fileId: file.id })}
-                        onEditTable={() => goToStep(5, { fileId: file.id })}
-                      />
-                    ))}
-                  </ul>
-                  <div>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="compact"
-                      onClick={() => setReviewDetailsOpen((open) => !open)}
-                      aria-expanded={reviewDetailsOpen}
-                    >
-                      {reviewDetailsOpen ? "Hide technical details" : "View technical details"}
-                    </Button>
-                    {reviewDetailsOpen ? (
-                      <div className="mt-3 space-y-3">
-                        {included.map((file) => (
-                          <div key={file.id} className={`${LUXIA_SETTINGS_SECTION_SURFACE_CLASS} space-y-3 px-4 py-4`}>
-                            <p className="luxia-type-body-dense-strong" style={{ color: "var(--luxia-text-primary)" }}>
-                              {file.fileName}
-                            </p>
-                            <dl className="grid gap-3 sm:grid-cols-2">
-                              <ReviewCell label="Table" value={file.tableName.trim() || file.fileName} />
-                              <ReviewCell label="Encoding" value={CSV_ENCODING_LABELS[file.encoding]} />
-                              <ReviewCell label="Delimiter" value={CSV_DELIMITER_LABELS[file.delimiter]} />
-                              <ReviewCell label="Value context" value={valueContextReviewLabel(file)} />
-                              <ReviewCell label="Row descriptions" value={rowDescriptionReviewLabel(file)} />
-                            </dl>
-                            <DraftTableTagRow
-                              tableId={file.id}
-                              tableLabel={file.tableName.trim() || file.fileName}
-                              draft={tagDraft}
-                            />
-                          </div>
-                        ))}
                       </div>
-                    ) : null}
-                  </div>
+                      <div className="luxia-settings-table-surface overflow-x-auto">
+                        <table className="w-full border-collapse text-left">
+                          <thead>
+                            <tr className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
+                              <th className="px-3 py-2 font-normal">Column</th>
+                              <th className="px-3 py-2 font-normal">Type</th>
+                              <th className="px-3 py-2 font-normal">Examples</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {file.columns.map((column) => (
+                              <tr
+                                key={column.id}
+                                className="border-t luxia-type-caption"
+                                style={{ borderColor: "var(--luxia-settings-row-divider)", color: "var(--luxia-text-secondary)" }}
+                              >
+                                <td className="px-3 py-2 align-top" style={{ color: "var(--luxia-text-primary)" }}>
+                                  {column.name}
+                                </td>
+                                <td className="px-3 py-2 align-top">{csvColumnTypeLabel(selectedColumnType(column))}</td>
+                                <td className="px-3 py-2 align-top" title={columnContextExamples(file, column)}>
+                                  {columnContextExamples(file, column)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </section>
+                  ))}
                   {creating ? (
                     <p className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }} role="status">
                       Creating Data Source…
@@ -2280,31 +2642,83 @@ export function CsvImportFlow({
                 </div>
               ) : null}
 
-              {step === 7 ? (
-                <div className="space-y-5">
-                  <div className="flex items-start gap-3">
-                    <CheckCircle2
-                      size={22}
-                      strokeWidth={1.75}
-                      className="mt-0.5 shrink-0"
-                      style={{ color: "var(--luxia-success-70)" }}
-                      aria-hidden
-                    />
-                    <div>
-                      <h3 className="luxia-type-body-dense-strong" style={{ color: "var(--luxia-text-primary)" }}>
-                        Data Source created
-                      </h3>
-                      <p className="mt-1 luxia-type-body-dense" style={{ color: "var(--luxia-text-primary)" }}>
-                        {sourceName}
-                      </p>
-                      <p className="mt-1 luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
-                        {`${included.length.toLocaleString()} table${included.length === 1 ? "" : "s"} · ${includedTotals.ready.toLocaleString()} rows imported`}
-                        {includedTotals.skipped > 0
-                          ? ` · ${includedTotals.skipped.toLocaleString()} excluded`
-                          : ""}
-                      </p>
-                    </div>
+              {step === CSV_STEP.summary ? (
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="luxia-type-body-dense-strong" style={{ color: "var(--luxia-text-primary)" }}>
+                      {`“${sourceName}” is ready`}
+                    </h3>
+                    <p className="mt-2 luxia-type-body-dense" style={{ color: "var(--luxia-text-secondary)" }}>
+                      {`${includedTotals.ready.toLocaleString()} rows imported`}
+                      {includedTotals.skipped > 0
+                        ? ` · ${includedTotals.skipped.toLocaleString()} rows skipped`
+                        : " · 0 rows skipped"}
+                    </p>
                   </div>
+                  <div className="luxia-settings-table-surface overflow-x-auto">
+                    <table className="w-full min-w-[40rem] border-collapse text-left">
+                      <thead>
+                        <tr className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
+                          <th className="px-3 py-2 font-normal">File</th>
+                          <th className="px-3 py-2 font-normal">Table</th>
+                          <th className="px-3 py-2 font-normal">Imported</th>
+                          <th className="px-3 py-2 font-normal">Skipped</th>
+                          <th className="px-3 py-2 font-normal">AI-fixed</th>
+                          <th className="px-3 py-2 font-normal">Resolution</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {included.map((file) => {
+                          const summary = validations.get(file.id) ?? EMPTY_VALIDATION;
+                          const aiFixed = file.appliedResolutions.includes("ai-accepted")
+                            ? correctedValueCount(file)
+                            : 0;
+                          return (
+                            <tr
+                              key={file.id}
+                              className="border-t luxia-type-caption"
+                              style={{ borderColor: "var(--luxia-settings-row-divider)", color: "var(--luxia-text-primary)" }}
+                            >
+                              <td className="px-3 py-2" title={file.fileName}>
+                                <span className="inline-flex min-w-0 items-center gap-2">
+                                  <CsvFileGlyph size={16} />
+                                  <span className="truncate">{file.fileName}</span>
+                                </span>
+                              </td>
+                              <td className="px-3 py-2">{file.tableName.trim() || "imported_table"}</td>
+                              <td className="px-3 py-2 tabular-nums">{summary.readyRows.toLocaleString()}</td>
+                              <td className="px-3 py-2 tabular-nums">{summary.skippedRows.toLocaleString()}</td>
+                              <td className="px-3 py-2 tabular-nums">{aiFixed.toLocaleString()}</td>
+                              <td className="px-3 py-2">{resolutionReceiptLabel(file)}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  {included.some((file) => file.skipped.length > 0) ? (
+                    <div className="space-y-3">
+                      <h4 className="luxia-type-body-dense-strong" style={{ color: "var(--luxia-text-primary)" }}>
+                        Skipped rows
+                      </h4>
+                      {included.filter((file) => file.skipped.length > 0).map((file) => (
+                        <div key={file.id}>
+                          <p className="mb-1 luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
+                            {file.fileName}
+                          </p>
+                          <ul className="luxia-type-caption" style={{ color: "var(--luxia-text-primary)" }}>
+                            {file.skipped.map((rowNumber) => {
+                              const snapshot = (file.issueSnapshot ?? []).filter((issue) => issue.rowNumber === rowNumber);
+                              const detail = snapshot.length > 0
+                                ? snapshot.map((issue) => `${issue.columnName}: ${issue.value || "empty"}`).join(" · ")
+                                : "Skipped";
+                              return <li key={rowNumber}>{`Row ${rowNumber.toLocaleString()} · ${detail}`}</li>;
+                            })}
+                          </ul>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
                   <div className={LUXIA_SETTINGS_SECTION_SURFACE_CLASS}>
                     <div className="space-y-3 px-4 py-4">
                       <div>
@@ -2356,13 +2770,13 @@ export function CsvImportFlow({
             </div>
 
             <DialogFooter
-              className="shrink-0 justify-between border-t px-6 py-4"
+              className="luxia-csv-wizard-footer shrink-0 justify-between border-t px-6 py-4"
               style={{
                 borderColor: "var(--luxia-border-subtle)",
                 background: "var(--luxia-settings-panel-bg)",
               }}
             >
-              {step === 7 ? (
+              {step === CSV_STEP.summary ? (
                 <>
                   <Button
                     type="button"
@@ -2412,8 +2826,8 @@ export function CsvImportFlow({
                     {nextReason ? (
                       <p
                         id="csv-advance-reason"
-                        className={step === 2 ? "sr-only" : "luxia-type-caption"}
-                        style={step === 2 ? undefined : { color: "var(--luxia-text-secondary)" }}
+                        className={step === CSV_STEP.columns ? "sr-only" : "luxia-type-caption"}
+                        style={step === CSV_STEP.columns ? undefined : { color: "var(--luxia-text-secondary)" }}
                       >
                         {nextReason}
                       </p>
@@ -2427,9 +2841,9 @@ export function CsvImportFlow({
                       type="button"
                       variant="primary"
                       size="compact"
-                      disabled={step !== 1 && !canAdvance() && !step2ParseDirty && !step2BlockedWithReason}
+                      disabled={step !== CSV_STEP.upload && !canAdvance() && !step2ParseDirty && !step2BlockedWithReason}
                       aria-disabled={
-                        (step === 1 && !canAdvance()) || step2ParseDirty || step2BlockedWithReason
+                        (step === CSV_STEP.upload && !canAdvance()) || step2ParseDirty || step2BlockedWithReason
                           ? true
                           : undefined
                       }
@@ -2520,7 +2934,7 @@ export function CsvImportFlow({
           overlayClassName="z-[70]"
           className="z-[70] sm:max-w-lg"
           onOpenAutoFocus={(event) => {
-            if (step !== 1) return;
+            if (step !== CSV_STEP.upload) return;
             event.preventDefault();
             const focusCancel = () => document.getElementById("csv-step1-remove-cancel")?.focus();
             focusCancel();
@@ -2532,10 +2946,10 @@ export function CsvImportFlow({
         >
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {step === 1 ? "Remove this file?" : "Remove this file from the import?"}
+              {step === CSV_STEP.upload ? "Remove this file?" : "Remove this file from the import?"}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {step === 1 ? (
+              {step === CSV_STEP.upload ? (
                 pendingRemoveFile ? (
                   <>
                     <span className="sr-only">
@@ -2557,7 +2971,7 @@ export function CsvImportFlow({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel id={step === 1 ? "csv-step1-remove-cancel" : undefined}>
+            <AlertDialogCancel id={step === CSV_STEP.upload ? "csv-step1-remove-cancel" : undefined}>
               Cancel
             </AlertDialogCancel>
             <Button
@@ -2647,8 +3061,7 @@ function describeReviewFile(
   const blank = tableName.length === 0;
   const duplicate = !blank && duplicateNames.has(tableNameConflictKey(file.tableName));
   const textColumns = textFallbackColumnNames(file);
-  const allText = file.columns.length > 0 && file.columns.every((column) => selectedColumnType(column) === "Text");
-  const wholeFileText = allText && file.columns.some((column) => column.detectedType !== "Text");
+  const wholeFileText = file.importAsText;
   const correctedValues = correctedValueCount(file);
   const blockers: ReviewFileBlocker[] = [];
   if (live.invalidRows > 0) {
@@ -2662,7 +3075,7 @@ function describeReviewFile(
   else if (duplicate) blockers.push({ text: "Table name must be unique.", action: "tables" });
   const showSchemaAction = live.skippedRows > 0 || correctedValues > 0 || textColumns.length > 0 || wholeFileText;
   const expanded = blockers.length > 0 || showSchemaAction;
-  const importedLabel = `${live.readyRows.toLocaleString()} of ${live.totalRows.toLocaleString()} rows will be imported.`;
+  const importedLabel = `${reviewImportLabel(live.readyRows, live.totalRows)}.`;
   const accessibleName = [
     `${file.fileName}, table ${tableName || "unnamed"}, ${importedLabel}`,
     ...blockers.map((blocker) => blocker.text),
@@ -2683,8 +3096,18 @@ function describeReviewFile(
   };
 }
 
+function columnContextExamples(file: CsvImportFileDraft, column: CsvColumnDraft): string {
+  const saved = file.valueContext?.[column.id]?.values ?? [];
+  const values = [...column.examples, ...saved].map((value) => value.trim()).filter(Boolean);
+  const unique = [...new Set(values)].slice(0, 4);
+  return unique.length > 0 ? unique.join(", ") : "—";
+}
+
 function reviewImportLabel(importedRows: number, totalRows: number): string {
-  return `${importedRows.toLocaleString()} of ${totalRows.toLocaleString()} rows will be imported`;
+  const imported = importedRows.toLocaleString();
+  const total = totalRows.toLocaleString();
+  if (totalRows === 1) return `${imported} of ${total} row will be imported`;
+  return `${imported} of ${total} rows will be imported`;
 }
 
 function reviewSkippedLabel(count: number): string {
@@ -2738,15 +3161,28 @@ function ReviewFileCard({
   onEditSchema,
   onReviewValidation,
   onEditTable,
+  tableName,
+  onTableNameChange,
+  nameInputId,
+  nameConflict = false,
 }: {
   outcome: ReviewFileOutcome;
   onEditSchema: () => void;
   onReviewValidation: () => void;
-  onEditTable: () => void;
+  onEditTable?: () => void;
+  tableName?: string;
+  onTableNameChange?: (value: string) => void;
+  nameInputId?: string;
+  nameConflict?: boolean;
 }) {
   const tableLabel = outcome.tableName || "Unnamed table";
-  const showValidation = outcome.blockers.some((blocker) => blocker.action === "validation");
-  const showTable = outcome.blockers.some((blocker) => blocker.action === "tables");
+  const editingName = Boolean(onTableNameChange);
+  const visibleBlockers = editingName
+    ? outcome.blockers.filter((blocker) => blocker.action !== "tables")
+    : outcome.blockers;
+  const showValidation = visibleBlockers.some((blocker) => blocker.action === "validation");
+  const showTable = !editingName && Boolean(onEditTable) && outcome.blockers.some((blocker) => blocker.action === "tables");
+  const nameFieldId = nameInputId ?? "csv-import-table-name";
   return (
     <li className="min-w-0">
       <article
@@ -2754,11 +3190,35 @@ function ReviewFileCard({
         aria-label={outcome.accessibleName}
       >
         <h4 className="luxia-csv-review-file-name" title={outcome.fileName}>
-          {outcome.fileName}
+          <CsvFileGlyph size={18} />
+          <span className="min-w-0 truncate">{outcome.fileName}</span>
         </h4>
-        <p className="luxia-csv-review-file-meta">
-          Table: <span className="luxia-csv-review-file-table">{tableLabel}</span>
-        </p>
+        {editingName ? (
+          <div className="mt-2 max-w-sm space-y-1.5">
+            <Label htmlFor={nameFieldId}>Table name</Label>
+            <Input
+              id={nameFieldId}
+              value={tableName ?? ""}
+              onChange={(event) => onTableNameChange?.(event.target.value)}
+              autoComplete="off"
+              aria-invalid={nameConflict || !(tableName ?? "").trim()}
+            />
+            {nameConflict ? (
+              <p className="luxia-type-caption" style={{ color: "var(--luxia-error-70)" }}>
+                Table names must be unique.
+              </p>
+            ) : null}
+            {!(tableName ?? "").trim() ? (
+              <p className="luxia-type-caption" style={{ color: "var(--luxia-error-70)" }}>
+                Enter a table name.
+              </p>
+            ) : null}
+          </div>
+        ) : (
+          <p className="luxia-csv-review-file-meta">
+            Table: <span className="luxia-csv-review-file-table">{tableLabel}</span>
+          </p>
+        )}
         <p className="luxia-csv-review-file-outcome">
           {reviewImportLabel(outcome.importedRows, outcome.totalRows)}
         </p>
@@ -2778,7 +3238,7 @@ function ReviewFileCard({
                 All columns will be imported as Text.
               </p>
             ) : null}
-            {outcome.blockers.map((blocker) => (
+            {visibleBlockers.map((blocker) => (
               <p key={blocker.text} className="luxia-csv-review-blocker" role="alert">
                 {blocker.text}
               </p>
@@ -2802,7 +3262,7 @@ function ReviewFileCard({
                     variant="tertiary"
                     size="compact"
                     aria-label={`Edit table details for ${outcome.fileName}`}
-                    onClick={onEditTable}
+                    onClick={() => onEditTable?.()}
                   >
                     Edit table details
                   </Button>
@@ -2910,21 +3370,25 @@ function FileSwitcher({
   notice?: string | null;
 }) {
   const listRef = useRef<HTMLDivElement>(null);
-  const schemaTabs = mode === "schema";
+  const structuredTabs = mode === "schema" || mode === "validation";
 
   useEffect(() => {
-    if (files.length === 0) return;
-    const selected = listRef.current?.querySelector('[aria-selected="true"]');
-    selected?.scrollIntoView({
-      inline: "nearest",
-      block: "nearest",
-      behavior: schemaTabs ? "smooth" : "auto",
-    });
-  }, [activeId, files.length, schemaTabs]);
+    const parent = listRef.current;
+    if (!parent || files.length === 0) return;
+    const selected = parent.querySelector<HTMLElement>('[aria-selected="true"]');
+    if (!selected) return;
+    const parentRect = parent.getBoundingClientRect();
+    const selectedRect = selected.getBoundingClientRect();
+    if (selectedRect.left < parentRect.left - 1) {
+      parent.scrollLeft -= parentRect.left - selectedRect.left;
+    } else if (selectedRect.right > parentRect.right + 1) {
+      parent.scrollLeft += selectedRect.right - parentRect.right;
+    }
+  }, [activeId, files.length]);
 
   useEffect(() => {
     const node = listRef.current;
-    if (!node || !schemaTabs) return;
+    if (!node || !structuredTabs) return;
     const onWheel = (event: WheelEvent) => {
       if (node.scrollWidth <= node.clientWidth + 1) return;
       const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
@@ -2937,7 +3401,7 @@ function FileSwitcher({
     };
     node.addEventListener("wheel", onWheel, { passive: false });
     return () => node.removeEventListener("wheel", onWheel);
-  }, [schemaTabs, files.length]);
+  }, [structuredTabs, files.length]);
 
   if (files.length === 0) return null;
   const tableDuplicates = mode === "tables" ? duplicateTableNameKeys(files) : null;
@@ -2964,7 +3428,10 @@ function FileSwitcher({
     if (mode === "schema") {
       if (!file.included) return { kind: "excluded", label: "Excluded" };
       const schemaStatus = csvFileSchemaUiStatus(file);
-      if (schemaStatus !== "ready") return { kind: "needs-review", label: "Needs review" };
+      if (schemaStatus === "error" || schemaStatus === "parsing-needs-review") {
+        return { kind: "needs-review", label: "Parsing issue" };
+      }
+      if (schemaStatus === "needs-review") return { kind: "needs-review", label: "Needs confirmation" };
       return { kind: "ready", label: "Ready" };
     }
     const validationStatus = validationFileStatus(
@@ -2973,7 +3440,7 @@ function FileSwitcher({
     );
     return {
       kind: validationStatus,
-      label: validationStatusLabel(validationStatus, validations.get(file.id)),
+      label: validationStatusLabel(file, validationStatus, validations.get(file.id)),
     };
   }
 
@@ -3008,12 +3475,13 @@ function FileSwitcher({
     const tone = statusTone(status.kind);
     const label = fileLabel(file);
     const fileNumber = index + 1;
+    const fileIndexLabel = String(fileNumber).padStart(2, "0");
     return (
       <div
         key={file.id}
         role="option"
         aria-selected={selected}
-        aria-label={schemaTabs ? `File ${fileNumber}, ${label}, ${status.label}` : `${label}, ${status.label}`}
+        aria-label={structuredTabs ? `File ${fileIndexLabel}, ${label}, ${status.label}` : `${label}, ${status.label}`}
         tabIndex={0}
         title={`${label} · ${status.label}`}
         onClick={() => onSelect(file.id)}
@@ -3024,7 +3492,7 @@ function FileSwitcher({
             onSelect(file.id);
             return;
           }
-          if (!schemaTabs) return;
+          if (!structuredTabs) return;
           if (event.key === "ArrowRight") {
             event.preventDefault();
             focusFileAt(Math.min(files.length - 1, index + 1));
@@ -3041,11 +3509,12 @@ function FileSwitcher({
         }}
         className="luxia-csv-file-switcher-tab"
       >
-        {schemaTabs ? (
+        {structuredTabs ? (
           <span className="luxia-csv-file-switcher-tab-line">
             <span className="luxia-csv-file-switcher-tab-index" aria-hidden>
-              {fileNumber}
+              {fileIndexLabel}
             </span>
+            {structuredTabs ? <CsvFileGlyph size={16} /> : null}
             <FileSwitcherTabName label={label} />
           </span>
         ) : (
@@ -3056,11 +3525,11 @@ function FileSwitcher({
             aria-hidden
           />
         )}
-        {schemaTabs ? (
+        {structuredTabs ? (
           <span
             className="luxia-csv-file-switcher-tab-status"
             data-status={status.kind}
-            style={{ color: tone.color }}
+            style={structuredTabs ? undefined : { color: tone.color }}
           >
             <span className="shrink-0 rounded-full" style={{ background: tone.dot }} aria-hidden />
             <span>{status.label}</span>
@@ -3084,8 +3553,8 @@ function FileSwitcher({
       <p className="luxia-csv-file-switcher-meta">
         Imported files · {files.length.toLocaleString()}
       </p>
-      {schemaTabs ? (
-        <div className="luxia-csv-file-switcher luxia-csv-file-switcher--schema luxia-settings-tablist">
+      {structuredTabs ? (
+        <div className={`luxia-csv-file-switcher luxia-csv-file-switcher--schema luxia-settings-tablist${structuredTabs ? " luxia-csv-file-switcher--columns" : ""}`}>
           <div
             ref={listRef}
             role="listbox"
@@ -3505,7 +3974,7 @@ function UploadStep({
       ) : null}
       {files.length > 0 ? dropzone : null}
       {files.length > 0 ? (
-        <ul className={`${LUXIA_SETTINGS_LIST_SURFACE_CLASS} divide-y`}>
+        <ul className={`${LUXIA_SETTINGS_LIST_SURFACE_CLASS} luxia-csv-upload-files divide-y`}>
             {files.map((file) => {
               const status = csvFileUiStatus(file);
               const notices = csvFileNotices(file);
@@ -3532,7 +4001,7 @@ function UploadStep({
                   key={file.id}
                   aria-labelledby={fileNameId}
                   aria-describedby={parsingProblem ? `${fileStatusId} ${fileIssueId}` : fileStatusId}
-                  className={`px-4 py-3 ${
+                  className={`luxia-csv-upload-file px-4 py-2 ${
                     editing
                       ? "bg-[var(--luxia-neutral-white)] ring-1 ring-inset ring-[var(--luxia-border-subtle)]"
                       : file.included
@@ -3540,28 +4009,29 @@ function UploadStep({
                         : "bg-[var(--luxia-settings-section-bg)]"
                   }`}
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <p
-                        id={fileNameId}
-                        className="truncate luxia-type-body-dense-strong"
-                        style={{ color: file.included ? "var(--luxia-text-primary)" : "var(--luxia-text-secondary)" }}
-                        title={file.fileName}
-                      >
-                        {file.fileName}
-                      </p>
-                      <p className="mt-0.5 truncate luxia-type-caption" style={{ color: "var(--luxia-text-muted)" }}>
-                        {fileMeta ? (
-                          <>
-                            <span className="sr-only">{fileMeta.spoken}</span>
-                            <span aria-hidden="true">{fileMeta.visual}</span>
-                          </>
-                        ) : (
-                          "Could not read this file"
-                        )}
-                      </p>
+                  <div className="luxia-csv-upload-file-header">
+                    <div className="luxia-csv-upload-file-name flex min-w-0 items-center gap-2">
+                    <CsvFileGlyph />
+                    <p
+                      id={fileNameId}
+                      className="min-w-0 truncate luxia-type-body-dense-strong"
+                      style={{ color: file.included ? "var(--luxia-text-primary)" : "var(--luxia-text-secondary)" }}
+                      title={file.fileName}
+                    >
+                      {file.fileName}
+                    </p>
                     </div>
-                    <span id={fileStatusId} className="shrink-0">
+                    <p className="luxia-csv-upload-file-meta luxia-type-caption" style={{ color: "var(--luxia-text-muted)" }}>
+                      {fileMeta ? (
+                        <>
+                          <span className="sr-only">{fileMeta.spoken}</span>
+                          <span aria-hidden="true">{fileMeta.visual}</span>
+                        </>
+                      ) : (
+                        "Could not read this file"
+                      )}
+                    </p>
+                    <span id={fileStatusId} className="luxia-csv-upload-file-status">
                       <span className="sr-only">{statusPrefix}</span>
                       <StatusDotLabel kind={status} label={uploadFileStatusLabel(status)} />
                     </span>
@@ -3601,7 +4071,7 @@ function UploadStep({
                       )}
                     </div>
                   ) : null}
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <div className="luxia-csv-upload-file-actions">
                     {csvFileCanPreview(file) ? (
                       <Button
                         id={`csv-file-preview-${file.id}`}
@@ -3652,6 +4122,8 @@ function UploadStep({
                       type="button"
                       variant="tertiary"
                       size="compact"
+                      className="luxia-csv-upload-exclude"
+                      data-state={file.included ? "exclude" : "include"}
                       disabled={applyingParse}
                       aria-label={`${file.included ? "Exclude" : "Include"} ${file.fileName}`}
                       onClick={() => onToggleIncluded(file.id)}
@@ -3672,7 +4144,7 @@ function UploadStep({
                               type="button"
                               variant="tertiary"
                               size="icon"
-                              className="ml-auto"
+                              className="luxia-csv-upload-more"
                               disabled={applyingParse}
                               aria-label={`More actions for ${file.fileName}`}
                             >
@@ -3696,6 +4168,7 @@ function UploadStep({
                       >
                         <DropdownMenuItem
                           variant="destructive"
+                          aria-label={`Remove ${file.fileName}`}
                           onSelect={() => {
                             removingFromMenuRef.current = true;
                             onRemove(file.id);
@@ -4329,10 +4802,19 @@ function SchemaPanel({
           </div>
         ) : null}
       </div>
+      <ColumnStructureTable
+        file={file}
+        suggestions={file.typeSuggestions}
+        onTypeChange={onTypeChange}
+        onConfirmType={onConfirmType}
+        onRenameColumn={onRenameColumn}
+        onUseSuggestion={onTypeChange}
+      />
       <SchemaDataPreview
         file={file}
         live={live}
         focusedColumnId={focusedColumnId}
+        inlinePreview={false}
         onTypeChange={onTypeChange}
         onConfirmType={onConfirmType}
         onRenameColumn={onRenameColumn}
@@ -4345,99 +4827,12 @@ function SchemaPanel({
   );
 }
 
-function ValidationPanel({
-  file,
-  summary,
-  remainingIssues,
-  excludedIssues,
-  onReviewInSchema,
-  onUndo,
-}: {
-  file: CsvImportFileDraft;
-  summary: CsvValidationSummary;
-  remainingIssues: number;
-  excludedIssues: DisplayCsvIssue[];
-  onReviewInSchema: () => void;
-  onUndo: (rowNumber: number) => void;
-}) {
-  const [showExcluded, setShowExcluded] = useState(false);
-
-  if (!file.validationRan || file.validationStale) {
-    return (
-      <p className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }} role="status">
-        {file.validationStale ? "Check this file again after parsing or type changes." : "Checking this file…"}
-      </p>
-    );
-  }
-
-  const excludedView = summary.skippedRows > 0 ? (
-    <div className="space-y-2">
-      <Button
-        type="button"
-        variant="secondary"
-        size="compact"
-        onClick={() => setShowExcluded((current) => !current)}
-      >
-        {showExcluded ? "Hide excluded rows" : "View excluded rows"}
-      </Button>
-      {showExcluded ? <ExcludedRowsTable issues={excludedIssues} onUndo={onUndo} /> : null}
-    </div>
-  ) : null;
-
-  if (remainingIssues > 0) {
-    const affectedCells = summary.issues.length;
-    const affectedColumns = new Set(summary.issues.map((issue) => issue.columnName));
-    const columnLabel = [...affectedColumns].join(", ");
-    return (
-      <div className="space-y-3" role="status">
-        <p className="luxia-type-body-dense-strong" style={{ color: "var(--luxia-error-70)" }}>
-          Validation did not pass
-        </p>
-        <p className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
-          {`${remainingIssues.toLocaleString()} row${remainingIssues === 1 ? "" : "s"} still ${remainingIssues === 1 ? "needs" : "need"} a resolution. ${affectedCells.toLocaleString()} value${affectedCells === 1 ? "" : "s"} in ${columnLabel || "the selected columns"}. Excluded rows are not blockers.`}
-        </p>
-        {summary.issues.length > 0 ? (
-          <ul className="space-y-1">
-            {summary.issues.map((issue) => (
-              <li
-                key={`${issue.rowNumber}:${issue.columnId}`}
-                className="luxia-type-caption"
-                style={{ color: "var(--luxia-text-primary)" }}
-              >
-                {`Row ${issue.rowNumber.toLocaleString()}, ${issue.columnName}: ${issue.value.trim() || "empty"} · expected ${issue.expected}`}
-              </li>
-            ))}
-          </ul>
-        ) : null}
-        <Button type="button" variant="secondary" size="compact" onClick={onReviewInSchema}>
-          Review issues in Schema
-        </Button>
-        {excludedView}
-      </div>
-    );
-  }
-
-  return (
-    <div role="status" className="space-y-3">
-      <p className="luxia-type-body-dense-strong" style={{ color: "var(--luxia-success-70)" }}>
-        Validation passed
-      </p>
-      <dl className="grid gap-3 sm:grid-cols-2">
-        <ReviewCell label="Ready rows" value={summary.readyRows.toLocaleString()} />
-        <ReviewCell label="Excluded rows" value={summary.skippedRows.toLocaleString()} />
-        <ReviewCell label="Resolved" value={summary.resolvedRows.toLocaleString()} />
-        <ReviewCell label="Errors" value={summary.invalidRows.toLocaleString()} />
-      </dl>
-      {excludedView}
-    </div>
-  );
-}
-
 function TableMetadataEditor({
   file,
   tagDraft,
   conflict,
   embedded,
+  descriptionOnly = false,
   aiLocked,
   onNameChange,
   onDescriptionChange,
@@ -4449,6 +4844,7 @@ function TableMetadataEditor({
   tagDraft: DraftDataSourceTagsApi;
   conflict: boolean;
   embedded?: boolean;
+  descriptionOnly?: boolean;
   aiLocked?: boolean;
   onNameChange: (value: string) => void;
   onDescriptionChange: (value: string) => void;
@@ -4499,6 +4895,14 @@ function TableMetadataEditor({
           file.tableDescription.trim() !== ""
           && file.tableDescription.trim() !== result.data.tableDescription
         );
+      if (descriptionOnly) {
+        if (descCustom) {
+          setPendingMeta(result.data);
+          return;
+        }
+        onApplyAiMeta(file.tableName, result.data.tableDescription);
+        return;
+      }
       if (nameCustom || descCustom) {
         setPendingMeta(result.data);
         return;
@@ -4522,31 +4926,44 @@ function TableMetadataEditor({
           </div>
         ) : null}
         <div className="max-w-xl space-y-2">
-          <div className="flex items-baseline justify-between gap-3">
-            <Label htmlFor={`csv-table-name-${file.id}`}>Table name</Label>
-            {!embedded ? (
-              <span className="luxia-type-caption" style={{ color: "var(--luxia-text-muted)" }}>
-                {tableMetaStatusLabel(file)}
-              </span>
-            ) : null}
-          </div>
-          <Input
-            id={`csv-table-name-${file.id}`}
-            value={file.tableName}
-            onChange={(event) => onNameChange(event.target.value)}
-            autoComplete="off"
-            aria-invalid={conflict || !file.tableName.trim()}
-          />
-          {conflict ? (
-            <p className="luxia-type-caption" style={{ color: "var(--luxia-error-70)" }}>
-              Table names must be unique.
-            </p>
-          ) : null}
-          {!file.tableName.trim() ? (
-            <p className="luxia-type-caption" style={{ color: "var(--luxia-error-70)" }}>
-              Enter a table name.
-            </p>
-          ) : null}
+          {descriptionOnly ? (
+            <div>
+              <p className="luxia-type-caption" style={{ color: "var(--luxia-text-muted)" }}>
+                Table
+              </p>
+              <p className="mt-1 luxia-type-body-dense" style={{ color: "var(--luxia-text-primary)" }}>
+                {file.tableName.trim() || "Unnamed table"}
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-baseline justify-between gap-3">
+                <Label htmlFor={`csv-table-name-${file.id}`}>Table name</Label>
+                {!embedded ? (
+                  <span className="luxia-type-caption" style={{ color: "var(--luxia-text-muted)" }}>
+                    {tableMetaStatusLabel(file)}
+                  </span>
+                ) : null}
+              </div>
+              <Input
+                id={`csv-table-name-${file.id}`}
+                value={file.tableName}
+                onChange={(event) => onNameChange(event.target.value)}
+                autoComplete="off"
+                aria-invalid={conflict || !file.tableName.trim()}
+              />
+              {conflict ? (
+                <p className="luxia-type-caption" style={{ color: "var(--luxia-error-70)" }}>
+                  Table names must be unique.
+                </p>
+              ) : null}
+              {!file.tableName.trim() ? (
+                <p className="luxia-type-caption" style={{ color: "var(--luxia-error-70)" }}>
+                  Enter a table name.
+                </p>
+              ) : null}
+            </>
+          )}
           <DraftTableTagRow
             tableId={file.id}
             tableLabel={file.tableName.trim() || file.fileName}
@@ -4579,11 +4996,15 @@ function TableMetadataEditor({
           {pendingMeta ? (
             <div className="space-y-2">
               <p className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
-                Replace the current name and description with this suggestion?
+                {descriptionOnly
+                  ? "Replace the current description with this suggestion?"
+                  : "Replace the current name and description with this suggestion?"}
               </p>
-              <p className="luxia-type-body-dense" style={{ color: "var(--luxia-text-primary)" }}>
-                {pendingMeta.tableName}
-              </p>
+              {descriptionOnly ? null : (
+                <p className="luxia-type-body-dense" style={{ color: "var(--luxia-text-primary)" }}>
+                  {pendingMeta.tableName}
+                </p>
+              )}
               <p className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
                 {pendingMeta.tableDescription}
               </p>
@@ -4596,7 +5017,10 @@ function TableMetadataEditor({
                   variant="primary"
                   size="compact"
                   onClick={() => {
-                    onApplyAiMeta(pendingMeta.tableName, pendingMeta.tableDescription);
+                    onApplyAiMeta(
+                      descriptionOnly ? file.tableName : pendingMeta.tableName,
+                      pendingMeta.tableDescription,
+                    );
                     setPendingMeta(null);
                   }}
                 >

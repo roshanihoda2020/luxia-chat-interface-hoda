@@ -102,5 +102,9 @@ export function DataSourceTypeIcon({
   );
 }
 
+export function CsvFileGlyph({ size = 18 }: { size?: number }) {
+  return <DataSourceTypeIcon id="csv" size={size} align="center" />;
+}
+
 export { getDataSourceTypeIcon, resolveDataSourceTypeIconId };
 export type { DataSourceTypeIconId };

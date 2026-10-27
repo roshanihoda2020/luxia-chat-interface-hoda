@@ -25,6 +25,27 @@ export type CsvValueContextMethod = "distinct" | "frequency" | "sum";
 export type CsvValueContextOrder = "asc" | "desc";
 export type CsvValueContextLimit = 10 | 25 | 50;
 export type CsvValueContextOrigin = "retrieved" | "edited";
+export type CsvResolutionKind =
+  | "skip-affected"
+  | "manual"
+  | "ai-accepted"
+  | "reupload"
+  | "import-as-text";
+
+export interface CsvAiProposal {
+  rowNumber: number;
+  columnId: string;
+  columnName: string;
+  currentValue: string;
+  suggestedValue: string;
+}
+
+export interface CsvTypeSuggestion {
+  columnId: string;
+  columnName: string;
+  currentType: string;
+  suggestedType: string;
+}
 
 export interface CsvRowDescriptionEntry {
   text: string;
@@ -78,6 +99,14 @@ export interface CsvImportFileDraft {
   valueContext: Record<string, CsvColumnValueContext>;
   /** Unsaved; omitted from create payload until saved. */
   valueContextDraft: Record<string, CsvColumnValueContext>;
+  /** Explicit validation decisions already applied. A file may record more than one. */
+  appliedResolutions: CsvResolutionKind[];
+  /** Whole-file text fallback, distinct from columns that were inferred as Text. */
+  importAsText: boolean;
+  /** Pending AI repairs. Nothing is written until Apply. */
+  aiProposals: CsvAiProposal[];
+  /** Type ideas after resolution. Never applied automatically. */
+  typeSuggestions: CsvTypeSuggestion[];
 }
 
 function nextFileId(fileName: string): string {
@@ -249,6 +278,42 @@ export function reparseCsvImportFile(
     rowDescriptions: {},
     valueContext: {},
     valueContextDraft: {},
+    appliedResolutions: [],
+    importAsText: false,
+    aiProposals: [],
+    typeSuggestions: [],
+  };
+}
+
+export function replaceCsvImportFileContents(
+  file: CsvImportFileDraft,
+  bytes: Uint8Array,
+  meta: { fileName: string; size: number; lastModified: number },
+): CsvImportFileDraft {
+  const reparsed = reparseCsvImportFile(
+    {
+      ...file,
+      fileName: meta.fileName,
+      size: meta.size,
+      lastModified: meta.lastModified,
+      fingerprint: csvFileFingerprint(meta.fileName, meta.size, meta.lastModified),
+      bytes,
+      included: true,
+    },
+    { invalidateDownstream: true },
+  );
+  return {
+    ...reparsed,
+    tableName: file.tableName,
+    tableDescription: file.tableDescription,
+    descriptionDrafted: file.descriptionDrafted,
+    tableMetaAiGenerated: file.tableMetaAiGenerated,
+    tableNameOrigin: file.tableNameOrigin,
+    tableDescriptionOrigin: file.tableDescriptionOrigin,
+    appliedResolutions: ["reupload"],
+    importAsText: false,
+    aiProposals: [],
+    typeSuggestions: [],
   };
 }
 
@@ -296,6 +361,10 @@ export function buildCsvImportFile(
       rowDescriptions: {},
       valueContext: {},
       valueContextDraft: {},
+      appliedResolutions: [],
+      importAsText: false,
+      aiProposals: [],
+      typeSuggestions: [],
     },
     { encoding: detected.encoding },
   );

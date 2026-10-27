@@ -28,7 +28,6 @@ import type {
 import {
   emptyDatabaseFields,
   nextPrototypeDataSourceId,
-  nextPrototypeDataSourceName,
 } from "./types";
 import type { DataSourceHandoffProject } from "../constellationHandoff";
 
@@ -48,10 +47,6 @@ export interface NewDataSourceFlowProps {
   onCreateConstellationFromSource?: (sourceId: string, projectId?: string) => void;
 }
 
-function defaultOwnership(allowOrganizational: boolean): DataSourceOwnershipChoice {
-  return allowOrganizational ? "organizational" : "private";
-}
-
 export function NewDataSourceFlow({
   open,
   currentUserId,
@@ -66,9 +61,7 @@ export function NewDataSourceFlow({
   const [phase, setPhase] = useState<CreationPhase>("chooser");
   const [connector, setConnector] = useState<DataSourceConnector | null>(null);
   const [name, setName] = useState("");
-  const [ownership, setOwnership] = useState<DataSourceOwnershipChoice>(
-    defaultOwnership(allowOrganizational),
-  );
+  const [ownership, setOwnership] = useState<DataSourceOwnershipChoice | null>(null);
   const [dbFieldsByConnector, setDbFieldsByConnector] = useState<
     Partial<Record<DataSourceConnector, DatabaseConnectionFields>>
   >({});
@@ -79,18 +72,13 @@ export function NewDataSourceFlow({
   const sheetImportTokenRef = useRef(0);
   const tagDraft = useDraftDataSourceTags();
 
-  const suggestedName = useMemo(
-    () => nextPrototypeDataSourceName(existingSources),
-    [existingSources],
-  );
-
   useEffect(() => {
     if (!open) return;
     createdSourceRef.current = null;
     setPhase("chooser");
     setConnector(null);
-    setName(suggestedName);
-    setOwnership(defaultOwnership(allowOrganizational));
+    setName("");
+    setOwnership(null);
     setDbFieldsByConnector({});
     setDiscardOpen(false);
     setSheetImporting(false);
@@ -98,19 +86,19 @@ export function NewDataSourceFlow({
     setSessionKey((value) => value + 1);
     tagDraft.reset();
     // Reset only when the dialog opens. Do not reset after catalog create while the CSV Summary is still showing.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- suggestedName/existingSources change after create
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- catalog changes must not clear an open flow
   }, [open]);
 
   useEffect(() => {
     if (!allowOrganizational && ownership === "organizational") {
-      setOwnership("private");
+      setOwnership(null);
     }
   }, [allowOrganizational, ownership]);
 
   const dirty = useMemo(() => {
     if (connector) return true;
-    if (name.trim() && name.trim() !== suggestedName.trim()) return true;
-    if (ownership !== defaultOwnership(allowOrganizational)) return true;
+    if (name.trim()) return true;
+    if (ownership) return true;
     if (Object.keys(dbFieldsByConnector).length > 0) return true;
     if (!tagDraft.isEmpty) return true;
     return phase !== "chooser";
@@ -118,8 +106,6 @@ export function NewDataSourceFlow({
     connector,
     name,
     ownership,
-    allowOrganizational,
-    suggestedName,
     dbFieldsByConnector,
     phase,
     tagDraft.isEmpty,
@@ -148,9 +134,13 @@ export function NewDataSourceFlow({
     status: DataSourceCatalogItem["status"];
     contentSummary?: DataSourceContentSummary;
   }): DataSourceCatalogItem {
+    const trimmedName = name.trim();
+    if (!ownership || !trimmedName) {
+      throw new Error("Data Source name and ownership are required.");
+    }
     return {
       id: nextPrototypeDataSourceId(existingSources),
-      name: name.trim() || suggestedName,
+      name: trimmedName,
       type: partial.type,
       connector: partial.connector,
       ownership,
@@ -213,7 +203,7 @@ export function NewDataSourceFlow({
   }
 
   function handleChooserNext() {
-    if (!connector || !name.trim()) return;
+    if (!connector || !name.trim() || !ownership) return;
     if (isDatabaseConnector(connector)) {
       setDbFieldsByConnector((prev) => ({
         ...prev,
@@ -318,7 +308,8 @@ export function NewDataSourceFlow({
     onCreateConstellationFromSource?.(source.id, projectId);
   }
 
-  const ownershipLabel = ownership === "private" ? "Private" : "Organizational";
+  const ownershipLabel =
+    ownership === "private" ? "Private" : ownership === "organizational" ? "Organizational" : "";
   const activeDbFields =
     connector && isDatabaseConnector(connector)
       ? dbFieldsByConnector[connector] ?? emptyDatabaseFields(connector)
@@ -345,7 +336,7 @@ export function NewDataSourceFlow({
           key={`db-${sessionKey}-${connector}`}
           open={open && phase === "database"}
           connector={connector}
-          sourceName={name.trim() || suggestedName}
+          sourceName={name.trim()}
           ownershipLabel={ownershipLabel}
           fields={activeDbFields}
           onFieldsChange={(fields) =>
@@ -371,7 +362,7 @@ export function NewDataSourceFlow({
       <CsvImportFlow
         key={`csv-${sessionKey}`}
         open={open && phase === "csv"}
-        sourceName={name.trim() || suggestedName}
+        sourceName={name.trim()}
         ownershipLabel={ownershipLabel}
         tagDraft={tagDraft}
         onBackToChooser={() => setPhase("chooser")}
@@ -389,7 +380,7 @@ export function NewDataSourceFlow({
       <FileUploadDialog
         key={`file-${sessionKey}`}
         open={open && phase === "file"}
-        sourceName={name.trim() || suggestedName}
+        sourceName={name.trim()}
         ownershipLabel={ownershipLabel}
         onBack={() => setPhase("chooser")}
         onCancel={requestClose}
@@ -413,7 +404,7 @@ export function NewDataSourceFlow({
       <GoogleSheetImportDialog
         key={`sheet-${sessionKey}`}
         open={open && phase === "googlesheet"}
-        sourceName={name.trim() || suggestedName}
+        sourceName={name.trim()}
         ownershipLabel={ownershipLabel}
         importing={sheetImporting}
         onBack={() => {

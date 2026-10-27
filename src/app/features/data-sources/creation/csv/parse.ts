@@ -27,15 +27,34 @@ export const CSV_ENCODING_LABELS: Record<CsvEncodingId, string> = {
 
 export const CSV_ENCODING_IDS = Object.keys(CSV_ENCODING_LABELS) as CsvEncodingId[];
 
-export type CsvColumnType = "Integer" | "Number" | "Text" | "Date" | "Boolean";
+export type CsvColumnType =
+  | "Text"
+  | "Integer"
+  | "BigInt"
+  | "Number"
+  | "Boolean"
+  | "Date"
+  | "Timestamp";
 
 export const CSV_COLUMN_TYPES: CsvColumnType[] = [
-  "Integer",
-  "Number",
   "Text",
-  "Date",
+  "Integer",
+  "BigInt",
+  "Number",
   "Boolean",
+  "Date",
+  "Timestamp",
 ];
+
+export const CSV_COLUMN_TYPE_LABELS: Record<CsvColumnType, string> = {
+  Text: "TEXT",
+  Integer: "INTEGER",
+  BigInt: "BIGINT",
+  Number: "NUMERIC",
+  Boolean: "BOOLEAN",
+  Date: "DATE",
+  Timestamp: "TIMESTAMP",
+};
 
 export type CsvIssueSeverity = "info" | "warning" | "error";
 

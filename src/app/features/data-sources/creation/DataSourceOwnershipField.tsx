@@ -6,17 +6,17 @@ export function DataSourceOwnershipField({
   onChange,
   allowOrganizational,
 }: {
-  value: DataSourceOwnershipChoice;
+  value: DataSourceOwnershipChoice | null;
   onChange: (value: DataSourceOwnershipChoice) => void;
   allowOrganizational: boolean;
 }) {
   return (
-    <fieldset className="luxia-creation-ownership-fieldset min-w-0 border-0 p-0">
-      <legend className="mb-2 luxia-type-body-dense-strong text-[var(--luxia-text-primary)]">
+    <fieldset className="luxia-creation-ownership-fieldset luxia-creation-ownership--quiet min-w-0 border-0 p-0">
+      <legend className="mb-2 luxia-type-label-form text-[var(--luxia-text-primary)]">
         Ownership
       </legend>
       <RadioGroup
-        value={value}
+        value={value ?? ""}
         onValueChange={(next) => onChange(next as DataSourceOwnershipChoice)}
         className="luxia-creation-ownership-list flex flex-col gap-0"
         aria-label="Ownership"

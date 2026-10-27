@@ -122,6 +122,8 @@ export type CsvAiResult<T> =
   | { status: "no-suggestion"; message: string }
   | { status: "ok"; data: T };
 
+export { suggestedRepairValue } from "./csvAiSuggestions";
+
 /** Must not mutate the cell until Apply. */
 export async function proposeCsvValueRepair(
   request: CsvAiValueRepairRequest,

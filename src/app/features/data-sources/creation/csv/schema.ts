@@ -1,5 +1,6 @@
 import type { CsvColumnDraft } from "../types";
 import {
+  CSV_COLUMN_TYPE_LABELS,
   normalizeColumnName,
   type CsvColumnType,
   type CsvParseResult,
@@ -14,10 +15,33 @@ const BOOLEAN_VALUES = new Set([
 
 const ISO_DATE = /^(\d{4}-\d{2}-\d{2})([T ]\d{2}:\d{2}(:\d{2}(\.\d{1,9})?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
 
+const INT32_MIN = BigInt("-2147483648");
+const INT32_MAX = BigInt("2147483647");
+
 export function isIntegerValue(raw: string): boolean {
   const value = raw.trim();
   if (!value) return false;
   return /^-?\d+$/.test(value);
+}
+
+export function isInt32Value(raw: string): boolean {
+  const value = raw.trim();
+  if (!isIntegerValue(value)) return false;
+  try {
+    const parsed = BigInt(value);
+    return parsed >= INT32_MIN && parsed <= INT32_MAX;
+  } catch {
+    return false;
+  }
+}
+
+export function isTimestampValue(raw: string): boolean {
+  return isDateValue(raw) && looksLikeIsoDateTime(raw);
+}
+
+export function isDateOnlyValue(raw: string): boolean {
+  const value = raw.trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) && isDateValue(value);
 }
 
 export function isNumberValue(raw: string): boolean {
@@ -82,6 +106,16 @@ function sampleValues(values: string[]): string[] {
   return unique;
 }
 
+function timestampFormatLabel(values: string[]): string | undefined {
+  const sample = values.map((value) => value.trim()).find((value) => isTimestampValue(value));
+  if (!sample) return undefined;
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/.test(sample)) return "YYYY-MM-DD HH:MM:SS";
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(sample)) return "YYYY-MM-DDTHH:MM:SS";
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(sample)) return "YYYY-MM-DD HH:MM";
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(sample)) return "YYYY-MM-DDTHH:MM";
+  return undefined;
+}
+
 export function inferColumnType(values: string[]): {
   type: CsvColumnType;
   needsReview: boolean;
@@ -92,28 +126,41 @@ export function inferColumnType(values: string[]): {
     return { type: "Text", needsReview: false };
   }
 
-  const dateHits = sampled.filter(isDateValue).length;
+  const timestampHits = sampled.filter(isTimestampValue).length;
+  const dateOnlyHits = sampled.filter(isDateOnlyValue).length;
   const dateLikeHits = sampled.filter((value) => looksLikeFormattedDate(value)).length;
   const dateRatio = dateLikeHits / sampled.length;
-  const hasIsoDateTime = sampled.some(looksLikeIsoDateTime);
 
-  if (dateHits === sampled.length) {
-    const format = hasIsoDateTime ? "ISO date-time" : "YYYY-MM-DD";
-    return { type: "Date", needsReview: false, dateFormat: format };
+  if (timestampHits === sampled.length) {
+    return { type: "Timestamp", needsReview: false, dateFormat: timestampFormatLabel(sampled) };
+  }
+  if (dateOnlyHits === sampled.length) {
+    return { type: "Date", needsReview: false, dateFormat: "YYYY-MM-DD" };
   }
 
-  // Majority date-like (including ISO timestamps with a few invalid cells) stays Date.
-  // True invalid values are row-level validation issues, not a reason to infer Integer.
+  // Majority date-like values stay temporal. Invalid cells are validation issues.
   if (dateLikeHits >= 2 && dateRatio >= 0.7) {
-    const format = hasIsoDateTime ? "ISO date-time" : "YYYY-MM-DD";
-    return { type: "Date", needsReview: dateHits !== sampled.length, dateFormat: format };
+    const preferTimestamp = timestampHits > 0 && timestampHits >= dateOnlyHits;
+    if (preferTimestamp) {
+      return {
+        type: "Timestamp",
+        needsReview: timestampHits !== sampled.length,
+        dateFormat: timestampFormatLabel(sampled),
+      };
+    }
+    return {
+      type: "Date",
+      needsReview: dateOnlyHits !== sampled.length,
+      dateFormat: dateOnlyHits > 0 ? "YYYY-MM-DD" : undefined,
+    };
   }
 
   if (sampled.every(isBooleanValue)) {
     return { type: "Boolean", needsReview: false };
   }
   if (sampled.every((value) => isIntegerValue(value) && !looksLikeIsoDateTime(value))) {
-    return { type: "Integer", needsReview: false };
+    const fitsInt32 = sampled.every(isInt32Value);
+    return { type: fitsInt32 ? "Integer" : "BigInt", needsReview: false };
   }
   if (sampled.every((value) => isNumberValue(value) && !looksLikeIsoDateTime(value))) {
     return { type: "Number", needsReview: false };
@@ -127,10 +174,13 @@ export function columnReviewReason(input: {
   values: string[];
 }): string {
   const sampled = input.values.filter((value) => value.trim() !== "");
-  if (input.type === "Date") {
-    const mismatches = sampled.filter((value) => !isDateValue(value));
+  if (input.type === "Date" || input.type === "Timestamp") {
+    const matches = input.type === "Timestamp" ? isTimestampValue : isDateOnlyValue;
+    const mismatches = sampled.filter((value) => !matches(value));
     if (mismatches.length > 0) {
-      return "Some values do not match the detected Date format.";
+      return input.type === "Timestamp"
+        ? "Some values do not match the detected timestamp format."
+        : "Some values do not match the detected date format.";
     }
   }
 
@@ -181,9 +231,24 @@ export function inferCsvSchema(parsed: CsvParseResult, fileId?: string): CsvColu
   return fileId ? bindCsvColumnIds(fileId, columns) : columns;
 }
 
+export function csvColumnTypeLabel(type: CsvColumnType | string): string {
+  if (type in CSV_COLUMN_TYPE_LABELS) {
+    return CSV_COLUMN_TYPE_LABELS[type as CsvColumnType];
+  }
+  return type;
+}
+
 export function selectedColumnType(column: CsvColumnDraft): CsvColumnType {
   const type = column.type;
-  if (type === "Integer" || type === "Number" || type === "Text" || type === "Date" || type === "Boolean") {
+  if (
+    type === "Text"
+    || type === "Integer"
+    || type === "BigInt"
+    || type === "Number"
+    || type === "Boolean"
+    || type === "Date"
+    || type === "Timestamp"
+  ) {
     return type;
   }
   return "Text";
@@ -194,16 +259,61 @@ export function valueMatchesType(raw: string, type: CsvColumnType): boolean {
   if (value === "") return true;
   switch (type) {
     case "Integer":
+      return isInt32Value(value);
+    case "BigInt":
       return isIntegerValue(value);
     case "Number":
       return isNumberValue(value);
     case "Boolean":
       return isBooleanValue(value);
     case "Date":
-      return isDateValue(value);
+      return isDateOnlyValue(value);
+    case "Timestamp":
+      return isTimestampValue(value);
     case "Text":
       return true;
     default:
       return true;
   }
+}
+
+export function columnTypeConfidence(
+  values: string[],
+  type: CsvColumnType,
+  needsConfirmation: boolean,
+): { label: string; detail: string | null } {
+  const evidence = values.map((value) => value.trim()).filter(Boolean);
+  const matchCount = evidence.filter((value) => valueMatchesType(value, type)).length;
+  const evidenceCount = evidence.length;
+  const countLabel = evidenceCount > 0
+    ? `${matchCount.toLocaleString()} of ${evidenceCount.toLocaleString()} values match`
+    : null;
+  if (needsConfirmation) {
+    return {
+      label: "Needs confirmation",
+      detail: matchCount === evidenceCount ? null : countLabel,
+    };
+  }
+  if (evidenceCount === 0 || matchCount === evidenceCount) {
+    return { label: "All values match", detail: null };
+  }
+  if (matchCount / evidenceCount >= 0.7) {
+    return { label: countLabel ?? "Most values match", detail: null };
+  }
+  return { label: "Needs confirmation", detail: countLabel };
+}
+
+export function columnProblemCopy(type: CsvColumnType, dateFormat?: string): string {
+  if (type === "Timestamp") {
+    return dateFormat
+      ? "Not a timestamp in the detected format"
+      : "Not a timestamp";
+  }
+  if (type === "Date") {
+    return dateFormat ? "Not a date in the detected format" : "Not a date";
+  }
+  if (type === "Integer" || type === "BigInt") return "Not an integer";
+  if (type === "Number") return "Not a number";
+  if (type === "Boolean") return "Not a boolean";
+  return "Value does not match the column type";
 }
