@@ -55,7 +55,7 @@ function DescriptionEditor({
     return (
       <button
         type="button"
-        className="block w-full max-w-full truncate rounded-[4px] px-1 py-0.5 text-left luxia-type-caption underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]"
+        className="block w-full max-w-full truncate rounded-[4px] px-1 py-0.5 text-left luxia-type-caption luxia-csv-editable-text outline-none focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]"
         style={{ color: value.trim() ? "var(--luxia-text-primary)" : "var(--luxia-text-muted)" }}
         title={value.trim() || "Add a description"}
         onClick={() => {

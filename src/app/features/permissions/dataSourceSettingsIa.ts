@@ -133,6 +133,7 @@ export function csvTablesFromContentSummary(
       fileName: summary.fileName ?? "",
       tableName: summary.tableName ?? "",
       tableDescription: summary.tableDescription,
+      tableDescriptionOrigin: summary.tableDescriptionOrigin,
       delimiter: summary.delimiter,
       encoding: summary.encoding,
       importedRows: summary.importedRows,

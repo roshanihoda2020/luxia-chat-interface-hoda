@@ -1,4 +1,6 @@
 import type {
+  CsvImportedColumn,
+  CsvImportedColumnDescription,
   CsvImportedColumnValueContext,
   DataSourceCatalogItem,
   DataSourceConnector,
@@ -89,11 +91,14 @@ export interface CsvImportedTablePayload {
   fileName: string;
   tableName: string;
   tableDescription: string;
+  tableDescriptionOrigin?: "ai" | "edited";
   delimiter: string;
   encoding: string;
   importedRows: number;
   skippedRows: number;
   valueContext?: CsvImportedColumnValueContext[];
+  columns?: CsvImportedColumn[];
+  columnDescriptions?: CsvImportedColumnDescription[];
 }
 
 export interface CsvImportCompletePayload {

@@ -66,6 +66,12 @@ export interface CsvTypeSuggestion {
   suggestedType: string;
 }
 
+/** Keyed by column id. Describes what the column means; never changes cell values. */
+export interface CsvColumnDescriptionEntry {
+  text: string;
+  origin: CsvRowDescriptionOrigin;
+}
+
 export interface CsvRowDescriptionEntry {
   text: string;
   origin: CsvRowDescriptionOrigin;
@@ -114,6 +120,7 @@ export interface CsvImportFileDraft {
   tableDescriptionOrigin: CsvTableMetaOrigin;
   /** Keyed by source rowNumber. Does not mutate CSV cells. */
   rowDescriptions: Record<number, CsvRowDescriptionEntry>;
+  columnDescriptions: Record<string, CsvColumnDescriptionEntry>;
   /** Does not mutate CSV cells. */
   valueContext: Record<string, CsvColumnValueContext>;
   /** Unsaved; omitted from create payload until saved. */
@@ -314,6 +321,7 @@ export function reparseCsvImportFile(
     validationStale: Boolean(options.invalidateDownstream),
     issueSnapshot: [],
     rowDescriptions: {},
+    columnDescriptions: {},
     valueContext: {},
     valueContextDraft: {},
     appliedResolutions: [],
@@ -326,6 +334,37 @@ export function reparseCsvImportFile(
     fixMeta: {},
     typeSuggestions: [],
   };
+}
+
+/**
+ * Column ids are positional, so a replaced file cannot reuse them. A description moves to a new
+ * column only when both versions have exactly one column with the same original CSV header
+ * (trimmed, case-insensitive). Reordered columns keep their descriptions; renamed, removed,
+ * added or ambiguous (duplicate-header) columns do not.
+ */
+function carryColumnDescriptions(
+  previous: CsvImportFileDraft,
+  next: CsvImportFileDraft,
+): CsvImportFileDraft["columnDescriptions"] {
+  const headerKey = (column: { name: string; originalName?: string }) =>
+    (column.originalName ?? column.name).trim().toLowerCase();
+  const counts = (columns: Array<{ name: string; originalName?: string }>) => {
+    const map = new Map<string, number>();
+    for (const column of columns) map.set(headerKey(column), (map.get(headerKey(column)) ?? 0) + 1);
+    return map;
+  };
+  const previousCounts = counts(previous.columns);
+  const nextCounts = counts(next.columns);
+  const previousByHeader = new Map(previous.columns.map((column) => [headerKey(column), column]));
+  const carried: CsvImportFileDraft["columnDescriptions"] = {};
+  for (const column of next.columns) {
+    const key = headerKey(column);
+    if (!key || previousCounts.get(key) !== 1 || nextCounts.get(key) !== 1) continue;
+    const match = previousByHeader.get(key);
+    const entry = match ? previous.columnDescriptions?.[match.id] : undefined;
+    if (entry?.text.trim()) carried[column.id] = entry;
+  }
+  return carried;
 }
 
 export function replaceCsvImportFileContents(
@@ -353,6 +392,7 @@ export function replaceCsvImportFileContents(
     tableMetaAiGenerated: file.tableMetaAiGenerated,
     tableNameOrigin: file.tableNameOrigin,
     tableDescriptionOrigin: file.tableDescriptionOrigin,
+    columnDescriptions: carryColumnDescriptions(file, reparsed),
     appliedResolutions: ["reupload"],
     validationStrategy: null,
     importAsText: false,
@@ -407,6 +447,7 @@ export function buildCsvImportFile(
       tableNameOrigin: "unset",
       tableDescriptionOrigin: "unset",
       rowDescriptions: {},
+      columnDescriptions: {},
       valueContext: {},
       valueContextDraft: {},
       appliedResolutions: [],

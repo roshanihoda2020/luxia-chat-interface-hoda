@@ -13,6 +13,7 @@ import {
   prototypeSuggestSimilarFixes,
   prototypeSuggestTableMetadata,
   prototypeSuggestRowDescriptions,
+  prototypeSuggestColumnDescriptions,
 } from "./csvAiSuggestions";
 
 export const CSV_AI_INTEGRATION = {
@@ -116,6 +117,16 @@ export interface CsvAiRowDescriptionSuccess {
   changes: CsvAiRowDescriptionChange[];
 }
 
+export interface CsvAiColumnDescriptionRequest {
+  fileId: string;
+  tableName: string;
+  columns: Array<{ id: string; name: string; type: string; examples: string[] }>;
+}
+
+export interface CsvAiColumnDescriptionSuccess {
+  changes: Array<{ columnId: string; description: string }>;
+}
+
 export type CsvAiResult<T> =
   | { status: "unavailable"; message: string }
   | { status: "error"; message: string }
@@ -148,6 +159,13 @@ export async function proposeCsvTableMetadata(
   request: CsvAiTableMetadataRequest,
 ): Promise<CsvAiResult<CsvAiTableMetadataSuccess>> {
   return prototypeSuggestTableMetadata(request);
+}
+
+/** Proposes column meanings only; never changes types or cells. */
+export async function proposeCsvColumnDescriptions(
+  request: CsvAiColumnDescriptionRequest,
+): Promise<CsvAiResult<CsvAiColumnDescriptionSuccess>> {
+  return prototypeSuggestColumnDescriptions(request);
 }
 
 /** Must not mutate CSV cells. */
