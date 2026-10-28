@@ -105,6 +105,15 @@ export function CsvValueContextSection({
     ? "distinct"
     : config.retrievalMethod;
   const unsavedSelectedIds = selectedIds.filter((columnId) => Boolean(file.valueContextDraft?.[columnId]));
+  // Retrieved (not hand-edited) values that no longer match the current settings. These cannot be
+  // saved from this panel until they are retrieved again, so a save never mixes old values with new settings.
+  const isStale = (columnId: string) => {
+    const draft = file.valueContextDraft?.[columnId];
+    return Boolean(draft)
+      && draft!.origin !== "edited"
+      && (draft!.retrievalMethod !== method || draft!.order !== config.order || draft!.limit !== config.limit);
+  };
+  const staleSelectedIds = selectedIds.filter(isStale);
   const pendingNames = (pendingRetrieveIds ?? [])
     .map((columnId) => columns.find((column) => column.id === columnId)?.name.trim() || columnId)
     .filter(Boolean);
@@ -212,121 +221,144 @@ export function CsvValueContextSection({
   }
 
   function saveSelectedDrafts() {
-    if (unsavedSelectedIds.length === 0) return;
+    if (unsavedSelectedIds.length === 0 || staleSelectedIds.length > 0) return;
     onCommitDrafts(unsavedSelectedIds);
     setNotice(
       `${unsavedSelectedIds.length.toLocaleString()} column${unsavedSelectedIds.length === 1 ? "" : "s"} saved`,
     );
   }
 
+  const savePrimary = unsavedSelectedIds.length > 0;
   return (
     <div className="space-y-3">
-      <div className="flex min-w-0 flex-wrap items-center gap-2">
-        <Button type="button" variant="tertiary" size="compact" onClick={() => patchUi({ selectedIds: columns.map((column) => column.id) })} disabled={allSelected || columns.length === 0}>
-          Select all
-        </Button>
-        <Button type="button" variant="tertiary" size="compact" onClick={() => patchUi({ selectedIds: [] })} disabled={selectedIds.length === 0}>
-          Clear selection
-        </Button>
-      </div>
+      <div className="luxia-csv-sv-controls">
+        <div className="luxia-csv-sv-top">
+          <div className="luxia-csv-sv-group">
+            <p className="luxia-csv-sv-group-label">Columns</p>
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <Button type="button" variant="outline" size="compact" onClick={() => patchUi({ selectedIds: columns.map((column) => column.id) })} disabled={allSelected || columns.length === 0}>
+                Select all
+              </Button>
+              <Button type="button" variant="outline" size="compact" onClick={() => patchUi({ selectedIds: [] })} disabled={selectedIds.length === 0}>
+                Clear selection
+              </Button>
+              <span className="ml-1 luxia-type-caption" style={{ color: "var(--luxia-text-muted)" }} aria-live="polite">
+                {`${selectedIds.length.toLocaleString()} of ${columns.length.toLocaleString()} selected`}
+              </span>
+            </div>
+          </div>
 
-      <div className="grid min-w-0 gap-3 sm:grid-cols-3">
-        <div className="min-w-0 space-y-1.5">
-          <Label htmlFor="csv-value-context-method">Retrieve method</Label>
-          <Select
-            value={method}
-            onValueChange={(value) =>
-              patchConfig({
-                retrievalMethod: value as CsvValueContextMethod,
-              })
-            }
-          >
-            <SelectTrigger id="csv-value-context-method" size="sm" className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="!z-[80]">
-              <SelectItem value="distinct">{METHOD_LABELS.distinct}</SelectItem>
-              <SelectItem value="frequency">{METHOD_LABELS.frequency}</SelectItem>
-              <SelectItem value="sum" disabled={!anyNumericAggregate}>
-                {METHOD_LABELS.sum}
-              </SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="luxia-csv-sv-group luxia-csv-sv-settings">
+            <p className="luxia-csv-sv-group-label">Retrieve settings</p>
+            <div className="grid min-w-0 gap-2 sm:grid-cols-3">
+              <div className="min-w-0 space-y-1">
+                <Label htmlFor="csv-value-context-method" className="luxia-csv-sv-field-label">Method</Label>
+                <Select
+                  value={method}
+                  onValueChange={(value) =>
+                    patchConfig({
+                      retrievalMethod: value as CsvValueContextMethod,
+                    })
+                  }
+                >
+                  <SelectTrigger id="csv-value-context-method" size="sm" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="!z-[80]">
+                    <SelectItem value="distinct">{METHOD_LABELS.distinct}</SelectItem>
+                    <SelectItem value="frequency">{METHOD_LABELS.frequency}</SelectItem>
+                    <SelectItem value="sum" disabled={!anyNumericAggregate}>
+                      {METHOD_LABELS.sum}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="min-w-0 space-y-1">
+                <Label htmlFor="csv-value-context-order" className="luxia-csv-sv-field-label">Order</Label>
+                <Select
+                  value={config.order}
+                  onValueChange={(value) => patchConfig({ order: value as CsvValueContextOrder })}
+                >
+                  <SelectTrigger id="csv-value-context-order" size="sm" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="!z-[80]">
+                    <SelectItem value="asc">Ascending</SelectItem>
+                    <SelectItem value="desc">Descending</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="min-w-0 space-y-1">
+                <Label htmlFor="csv-value-context-limit" className="luxia-csv-sv-field-label">Limit</Label>
+                <Select
+                  value={String(config.limit)}
+                  onValueChange={(value) => patchConfig({ limit: Number(value) as CsvValueContextLimit })}
+                >
+                  <SelectTrigger id="csv-value-context-limit" size="sm" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="!z-[80]">
+                    {VALUE_CONTEXT_LIMITS.map((limit) => (
+                      <SelectItem key={limit} value={String(limit)}>
+                        {limit}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="min-w-0 space-y-1.5">
-          <Label htmlFor="csv-value-context-order">Order</Label>
-          <Select
-            value={config.order}
-            onValueChange={(value) => patchConfig({ order: value as CsvValueContextOrder })}
-          >
-            <SelectTrigger id="csv-value-context-order" size="sm" className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="!z-[80]">
-              <SelectItem value="asc">Ascending</SelectItem>
-              <SelectItem value="desc">Descending</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="min-w-0 space-y-1.5">
-          <Label htmlFor="csv-value-context-limit">Limit</Label>
-          <Select
-            value={String(config.limit)}
-            onValueChange={(value) => patchConfig({ limit: Number(value) as CsvValueContextLimit })}
-          >
-            <SelectTrigger id="csv-value-context-limit" size="sm" className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="!z-[80]">
-              {VALUE_CONTEXT_LIMITS.map((limit) => (
-                <SelectItem key={limit} value={String(limit)}>
-                  {limit}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
 
-      <div className="flex min-w-0 flex-wrap items-center gap-2">
-        <Button
-          type="button"
-          variant="secondary"
-          size="compact"
-          disabled={selectedIds.length === 0}
-          onClick={() => requestRetrieve(selectedIds)}
-        >
-          {`Retrieve for ${selectedIds.length.toLocaleString()} column${selectedIds.length === 1 ? "" : "s"}`}
-        </Button>
-        {unsavedSelectedIds.length > 0 ? (
-          <Button type="button" variant="primary" size="compact" onClick={saveSelectedDrafts}>
-            {`Save value context for ${unsavedSelectedIds.length.toLocaleString()} column${unsavedSelectedIds.length === 1 ? "" : "s"}`}
+        <div className="luxia-csv-sv-actions">
+          <Button
+            type="button"
+            variant={savePrimary ? "secondary" : "primary"}
+            size="compact"
+            disabled={selectedIds.length === 0}
+            onClick={() => requestRetrieve(selectedIds)}
+          >
+            {`Retrieve for ${selectedIds.length.toLocaleString()} column${selectedIds.length === 1 ? "" : "s"}`}
           </Button>
+          {savePrimary ? (
+            <Button type="button" variant="primary" size="compact" disabled={staleSelectedIds.length > 0} onClick={saveSelectedDrafts}>
+              {`Save value context for ${unsavedSelectedIds.length.toLocaleString()} column${unsavedSelectedIds.length === 1 ? "" : "s"}`}
+            </Button>
+          ) : null}
+          {notice ? (
+            <p className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }} role="status">
+              {notice}
+            </p>
+          ) : selectedIds.length === 0 ? (
+            <p className="luxia-type-caption" style={{ color: "var(--luxia-text-muted)" }}>
+              Select columns to retrieve their values.
+            </p>
+          ) : null}
+        </div>
+        {staleSelectedIds.length > 0 && !pendingRetrieveIds ? (
+          <p className="luxia-type-caption" style={{ color: "var(--luxia-warning-90)" }} role="status">
+            Settings changed since these values were retrieved. Retrieve again before saving.
+          </p>
+        ) : null}
+        {method === "sum" && !anyNumericAggregate ? (
+          <p className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
+            This table has no Integer or Number column to use as an aggregate.
+          </p>
+        ) : null}
+        {pendingRetrieveIds ? (
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <p className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
+              {`Retrieve again? This will replace the current examples for ${formatColumnList(pendingNames)}.`}
+            </p>
+            <Button type="button" variant="secondary" size="compact" onClick={confirmPendingRetrieve}>
+              Retrieve again
+            </Button>
+            <Button type="button" variant="outline" size="compact" onClick={() => setPendingRetrieveIds(null)}>
+              Cancel
+            </Button>
+          </div>
         ) : null}
       </div>
-      {method === "sum" && !anyNumericAggregate ? (
-        <p className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
-          This table has no Integer or Number column to use as an aggregate.
-        </p>
-      ) : null}
-      {pendingRetrieveIds ? (
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <p className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
-            {`Retrieve again? This will replace the current examples for ${formatColumnList(pendingNames)}.`}
-          </p>
-          <Button type="button" variant="secondary" size="compact" onClick={confirmPendingRetrieve}>
-            Retrieve again
-          </Button>
-          <Button type="button" variant="tertiary" size="compact" onClick={() => setPendingRetrieveIds(null)}>
-            Cancel
-          </Button>
-        </div>
-      ) : null}
-      {notice ? (
-        <p className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }} role="status">
-          {notice}
-        </p>
-      ) : null}
 
       <div className="luxia-settings-table-surface overflow-x-auto">
         <table className="w-full min-w-[36rem] border-collapse text-left">
@@ -340,7 +372,7 @@ export function CsvValueContextSection({
               {method === "sum" ? (
                 <th className="px-3 py-2 font-normal">Aggregate by</th>
               ) : null}
-              <th className="px-3 py-2 font-normal">Value context</th>
+              <th className="px-3 py-2 font-normal">Status</th>
               <th className="px-3 py-2 font-normal">Examples</th>
               <th className="w-10 px-3 py-2 font-normal">
                 <span className="sr-only">Expand</span>
@@ -430,8 +462,10 @@ export function CsvValueContextSection({
                           )}
                         </td>
                       ) : null}
-                      <td className="whitespace-nowrap px-3 py-2 align-top luxia-type-caption" style={{ color: "var(--luxia-text-muted)" }}>
-                        {statusLabel}
+                      <td className="whitespace-nowrap px-3 py-2 align-top">
+                        <span className="luxia-csv-sv-status" data-status={valueContextColumnStatus(file, column.id)}>
+                          {statusLabel}
+                        </span>
                       </td>
                       <td className="min-w-0 px-3 py-2 align-top">
                         <span
@@ -466,6 +500,7 @@ export function CsvValueContextSection({
                             file={file}
                             columnId={column.id}
                             warning={method === "sum" ? undefined : warning}
+                            stale={isStale(column.id)}
                             onPatchDraft={(context) => onPatchDrafts([{ columnId: column.id, context }])}
                             onSave={() => {
                               onCommitDrafts([column.id]);
@@ -504,6 +539,7 @@ function ExpandedValueContext({
   file,
   columnId,
   warning,
+  stale = false,
   onPatchDraft,
   onSave,
   onReretrieve,
@@ -511,6 +547,7 @@ function ExpandedValueContext({
   file: CsvImportFileDraft;
   columnId: string;
   warning?: string;
+  stale?: boolean;
   onPatchDraft: (context: CsvColumnValueContext) => void;
   onSave: () => void;
   onReretrieve: () => void;
@@ -545,12 +582,12 @@ function ExpandedValueContext({
         </p>
         <div className="flex flex-wrap gap-2">
           {hasExamples ? (
-            <Button type="button" variant="tertiary" size="compact" onClick={onReretrieve}>
+            <Button type="button" variant="secondary" size="compact" onClick={onReretrieve}>
               Re-retrieve
             </Button>
           ) : null}
           {canSave ? (
-            <Button type="button" variant="primary" size="compact" onClick={onSave}>
+            <Button type="button" variant="primary" size="compact" disabled={stale} onClick={onSave}>
               {saveLabel}
             </Button>
           ) : null}
@@ -559,6 +596,11 @@ function ExpandedValueContext({
       {warning ? (
         <p className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
           {warning}
+        </p>
+      ) : null}
+      {stale ? (
+        <p className="luxia-type-caption" style={{ color: "var(--luxia-warning-90)" }}>
+          Retrieved with earlier settings. Re-retrieve before saving.
         </p>
       ) : null}
       <div>

@@ -39,6 +39,8 @@ import { HS } from "@/app/features/home/homeSurfaces";
 import { getProjectNameById } from "@/app/features/project/data";
 import type { HomeProjectCard } from "@/app/features/project/types";
 import { LuxiaSettingsFormActions } from "@/app/features/shared/LuxiaSettingsFormActions";
+import { CsvColumnDescriptionsSettings } from "./CsvColumnDescriptionsSettings";
+import { CsvTableDescriptionSettings } from "./CsvTableDescriptionSettings";
 import {
   LUXIA_DIRTY_STATE_COPY,
   LUXIA_SETTINGS_CONTENT_SURFACE_CLASS,
@@ -246,6 +248,7 @@ function ContentSummaryPanel({
   dataSourceId,
   canEdit,
   currentUserId,
+  onSaveTable,
 }: {
   summary: DataSourceContentSummary;
   typeLabel: string;
@@ -253,6 +256,8 @@ function ContentSummaryPanel({
   dataSourceId?: string;
   canEdit?: boolean;
   currentUserId?: string;
+  /** Replaces one CSV table summary in place (column descriptions). */
+  onSaveTable?: (table: CsvImportedTableSummary) => void;
 }) {
   if (summary.kind === "database") {
     const rows: Array<{ label: string; value: string }> = [
@@ -346,16 +351,14 @@ function ContentSummaryPanel({
           {(table?.encoding ?? summary.encoding) ? (
             <MetaCell label="Encoding" value={table?.encoding ?? summary.encoding ?? ""} />
           ) : null}
-          {(table?.tableDescription ?? summary.tableDescription) ? (
-            <div className="sm:col-span-2 lg:col-span-3">
-              <MetaCell
-                label="Table summary"
-                value={table?.tableDescription ?? summary.tableDescription ?? ""}
-              />
-            </div>
-          ) : null}
         </dl>
         {table ? tableTags(table) : null}
+        {table ? (
+          <CsvTableDescriptionSettings table={table} canEdit={Boolean(canEdit)} onSaveTable={onSaveTable} />
+        ) : null}
+        {table ? (
+          <CsvColumnDescriptionsSettings table={table} canEdit={Boolean(canEdit)} onSaveTable={onSaveTable} />
+        ) : null}
         </div>
       );
     }
@@ -406,12 +409,9 @@ function ContentSummaryPanel({
                 />
                 {table.delimiter ? <MetaCell label="Delimiter" value={table.delimiter} /> : null}
                 {table.encoding ? <MetaCell label="Encoding" value={table.encoding} /> : null}
-                {table.tableDescription ? (
-                  <div className="sm:col-span-2 lg:col-span-3">
-                    <MetaCell label="Description" value={table.tableDescription} />
-                  </div>
-                ) : null}
               </dl>
+              <CsvTableDescriptionSettings table={table} canEdit={Boolean(canEdit)} onSaveTable={onSaveTable} />
+              <CsvColumnDescriptionsSettings table={table} canEdit={Boolean(canEdit)} onSaveTable={onSaveTable} />
             </li>
           ))}
         </ul>
@@ -856,6 +856,32 @@ export function DataSourceSettingsPage({
               dataSourceId={source.id}
               canEdit={canManage}
               currentUserId={currentUserId}
+              onSaveTable={
+                canManage && onSaveSource && source.contentSummary.kind === "csv"
+                  ? (nextTable) => {
+                      const summary = source.contentSummary!;
+                      if (summary.csvTables && summary.csvTables.length > 0) {
+                        onSaveSource({
+                          ...source,
+                          contentSummary: {
+                            ...summary,
+                            csvTables: summary.csvTables.map((item) => (item.id === nextTable.id ? nextTable : item)),
+                          },
+                        });
+                        return;
+                      }
+                      // Older single-table summaries keep their metadata on the summary itself.
+                      onSaveSource({
+                        ...source,
+                        contentSummary: {
+                          ...summary,
+                          tableDescription: nextTable.tableDescription,
+                          tableDescriptionOrigin: nextTable.tableDescriptionOrigin,
+                        },
+                      });
+                    }
+                  : undefined
+              }
             />
           </div>
         ) : null;

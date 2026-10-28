@@ -1196,6 +1196,287 @@
   font-weight: 400;
 }
 
+.luxia-csv-change-resolution {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--luxia-settings-row-divider);
+}
+
+/* Data Source Settings → Content → table description (CSV) */
+.luxia-ds-tabledesc {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.luxia-ds-tabledesc-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 12px;
+}
+
+.luxia-ds-tabledesc-label {
+  margin: 0;
+  color: var(--luxia-text-primary);
+  font-family: var(--font-family);
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+}
+
+/* Data Source Settings → Content → Columns (CSV) */
+.luxia-ds-columns {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.luxia-ds-columns-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.luxia-ds-columns-title {
+  margin: 0;
+  color: var(--luxia-text-primary);
+  font-family: var(--font-family);
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+}
+
+.luxia-ds-columns-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--luxia-border-subtle);
+  border-radius: var(--luxia-radius-8);
+}
+
+.luxia-ds-columns-row {
+  display: grid;
+  grid-template-columns: minmax(0, 10rem) minmax(0, 1fr) auto;
+  gap: 8px 16px;
+  align-items: start;
+  padding: 10px 12px;
+}
+
+.luxia-ds-columns-row + .luxia-ds-columns-row {
+  border-top: 1px solid var(--luxia-settings-row-divider);
+}
+
+.luxia-ds-columns-name {
+  margin: 0;
+  overflow: hidden;
+  color: var(--luxia-text-primary);
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.luxia-ds-columns-type {
+  margin: 2px 0 0;
+  color: var(--luxia-text-muted);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.luxia-ds-columns-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.luxia-ds-columns-text {
+  margin: 0;
+  color: var(--luxia-text-primary);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.luxia-ds-columns-text[data-empty] {
+  color: var(--luxia-text-muted);
+}
+
+.luxia-ds-columns-text .luxia-csv-ai-origin {
+  margin-left: 6px;
+  vertical-align: 1px;
+}
+
+.luxia-ds-columns-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--luxia-border-subtle);
+  border-radius: 8px;
+  background: var(--luxia-neutral-50);
+}
+
+.luxia-ds-columns-confirm p {
+  margin: 0;
+}
+
+.luxia-ds-columns-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+@container (max-width: 640px) {
+  .luxia-ds-columns-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .luxia-ds-columns-actions {
+    justify-content: flex-start;
+  }
+}
+
+.luxia-ds-columns {
+  container-type: inline-size;
+}
+
+/* Inline Save / Cancel shown only while a name field has unsaved changes. */
+.luxia-csv-name-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+/* Step 06 — sample values: choose columns → settings → retrieve → save, in one panel. */
+.luxia-csv-sv-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--luxia-border-subtle);
+  border-radius: var(--luxia-radius-8);
+  background: var(--luxia-settings-panel-bg);
+}
+
+.luxia-csv-sv-top {
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+  gap: 12px 28px;
+  align-items: start;
+}
+
+.luxia-csv-sv-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.luxia-csv-sv-group-label {
+  margin: 0;
+  color: var(--luxia-text-secondary);
+  font-family: var(--font-family);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+}
+
+.luxia-csv-sv-group .luxia-csv-sv-field-label {
+  color: var(--luxia-text-muted);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+}
+
+.luxia-csv-sv-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--luxia-settings-row-divider);
+}
+
+.luxia-csv-sv-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--luxia-text-muted);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.luxia-csv-sv-status::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--luxia-border-strong);
+}
+
+.luxia-csv-sv-status[data-status="retrieved"],
+.luxia-csv-sv-status[data-status="edited-unsaved"] {
+  color: var(--luxia-warning-90);
+}
+
+.luxia-csv-sv-status[data-status="retrieved"]::before,
+.luxia-csv-sv-status[data-status="edited-unsaved"]::before {
+  background: var(--luxia-warning-70, var(--luxia-warning-90));
+}
+
+.luxia-csv-sv-status[data-status="saved"] {
+  color: var(--luxia-success-70);
+}
+
+.luxia-csv-sv-status[data-status="saved"]::before {
+  background: var(--luxia-success-70);
+}
+
+.luxia-csv-sv-controls {
+  container-type: inline-size;
+}
+
+@container (max-width: 760px) {
+  .luxia-csv-sv-top {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Step 07 — column descriptions */
+.luxia-csv-coldesc-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+
+.luxia-csv-coldesc-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 13rem;
+}
+
+.luxia-csv-coldesc-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 24px;
+}
+
 .luxia-csv-wizard {
   width: min(1450px, calc(100vw - 48px)) !important;
   max-width: min(1450px, calc(100vw - 48px)) !important;
@@ -1838,30 +2119,6 @@
   margin-top: 8px;
 }
 
-.luxia-csv-upload-file-actions .luxia-button.luxia-csv-upload-exclude {
-  border-color: transparent;
-  background: transparent;
-  box-shadow: none;
-  color: var(--luxia-text-muted);
-  font-weight: 500;
-}
-
-.luxia-csv-upload-file-actions .luxia-button.luxia-csv-upload-exclude:hover:not(:disabled):not([aria-disabled="true"]) {
-  border-color: transparent;
-  background: transparent;
-  color: var(--luxia-text-secondary);
-}
-
-.luxia-csv-upload-file-actions .luxia-button.luxia-csv-upload-exclude[data-state="include"] {
-  color: var(--luxia-text-primary);
-}
-
-.luxia-csv-upload-file-actions .luxia-button.luxia-csv-upload-exclude[data-state="include"]:hover:not(:disabled):not([aria-disabled="true"]) {
-  border-color: transparent;
-  background: transparent;
-  color: var(--luxia-brand-primary);
-}
-
 .luxia-csv-upload-more {
   margin-left: auto;
 }
@@ -2003,4 +2260,119 @@
     align-items: center;
     padding-top: 0;
   }
+}
+
+/*
+ * CSV wizard: quiet action for small repeated row actions (Restore, Undo, Exclude, Use type).
+ * A light outline with a steady hit area, so it reads as a button at rest while staying
+ * below the secondary and primary buttons. Bulk and navigation actions use outline/secondary.
+ */
+.luxia-button.luxia-csv-text-action,
+.luxia-csv-text-action {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 28px;
+  min-height: 28px;
+  min-width: 72px;
+  padding: 0 12px;
+  border: 1px solid var(--luxia-border-default);
+  border-radius: var(--luxia-radius-button);
+  background: transparent;
+  box-shadow: none;
+  color: var(--luxia-brand-primary);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  white-space: nowrap;
+  cursor: pointer;
+  outline: none;
+  transition: background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.luxia-button.luxia-csv-text-action:hover:not(:disabled):not([aria-disabled="true"]),
+.luxia-csv-text-action:hover:not(:disabled):not([aria-disabled="true"]) {
+  background: var(--luxia-opacity-brand-secondary-08);
+  border-color: color-mix(in srgb, var(--luxia-brand-primary) 35%, var(--luxia-border-default));
+  color: var(--luxia-brand-primary);
+}
+
+.luxia-button.luxia-csv-text-action:focus-visible,
+.luxia-csv-text-action:focus-visible {
+  box-shadow: 0 0 0 3px var(--luxia-opacity-brand-secondary-32);
+}
+
+/* Disabled: flat and muted rather than half-transparent, so it reads as unavailable, not broken. */
+.luxia-button.luxia-csv-text-action:disabled,
+.luxia-button.luxia-csv-text-action[aria-disabled="true"],
+.luxia-csv-text-action:disabled {
+  opacity: 1;
+  border-color: var(--luxia-border-subtle);
+  background: transparent;
+  color: var(--luxia-text-muted);
+  cursor: not-allowed;
+  pointer-events: auto;
+  transform: none;
+}
+
+/* Inside dense table rows. */
+.luxia-csv-text-action.luxia-csv-text-action--inline {
+  height: 26px;
+  min-height: 26px;
+  min-width: 0;
+  padding: 0 10px;
+}
+
+/* Values and names that open an editor when clicked: a quiet dotted underline at rest. */
+.luxia-csv-editable-text {
+  text-decoration-line: underline;
+  text-decoration-style: dotted;
+  text-decoration-color: var(--luxia-border-strong);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.luxia-csv-editable-text:hover {
+  text-decoration-style: solid;
+  text-decoration-color: currentColor;
+}
+
+/* Validation resolved lists: one row per item with its action in a right-aligned column. */
+.luxia-csv-resolved-item {
+  padding: 6px 0;
+}
+
+.luxia-csv-resolved-item + .luxia-csv-resolved-item {
+  border-top: 1px solid var(--luxia-settings-row-divider);
+}
+
+.luxia-csv-resolved-item > .luxia-csv-resolved-row {
+  min-height: 30px;
+}
+
+.luxia-csv-resolved-item > .luxia-csv-resolved-row[data-nested] {
+  min-height: 30px;
+  margin-top: 2px;
+}
+
+.luxia-csv-resolved-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--luxia-settings-row-divider);
+}
+
+/* Wizard footer: one short blocking status beside the primary action. */
+.luxia-csv-footer-status {
+  max-width: 22rem;
+  color: var(--luxia-text-secondary);
+  font-size: 12px;
+  line-height: 16px;
+  text-align: right;
 }

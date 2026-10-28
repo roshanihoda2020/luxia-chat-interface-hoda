@@ -6,6 +6,7 @@ import {
   ChevronUp,
   Eye,
   FileSpreadsheet,
+  Loader2,
   MinusCircle,
   MoreHorizontal,
   Plus,
@@ -138,6 +139,7 @@ import {
 import { CsvValidationWorkspace } from "./CsvValidationWorkspace";
 import { CsvAiOriginBadge } from "./CsvAiOriginBadge";
 import { CsvRowDescriptionsSection } from "./CsvRowDescriptions";
+import { CsvColumnDescriptions } from "./CsvColumnDescriptions";
 import { CsvValueContextSection } from "./CsvValueContextSection";
 import { DocumentTagSummary, DraftDataSourceTagsField, DraftTableTagRow, type DocumentTagDefinition, type DraftDataSourceTagsApi } from "@/app/features/document-tags";
 import { LuxiaAiButton } from "@/app/components/LuxiaAiButton";
@@ -156,7 +158,6 @@ const CSV_STEP = {
   summary: 8,
 } as const;
 
-const CSV_STACKED_SECTION_MAX = 5;
 
 const STEPS = [
   { id: CSV_STEP.upload, label: "Upload File" },
@@ -678,7 +679,13 @@ export function CsvImportFlow({
   const [bulkTableAiBusy, setBulkTableAiBusy] = useState(false);
   const [bulkTableAiNotice, setBulkTableAiNotice] = useState<string | null>(null);
   const [tableAiBusy, setTableAiBusy] = useState(false);
+  const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([]);
+  /** Unsaved edit buffers. The saved values stay in the shared name / file.tableName. */
+  const [sourceNameEdit, setSourceNameEdit] = useState<string | null>(null);
+  const [tableNameEdits, setTableNameEdits] = useState<Record<string, string>>({});
+  const [pendingNameLeave, setPendingNameLeave] = useState<PendingNameLeave | null>(null);
   const tableDescriptionAiBusy = bulkTableAiBusy || tableAiBusy;
+  const [columnAiBusy, setColumnAiBusy] = useState(false);
   const [parseResetNotice, setParseResetNotice] = useState<string | null>(null);
   const [schemaParseLeaveAttempt, setSchemaParseLeaveAttempt] = useState(0);
   const [previewFileId, setPreviewFileId] = useState<string | null>(null);
@@ -811,13 +818,84 @@ export function CsvImportFlow({
     });
   });
 
-  function goToStep(next: StepId, options?: {
-    focusColumnId?: string | null;
-    keepParseEdit?: boolean;
-    skipValueContextPrompt?: boolean;
-    fileId?: string;
-  }) {
+  function sourceNameIsDirty(): boolean {
+    return sourceNameEdit !== null && sourceNameEdit !== sourceNameDraft;
+  }
+
+  function dirtyTableNameIds(): string[] {
+    return files
+      .filter((file) => file.included && tableNameEdits[file.id] !== undefined && tableNameEdits[file.id] !== file.tableName)
+      .map((file) => file.id);
+  }
+
+  function hasUnsavedNameEdits(): boolean {
+    if (step === CSV_STEP.upload) return sourceNameIsDirty();
+    if (step === CSV_STEP.import) return dirtyTableNameIds().length > 0;
+    return false;
+  }
+
+  function tableNameDraftError(fileId: string, value: string): string | null {
+    const trimmed = value.trim();
+    if (!trimmed) return "Enter a table name.";
+    const key = tableNameConflictKey(trimmed);
+    const clash = files.some((file) => file.included && file.id !== fileId && tableNameConflictKey(file.tableName) === key);
+    return clash ? "Table names must be unique." : null;
+  }
+
+  function saveSourceName(): boolean {
+    if (!sourceNameIsDirty()) {
+      setSourceNameEdit(null);
+      return true;
+    }
+    const trimmed = (sourceNameEdit ?? "").trim();
+    if (!trimmed) return false;
+    onSourceNameChange(trimmed);
+    setSourceNameEdit(null);
+    luxiaToast.success("Data Source name updated");
+    return true;
+  }
+
+  function saveTableName(fileId: string, options?: { quiet?: boolean }): boolean {
+    const value = tableNameEdits[fileId];
+    const file = files.find((item) => item.id === fileId);
+    if (value === undefined || !file) return true;
+    if (value === file.tableName) {
+      setTableNameEdits(({ [fileId]: _unchanged, ...rest }) => rest);
+      return true;
+    }
+    if (tableNameDraftError(fileId, value)) return false;
+    patchTableName(fileId, value.trim());
+    setTableNameEdits(({ [fileId]: _saved, ...rest }) => rest);
+    if (!options?.quiet) luxiaToast.success("Table name updated");
+    return true;
+  }
+
+  /** Saves every pending name edit for the current step. Returns false (and saves nothing) if any is invalid. */
+  function saveAllNameEdits(): boolean {
+    if (step === CSV_STEP.upload) return saveSourceName();
+    const ids = dirtyTableNameIds();
+    if (ids.some((id) => tableNameDraftError(id, tableNameEdits[id] ?? ""))) return false;
+    for (const id of ids) saveTableName(id, { quiet: true });
+    if (ids.length > 0) luxiaToast.success(ids.length === 1 ? "Table name updated" : "Table names updated");
+    return true;
+  }
+
+  function nameEditsValid(): boolean {
+    if (step === CSV_STEP.upload) return !sourceNameIsDirty() || Boolean((sourceNameEdit ?? "").trim());
+    return dirtyTableNameIds().every((id) => !tableNameDraftError(id, tableNameEdits[id] ?? ""));
+  }
+
+  function discardNameEdits() {
+    setSourceNameEdit(null);
+    setTableNameEdits({});
+  }
+
+  function goToStep(next: StepId, options?: GoToStepOptions) {
     if (created && next !== CSV_STEP.summary) return;
+    if (!options?.skipNamePrompt && next !== step && hasUnsavedNameEdits()) {
+      setPendingNameLeave({ next, options });
+      return;
+    }
     if (
       step === CSV_STEP.upload
       && next !== CSV_STEP.upload
@@ -898,6 +976,26 @@ export function CsvImportFlow({
         next[rowNumber] = { text: trimmed, origin: "edited" };
       }
       return { ...current, rowDescriptions: next };
+    });
+  }
+
+  function saveColumnDescription(fileId: string, columnId: string, text: string) {
+    updateFile(fileId, (current) => {
+      const next = { ...(current.columnDescriptions ?? {}) };
+      if (!text.trim()) delete next[columnId];
+      else next[columnId] = { text, origin: "edited" };
+      return { ...current, columnDescriptions: next };
+    });
+  }
+
+  function applyAiColumnDescriptions(fileId: string, changes: Array<{ columnId: string; description: string }>) {
+    updateFile(fileId, (current) => {
+      const next = { ...(current.columnDescriptions ?? {}) };
+      for (const change of changes) {
+        const description = change.description.trim();
+        if (description) next[change.columnId] = { text: description, origin: "ai" };
+      }
+      return { ...current, columnDescriptions: next };
     });
   }
 
@@ -1123,6 +1221,14 @@ export function CsvImportFlow({
         unique.push(file);
       }
 
+      const batch = unique.map((file) => ({
+        key: csvFileFingerprint(file.name, file.size, file.lastModified),
+        file,
+        state: "reading" as const,
+      }));
+      const batchKeys = new Set(batch.map((item) => item.key));
+      const failedKeys = new Set<string>();
+      setPendingUploads((prev) => [...prev.filter((item) => !batchKeys.has(item.key)), ...batch]);
       const built: CsvImportFileDraft[] = [];
       for (const file of unique) {
         try {
@@ -1135,8 +1241,14 @@ export function CsvImportFlow({
           );
         } catch {
           notices.push(`${file.name} could not be read.`);
+          failedKeys.add(csvFileFingerprint(file.name, file.size, file.lastModified));
         }
       }
+      // Read files become normal rows; a failed read stays as its own row with Retry.
+      setPendingUploads((prev) => prev.flatMap((item) => {
+        if (!batchKeys.has(item.key)) return [item];
+        return failedKeys.has(item.key) ? [{ ...item, state: "failed" as const }] : [];
+      }));
 
       if (built.length > 0) {
         const wasEmpty = files.length === 0;
@@ -1615,6 +1727,35 @@ export function CsvImportFlow({
     });
   }
 
+  /**
+   * Re-opens a resolved file to a different strategy. The current resolution is undone first
+   * (skipped rows restored, fixes removed, detected types restored) so the issues are live again,
+   * then the new strategy is applied exactly as if it had been chosen the first time.
+   * The UI confirms before calling this when it would discard skips or fixes.
+   */
+  function changeResolution(strategy: CsvValidationStrategy, fileId?: string) {
+    const target = fileFor(fileId);
+    if (!target) return;
+    updateFile(target.id, (file) => {
+      const base = file.importAsText || file.validationStrategy === "text" ? restoreColumnSnapshot(file) : file;
+      const reset: CsvImportFileDraft = {
+        ...base,
+        overrides: {},
+        fixMeta: {},
+        skipped: [],
+        aiProposals: [],
+        aiProposalsGenerated: false,
+        reuploadPending: false,
+        appliedResolutions: [],
+        validationStrategy: null,
+      };
+      return reset.parsed && csvFileIsStructurallyUsable(reset)
+        ? runValidationFor(reset)
+        : { ...reset, validationRan: false, validationStale: true };
+    });
+    selectValidationStrategy(strategy, target.id);
+  }
+
   function undoAllSkipped(fileId?: string) {
     const target = fileFor(fileId);
     if (!target) return;
@@ -1943,16 +2084,32 @@ export function CsvImportFlow({
             origin: entry.origin,
           }];
         });
+        const columnDescriptions = file.columns.flatMap((column) => {
+          const entry = file.columnDescriptions?.[column.id];
+          const description = entry?.text.trim();
+          if (!entry || !description) return [];
+          return [{ columnId: column.id, columnName: column.name, description, origin: entry.origin }];
+        });
         return {
           id: file.id,
           fileName: file.fileName,
           tableName: file.tableName.trim() || "imported_table",
           tableDescription: file.tableDescription.trim(),
+          tableDescriptionOrigin:
+            file.tableDescription.trim() && file.tableDescriptionOrigin !== "unset"
+              ? file.tableDescriptionOrigin
+              : undefined,
           delimiter: CSV_DELIMITER_LABELS[file.delimiter],
           encoding: CSV_ENCODING_LABELS[file.encoding],
           importedRows: outcome.importedRows,
           skippedRows: outcome.skippedRows,
           valueContext: valueContext.length > 0 ? valueContext : undefined,
+          columns: file.columns.map((column) => ({
+            id: column.id,
+            name: column.name,
+            type: csvColumnTypeLabel(selectedColumnType(column)),
+          })),
+          columnDescriptions: columnDescriptions.length > 0 ? columnDescriptions : undefined,
         };
       }),
     };
@@ -2031,12 +2188,12 @@ export function CsvImportFlow({
     if (step === CSV_STEP.columns && schemaParseDirty()) return false;
     if (step === CSV_STEP.columns) return Boolean(activeFile && csvFileSchemaReady(activeFile));
     if (step === CSV_STEP.validation) return true;
-    if (step === CSV_STEP.import) return tablesComplete;
+    if (step === CSV_STEP.import) return tablesComplete && dirtyTableNameIds().length === 0;
     if (step === CSV_STEP.tableDescriptions) return tablesComplete && importLocked && !tableDescriptionAiBusy;
     if (step === CSV_STEP.sampleValues) return tablesComplete && importLocked;
     if (step === CSV_STEP.columnDescriptions) {
       const unresolved = included.some((file) => liveValidationForFile(file).invalidRows > 0);
-      return tablesComplete && importLocked && includedTotals.errors === 0 && !unresolved && !created;
+      return tablesComplete && importLocked && includedTotals.errors === 0 && !unresolved && !created && !columnAiBusy;
     }
     return true;
   }
@@ -2088,6 +2245,10 @@ export function CsvImportFlow({
     if (created) return;
     if (blockSchemaParseLeave()) return;
     if (step === CSV_STEP.upload) {
+      if (sourceNameIsDirty()) {
+        setPendingNameLeave({ next: "chooser" });
+        return;
+      }
       onBackToChooser();
       return;
     }
@@ -2098,6 +2259,10 @@ export function CsvImportFlow({
     if (next) return;
     if (sampleValuesLeaveStep) {
       setSampleValuesLeaveStep(null);
+      return;
+    }
+    if (pendingNameLeave) {
+      setPendingNameLeave(null);
       return;
     }
     if (pendingRemoveFileId) {
@@ -2191,7 +2356,6 @@ export function CsvImportFlow({
 
   function importAdvanceBlocker(): string {
     if (reading || applyingParse) return "Wait until the current action finishes.";
-    if (tableDescriptionAiBusy) return "Wait for AI generation to finish.";
     for (const file of included) {
       const unresolved = liveValidationForFile(file).invalidRows;
       if (unresolved > 0) {
@@ -2210,6 +2374,10 @@ export function CsvImportFlow({
         return `${file.fileName} has a duplicate table name.`;
       }
     }
+    if (step === CSV_STEP.import && dirtyTableNameIds().length > 0) return "Save or cancel the table name changes to continue.";
+    if (tableDescriptionAiBusy || (step === CSV_STEP.columnDescriptions && columnAiBusy)) {
+      return "Wait for AI generation to finish.";
+    }
     if (includedTotals.errors > 0) {
       const count = includedTotals.errors;
       return `Resolve or exclude ${count.toLocaleString()} row${count === 1 ? "" : "s"} to continue.`;
@@ -2220,6 +2388,37 @@ export function CsvImportFlow({
   }
 
   const nextReason = advanceBlockedReason();
+  // Step 04 footer: one short status for the top blocker, with a link back to where it is fixed.
+  // Table-name problems (blank, duplicate, unsaved) stay in their table card.
+  const importFooterBlock = ((): { text: string; action?: { label: string; step: StepId; fileId: string } } | null => {
+    if (step !== CSV_STEP.import || !nextReason) return null;
+    if (reading || applyingParse) return { text: nextReason };
+    let rows = 0;
+    let unresolvedFileId: string | null = null;
+    for (const file of included) {
+      const invalid = liveValidationForFile(file).invalidRows;
+      if (invalid > 0) {
+        rows += invalid;
+        unresolvedFileId ??= file.id;
+      }
+    }
+    if (unresolvedFileId) {
+      return {
+        text: `${rows.toLocaleString()} unresolved row${rows === 1 ? "" : "s"} remain${rows === 1 ? "s" : ""}`,
+        action: { label: "Review validation", step: CSV_STEP.validation, fileId: unresolvedFileId },
+      };
+    }
+    const schemaFile = included.find((file) => !csvFileSchemaReady(file));
+    if (schemaFile) {
+      return {
+        text: "A column type needs confirming",
+        action: { label: "Review types", step: CSV_STEP.columns, fileId: schemaFile.id },
+      };
+    }
+    const nameIssue = dirtyTableNameIds().length > 0
+      || included.some((file) => !file.tableName.trim() || duplicateNames.has(tableNameConflictKey(file.tableName.trim())));
+    return nameIssue ? null : { text: nextReason };
+  })();
   const step1ParseDirty = step === CSV_STEP.upload && parseDraftIsDirty(
     parseDraft,
     files.find((file) => file.id === parseDraft?.fileId),
@@ -2244,7 +2443,6 @@ export function CsvImportFlow({
   const pendingRemoveHasUnsavedValues = pendingRemoveFile
     ? unsavedValueContextColumnCount([pendingRemoveFile]) > 0
     : false;
-  const stackSections = included.length <= CSV_STACKED_SECTION_MAX;
 
   function renderSchemaFile(file: CsvImportFileDraft) {
     const draftForFile = parseDraft?.fileId === file.id ? parseDraft : null;
@@ -2292,6 +2490,7 @@ export function CsvImportFlow({
           proposing={aiBusyFileId === file.id}
           proposeNotice={file.id === activeFileId ? proposeNotice : null}
           onSelectStrategy={(strategy) => selectValidationStrategy(strategy, file.id)}
+          onChangeResolution={(strategy) => changeResolution(strategy, file.id)}
           onUndoFix={(rowNumber, columnId) => undoCellFix(rowNumber, columnId, file.id)}
           onUndoSkip={(rowNumber) => unskipRow(rowNumber, file.id)}
           onUndoAllSkipped={() => undoAllSkipped(file.id)}
@@ -2317,7 +2516,12 @@ export function CsvImportFlow({
             event.preventDefault();
             return;
           }
-          if (previewFileId || pendingRemoveFileId || sampleValuesLeaveStep) event.preventDefault();
+          // Escape inside a name field with unsaved changes only cancels that edit.
+          if (document.activeElement?.closest("[data-csv-name-dirty='true']")) {
+            event.preventDefault();
+            return;
+          }
+          if (previewFileId || pendingRemoveFileId || sampleValuesLeaveStep || pendingNameLeave) event.preventDefault();
         }}
       >
         <DialogHeader
@@ -2439,8 +2643,11 @@ export function CsvImportFlow({
               {step === CSV_STEP.upload ? (
                 <div className="flex flex-col gap-5">
                   <UploadSourceSummary
-                    name={sourceNameDraft}
-                    onNameChange={onSourceNameChange}
+                    savedName={sourceNameDraft}
+                    editValue={sourceNameEdit}
+                    onEditChange={setSourceNameEdit}
+                    onSave={saveSourceName}
+                    onCancel={() => setSourceNameEdit(null)}
                     ownershipLabel={ownershipLabel}
                     tagDraft={tagDraft}
                   />
@@ -2467,6 +2674,12 @@ export function CsvImportFlow({
                     onHeaderChoice={updateParseDraftHeaderChoice}
                     onCustomHeaderRow={updateParseDraftCustomHeaderRow}
                     warnParseReset={maxReachedStep >= CSV_STEP.columns}
+                    pendingUploads={pendingUploads}
+                    onRetryUpload={(key) => {
+                      const item = pendingUploads.find((upload) => upload.key === key);
+                      if (item) void acceptFiles([item.file]);
+                    }}
+                    onDismissUpload={(key) => setPendingUploads((prev) => prev.filter((upload) => upload.key !== key))}
                   />
                 </div>
               ) : null}
@@ -2533,9 +2746,13 @@ export function CsvImportFlow({
                         key={file.id}
                         outcome={describeReviewFile(file, duplicateNames)}
                         tableName={file.tableName}
+                        editValue={tableNameEdits[file.id]}
+                        draftError={tableNameEdits[file.id] !== undefined ? tableNameDraftError(file.id, tableNameEdits[file.id]!) : null}
                         nameInputId={`csv-import-table-${file.id}`}
                         nameConflict={Boolean(file.tableName.trim()) && duplicateNames.has(tableNameConflictKey(file.tableName))}
-                        onTableNameChange={(value) => patchTableName(file.id, value)}
+                        onEditChange={(value) => setTableNameEdits((prev) => ({ ...prev, [file.id]: value }))}
+                        onSave={() => saveTableName(file.id)}
+                        onCancel={() => setTableNameEdits(({ [file.id]: _cancelled, ...rest }) => rest)}
                         onEditSchema={() => goToStep(CSV_STEP.columns, { fileId: file.id })}
                         onReviewValidation={() => goToStep(CSV_STEP.validation, { fileId: file.id })}
                       />
@@ -2617,62 +2834,37 @@ export function CsvImportFlow({
               ) : null}
 
               {step === CSV_STEP.columnDescriptions && activeFile ? (
-                <div className="space-y-6">
+                <div className="space-y-5">
                   <StepIntro
                     title="What does each column mean?"
-                    body="Review the accepted type and examples for each column."
+                    body="Describe each column so Luxia can use it correctly. Descriptions are optional."
                   />
-                  {stackSections ? null : (
+                  {included.length > 1 ? (
                     <FileSwitcher
                       files={included}
                       activeId={activeFile.id}
                       validations={validations}
-                      mode="schema"
+                      mode="tables"
                       onSelect={selectFile}
                       onRequestRemove={requestRemoveFile}
                     />
-                  )}
-                  {(stackSections ? included : [activeFile]).map((file) => (
-                    <section key={file.id} className="luxia-csv-file-section" aria-label={file.tableName || file.fileName}>
-                      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-                        <h3 className="inline-flex min-w-0 items-center gap-2 luxia-type-body-dense-strong" style={{ color: "var(--luxia-text-primary)" }} title={file.fileName}>
-                          <CsvFileGlyph size={16} />
-                          <span className="truncate">{file.tableName.trim() || file.fileName}</span>
-                        </h3>
-                        <p className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
-                          {`0 of ${file.columns.length.toLocaleString()} described`}
-                        </p>
-                      </div>
-                      <div className="luxia-settings-table-surface overflow-x-auto">
-                        <table className="w-full border-collapse text-left">
-                          <thead>
-                            <tr className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
-                              <th className="px-3 py-2 font-normal">Column</th>
-                              <th className="px-3 py-2 font-normal">Type</th>
-                              <th className="px-3 py-2 font-normal">Examples</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {file.columns.map((column) => (
-                              <tr
-                                key={column.id}
-                                className="border-t luxia-type-caption"
-                                style={{ borderColor: "var(--luxia-settings-row-divider)", color: "var(--luxia-text-secondary)" }}
-                              >
-                                <td className="px-3 py-2 align-top" style={{ color: "var(--luxia-text-primary)" }}>
-                                  {column.name}
-                                </td>
-                                <td className="px-3 py-2 align-top">{csvColumnTypeLabel(selectedColumnType(column))}</td>
-                                <td className="px-3 py-2 align-top" title={columnContextExamples(file, column)}>
-                                  {columnContextExamples(file, column)}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </section>
-                  ))}
+                  ) : null}
+                  <section className="luxia-csv-file-section" aria-label={activeFile.tableName || activeFile.fileName}>
+                    <div className="mb-3 min-w-0">
+                      <h3 className="luxia-csv-table-desc-title" title={activeFile.tableName || activeFile.fileName}>
+                        {activeFile.tableName.trim() || activeFile.fileName}
+                      </h3>
+                      <p className="luxia-csv-table-desc-file" title={activeFile.fileName}>{activeFile.fileName}</p>
+                    </div>
+                    <CsvColumnDescriptions
+                      key={activeFile.id}
+                      file={activeFile}
+                      examplesFor={(column) => columnContextExamples(activeFile, column)}
+                      onAiBusyChange={setColumnAiBusy}
+                      onEdit={(columnId, text) => saveColumnDescription(activeFile.id, columnId, text)}
+                      onApplyAi={(changes) => applyAiColumnDescriptions(activeFile.id, changes)}
+                    />
+                  </section>
                   {creating ? (
                     <p className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }} role="status">
                       Creating Data Source…
@@ -2705,7 +2897,7 @@ export function CsvImportFlow({
                           <th className="px-3 py-2 font-normal">Imported</th>
                           <th className="px-3 py-2 font-normal">Skipped</th>
                           <th className="px-3 py-2 font-normal">Rejected</th>
-                          <th className="px-3 py-2 font-normal">AI-fixed</th>
+                          <th className="px-3 py-2 font-normal">Fixed by AI</th>
                           <th className="px-3 py-2 font-normal">Resolution</th>
                         </tr>
                       </thead>
@@ -2810,7 +3002,7 @@ export function CsvImportFlow({
             </div>
 
             <DialogFooter
-              className="luxia-csv-wizard-footer shrink-0 justify-between border-t px-6 py-4"
+              className="luxia-csv-wizard-footer shrink-0 justify-between sm:justify-between border-t px-6 py-4"
               style={{
                 borderColor: "var(--luxia-border-subtle)",
                 background: "var(--luxia-settings-panel-bg)",
@@ -2820,7 +3012,7 @@ export function CsvImportFlow({
                 <>
                   <Button
                     type="button"
-                    variant="secondary"
+                    variant="outline"
                     size="compact"
                     onClick={() => onFinish()}
                   >
@@ -2838,7 +3030,7 @@ export function CsvImportFlow({
                     {eligibleProjects.length > 0 && onCreateConstellation ? (
                       <Button
                         type="button"
-                        variant="primary"
+                        variant={validHandoffProjectId ? "primary" : "secondary"}
                         size="compact"
                         disabled={!validHandoffProjectId}
                         onClick={() => {
@@ -2866,11 +3058,30 @@ export function CsvImportFlow({
                     {nextReason ? (
                       <p
                         id="csv-advance-reason"
-                        className={step === CSV_STEP.columns ? "sr-only" : "luxia-type-caption"}
-                        style={step === CSV_STEP.columns ? undefined : { color: "var(--luxia-text-secondary)" }}
+                        className={step === CSV_STEP.columns || step === CSV_STEP.import ? "sr-only" : "luxia-csv-footer-status"}
                       >
                         {nextReason}
                       </p>
+                    ) : null}
+                    {importFooterBlock ? (
+                      <>
+                        <span className="luxia-csv-footer-status" aria-hidden>
+                          {importFooterBlock.text}
+                        </span>
+                        {importFooterBlock.action ? (
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="compact"
+                            onClick={() => {
+                              const { step: target, fileId } = importFooterBlock.action!;
+                              goToStep(target, { fileId });
+                            }}
+                          >
+                            {importFooterBlock.action.label}
+                          </Button>
+                        ) : null}
+                      </>
                     ) : null}
                     {step1NextReason ? (
                       <p id="csv-step1-next-reason" className="sr-only">
@@ -2918,6 +3129,59 @@ export function CsvImportFlow({
         }}
         onFixParsing={fixParsingFromPreview}
       />
+
+      <AlertDialog
+        open={pendingNameLeave !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingNameLeave(null);
+        }}
+      >
+        <AlertDialogContent overlayClassName="z-[70]" className="z-[70] sm:max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unsaved name changes</AlertDialogTitle>
+            <AlertDialogDescription>
+              {step === CSV_STEP.upload
+                ? "You changed the Data Source name without saving it."
+                : `You changed ${dirtyTableNameIds().length === 1 ? "a table name" : `${dirtyTableNameIds().length} table names`} without saving.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className={buttonVariants({ variant: "tertiary", size: "compact" })}>
+              Keep editing
+            </AlertDialogCancel>
+            <Button
+              type="button"
+              variant="secondary"
+              size="compact"
+              onClick={() => {
+                const target = pendingNameLeave;
+                if (!target) return;
+                discardNameEdits();
+                setPendingNameLeave(null);
+                if (target.next === "chooser") onBackToChooser();
+                else goToStep(target.next, { ...target.options, skipNamePrompt: true });
+              }}
+            >
+              Discard changes
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              size="compact"
+              disabled={!nameEditsValid()}
+              onClick={() => {
+                const target = pendingNameLeave;
+                if (!target || !saveAllNameEdits()) return;
+                setPendingNameLeave(null);
+                if (target.next === "chooser") onBackToChooser();
+                else goToStep(target.next, { ...target.options, skipNamePrompt: true });
+              }}
+            >
+              Save and continue
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog
         open={sampleValuesLeaveStep !== null}
@@ -3030,17 +3294,25 @@ export function CsvImportFlow({
 }
 
 function UploadSourceSummary({
-  name,
-  onNameChange,
+  savedName,
+  editValue,
+  onEditChange,
+  onSave,
+  onCancel,
   ownershipLabel,
   tagDraft,
 }: {
-  name: string;
-  onNameChange: (value: string) => void;
+  savedName: string;
+  editValue: string | null;
+  onEditChange: (value: string) => void;
+  onSave: () => void;
+  onCancel: () => void;
   ownershipLabel: string;
   tagDraft: DraftDataSourceTagsApi;
 }) {
-  const blank = !name.trim();
+  const value = editValue ?? savedName;
+  const dirty = editValue !== null && editValue !== savedName;
+  const blank = !value.trim();
   return (
     <section className="luxia-csv-step1-summary" aria-label="Data Source details">
       <div className="luxia-csv-step1-name-field">
@@ -3050,8 +3322,20 @@ function UploadSourceSummary({
         </div>
         <Input
           id="csv-source-name"
-          value={name}
-          onChange={(event) => onNameChange(event.target.value)}
+          data-csv-name-dirty={dirty ? "true" : undefined}
+          value={value}
+          onChange={(event) => onEditChange(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && dirty && !blank) {
+              event.preventDefault();
+              onSave();
+            }
+            if (event.key === "Escape" && dirty) {
+              event.preventDefault();
+              event.stopPropagation();
+              onCancel();
+            }
+          }}
           autoComplete="off"
           aria-invalid={blank}
           aria-describedby={blank ? "csv-source-name-error" : undefined}
@@ -3060,6 +3344,16 @@ function UploadSourceSummary({
           <p id="csv-source-name-error" className="luxia-type-caption" style={{ color: "var(--luxia-error-70)" }}>
             Enter a Data Source name.
           </p>
+        ) : null}
+        {dirty ? (
+          <div className="luxia-csv-name-actions">
+            <Button type="button" variant="outline" size="compact" onClick={onCancel}>
+              Cancel
+            </Button>
+            <Button type="button" variant="primary" size="compact" disabled={blank} onClick={onSave}>
+              Save changes
+            </Button>
+          </div>
         ) : null}
       </div>
       <DraftDataSourceTagsField
@@ -3226,22 +3520,32 @@ function ReviewSourceSummary({
 function ReviewFileCard({
   outcome,
   tableName,
+  editValue,
+  draftError,
   nameInputId,
   nameConflict,
-  onTableNameChange,
+  onEditChange,
+  onSave,
+  onCancel,
   onEditSchema,
   onReviewValidation,
 }: {
   outcome: ReviewFileOutcome;
   tableName: string;
+  editValue: string | undefined;
+  draftError: string | null;
   nameInputId: string;
   nameConflict: boolean;
-  onTableNameChange: (value: string) => void;
+  onEditChange: (value: string) => void;
+  onSave: () => void;
+  onCancel: () => void;
   onEditSchema: () => void;
   onReviewValidation: () => void;
 }) {
-  const blank = !tableName.trim();
-  const nameError = nameConflict ? "Table names must be unique." : blank ? "Enter a table name." : null;
+  const value = editValue ?? tableName;
+  const dirty = editValue !== undefined && editValue !== tableName;
+  const savedError = nameConflict ? "Table names must be unique." : !tableName.trim() ? "Enter a table name." : null;
+  const nameError = dirty ? draftError : savedError;
   const showValidation = outcome.blockers.some((blocker) => blocker.action === "validation");
   const total = outcome.totalRows;
   return (
@@ -3256,14 +3560,36 @@ function ReviewFileCard({
             <Label htmlFor={nameInputId}>Table name</Label>
             <Input
               id={nameInputId}
-              value={tableName}
-              onChange={(event) => onTableNameChange(event.target.value)}
+              data-csv-name-dirty={dirty ? "true" : undefined}
+              value={value}
+              onChange={(event) => onEditChange(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && dirty && !draftError) {
+                  event.preventDefault();
+                  onSave();
+                }
+                if (event.key === "Escape" && dirty) {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  onCancel();
+                }
+              }}
               autoComplete="off"
               aria-invalid={Boolean(nameError)}
               aria-describedby={nameError ? `${nameInputId}-error` : undefined}
             />
             {nameError ? (
               <p id={`${nameInputId}-error`} className="luxia-csv-import-card-error">{nameError}</p>
+            ) : null}
+            {dirty ? (
+              <div className="luxia-csv-name-actions">
+                <Button type="button" variant="outline" size="compact" onClick={onCancel}>
+                  Cancel
+                </Button>
+                <Button type="button" variant="primary" size="compact" disabled={Boolean(draftError)} onClick={onSave}>
+                  Save changes
+                </Button>
+              </div>
             ) : null}
           </div>
           <div className="luxia-csv-import-card-outcome">
@@ -3282,7 +3608,7 @@ function ReviewFileCard({
             {showValidation ? (
               <Button
                 type="button"
-                variant="tertiary"
+                variant="secondary"
                 size="compact"
                 aria-label={`Review validation for ${outcome.fileName}`}
                 onClick={onReviewValidation}
@@ -3292,7 +3618,7 @@ function ReviewFileCard({
             ) : null}
             <Button
               type="button"
-              variant="tertiary"
+              variant="secondary"
               size="compact"
               aria-label={`Edit schema for ${outcome.fileName}`}
               onClick={onEditSchema}
@@ -3854,6 +4180,75 @@ function CsvDropzone({
   );
 }
 
+type GoToStepOptions = {
+  focusColumnId?: string | null;
+  keepParseEdit?: boolean;
+  skipValueContextPrompt?: boolean;
+  skipNamePrompt?: boolean;
+  fileId?: string;
+};
+
+type PendingNameLeave = {
+  next: StepId | "chooser";
+  options?: GoToStepOptions;
+};
+
+type PendingUpload = {
+  key: string;
+  file: File;
+  state: "reading" | "failed";
+};
+
+/** A file that is still being read, or that could not be read. Ready files use the normal row. */
+function PendingUploadRow({
+  upload,
+  retryDisabled,
+  onRetry,
+  onDismiss,
+}: {
+  upload: PendingUpload;
+  retryDisabled: boolean;
+  onRetry: () => void;
+  onDismiss: () => void;
+}) {
+  const failed = upload.state === "failed";
+  return (
+    <li className="luxia-csv-upload-file px-4 py-2" aria-busy={!failed || undefined}>
+      <div className="luxia-csv-upload-file-header">
+        <div className="luxia-csv-upload-file-name flex min-w-0 items-center gap-2">
+          <CsvFileGlyph />
+          <p className="min-w-0 truncate luxia-type-body-dense-strong" style={{ color: "var(--luxia-text-primary)" }} title={upload.file.name}>
+            {upload.file.name}
+          </p>
+        </div>
+        <p className="luxia-csv-upload-file-meta luxia-type-caption" style={{ color: "var(--luxia-text-muted)" }}>
+          {failed ? "Could not read this file" : null}
+        </p>
+        <span className="luxia-csv-upload-file-status" role="status">
+          {failed ? (
+            <StatusDotLabel kind="error" label="Failed" />
+          ) : (
+            <span className="inline-flex items-center gap-1.5 whitespace-nowrap luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
+              <Loader2 size={12} className="animate-spin" aria-hidden />
+              Reading…
+            </span>
+          )}
+        </span>
+      </div>
+      {failed ? (
+        <div className="luxia-csv-upload-file-actions">
+          <Button type="button" variant="secondary" size="compact" disabled={retryDisabled} onClick={onRetry}>
+            Try again
+          </Button>
+          <Button type="button" variant="outline" size="compact" aria-label={`Remove ${upload.file.name}`} onClick={onDismiss}>
+            Remove
+          </Button>
+        </div>
+      ) : null}
+    </li>
+  );
+}
+
 function UploadStep({
   files,
   dragActive,
@@ -3877,6 +4272,9 @@ function UploadStep({
   onHeaderChoice,
   onCustomHeaderRow,
   warnParseReset,
+  pendingUploads,
+  onRetryUpload,
+  onDismissUpload,
 }: {
   files: CsvImportFileDraft[];
   dragActive: boolean;
@@ -3900,6 +4298,9 @@ function UploadStep({
   onHeaderChoice: (choice: CsvHeaderChoice) => void;
   onCustomHeaderRow: (value: string) => void;
   warnParseReset?: boolean;
+  pendingUploads: PendingUpload[];
+  onRetryUpload: (key: string) => void;
+  onDismissUpload: (key: string) => void;
 }) {
   const [collapseHintId, setCollapseHintId] = useState<string | null>(null);
   const removingFromMenuRef = useRef(false);
@@ -3971,7 +4372,7 @@ function UploadStep({
         </div>
       ) : null}
       {files.length > 0 ? dropzone : null}
-      {files.length > 0 ? (
+      {files.length > 0 || pendingUploads.length > 0 ? (
         <ul className={`${LUXIA_SETTINGS_LIST_SURFACE_CLASS} luxia-csv-upload-files divide-y`}>
             {files.map((file) => {
               const status = csvFileUiStatus(file);
@@ -4120,7 +4521,7 @@ function UploadStep({
                       type="button"
                       variant="tertiary"
                       size="compact"
-                      className="luxia-csv-upload-exclude"
+                      className="luxia-csv-upload-exclude luxia-csv-text-action"
                       data-state={file.included ? "exclude" : "include"}
                       disabled={applyingParse}
                       aria-label={`${file.included ? "Exclude" : "Include"} ${file.fileName}`}
@@ -4263,12 +4664,16 @@ function UploadStep({
                 </li>
               );
             })}
+            {pendingUploads.map((upload) => (
+              <PendingUploadRow
+                key={upload.key}
+                upload={upload}
+                onRetry={() => onRetryUpload(upload.key)}
+                onDismiss={() => onDismissUpload(upload.key)}
+                retryDisabled={reading}
+              />
+            ))}
           </ul>
-      ) : null}
-      {reading ? (
-        <p id="csv-step1-reading" className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }} role="status">
-          Reading files…
-        </p>
       ) : null}
       {acceptNotice ? (
         <p className="luxia-type-caption" style={{ color: "var(--luxia-error-70)" }} role="alert">

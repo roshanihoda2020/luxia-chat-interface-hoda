@@ -114,7 +114,7 @@ function SchemaExcludeAction({
       <TooltipTrigger asChild>
         <button
           type="button"
-          className="luxia-csv-schema-exclude luxia-type-caption"
+          className="luxia-csv-schema-exclude luxia-csv-text-action luxia-csv-text-action--inline"
           aria-label={`Exclude row ${rowNumber}`}
           onClick={onExclude}
         >
@@ -345,7 +345,7 @@ export function ColumnNameEditor({
       <div className="min-w-0">
         <button
           type="button"
-          className="luxia-type-body-dense-strong max-w-full truncate rounded-[4px] text-left underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]"
+          className="luxia-csv-editable-text luxia-type-body-dense-strong max-w-full truncate rounded-[4px] text-left outline-none focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]"
           style={{ color: "var(--luxia-text-primary)" }}
           title={name}
           aria-label={`Rename ${name} column`}
@@ -551,7 +551,7 @@ export function ColumnStructureTable({
                           {suggestion && suggestion !== type && onUseSuggestion ? (
                             <button
                               type="button"
-                              className="luxia-csv-confidence-use"
+                              className="luxia-csv-confidence-use luxia-csv-text-action luxia-csv-text-action--inline"
                               onClick={() => onUseSuggestion(column.id, suggestion)}
                             >
                               Use type
@@ -940,7 +940,7 @@ export function SchemaDataPreview({
                               <button
                                 type="button"
                                 ref={isFirstIssue ? firstIssueCellRef : undefined}
-                                className="luxia-csv-schema-invalid-value"
+                                className="luxia-csv-schema-invalid-value luxia-csv-editable-text"
                                 aria-invalid
                                 title={`${value || "Empty"}. Click to edit.`}
                                 onClick={() => startEdit(cellKey, value)}

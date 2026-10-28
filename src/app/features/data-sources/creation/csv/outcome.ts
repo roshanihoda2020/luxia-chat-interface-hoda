@@ -46,8 +46,8 @@ const EMPTY_SUMMARY: CsvValidationSummary = {
 
 const RESOLUTION_LABELS: Record<CsvResolutionKind, string> = {
   "skip-affected": "Skipped rows",
-  manual: "Manual",
-  "ai-accepted": "AI-fixed",
+  manual: "Fixed manually",
+  "ai-accepted": "Fixed by AI",
   reupload: "Re-uploaded",
   "import-as-text": "Import as text",
 };

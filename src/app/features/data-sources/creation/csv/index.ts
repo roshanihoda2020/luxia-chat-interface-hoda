@@ -85,6 +85,7 @@ export type {
   CsvTypeSuggestion,
   CsvValidationStrategy,
   CsvRowDescriptionEntry,
+  CsvColumnDescriptionEntry,
   CsvRowDescriptionOrigin,
   CsvTableMetaOrigin,
   CsvColumnValueContext,

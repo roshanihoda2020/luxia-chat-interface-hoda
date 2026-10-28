@@ -77,16 +77,34 @@ export interface CsvImportedColumnValueContext {
   origin: "retrieved" | "edited";
 }
 
+export interface CsvImportedColumnDescription {
+  columnId: string;
+  columnName: string;
+  description: string;
+  origin: "ai" | "edited";
+}
+
+/** Accepted schema at import time, so Settings can list every column, described or not. */
+export interface CsvImportedColumn {
+  id: string;
+  name: string;
+  type: string;
+}
+
 export interface CsvImportedTableSummary {
   id: string;
   fileName: string;
   tableName: string;
   tableDescription?: string;
+  /** "ai" only while the saved text is an untouched AI result. Missing means written by a person. */
+  tableDescriptionOrigin?: "ai" | "edited";
   delimiter?: string;
   encoding?: string;
   importedRows?: number;
   skippedRows?: number;
   valueContext?: CsvImportedColumnValueContext[];
+  columns?: CsvImportedColumn[];
+  columnDescriptions?: CsvImportedColumnDescription[];
 }
 
 export interface DataSourceContentSummary {
@@ -105,6 +123,7 @@ export interface DataSourceContentSummary {
   fileName?: string;
   tableName?: string;
   tableDescription?: string;
+  tableDescriptionOrigin?: "ai" | "edited";
   delimiter?: string;
   encoding?: string;
   importedRows?: number;

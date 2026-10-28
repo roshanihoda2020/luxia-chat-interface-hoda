@@ -10,6 +10,8 @@ import type {
   CsvAiSimilarRepairSuccess,
   CsvAiRowDescriptionRequest,
   CsvAiRowDescriptionSuccess,
+  CsvAiColumnDescriptionRequest,
+  CsvAiColumnDescriptionSuccess,
   CsvAiTableMetadataRequest,
   CsvAiTableMetadataSuccess,
   CsvAiValueRepairRequest,
@@ -377,6 +379,38 @@ function prototypeRowDescription(
     .map((value) => truncateForDescription(value, 40));
   if (parts.length === 0) return "Imported record.";
   return `${parts.join(" · ")}.`;
+}
+
+function prototypeColumnDescription(
+  tableName: string,
+  column: CsvAiColumnDescriptionRequest["columns"][number],
+): string {
+  const words = column.name.replace(/[_-]+/g, " ").replace(/([a-z])([A-Z])/g, "$1 $2").trim().toLowerCase();
+  const subject = tableName.replace(/[_-]+/g, " ").trim() || "record";
+  const examples = column.examples.map((value) => value.trim()).filter(Boolean).slice(0, 2);
+  const sample = examples.length > 0 ? ` For example ${examples.join(", ")}.` : "";
+  const type = column.type.toLowerCase();
+  if (/(^|s)id$/.test(words) || words === "id") return `Unique identifier for each ${subject} row.${sample}`;
+  if (type === "date" || type === "timestamp") return `When the ${subject} ${words.replace(/ (date|at|time)$/, "")} occurred.${sample}`;
+  if (type === "number" || type === "numeric" || type === "integer" || type === "bigint") return `Numeric ${words} recorded for each ${subject} row.${sample}`;
+  if (type === "boolean") return `Whether the ${subject} row is ${words}.`;
+  return `The ${words} of each ${subject} row.${sample}`;
+}
+
+export async function prototypeSuggestColumnDescriptions(
+  request: CsvAiColumnDescriptionRequest,
+): Promise<CsvAiResult<CsvAiColumnDescriptionSuccess>> {
+  await delay();
+  try {
+    return ok({
+      changes: request.columns.map((column) => ({
+        columnId: column.id,
+        description: prototypeColumnDescription(request.tableName, column),
+      })),
+    });
+  } catch {
+    return unavailable();
+  }
 }
 
 export async function prototypeSuggestRowDescriptions(

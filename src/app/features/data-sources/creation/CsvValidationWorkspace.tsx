@@ -102,6 +102,62 @@ function valueCount(count: number): string {
   return `${count.toLocaleString()} ${count === 1 ? "value" : "values"}`;
 }
 
+const RESOLUTION_CHOICES: Array<{
+  strategy: CsvValidationStrategy;
+  icon: ReactNode;
+  label: string;
+  hint: string;
+}> = [
+  {
+    strategy: "skip",
+    icon: <SkipForward size={16} aria-hidden />,
+    label: "Skip affected rows",
+    hint: "Import the valid rows and leave the affected rows out.",
+  },
+  {
+    strategy: "ai",
+    icon: <LuxiaAiIcon size={16} aria-hidden />,
+    label: "Let AI propose fixes",
+    hint: "Review suggested corrections before applying them.",
+  },
+  {
+    strategy: "manual",
+    icon: <Pencil size={16} aria-hidden />,
+    label: "Fix manually",
+    hint: "Edit the affected values yourself.",
+  },
+  {
+    strategy: "reupload",
+    icon: <Upload size={16} aria-hidden />,
+    label: "Fix the file myself and re-upload",
+    hint: "Upload a corrected version of this CSV.",
+  },
+  {
+    strategy: "text",
+    icon: <Type size={16} aria-hidden />,
+    label: "Import everything as text",
+    hint: "Keep all values without enforcing detected types.",
+  },
+];
+
+/** What switching away from the current resolution would undo. Empty when nothing is lost. */
+function changeConsequences(file: CsvImportFileDraft, corrections: Array<{ origin: "ai" | "manual" }>): string[] {
+  const parts: string[] = [];
+  const skipped = new Set(file.skipped).size;
+  const ai = corrections.filter((item) => item.origin === "ai").length;
+  const manual = corrections.filter((item) => item.origin === "manual").length;
+  if (skipped > 0) parts.push(`restores ${skipped.toLocaleString()} skipped ${skipped === 1 ? "row" : "rows"}`);
+  if (ai > 0) parts.push(`removes ${ai.toLocaleString()} ${ai === 1 ? "fix" : "fixes"} by AI`);
+  if (manual > 0) parts.push(`removes ${manual.toLocaleString()} manual ${manual === 1 ? "fix" : "fixes"}`);
+  if (file.importAsText) parts.push("restores detected column types");
+  return parts;
+}
+
+function joinConsequences(parts: string[]): string {
+  if (parts.length <= 1) return parts[0] ?? "";
+  return `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
+}
+
 function rowAttentionLabel(count: number): string {
   return `${count.toLocaleString()} ${count === 1 ? "row needs" : "rows need"} attention`;
 }
@@ -111,6 +167,7 @@ export function CsvValidationWorkspace({
   proposing,
   proposeNotice,
   onSelectStrategy,
+  onChangeResolution,
   onUndoFix,
   onUndoSkip,
   onUndoAllSkipped,
@@ -127,6 +184,7 @@ export function CsvValidationWorkspace({
   proposing: boolean;
   proposeNotice: string | null;
   onSelectStrategy: (strategy: CsvValidationStrategy) => void;
+  onChangeResolution: (strategy: CsvValidationStrategy) => void;
   onUndoFix: (rowNumber: number, columnId: string) => void;
   onUndoSkip: (rowNumber: number) => void;
   onUndoAllSkipped: () => void;
@@ -144,6 +202,8 @@ export function CsvValidationWorkspace({
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [editError, setEditError] = useState<string | null>(null);
+  const [changingResolution, setChangingResolution] = useState(false);
+  const [pendingStrategy, setPendingStrategy] = useState<CsvValidationStrategy | null>(null);
   const outcome = csvFileOutcome(file);
   const summary = outcome.summary;
   const previousIssueCount = useRef(summary.issues.length);
@@ -153,7 +213,16 @@ export function CsvValidationWorkspace({
     setEditingKey(null);
     setDraft("");
     setEditError(null);
+    setChangingResolution(false);
+    setPendingStrategy(null);
   }, [file.id]);
+
+  useEffect(() => {
+    if (outcome.resolution !== "resolved") {
+      setChangingResolution(false);
+      setPendingStrategy(null);
+    }
+  }, [outcome.resolution]);
 
   useEffect(() => {
     if (summary.issues.length < previousIssueCount.current) {
@@ -217,6 +286,24 @@ export function CsvValidationWorkspace({
     const aiFixes = importedCorrections.filter((item) => item.origin === "ai");
     const manualFixes = importedCorrections.filter((item) => item.origin === "manual");
     const hasDetails = aiFixes.length > 0 || manualFixes.length > 0 || skippedRows.length > 0;
+    const canChange = outcome.resolution === "resolved";
+    const currentStrategy: CsvValidationStrategy | null = file.importAsText
+      ? "text"
+      : choice ?? (file.appliedResolutions.includes("reupload") ? "reupload" : null);
+    const consequences = changeConsequences(file, corrections);
+    const applyNewStrategy = (strategy: CsvValidationStrategy) => {
+      setPendingStrategy(null);
+      setChangingResolution(false);
+      onChangeResolution(strategy);
+    };
+    const pickNewStrategy = (strategy: CsvValidationStrategy) => {
+      if (strategy === currentStrategy) {
+        setPendingStrategy(null);
+        return;
+      }
+      if (consequences.length > 0) setPendingStrategy(strategy);
+      else applyNewStrategy(strategy);
+    };
     return (
       <div id={`csv-validation-summary-${file.id}`} className="space-y-2" tabIndex={-1}>
         <div className="luxia-csv-validation-result">
@@ -230,12 +317,65 @@ export function CsvValidationWorkspace({
               <p className="luxia-csv-validation-meta">{resultDetail(file, outcome)}</p>
               {fixes ? <p className="luxia-csv-validation-outcome-facts">{fixes}</p> : null}
             </div>
-            {file.importAsText ? (
+            {file.importAsText || (canChange && !changingResolution) ? (
               <div className="luxia-csv-validation-result-actions mt-2">
-                <Button type="button" variant="outline" size="compact" onClick={onRestoreDetectedTypes}>
-                  Restore detected types
-                </Button>
+                {file.importAsText ? (
+                  <Button type="button" variant="outline" size="compact" onClick={onRestoreDetectedTypes}>
+                    Restore detected types
+                  </Button>
+                ) : null}
+                {canChange && !changingResolution ? (
+                  <Button type="button" variant="secondary" size="compact" onClick={() => setChangingResolution(true)}>
+                    Change resolution
+                  </Button>
+                ) : null}
               </div>
+            ) : null}
+            {changingResolution ? (
+              <fieldset className="luxia-csv-resolution luxia-csv-change-resolution">
+                <legend className="luxia-csv-resolution-legend">Change resolution</legend>
+                <div role="radiogroup" aria-label={`Change how ${file.fileName} is resolved`} className="luxia-csv-resolution-options">
+                  {RESOLUTION_CHOICES.map((option) => (
+                    <ResolutionOption
+                      key={option.strategy}
+                      name={`csv-change-resolution-${file.id}`}
+                      checked={(pendingStrategy ?? currentStrategy) === option.strategy}
+                      icon={option.icon}
+                      label={option.label}
+                      hint={option.hint}
+                      onSelect={() => pickNewStrategy(option.strategy)}
+                    />
+                  ))}
+                </div>
+                {pendingStrategy ? (
+                  <div className="luxia-csv-table-desc-suggestion" role="alert">
+                    <p className="luxia-type-body-dense" style={{ color: "var(--luxia-text-primary)" }}>
+                      {`Switching to “${RESOLUTION_CHOICES.find((option) => option.strategy === pendingStrategy)?.label}” ${joinConsequences(consequences)}.`}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <Button type="button" variant="outline" size="compact" onClick={() => setPendingStrategy(null)}>
+                        Keep current
+                      </Button>
+                      <Button type="button" variant="primary" size="compact" onClick={() => applyNewStrategy(pendingStrategy)}>
+                        Switch
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
+                <div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="compact"
+                    onClick={() => {
+                      setChangingResolution(false);
+                      setPendingStrategy(null);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </fieldset>
             ) : null}
             {hasDetails ? (
               <div className="luxia-csv-resolved-details">
@@ -332,46 +472,17 @@ export function CsvValidationWorkspace({
         <fieldset className="luxia-csv-resolution">
           <legend className="luxia-csv-resolution-legend">Resolution</legend>
           <div role="radiogroup" aria-label="Ways to resolve these issues" className="luxia-csv-resolution-options">
-            <ResolutionOption
-              name={`csv-resolution-${file.id}`}
-              checked={choice === "skip"}
-              icon={<SkipForward size={16} aria-hidden />}
-              label="Skip affected rows"
-              hint="Import the valid rows and leave the affected rows out."
-              onSelect={() => onSelectStrategy("skip")}
-            />
-            <ResolutionOption
-              name={`csv-resolution-${file.id}`}
-              checked={choice === "ai"}
-              icon={<LuxiaAiIcon size={16} aria-hidden />}
-              label="Let AI propose fixes"
-              hint="Review suggested corrections before applying them."
-              onSelect={() => onSelectStrategy("ai")}
-            />
-            <ResolutionOption
-              name={`csv-resolution-${file.id}`}
-              checked={choice === "manual"}
-              icon={<Pencil size={16} aria-hidden />}
-              label="Fix manually"
-              hint="Edit the affected values yourself."
-              onSelect={() => onSelectStrategy("manual")}
-            />
-            <ResolutionOption
-              name={`csv-resolution-${file.id}`}
-              checked={choice === "reupload"}
-              icon={<Upload size={16} aria-hidden />}
-              label="Fix the file myself and re-upload"
-              hint="Upload a corrected version of this CSV."
-              onSelect={() => onSelectStrategy("reupload")}
-            />
-            <ResolutionOption
-              name={`csv-resolution-${file.id}`}
-              checked={choice === "text"}
-              icon={<Type size={16} aria-hidden />}
-              label="Import everything as text"
-              hint="Keep all values without enforcing detected types."
-              onSelect={() => onSelectStrategy("text")}
-            />
+            {RESOLUTION_CHOICES.map((option) => (
+              <ResolutionOption
+                key={option.strategy}
+                name={`csv-resolution-${file.id}`}
+                checked={choice === option.strategy}
+                icon={option.icon}
+                label={option.label}
+                hint={option.hint}
+                onSelect={() => onSelectStrategy(option.strategy)}
+              />
+            ))}
           </div>
         </fieldset>
 
@@ -663,13 +774,14 @@ function SkippedRowItems({
   return (
     <>
       {rows.slice(0, SKIPPED_ROWS_LISTED).map((rowNumber) => (
-        <li key={rowNumber}>
+        <li key={rowNumber} className="luxia-csv-resolved-item">
           <div className="luxia-csv-resolved-row">
             <span className="luxia-csv-resolved-row-text">{`Row ${rowNumber.toLocaleString()}`}</span>
             <Button
               type="button"
               variant="tertiary"
               size="compact"
+              className="luxia-csv-text-action"
               aria-label={`Restore skipped row ${rowNumber}`}
               onClick={() => onRestore(rowNumber)}
             >
@@ -687,6 +799,7 @@ function SkippedRowItems({
                 type="button"
                 variant="tertiary"
                 size="compact"
+                className="luxia-csv-text-action"
                 aria-label={`Undo ${item.origin === "ai" ? "AI" : "manual"} fix for row ${rowNumber}, ${item.columnName}`}
                 onClick={() => onUndoFix(rowNumber, item.columnId)}
               >
@@ -697,17 +810,17 @@ function SkippedRowItems({
         </li>
       ))}
       {rows.length > 1 ? (
-        <li className="luxia-csv-resolved-row">
+        <li className="luxia-csv-resolved-footer">
           <span className="luxia-csv-resolved-row-text" data-tone="muted">
             {rows.length > SKIPPED_ROWS_LISTED
               ? `${(rows.length - SKIPPED_ROWS_LISTED).toLocaleString()} more skipped`
-              : "All skipped rows"}
+              : null}
           </span>
           <Button
             type="button"
-            variant="tertiary"
+            variant="outline"
             size="compact"
-            aria-label="Restore all skipped rows"
+            aria-label={`Restore all ${rows.length.toLocaleString()} skipped rows`}
             onClick={onRestoreAll}
           >
             Restore all
@@ -727,7 +840,7 @@ function FixRow({
 }) {
   const ai = item.origin === "ai";
   return (
-    <li className="luxia-csv-resolved-row">
+    <li className="luxia-csv-resolved-row luxia-csv-resolved-item">
       <span className="luxia-csv-resolved-row-text" title={item.value}>
         {`Row ${item.rowNumber.toLocaleString()} · ${item.columnName} → ${item.value || "empty"}`}
         {ai ? <CsvAiOriginBadge /> : null}
@@ -736,6 +849,7 @@ function FixRow({
         type="button"
         variant="tertiary"
         size="compact"
+        className="luxia-csv-text-action"
         aria-label={`Undo ${ai ? "AI" : "manual"} fix for row ${item.rowNumber}, ${item.columnName}`}
         onClick={onUndo}
       >
