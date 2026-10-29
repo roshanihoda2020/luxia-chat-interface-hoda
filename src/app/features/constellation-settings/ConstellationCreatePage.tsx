@@ -108,6 +108,8 @@ import {
 } from "./creationMockData";
 import { MAX_CONSTELLATION_VIEWS } from "@/app/features/data-views";
 import { CONSTELLATION_SETTINGS_PAGE_VARIANT } from "./ia";
+import { readDataSourceDocuments } from "@/app/features/data-sources/documents";
+import { CreationDocumentPicker } from "./CreationDocumentPicker";
 
 const CONTENT_CLASS = "w-full min-w-0";
 
@@ -1049,6 +1051,14 @@ export function ConstellationCreatePage({
     () => availableSources.map((source) => source.id),
     [availableSources],
   );
+  /** Existing source chosen in Add Data, and its document records (by document ID). */
+  const existingSource = draft.dataSourceMode === "existing"
+    ? availableSources.find((source) => source.id === draft.existingDataSourceId) ?? null
+    : null;
+  const existingSourceDocuments = useMemo(
+    () => existingSource ? readDataSourceDocuments(existingSource.id, existingSource.contentSummary) : [],
+    [existingSource],
+  );
   const sourceTagFilter = useAccessibleDataSourceTagFilter(availableSourceIds);
   const visibleExistingSources = useMemo(() => {
     const q = sourceQuery.trim().toLowerCase();
@@ -1249,7 +1259,7 @@ export function ConstellationCreatePage({
                     className="mt-1"
                     disabled={!usable}
                     checked={selected}
-                    onChange={() => updateDraft({ existingDataSourceId: source.id })}
+                    onChange={() => updateDraft({ existingDataSourceId: source.id, selectedDocumentIds: null })}
                   />
                   <div className="min-w-0 flex-1">
                     <p className="luxia-type-body-dense-strong luxia-creation-data-name">
@@ -1500,7 +1510,22 @@ export function ConstellationCreatePage({
           />
 
           {draft.dataSourceMode === "existing" ? (
-            renderExistingSourcePicker()
+            <>
+              {renderExistingSourcePicker()}
+              {existingSource?.contentSummary?.kind === "file" ? (
+                <CreationFieldGroup title="Documents">
+                  <CreationDocumentPicker
+                    source={existingSource}
+                    selectedDocumentIds={draft.selectedDocumentIds ?? null}
+                    onSelectedDocumentIdsChange={(ids) => updateDraft({ selectedDocumentIds: ids })}
+                    accessLevels={accessLevels}
+                    dataSources={dataSources}
+                    currentUserId={currentUserId}
+                  />
+                  <FieldError id="existing-documents-error" message={visibleDataErrors.files} />
+                </CreationFieldGroup>
+              ) : null}
+            </>
           ) : (
             <>
               {renderNewSourceDetails("ds-name-pdf")}
@@ -1592,7 +1617,11 @@ export function ConstellationCreatePage({
       ? availableSources.find((s) => s.id === draft.existingDataSourceId)?.name ?? "—"
       : draft.dataSourceName.trim() || "—";
 
-    const addedData = buildReviewAddedDataSummary(draft, sourceName !== "—" ? sourceName : undefined);
+    const addedData = buildReviewAddedDataSummary(
+      draft,
+      sourceName !== "—" ? sourceName : undefined,
+      existingSourceDocuments,
+    );
     const reviewOwnership = ownershipLabelFromDraft(draft, availableSources);
     const reviewStatus = draft.dataSourceMode === "existing"
       ? "Existing Data Source"

@@ -21,10 +21,17 @@ import {
 } from "./creationMockData";
 import {
   buildFileRecordsFromDataSource,
+  buildFileRecordsFromDocuments,
   buildFileRecordsFromUploads,
   getDataSourceCsvParseConfig,
   getDataSourceFileInventory,
 } from "./dataSourceFileCatalog";
+import {
+  documentExtractionStatusLabel,
+  getDocumentExtractionStatus,
+  type DataSourceDocumentRecord,
+  type DocumentExtractionStatus,
+} from "@/app/features/data-sources/documents";
 import {
   createSeedCapabilityBundle,
   type ConstellationCapabilityBundle,
@@ -206,11 +213,48 @@ function resolveCsvParseConfig(
   return null;
 }
 
+const EXTRACTION_SUMMARY_ORDER: readonly DocumentExtractionStatus[] = [
+  "REVIEWED",
+  "EXTRACTED",
+  "PROCESSING",
+  "FAILED",
+  "PENDING",
+];
+
+/** e.g. "2 approved · 1 to review · 3 not extracted"; empty when there are no documents. */
+export function summarizeExtractionStatuses(
+  dataSourceId: string,
+  documents: readonly DataSourceDocumentRecord[],
+): string {
+  const counts = new Map<DocumentExtractionStatus, number>();
+  for (const document of documents) {
+    const status = getDocumentExtractionStatus(dataSourceId, document.localDocumentId);
+    counts.set(status, (counts.get(status) ?? 0) + 1);
+  }
+  return EXTRACTION_SUMMARY_ORDER
+    .filter((status) => (counts.get(status) ?? 0) > 0)
+    .map((status) => `${counts.get(status)} ${documentExtractionStatusLabel(status).toLowerCase()}`)
+    .join(" · ");
+}
+
+/** The documents a draft selected from its existing source; a null selection means all of them. */
+export function selectedSourceDocuments(
+  draft: Pick<ConstellationCreationDraft, "selectedDocumentIds">,
+  sourceDocuments: readonly DataSourceDocumentRecord[],
+): DataSourceDocumentRecord[] {
+  const selection = draft.selectedDocumentIds;
+  if (!selection) return [...sourceDocuments];
+  const ids = new Set(selection);
+  return sourceDocuments.filter((document) => ids.has(document.localDocumentId));
+}
+
 export function buildCapabilityBundleFromCreationDraft(
   constellationId: string,
   draft: ConstellationCreationDraft,
   connectedSource: ConnectedDataSource | null,
   instruction: string,
+  /** Document records of the existing source (readDataSourceDocuments). Preferred over the static inventory. */
+  sourceDocuments?: readonly DataSourceDocumentRecord[],
 ): ConstellationCapabilityBundle {
   if (!draft.type) {
     return createSeedCapabilityBundle(constellationId, "database", instruction);
@@ -243,7 +287,9 @@ export function buildCapabilityBundleFromCreationDraft(
   const pdfFiles = draft.dataSourceMode === "new"
     ? buildFileRecordsFromUploads(draft.uploadedFiles, draft.type)
     : draft.existingDataSourceId
-      ? buildFileRecordsFromDataSource(draft.existingDataSourceId, draft.type)
+      ? sourceDocuments && sourceDocuments.length > 0
+        ? buildFileRecordsFromDocuments(selectedSourceDocuments(draft, sourceDocuments), draft.type)
+        : buildFileRecordsFromDataSource(draft.existingDataSourceId, draft.type)
       : [];
 
   return {
@@ -262,6 +308,7 @@ export type ReviewAddedDataSummary = {
 export function buildReviewAddedDataSummary(
   draft: ConstellationCreationDraft,
   existingSourceName?: string,
+  sourceDocuments?: readonly DataSourceDocumentRecord[],
 ): ReviewAddedDataSummary {
   if (draft.type === "database") {
     const tableNames = draft.selectedTableIds
@@ -289,6 +336,30 @@ export function buildReviewAddedDataSummary(
   }
 
   if (draft.type === "pdf" || draft.type === "csv") {
+    if (
+      draft.type === "pdf"
+      && draft.dataSourceMode === "existing"
+      && draft.existingDataSourceId
+      && sourceDocuments
+      && sourceDocuments.length > 0
+    ) {
+      // Document-level summary from the source's real records.
+      const selected = selectedSourceDocuments(draft, sourceDocuments);
+      return {
+        rows: [
+          { label: "Source", value: `${existingSourceName ?? "Selected Data Source"} (existing)` },
+          {
+            label: "Documents",
+            value: `${selected.length} of ${sourceDocuments.length} selected`,
+          },
+          { label: "File names", value: selected.map((document) => document.fileName).join(", ") || "—" },
+          {
+            label: "Extraction",
+            value: summarizeExtractionStatuses(draft.existingDataSourceId, selected) || "—",
+          },
+        ],
+      };
+    }
     if (draft.dataSourceMode === "existing" && draft.existingDataSourceId) {
       const inventory = getDataSourceFileInventory(draft.existingDataSourceId);
       const sourceLabel = existingSourceName ?? "Selected Data Source";

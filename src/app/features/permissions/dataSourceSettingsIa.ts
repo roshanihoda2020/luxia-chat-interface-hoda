@@ -37,6 +37,34 @@ export const DATA_SOURCE_SETTINGS_SECTION_LABELS: Record<
   lifecycle: "Lifecycle",
 };
 
+/** Type-specific label for the content tab. Google Sheets imports share the CSV kind. */
+const CONTENT_SECTION_LABEL_BY_KIND: Record<DataSourceSettingsContentKind, string> = {
+  file: "Tag & Extract",
+  csv: "Tables",
+  database: DATA_SOURCE_SETTINGS_SECTION_LABELS.connection,
+};
+
+export function getDataSourceSettingsContentLabel(
+  kind: DataSourceSettingsContentKind,
+): string {
+  return CONTENT_SECTION_LABEL_BY_KIND[kind];
+}
+
+/**
+ * The content tab (Tag & Extract, Tables, or Connection) when this source has one.
+ * Mirrors `getDataSourceSettingsNavItems`, so a deep link never targets a missing tab.
+ */
+export function getDataSourceSettingsContentNavItem(
+  source: DataSourceCatalogItem | null | undefined,
+): { id: DataSourceSettingsSectionId; label: string } | null {
+  const kind = getDataSourceSettingsContentKind(source);
+  if (!kind || !source?.contentSummary) return null;
+  return {
+    id: kind === "database" ? "connection" : "content",
+    label: getDataSourceSettingsContentLabel(kind),
+  };
+}
+
 export function getDataSourceSettingsContentKind(
   source: DataSourceCatalogItem | null | undefined,
 ): DataSourceSettingsContentKind | null {
@@ -79,7 +107,7 @@ export function getDataSourceSettingsNavItems(input: {
   ) {
     items.push({
       id: "content",
-      label: DATA_SOURCE_SETTINGS_SECTION_LABELS.content,
+      label: getDataSourceSettingsContentLabel(input.kind),
     });
   }
 

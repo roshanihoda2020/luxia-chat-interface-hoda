@@ -4,6 +4,7 @@ export type {
   DataSourceTagStore,
   DocumentTagColorId,
   DocumentTagDefinition,
+  DocumentTagMigrationRecord,
   OrganizationTagLibrary,
   OrganizationTagStore,
 } from "./types";
@@ -40,7 +41,9 @@ export {
   collectFileTagOptions,
   fileMatchesTagFilter,
   sourceIdsForFileRecord,
+  tagsForFileTarget,
 } from "./fileTagFilter";
+export type { FileTagTarget } from "./fileTagFilter";
 export {
   commitDataSourceTagBucket,
   currentOrganizationId,
@@ -49,6 +52,7 @@ export {
   tagsForDataSource,
   tagsForFile,
   tagsForFileInSources,
+  tagsForDocumentInSource,
   tagsForTable,
   tagsForTableInSources,
   effectiveTagsForDataSource,
@@ -56,7 +60,14 @@ export {
   countTagUsage,
   formatTagUsageSummary,
 } from "./persistence";
-export type { TagUsageCount } from "./persistence";
+export type { TaggableDocument, TagUsageCount } from "./persistence";
+export {
+  discardDraftDataSourceTagData,
+  discardDraftDocumentTagData,
+  DOCUMENT_TAG_MIGRATION_VERSION,
+  isDocumentTagSourceMigrated,
+  migrateLegacyFileTags,
+} from "./persistence";
 export {
   documentTagTone,
   suggestTagColor,
@@ -69,3 +80,21 @@ export {
   useDraftDataSourceTags,
 } from "./useDataSourceTags";
 export type { DraftDataSourceTagsApi } from "./useDataSourceTags";
+export {
+  clearDataSourceTagSuggestions,
+  clearDocumentTagSuggestions,
+  getDocumentTagSuggestions,
+  TAG_SUGGESTION_STORAGE_KEY,
+  useDataSourceTagSuggestions,
+} from "./tagSuggestionStore";
+export type {
+  DocumentTagSuggestionRecord,
+  TagSuggestionItem,
+  TagSuggestionState,
+} from "./tagSuggestionStore";
+export {
+  conceptKeyForTagName,
+  dataSourceDocumentVocabulary,
+  generateTagSuggestions,
+} from "./tagSuggestionEngine";
+export { SuggestedTagChip } from "./SuggestedTagChip";

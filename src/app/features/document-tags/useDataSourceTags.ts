@@ -12,12 +12,17 @@ import {
 } from "./model";
 import {
   commitDataSourceTagBucket,
+  documentTagIdsFromLibrary,
+  isDocumentTagSourceMigrated,
   isTagBucketEmpty,
+  migrateLegacyFileTags,
+  migrateLegacyFileTagsInLibrary,
   readOrganizationTagLibrary,
   subscribeDataSourceTags,
   writeOrganizationTagLibrary,
   contentDerivedTagsFromLibrary,
   effectiveTagFootprintFromLibrary,
+  type TaggableDocument,
 } from "./persistence";
 import type {
   DataSourceTagBucket,
@@ -81,8 +86,11 @@ function mergedDefinitions(
 }
 
 export type DraftTagCommitOptions = {
+  /** Draft file keys to keep: filenames, or localDocumentIds when `documents` is set. */
   retainFileNames?: readonly string[];
   retainTableIds?: readonly string[];
+  /** When set, draft file keys are localDocumentIds and commit as document assignments. */
+  documents?: readonly TaggableDocument[];
 };
 
 /** In-memory assignment draft. New definitions stay local until commitTo. */
@@ -117,7 +125,7 @@ export function useDraftDataSourceTags() {
   }, [writeBucket]);
 
   const commitTo = useCallback((dataSourceId: string, options?: DraftTagCommitOptions) => {
-    commitDataSourceTagBucket(dataSourceId, snapshot(options));
+    commitDataSourceTagBucket(dataSourceId, snapshot(options), { documents: options?.documents });
   }, [snapshot]);
 
   const applyTag = useCallback((tag: DocumentTagDefinition) => {
@@ -364,7 +372,17 @@ function latestLibrary(): OrganizationTagLibrary {
   return readOrganizationTagLibrary();
 }
 
-export function useDataSourceTags(dataSourceId: string) {
+const NO_DOCUMENTS: readonly TaggableDocument[] = [];
+
+/**
+ * Tag API for one Data Source. Pass `documents` (the source's full document
+ * list) to use document File Tags; without it the source is never migrated.
+ */
+export function useDataSourceTags(
+  dataSourceId: string,
+  documents: readonly TaggableDocument[] = NO_DOCUMENTS,
+) {
+  const hasDocuments = documents !== NO_DOCUMENTS;
   const library = useDataSourceTagStore();
 
   const catalog = useMemo(() => listTagDefinitions(library.definitions), [library.definitions]);
@@ -438,119 +456,124 @@ export function useDataSourceTags(dataSourceId: string) {
     writeOrganizationTagLibrary(next);
   }, [dataSourceId]);
 
-  const tagsForFileName = useCallback((fileName: string) => {
-    return resolveTagIds(
-      library.definitions,
-      library.fileAssignments[dataSourceId]?.[fileIdentity(fileName)],
-    );
-  }, [library.definitions, library.fileAssignments, dataSourceId]);
+  // Document File Tags. Every write first migrates this source's legacy filename
+  // tags using the full document list, then writes by localDocumentId only.
+  const documentsRef = useRef(documents);
+  documentsRef.current = documents;
+  const documentsSignature = useMemo(
+    () => documents.map((document) => `${document.localDocumentId}\u0000${document.fileName}`).join("\u0001"),
+    [documents],
+  );
 
-  const applyTagToFiles = useCallback((fileNames: readonly string[], tag: DocumentTagDefinition) => {
+  useEffect(() => {
+    if (!dataSourceId || !hasDocuments) return;
+    if (isDocumentTagSourceMigrated(latestLibrary(), dataSourceId)) return;
+    migrateLegacyFileTags(dataSourceId, documentsRef.current);
+  }, [dataSourceId, documentsSignature, hasDocuments]);
+
+  const tagsForDocument = useCallback((document: TaggableDocument) => {
+    return resolveTagIds(library.definitions, documentTagIdsFromLibrary(library, dataSourceId, document));
+  }, [library, dataSourceId]);
+
+  /** Latest library with this source migrated, plus a writable copy of its document map. */
+  const openDocumentWrite = useCallback(() => {
     const next = latestLibrary();
-    const resolved = next.definitions[tag.id] ?? tag;
-    if (!next.definitions[resolved.id]) next.definitions[resolved.id] = resolved;
-    const files = { ...(next.fileAssignments[dataSourceId] ?? {}) };
+    // Without a real document list a migration would orphan every legacy tag.
+    if (documentsRef.current !== NO_DOCUMENTS) {
+      migrateLegacyFileTagsInLibrary(next, dataSourceId, documentsRef.current);
+    }
+    const assignments = { ...(next.documentAssignments[dataSourceId] ?? {}) };
+    const names = { ...(next.documentFileNames[dataSourceId] ?? {}) };
+    const commit = () => {
+      if (Object.keys(assignments).length > 0) next.documentAssignments[dataSourceId] = assignments;
+      else delete next.documentAssignments[dataSourceId];
+      next.documentFileNames[dataSourceId] = names;
+      writeOrganizationTagLibrary(next);
+    };
+    return { next, assignments, names, commit };
+  }, [dataSourceId]);
+
+  const assignToDocuments = useCallback((
+    write: ReturnType<typeof openDocumentWrite>,
+    targets: readonly TaggableDocument[],
+    tagId: string,
+  ) => {
     let appliedCount = 0;
-    for (const fileName of fileNames) {
-      const fileId = fileIdentity(fileName);
-      const result = assignTagId(files[fileId], resolved.id);
+    for (const document of targets) {
+      const result = assignTagId(write.assignments[document.localDocumentId], tagId);
       if (result.applied) {
-        files[fileId] = result.next;
+        write.assignments[document.localDocumentId] = result.next;
+        write.names[document.localDocumentId] = document.fileName;
         appliedCount += 1;
       }
     }
-    if (appliedCount > 0) {
-      next.fileAssignments[dataSourceId] = files;
-      writeOrganizationTagLibrary(next);
-    }
-    return { tag: resolved, appliedCount };
-  }, [dataSourceId]);
+    return appliedCount;
+  }, []);
 
-  const createAndApplyTagToFiles = useCallback((
-    fileNames: readonly string[],
+  const applyTagToDocuments = useCallback((
+    targets: readonly TaggableDocument[],
+    tag: DocumentTagDefinition,
+  ) => {
+    const write = openDocumentWrite();
+    const resolved = write.next.definitions[tag.id] ?? tag;
+    if (!write.next.definitions[resolved.id]) write.next.definitions[resolved.id] = resolved;
+    const appliedCount = assignToDocuments(write, targets, resolved.id);
+    if (appliedCount > 0) write.commit();
+    return { tag: resolved, appliedCount };
+  }, [assignToDocuments, openDocumentWrite]);
+
+  const createAndApplyTagToDocuments = useCallback((
+    targets: readonly TaggableDocument[],
     name: string,
     color: DocumentTagColorId,
   ) => {
-    const next = latestLibrary();
-    const existing = findTagByName(next.definitions, name);
+    const write = openDocumentWrite();
+    const existing = findTagByName(write.next.definitions, name);
     if (existing) {
-      const files = { ...(next.fileAssignments[dataSourceId] ?? {}) };
-      let appliedCount = 0;
-      for (const fileName of fileNames) {
-        const fileId = fileIdentity(fileName);
-        const result = assignTagId(files[fileId], existing.id);
-        if (result.applied) {
-          files[fileId] = result.next;
-          appliedCount += 1;
-        }
-      }
+      const appliedCount = assignToDocuments(write, targets, existing.id);
       if (appliedCount === 0) {
         return { error: `A tag named “${existing.name}” already exists.`, tag: existing, appliedCount: 0 };
       }
-      next.fileAssignments[dataSourceId] = files;
-      writeOrganizationTagLibrary(next);
+      write.commit();
       return { error: null as string | null, tag: existing, appliedCount };
     }
-    const created = createTagDefinition(next.definitions, name, color);
+    const created = createTagDefinition(write.next.definitions, name, color);
     if ("error" in created) {
       return { error: created.error, tag: null as DocumentTagDefinition | null, appliedCount: 0 };
     }
-    next.definitions[created.tag.id] = created.tag;
-    const files = { ...(next.fileAssignments[dataSourceId] ?? {}) };
-    let appliedCount = 0;
-    for (const fileName of fileNames) {
-      const fileId = fileIdentity(fileName);
-      const result = assignTagId(files[fileId], created.tag.id);
-      if (result.applied) {
-        files[fileId] = result.next;
-        appliedCount += 1;
-      }
-    }
-    next.fileAssignments[dataSourceId] = files;
-    writeOrganizationTagLibrary(next);
+    write.next.definitions[created.tag.id] = created.tag;
+    const appliedCount = assignToDocuments(write, targets, created.tag.id);
+    write.commit();
     return { error: null as string | null, tag: created.tag, appliedCount };
-  }, [dataSourceId]);
+  }, [assignToDocuments, openDocumentWrite]);
 
-  const removeTagFromFile = useCallback((fileName: string, tagId: string) => {
-    const next = latestLibrary();
-    const files = { ...(next.fileAssignments[dataSourceId] ?? {}) };
-    const fileId = fileIdentity(fileName);
-    files[fileId] = unassignTagId(files[fileId], tagId);
-    next.fileAssignments[dataSourceId] = files;
-    writeOrganizationTagLibrary(next);
-  }, [dataSourceId]);
-
-  /** Remove a tag from selected files only. Does not delete the tag definition. */
-  const removeTagFromFiles = useCallback((fileNames: readonly string[], tagId: string) => {
-    const next = latestLibrary();
-    const files = { ...(next.fileAssignments[dataSourceId] ?? {}) };
+  /** Remove a tag from the given documents only. Does not delete the tag definition. */
+  const removeTagFromDocuments = useCallback((targets: readonly TaggableDocument[], tagId: string) => {
+    const write = openDocumentWrite();
     let removedCount = 0;
-    for (const fileName of fileNames) {
-      const fileId = fileIdentity(fileName);
-      const current = files[fileId] ?? [];
+    for (const document of targets) {
+      const current = write.assignments[document.localDocumentId] ?? [];
       if (!current.includes(tagId)) continue;
-      files[fileId] = unassignTagId(current, tagId);
+      const remaining = unassignTagId(current, tagId);
+      if (remaining.length > 0) write.assignments[document.localDocumentId] = remaining;
+      else delete write.assignments[document.localDocumentId];
       removedCount += 1;
     }
-    if (removedCount > 0) {
-      next.fileAssignments[dataSourceId] = files;
-      writeOrganizationTagLibrary(next);
-    }
+    if (removedCount > 0) write.commit();
     return { removedCount };
-  }, [dataSourceId]);
+  }, [openDocumentWrite]);
 
-  /** Drop all tag assignments for a document (e.g. after the file is deleted). */
-  const clearFileAssignments = useCallback((fileName: string) => {
-    const next = latestLibrary();
-    const files = { ...(next.fileAssignments[dataSourceId] ?? {}) };
-    delete files[fileIdentity(fileName)];
-    if (Object.keys(files).length > 0) {
-      next.fileAssignments[dataSourceId] = files;
-    } else {
-      delete next.fileAssignments[dataSourceId];
-    }
-    writeOrganizationTagLibrary(next);
-  }, [dataSourceId]);
+  const removeTagFromDocument = useCallback((document: TaggableDocument, tagId: string) => {
+    removeTagFromDocuments([document], tagId);
+  }, [removeTagFromDocuments]);
+
+  /** Drop one document's tag assignments (after it is deleted). Same-name documents are untouched. */
+  const clearDocumentAssignments = useCallback((document: TaggableDocument) => {
+    const write = openDocumentWrite();
+    delete write.assignments[document.localDocumentId];
+    delete write.names[document.localDocumentId];
+    write.commit();
+  }, [openDocumentWrite]);
 
   const tagsForTable = useCallback((tableId: string) => {
     return resolveTagIds(
@@ -639,12 +662,12 @@ export function useDataSourceTags(dataSourceId: string) {
     createAndApplyTag,
     updateTag,
     removeTag,
-    tagsForFileName,
-    applyTagToFiles,
-    createAndApplyTagToFiles,
-    removeTagFromFile,
-    removeTagFromFiles,
-    clearFileAssignments,
+    tagsForDocument,
+    applyTagToDocuments,
+    createAndApplyTagToDocuments,
+    removeTagFromDocument,
+    removeTagFromDocuments,
+    clearDocumentAssignments,
     tagsForTable,
     applyTagToTables,
     createAndApplyTagToTables,

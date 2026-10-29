@@ -1,4 +1,8 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type MutableRefObject, type ReactNode } from "react";
+import {
+  runWithUnsavedNavigationGuard,
+  type UnsavedNavigationGuard,
+} from "@/app/features/shared/unsavedNavigationGuard";
 import { toast } from "sonner";
 import {
   LuxiaBreadcrumb,
@@ -33,6 +37,10 @@ import {
   TabsTrigger,
 } from "@/app/components/ui/tabs";
 import { CANONICAL_CONSTELLATIONS } from "@/app/features/constellation/catalog";
+import {
+  readDataSourceDocuments,
+  withDataSourceDocuments,
+} from "@/app/features/data-sources/documents";
 import { FileDataSourceDocumentsPanel, DataSourceTagsSection, CsvTableTagRow, csvTableIdentity } from "@/app/features/document-tags";
 import { FilterField } from "@/app/features/home/browserShared";
 import { HS } from "@/app/features/home/homeSurfaces";
@@ -419,7 +427,8 @@ function ContentSummaryPanel({
     );
   }
 
-  const files = summary.fileNames ?? [];
+  // Document IDs keep duplicate filenames as distinct rows.
+  const files = readDataSourceDocuments(dataSourceId ?? "", summary);
   return (
     <div className="space-y-4">
       <dl className="grid gap-x-6 gap-y-0 sm:grid-cols-2 lg:grid-cols-3">
@@ -428,13 +437,13 @@ function ContentSummaryPanel({
       </dl>
       {files.length > 0 ? (
         <ul className={`${LIST_SURFACE_CLASS} divide-y px-4`} style={{ borderColor: "var(--luxia-settings-row-divider)" }}>
-          {files.map((fileName) => (
+          {files.map((document) => (
             <li
-              key={fileName}
+              key={document.localDocumentId}
               className="luxia-settings-row py-3 luxia-type-body-dense"
               style={{ color: "var(--luxia-text-primary)" }}
             >
-              {fileName}
+              {document.fileName}
             </li>
           ))}
         </ul>
@@ -470,6 +479,8 @@ export interface DataSourceSettingsPageProps {
   onOpenProject?: (projectId: string) => void;
   onSaveSource?: (source: DataSourceCatalogItem) => void;
   canAccess?: boolean;
+  /** Set while a Tag & Extract review has unsaved edits; App asks it before leaving. */
+  navigationGuardRef?: MutableRefObject<UnsavedNavigationGuard | null>;
 }
 
 export function DataSourceSettingsPage({
@@ -491,6 +502,7 @@ export function DataSourceSettingsPage({
   onOpenProject,
   onSaveSource,
   canAccess = true,
+  navigationGuardRef,
 }: DataSourceSettingsPageProps) {
   const catalog = dataSources ?? (source ? [source] : []);
   const isOrganizational = source?.ownership === "organizational";
@@ -524,6 +536,10 @@ export function DataSourceSettingsPage({
 
   const [nameDraft, setNameDraft] = useState(source?.name ?? "");
   const [archiveOpen, setArchiveOpen] = useState(false);
+  // Tag & Extract Review takes over the content area; the page header and tabs
+  // stay mounted but hidden so the Documents list keeps its filters and selection.
+  const [reviewHost, setReviewHost] = useState<HTMLDivElement | null>(null);
+  const [reviewing, setReviewing] = useState(false);
   const [usageQuery, setUsageQuery] = useState("");
   const [activeSection, setActiveSection] = useState<DataSourceSettingsSectionId>(
     () => resolveDataSourceSettingsSection(focusSection, availableSectionIds),
@@ -661,9 +677,12 @@ export function DataSourceSettingsPage({
     dataSourceName: canAccess && source ? source.name : "Data Source",
   });
 
+  const whenLeaveAllowed = (proceed: () => void) =>
+    runWithUnsavedNavigationGuard(navigationGuardRef?.current, proceed);
+
   const breadcrumbHandlers: LuxiaBreadcrumbHandlers = {
-    onHome: onNavigateHome,
-    onDataSources: onOpenDataSources,
+    onHome: () => whenLeaveAllowed(onNavigateHome),
+    onDataSources: () => whenLeaveAllowed(onOpenDataSources),
   };
 
   const unavailable = !source || !canAccess;
@@ -812,29 +831,31 @@ export function DataSourceSettingsPage({
             <div>
               <SectionHeading
                 title="Documents"
-                helper="Contents of this File Data Source."
+                helper="Manage document tags, extraction, and review."
               />
               <FileDataSourceDocumentsPanel
                 key={source.id}
                 dataSourceId={source.id}
-                fileNames={source.contentSummary.fileNames ?? []}
+                dataSourceName={source.name}
+                documents={readDataSourceDocuments(source.id, source.contentSummary)}
                 canEdit={canManage}
                 currentUserId={currentUserId}
                 onOpenConstellation={onOpenConstellationSettings}
+                navigationGuardRef={navigationGuardRef}
+                reviewPortalHost={reviewHost}
+                onReviewActiveChange={setReviewing}
                 onDeleteDocument={
                   canManage && onSaveSource
-                    ? (fileName) => {
+                    ? (target) => {
                         const summary = source.contentSummary;
                         if (!summary || summary.kind !== "file") return;
-                        const nextNames = (summary.fileNames ?? []).filter(
-                          (name) => name !== fileName,
+                        // Writing the records back pins derived legacy IDs for later edits.
+                        const nextDocuments = readDataSourceDocuments(source.id, summary).filter(
+                          (document) => document.localDocumentId !== target.localDocumentId,
                         );
                         onSaveSource({
                           ...source,
-                          contentSummary: {
-                            ...summary,
-                            fileNames: nextNames,
-                          },
+                          contentSummary: withDataSourceDocuments(summary, nextDocuments),
                         });
                       }
                     : undefined
@@ -1212,7 +1233,9 @@ export function DataSourceSettingsPage({
   }
 
   return (
-    <LuxiaPageFrame>
+    <>
+    <div ref={setReviewHost} className={reviewing ? "flex h-full min-h-0 min-w-0 flex-col" : "hidden"} />
+    <LuxiaPageFrame className={reviewing ? "hidden" : ""}>
       <LuxiaPageHeader
         contentGap="page"
         pageTypeLabel="DATA SOURCE"
@@ -1277,7 +1300,7 @@ export function DataSourceSettingsPage({
                 return;
               }
               if (value === activeSection) return;
-              setActiveSection(value as DataSourceSettingsSectionId);
+              whenLeaveAllowed(() => setActiveSection(value as DataSourceSettingsSectionId));
             }}
           >
             <div className="mb-4 w-full min-w-0 overflow-x-auto">
@@ -1375,5 +1398,6 @@ export function DataSourceSettingsPage({
         </AlertDialog>
       ) : null}
     </LuxiaPageFrame>
+    </>
   );
 }

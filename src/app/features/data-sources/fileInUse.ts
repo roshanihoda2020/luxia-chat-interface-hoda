@@ -66,3 +66,50 @@ export function getFileInUseDependencies(
 export function isFileInUse(sourceId: string, fileName: string): boolean {
   return getFileInUseDependencies(sourceId, fileName).length > 0;
 }
+
+/**
+ * Document-level attachments made by this session's Constellations, keyed by
+ * `dataSourceId::localDocumentId`. Rebuilt by App from every capability bundle
+ * whose PDF files carry a document reference. In memory, like the bundles.
+ */
+let documentAttachments = new Map<string, FileInUseDependency[]>();
+
+function documentKey(dataSourceId: string, localDocumentId: string): string {
+  return `${dataSourceId}::${localDocumentId}`;
+}
+
+export function replaceConstellationDocumentAttachments(
+  attachments: ReadonlyArray<{
+    dataSourceId: string;
+    localDocumentId: string;
+    dependency: FileInUseDependency;
+  }>,
+): void {
+  const next = new Map<string, FileInUseDependency[]>();
+  for (const { dataSourceId, localDocumentId, dependency } of attachments) {
+    const key = documentKey(dataSourceId, localDocumentId);
+    const list = next.get(key) ?? [];
+    if (!list.some((item) => item.constellationId === dependency.constellationId)) list.push(dependency);
+    next.set(key, list);
+  }
+  documentAttachments = next;
+}
+
+/**
+ * Constellations using one document. Document references are matched exactly,
+ * so a same-name document is never blocked. The seeded filename map applies
+ * only to legacy documents whose identity was derived from the filename —
+ * kept so existing demo safeguards are not weakened.
+ */
+export function getDocumentInUseDependencies(
+  sourceId: string,
+  document: { localDocumentId: string; fileName: string; localDocumentIdOrigin?: string },
+): FileInUseDependency[] {
+  const deps = [...(documentAttachments.get(documentKey(sourceId, document.localDocumentId)) ?? [])];
+  if (document.localDocumentIdOrigin === "derived") {
+    for (const dependency of getFileInUseDependencies(sourceId, document.fileName)) {
+      if (!deps.some((item) => item.constellationId === dependency.constellationId)) deps.push(dependency);
+    }
+  }
+  return deps;
+}

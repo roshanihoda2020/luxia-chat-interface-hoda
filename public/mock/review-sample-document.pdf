@@ -1,0 +1,106 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [4 0 R 6 0 R 8 0 R] /Count 3 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>
+endobj
+4 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 5 0 R >>
+endobj
+5 0 obj
+<< /Length 562 >>
+stream
+BT
+/F1 11 Tf
+14 TL
+60 780 Td
+/F1 9 Tf
+(SAMPLE DOCUMENT - PROTOTYPE FIXTURE - PAGE 1 OF 3) Tj T*
+/F1 11 Tf
+() Tj T*
+(Master Services Agreement) Tj T*
+() Tj T*
+(This Master Services Agreement is entered into between) Tj T*
+(Northwind Analytics Ltd. \("Provider"\) and Contoso Retail Group \("Client"\).) Tj T*
+() Tj T*
+(1. Scope of services) Tj T*
+(Provider will deliver the services described in each Statement of Work, including:) Tj T*
+(  - Data platform onboarding) Tj T*
+(  - Monthly reporting and analytics) Tj T*
+(  - Support during business hours) Tj T*
+ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 7 0 R >>
+endobj
+7 0 obj
+<< /Length 451 >>
+stream
+BT
+/F1 11 Tf
+14 TL
+60 780 Td
+/F1 9 Tf
+(SAMPLE DOCUMENT - PROTOTYPE FIXTURE - PAGE 2 OF 3) Tj T*
+/F1 11 Tf
+() Tj T*
+(2. Fees and payment) Tj T*
+() Tj T*
+(Service                      Billing     Amount) Tj T*
+(Platform onboarding          One-time    EUR 12,000) Tj T*
+(Reporting and analytics      Monthly     EUR 3,500) Tj T*
+(Extended support             Monthly     EUR 900) Tj T*
+() Tj T*
+(Invoices are payable within 30 days of receipt.) Tj T*
+ET
+endstream
+endobj
+8 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 9 0 R >>
+endobj
+9 0 obj
+<< /Length 524 >>
+stream
+BT
+/F1 11 Tf
+14 TL
+60 780 Td
+/F1 9 Tf
+(SAMPLE DOCUMENT - PROTOTYPE FIXTURE - PAGE 3 OF 3) Tj T*
+/F1 11 Tf
+() Tj T*
+(3. Term and termination) Tj T*
+() Tj T*
+(1. The Agreement starts on the Effective Date and runs for 24 months.) Tj T*
+(2. Either party may terminate with 60 days written notice.) Tj T*
+(3. Sections 4 to 6 survive termination.) Tj T*
+() Tj T*
+(4. Confidentiality) Tj T*
+() Tj T*
+(Each party keeps the other party's Confidential Information private) Tj T*
+(and uses it only to perform this Agreement.) Tj T*
+ET
+endstream
+endobj
+xref
+0 10
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000127 00000 n 
+0000000195 00000 n 
+0000000321 00000 n 
+0000000934 00000 n 
+0000001060 00000 n 
+0000001562 00000 n 
+0000001688 00000 n 
+trailer
+<< /Size 10 /Root 1 0 R >>
+startxref
+2263
+%%EOF

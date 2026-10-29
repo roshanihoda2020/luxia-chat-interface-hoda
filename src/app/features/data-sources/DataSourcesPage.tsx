@@ -38,6 +38,7 @@ import { DataSourceLibraryDocumentTags, TagMultiSelectFilter, useAccessibleDataS
 import { HS } from "@/app/features/home/homeSurfaces";
 import {
   formatConnectedConstellationCount,
+  getDataSourceSettingsContentNavItem,
   parseDataSourceNameInput,
   type AccessLevelRecord,
   type DataSourceCatalogItem,
@@ -106,19 +107,22 @@ function buildLibraryMenuItems(input: {
   onAddToExisting: () => void;
 }): LuxiaEntityOptionsItem[] {
   const { row, source, handoff, canSave } = input;
+  // Navigation: every item opens Data Source Settings, optionally on a specific tab.
   const items: LuxiaEntityOptionsItem[] = [
     {
       id: "open",
-      label: row.canManage ? "Manage" : "Open",
+      label: "Open",
       onSelect: () => input.onOpenSource(row.id),
     },
   ];
 
-  if (row.canManage && canSave) {
+  // Tag & Extract, Tables, or Connection — the same tab Settings shows for this type.
+  const contentNav = getDataSourceSettingsContentNavItem(source);
+  if (contentNav) {
     items.push({
-      id: "rename",
-      label: "Rename",
-      onSelect: input.onRename,
+      id: "content",
+      label: contentNav.label,
+      onSelect: () => input.onOpenSource(row.id, { focus: "content" }),
     });
   }
 
@@ -136,12 +140,12 @@ function buildLibraryMenuItems(input: {
     onSelect: () => input.onOpenSource(row.id, { focus: "usage" }),
   });
 
-  if (row.canManage) {
+  if (row.canManage && canSave) {
     items.push({
-      id: "manage-tags",
-      label: "Manage tags",
+      id: "rename",
+      label: "Rename",
       separatorBefore: true,
-      onSelect: () => input.onOpenSource(row.id, { focus: "general" }),
+      onSelect: input.onRename,
     });
   }
 
@@ -160,7 +164,7 @@ function buildLibraryMenuItems(input: {
   if (showCreate) {
     items.push({
       id: "create-constellation",
-      label: "Create new Constellation",
+      label: "Create Constellation…",
       separatorBefore: true,
       onSelect: input.onCreateConstellation,
     });
@@ -168,7 +172,7 @@ function buildLibraryMenuItems(input: {
   if (showConnect) {
     items.push({
       id: "add-to-constellation",
-      label: "Add to existing Constellation",
+      label: "Add to Constellation…",
       separatorBefore: !showCreate,
       onSelect: input.onAddToExisting,
     });
@@ -603,14 +607,14 @@ export function DataSourcesPage({
                   return (
                   <tr
                     key={row.id}
-                    className="luxia-settings-row is-interactive"
+                    className="luxia-settings-row"
                     style={{ borderColor: "var(--luxia-settings-row-divider)" }}
                   >
                     <td className={`${TABLE_BODY_CELL} ${COL_NAME}`}>
                       <button
                         type="button"
-                        className="luxia-type-body-dense-strong block min-w-0 max-w-full cursor-pointer truncate whitespace-nowrap text-left outline-none hover:underline focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)] rounded-[4px]"
-                        style={{ color: "var(--luxia-text-primary)" }}
+                        className="luxia-type-body-dense-strong block min-w-0 max-w-full cursor-pointer truncate whitespace-nowrap text-left outline-none underline-offset-2 hover:underline focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)] rounded-[4px]"
+                        style={{ color: "var(--luxia-brand-primary)" }}
                         title={row.name}
                         onClick={() => onOpenSource(row.id)}
                       >
@@ -694,6 +698,7 @@ export function DataSourcesPage({
                       <LuxiaEntityOptionsMenu
                         entityLabel={row.name}
                         entityType="Data Source"
+                        ariaLabel={`Options for ${row.name}`}
                         triggerVariant={LUXIA_PAGE_HEADER_ACTION.menuTrigger}
                         className="cursor-pointer"
                         items={buildLibraryMenuItems({

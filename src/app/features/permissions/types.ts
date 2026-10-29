@@ -1,3 +1,5 @@
+import type { DataSourceDocumentRecord } from "@/app/features/data-sources/documents/types";
+
 export type AccessLevelPermission = "View" | "Use" | "Manage";
 
 export type AccessLevelStatus = "active" | "inactive";
@@ -129,6 +131,11 @@ export interface DataSourceContentSummary {
   importedRows?: number;
   skippedRows?: number;
   fileNames?: string[];
+  /**
+   * Stable document records for File sources, kept beside `fileNames`.
+   * Missing on legacy sources — read through `readDataSourceDocuments`.
+   */
+  documents?: DataSourceDocumentRecord[];
   /** Multi-table CSV snapshot. Legacy sources may only have the singular fields above. */
   csvTables?: CsvImportedTableSummary[];
   /**

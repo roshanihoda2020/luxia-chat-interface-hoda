@@ -43,6 +43,7 @@ import { MetricsManager } from "@/app/features/metrics/MetricsManager";
 import type { MetricRecord } from "@/app/features/metrics/types";
 import { PDFFilesManager } from "@/app/features/pdf-files/PDFFilesManager";
 import type { PDFFileRecord } from "@/app/features/pdf-files/types";
+import type { PDFDocumentSourceContext } from "@/app/features/pdf-files/ManagePDFFilesDialog";
 import { RelationshipManager } from "@/app/features/relationship/RelationshipManager";
 import type { RelationshipRecord } from "@/app/features/relationship/types";
 import {
@@ -75,6 +76,8 @@ export interface ConstellationCapabilityManagePageProps {
   onOpenConstellations: (id: string) => void;
   onOpenConstellation: (projectId: string, constellationId: string) => void;
   connectedSourceIds?: readonly string[];
+  /** PDF Files → Add documents: connected File Data Sources the user can view. */
+  documentSources?: PDFDocumentSourceContext | null;
   /** App-level leave guard (sidebar / browser history). */
   navigationGuardRef?: MutableRefObject<UnsavedNavigationGuard | null>;
 }
@@ -94,6 +97,7 @@ export function ConstellationCapabilityManagePage({
   onOpenConstellations,
   onOpenConstellation,
   connectedSourceIds = [],
+  documentSources = null,
   navigationGuardRef,
 }: ConstellationCapabilityManagePageProps) {
   const capabilityMeta = capabilityMetaForType(capabilityId, constellation.type);
@@ -423,6 +427,7 @@ export function ConstellationCapabilityManagePage({
               files={safeBundle.pdfFiles}
               fileKind={constellation.type === "csv" ? "csv" : "pdf"}
               fileTagSourceIds={connectedSourceIds}
+              documentSources={documentSources}
               closeRef={closeRef}
               dirtyRef={dirtyRef}
               readOnly={readOnly}

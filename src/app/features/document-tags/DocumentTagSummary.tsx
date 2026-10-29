@@ -5,7 +5,8 @@ import {
   PopoverTrigger,
 } from "@/app/components/ui/popover";
 import { DocumentTagChip, TAG_CHIP_LIST_CLASS, TAG_CHIP_ROW_CLASS } from "./DocumentTagChip";
-import { tagsForFileInSources, tagsForTableInSources, effectiveTagsForDataSource } from "./persistence";
+import { tagsForTableInSources, effectiveTagsForDataSource } from "./persistence";
+import { tagsForFileTarget } from "./fileTagFilter";
 import { documentTagTone } from "./tagTone";
 import type { DocumentTagDefinition } from "./types";
 import { useDataSourceTagStore } from "./useDataSourceTags";
@@ -202,17 +203,20 @@ export function DataSourceLibraryDocumentTags({
 export function FileLibraryDocumentTags({
   fileName,
   sourceIds,
+  document,
   className,
   onTagClick,
 }: {
   fileName: string;
   sourceIds: readonly string[];
+  /** Exact document reference; when set, tags come from that document only. */
+  document?: { dataSourceId: string; localDocumentId: string };
   className?: string;
   onTagClick?: (tag: DocumentTagDefinition) => void;
 }) {
   const store = useDataSourceTagStore();
   void store;
-  const tags = tagsForFileInSources(fileName, sourceIds);
+  const tags = tagsForFileTarget({ fileName, sourceIds, document });
   if (tags.length === 0) return null;
   const summary = (
     <DocumentTagSummary

@@ -3,22 +3,21 @@ import {
   collectFileTagOptions,
   fileMatchesTagFilter,
   filesHaveUntagged,
+  type FileTagTarget,
 } from "./fileTagFilter";
 import { useDataSourceTagStore } from "./useDataSourceTags";
 
-export function useFileTagFilter(
-  fileNames: readonly string[],
-  sourceIds: readonly string[],
-) {
+/** Tag filter over listed files; each file reads tags only from its own `sourceIds`. */
+export function useFileTagFilter(files: readonly FileTagTarget[]) {
   const store = useDataSourceTagStore();
 
   const tagOptions = useMemo(
-    () => collectFileTagOptions(fileNames, sourceIds),
-    [fileNames, sourceIds, store],
+    () => collectFileTagOptions(files),
+    [files, store],
   );
   const hasUntagged = useMemo(
-    () => filesHaveUntagged(fileNames, sourceIds),
-    [fileNames, sourceIds, store],
+    () => filesHaveUntagged(files),
+    [files, store],
   );
 
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
@@ -61,9 +60,9 @@ export function useFileTagFilter(
   }, []);
 
   const matches = useCallback(
-    (fileName: string) =>
-      fileMatchesTagFilter(fileName, sourceIds, selectedTagIds, untaggedSelected),
-    [sourceIds, selectedTagIds, untaggedSelected, store],
+    (file: FileTagTarget) =>
+      fileMatchesTagFilter(file, selectedTagIds, untaggedSelected),
+    [selectedTagIds, untaggedSelected, store],
   );
 
   const hasActiveTagFilters = selectedTagIds.length > 0 || untaggedSelected;

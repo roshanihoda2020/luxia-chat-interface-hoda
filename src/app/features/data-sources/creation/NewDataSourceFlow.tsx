@@ -17,7 +17,23 @@ import {
   shouldFailGoogleSheetPrototype,
 } from "./googleSheetImport";
 import { NewDataSourceChooserDialog } from "./NewDataSourceChooserDialog";
-import { useDraftDataSourceTags } from "@/app/features/document-tags";
+import {
+  clearDataSourceTagSuggestions,
+  clearDocumentTagSuggestions,
+  discardDraftDataSourceTagData,
+  discardDraftDocumentTagData,
+  useDraftDataSourceTags,
+} from "@/app/features/document-tags";
+import {
+  clearDataSourceExtractionRecords,
+  clearDocumentExtractionStatus,
+  createUploadedDocumentRecord,
+  withDataSourceDocuments,
+  type DataSourceDocumentRecord,
+} from "@/app/features/data-sources/documents";
+import { clearDataSourceReviewContent, clearDocumentReviewContent } from "@/app/features/document-review";
+import { FileDocumentPreparationDialog } from "./FileDocumentPreparationDialog";
+import type { UploadDraftFile } from "./FileUploadDialog";
 import type {
   CreationPhase,
   CsvImportCompletePayload,
@@ -71,6 +87,50 @@ export function NewDataSourceFlow({
   const createdSourceRef = useRef<DataSourceCatalogItem | null>(null);
   const sheetImportTokenRef = useRef(0);
   const tagDraft = useDraftDataSourceTags();
+  const [uploadFiles, setUploadFiles] = useState<UploadDraftFile[]>([]);
+  /** Data Source ID reserved when File upload continues; reused by Create. */
+  const [draftFileSourceId, setDraftFileSourceId] = useState<string | null>(null);
+  const draftDocuments = useMemo(
+    () => draftFileSourceId
+      ? uploadFiles.map((file) =>
+          createUploadedDocumentRecord({
+            localDocumentId: file.localDocumentId,
+            dataSourceId: draftFileSourceId,
+            fileName: file.name,
+            sizeBytes: file.sizeBytes,
+            uploadedAt: file.uploadedAt,
+          }),
+        )
+      : [],
+    [uploadFiles, draftFileSourceId],
+  );
+
+  /**
+   * Upload list changes. A document removed before Create loses only its own
+   * draft tags, extraction status and review content; same-name files keep theirs.
+   */
+  function updateUploadFiles(next: UploadDraftFile[]) {
+    if (draftFileSourceId && !createdSourceRef.current) {
+      const kept = new Set(next.map((file) => file.localDocumentId));
+      for (const file of uploadFiles) {
+        if (kept.has(file.localDocumentId)) continue;
+        discardDraftDocumentTagData(draftFileSourceId, file.localDocumentId);
+        clearDocumentExtractionStatus(draftFileSourceId, file.localDocumentId);
+        clearDocumentReviewContent(draftFileSourceId, file.localDocumentId);
+        clearDocumentTagSuggestions(draftFileSourceId, file.localDocumentId);
+      }
+    }
+    setUploadFiles(next);
+  }
+
+  /** Remove everything a discarded, never-created File draft wrote. */
+  function discardDraftFileSourceData() {
+    if (!draftFileSourceId || createdSourceRef.current) return;
+    discardDraftDataSourceTagData(draftFileSourceId);
+    clearDataSourceExtractionRecords(draftFileSourceId);
+    clearDataSourceReviewContent(draftFileSourceId);
+    clearDataSourceTagSuggestions(draftFileSourceId);
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -84,6 +144,8 @@ export function NewDataSourceFlow({
     setSheetImporting(false);
     sheetImportTokenRef.current += 1;
     setSessionKey((value) => value + 1);
+    setUploadFiles([]);
+    setDraftFileSourceId(null);
     tagDraft.reset();
     // Reset only when the dialog opens. Do not reset after catalog create while the CSV Summary is still showing.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- catalog changes must not clear an open flow
@@ -124,6 +186,7 @@ export function NewDataSourceFlow({
   }
 
   function confirmDiscard() {
+    discardDraftFileSourceData();
     setDiscardOpen(false);
     onOpenChange(false);
   }
@@ -133,13 +196,15 @@ export function NewDataSourceFlow({
     type: DataSourceCatalogItem["type"];
     status: DataSourceCatalogItem["status"];
     contentSummary?: DataSourceContentSummary;
+    /** Pre-allocated draft ID (File sources prepared before Create). */
+    id?: string;
   }): DataSourceCatalogItem {
     const trimmedName = name.trim();
     if (!ownership || !trimmedName) {
       throw new Error("Data Source name and ownership are required.");
     }
     return {
-      id: nextPrototypeDataSourceId(existingSources),
+      id: partial.id ?? nextPrototypeDataSourceId(existingSources),
       name: trimmedName,
       type: partial.type,
       connector: partial.connector,
@@ -188,11 +253,13 @@ export function NewDataSourceFlow({
       openSettings?: boolean;
       retainFileNames?: readonly string[];
       retainTableIds?: readonly string[];
+      documents?: readonly DataSourceDocumentRecord[];
     },
   ) {
     tagDraft.commitTo(source.id, {
       retainFileNames: options?.retainFileNames,
       retainTableIds: options?.retainTableIds,
+      documents: options?.documents,
     });
     onCreated(
       source,
@@ -387,24 +454,52 @@ export function NewDataSourceFlow({
         open={open && phase === "file"}
         sourceName={name.trim()}
         ownershipLabel={ownershipLabel}
+        files={uploadFiles}
+        onFilesChange={updateUploadFiles}
         onBack={() => setPhase("chooser")}
         onCancel={requestClose}
-        onCreate={(files) => {
-          finish(
-            buildSource({
-              connector: "file",
-              type: "File",
-              status: "active",
-              contentSummary: {
-                kind: "file",
-                fileNames: files.map((file) => file.name),
-              },
-            }),
-            { retainFileNames: files.map((file) => file.name), retainTableIds: [] },
-          );
+        onContinue={(files) => {
+          setUploadFiles(files);
+          // The draft ID is fixed here so extraction, review and tags made before
+          // Create belong to the Data Source that Create makes.
+          if (!draftFileSourceId) setDraftFileSourceId(nextPrototypeDataSourceId(existingSources));
+          setPhase("file-prepare");
         }}
         tagDraft={tagDraft}
       />
+
+      {draftFileSourceId ? (
+        <FileDocumentPreparationDialog
+          key={`file-prepare-${sessionKey}`}
+          open={open && phase === "file-prepare"}
+          sourceName={name.trim()}
+          ownershipLabel={ownershipLabel}
+          dataSourceId={draftFileSourceId}
+          documents={draftDocuments}
+          currentUserId={currentUserId}
+          onBack={() => setPhase("file")}
+          onCancel={requestClose}
+          onDeleteDocument={(document) => {
+            updateUploadFiles(uploadFiles.filter((file) => file.localDocumentId !== document.localDocumentId));
+          }}
+          onCreate={() => {
+            const source = buildSource({
+              connector: "file",
+              type: "File",
+              status: "active",
+              id: draftFileSourceId,
+            });
+            finish(
+              {
+                ...source,
+                contentSummary: withDataSourceDocuments({ kind: "file" }, draftDocuments),
+              },
+              // File tags were written by document ID in the preparation step.
+              { retainFileNames: [], retainTableIds: [], documents: draftDocuments },
+            );
+          }}
+        />
+      ) : null}
 
       <GoogleSheetImportDialog
         key={`sheet-${sessionKey}`}

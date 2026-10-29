@@ -34,8 +34,10 @@ export { FileInUseDialog } from "./FileInUseDialog";
 export type { FileInUseDialogProps } from "./FileInUseDialog";
 export {
   fileAttachmentsByDataSourceId,
+  getDocumentInUseDependencies,
   getFileInUseDependencies,
   isFileInUse,
+  replaceConstellationDocumentAttachments,
 } from "./fileInUse";
 export type { FileInUseDependency } from "./fileInUse";
 export { DATA_SOURCES_GUIDANCE, DATA_SOURCES_PAGE_VARIANT } from "./ia";

@@ -5,7 +5,32 @@ import {
     sourceIdsForFileRecord,
     type DocumentTagDefinition,
 } from "@/app/features/document-tags";
+import {
+    DEFAULT_DOCUMENT_EXTRACTION_STATUS,
+    DocumentExtractionStatusCell,
+    fileFormatFromName,
+    useDataSourceExtractionStatuses,
+} from "@/app/features/data-sources/documents";
+import { hasReviewableContent, useDocumentReviewContent } from "@/app/features/document-review";
 import { PDFFileMenu } from "./PDFFileMenu";
+
+/** Extraction status of the Data Source document behind a Constellation file. Read-only. */
+function DocumentExtractionStatusLine({
+    document,
+    fileFormat,
+}: {
+    document: { dataSourceId: string; localDocumentId: string };
+    fileFormat: string;
+}) {
+    const records = useDataSourceExtractionStatuses(document.dataSourceId);
+    const status = records[document.localDocumentId]?.status ?? DEFAULT_DOCUMENT_EXTRACTION_STATUS;
+    const content = useDocumentReviewContent(document.dataSourceId, document.localDocumentId);
+    return (
+        <span className="mt-1.5 block">
+            <DocumentExtractionStatusCell fileFormat={fileFormat} status={status} contentAvailable={hasReviewableContent(content)} />
+        </span>
+    );
+}
 import { LX } from "./tokens";
 import type { PDFFileRecord } from "./types";
 
@@ -22,7 +47,11 @@ export function PDFFileRow({
     fileTagSourceIds?: readonly string[];
     onTagClick?: (tag: DocumentTagDefinition) => void;
 }) {
-    const metadata = item.source === "upload" ? `PDF · ${item.sizeLabel}` : `PDF · ${item.sizeLabel}`;
+    const fileFormat = fileFormatFromName(item.name);
+    const metadata = `${fileFormat} · ${item.sizeLabel}`;
+    const document = item.dataSourceId && item.localDocumentId
+        ? { dataSourceId: item.dataSourceId, localDocumentId: item.localDocumentId }
+        : undefined;
 
     return (
         <div className="group/item flex items-center gap-2 rounded-[10px] px-2.5 py-2 transition-colors hover:bg-[var(--luxia-opacity-brand-primary-04)]" style={{ background: "transparent" }} onClick={(e) => e.stopPropagation()}>
@@ -32,9 +61,11 @@ export function PDFFileRow({
             <div className="min-w-0 flex-1">
                 <p className="truncate luxia-type-body-dense-strong" style={{ color: LX.primary }}>{item.name}</p>
                 <p className="truncate luxia-type-caption" style={{ color: LX.textMuted }}>{metadata}</p>
+                {document ? <DocumentExtractionStatusLine document={document} fileFormat={fileFormat} /> : null}
                 <FileLibraryDocumentTags
                     fileName={item.name}
                     sourceIds={sourceIdsForFileRecord(item.catalogId, fileTagSourceIds)}
+                    document={document}
                     className="mt-1.5 block"
                     onTagClick={onTagClick}
                 />

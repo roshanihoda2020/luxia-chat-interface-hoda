@@ -9,19 +9,40 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/app/components/ui/dialog";
-import { DraftFileTagRow, type DraftDataSourceTagsApi } from "@/app/features/document-tags";
+import {
+  createLocalDocumentId,
+  createSampleFixtureDocumentId,
+  isSampleFixtureDocumentId,
+} from "@/app/features/data-sources/documents";
+import { REVIEW_SAMPLE_FILE_BYTES, REVIEW_SAMPLE_FILE_NAME } from "@/app/features/document-review";
+import type { DraftDataSourceTagsApi } from "@/app/features/document-tags";
 import { DataSourceCreationSection, DataSourceDetailsSection, DataSourceDetailsSummary } from "./DataSourceDetailsSection";
 
 const ACCEPTED_EXTENSIONS = [".pdf", ".docx", ".pptx", ".md", ".txt"];
 const ACCEPT_ATTR = ".pdf,.docx,.pptx,.md,.txt,application/pdf,text/plain,text/markdown";
 
+type UploadFileStatus = "Ready" | "Processing" | "Failed";
+
+/** One file in the upload draft. `localDocumentId` stays the document's identity after creation. */
+export interface UploadDraftFile {
+  localDocumentId: string;
+  name: string;
+  status: UploadFileStatus;
+  sizeBytes: number;
+  uploadedAt: string;
+}
+
 export interface FileUploadDialogProps {
   open: boolean;
   sourceName: string;
   ownershipLabel: string;
+  /** Upload draft, owned by the creation flow so later steps share it. */
+  files: UploadDraftFile[];
+  onFilesChange: (files: UploadDraftFile[]) => void;
   onBack: () => void;
   onCancel: () => void;
-  onCreate: (files: Array<{ name: string; status: "Ready" | "Processing" | "Failed" }>) => void;
+  /** Move on to Extract, review and tag. */
+  onContinue: (files: UploadDraftFile[]) => void;
   tagDraft: DraftDataSourceTagsApi;
 }
 
@@ -34,13 +55,19 @@ export function FileUploadDialog({
   open,
   sourceName,
   ownershipLabel,
+  files,
+  onFilesChange,
   onBack,
   onCancel,
-  onCreate,
+  onContinue,
   tagDraft,
 }: FileUploadDialogProps) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [files, setFiles] = useState<Array<{ id: string; name: string; status: "Ready" | "Processing" | "Failed" }>>([]);
+  const filesRef = useRef(files);
+  filesRef.current = files;
+  const setFiles = (next: UploadDraftFile[] | ((prev: UploadDraftFile[]) => UploadDraftFile[])) => {
+    onFilesChange(typeof next === "function" ? next(filesRef.current) : next);
+  };
   const [dragActive, setDragActive] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -58,14 +85,15 @@ export function FileUploadDialog({
       setError(null);
     }
     if (accepted.length === 0) return;
-    setFiles((prev) => [
-      ...prev,
-      ...accepted.map((file, index) => ({
-        id: `${file.name}-${Date.now()}-${index}`,
-        name: file.name,
-        status: "Ready" as const,
-      })),
-    ]);
+    const uploadedAt = new Date().toISOString();
+    const added = accepted.map((file) => ({
+      localDocumentId: createLocalDocumentId(),
+      name: file.name,
+      status: "Ready" as const,
+      sizeBytes: file.size,
+      uploadedAt,
+    }));
+    setFiles((prev) => [...prev, ...added]);
   }
 
   function handleDrop(event: DragEvent<HTMLDivElement>) {
@@ -74,19 +102,35 @@ export function FileUploadDialog({
     addFiles(event.dataTransfer.files);
   }
 
-  function handleCreate() {
+  /** PROTOTYPE: adds the labelled sample document, the only upload with sample review content. */
+  function addSampleDocument() {
+    if (files.some((file) => isSampleFixtureDocumentId(file.localDocumentId))) return;
+    setFiles((prev) => [
+      ...prev,
+      {
+        localDocumentId: createSampleFixtureDocumentId(),
+        name: REVIEW_SAMPLE_FILE_NAME,
+        status: "Ready" as const,
+        sizeBytes: REVIEW_SAMPLE_FILE_BYTES,
+        uploadedAt: new Date().toISOString(),
+      },
+    ]);
+  }
+
+  function handleContinue() {
     if (files.length === 0 || creating) return;
     setCreating(true);
     setFiles((prev) => prev.map((file) => ({ ...file, status: "Processing" as const })));
     window.setTimeout(() => {
-      const next = files.map((file) => ({ ...file, status: "Ready" as const }));
+      const next = filesRef.current.map((file) => ({ ...file, status: "Ready" as const }));
       setFiles(next);
       setCreating(false);
-      onCreate(next.map(({ name, status }) => ({ name, status })));
+      onContinue(next);
     }, 450);
   }
 
   const canCreate = files.length > 0 && !creating && files.every((file) => file.status !== "Failed");
+  const hasSample = files.some((file) => isSampleFixtureDocumentId(file.localDocumentId));
 
   return (
     <Dialog
@@ -174,6 +218,17 @@ export function FileUploadDialog({
             />
           </div>
 
+          {!hasSample ? (
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="luxia-type-caption text-[var(--luxia-text-muted)]">
+                Prototype: add a sample PDF with sample extracted content to try Review.
+              </p>
+              <Button type="button" variant="secondary" size="compact" disabled={creating} onClick={addSampleDocument}>
+                Add sample document
+              </Button>
+            </div>
+          ) : null}
+
           {error ? (
             <p className="luxia-type-caption text-[var(--luxia-status-danger,var(--luxia-text-danger,#b42318))]" role="alert">
               {error}
@@ -184,7 +239,7 @@ export function FileUploadDialog({
             <ul className="space-y-2">
               {files.map((file) => (
                 <li
-                  key={file.id}
+                  key={file.localDocumentId}
                   className="flex items-start justify-between gap-3 rounded-[var(--luxia-radius-control)] border px-3 py-2"
                   style={{ borderColor: "var(--luxia-border-subtle)" }}
                 >
@@ -194,8 +249,8 @@ export function FileUploadDialog({
                     </p>
                     <p className="luxia-type-caption text-[var(--luxia-text-secondary)]">
                       {file.status}
+                      {isSampleFixtureDocumentId(file.localDocumentId) ? " · Sample document" : ""}
                     </p>
-                    <DraftFileTagRow fileName={file.name} draft={tagDraft} />
                   </div>
                   <Button
                     type="button"
@@ -204,11 +259,7 @@ export function FileUploadDialog({
                     aria-label={`Remove ${file.name}`}
                     disabled={creating}
                     onClick={() => {
-                      const remaining = files.filter((item) => item.id !== file.id);
-                      setFiles(remaining);
-                      if (!remaining.some((item) => item.name === file.name)) {
-                        tagDraft.clearFileAssignments(file.name);
-                      }
+                      setFiles(files.filter((item) => item.localDocumentId !== file.localDocumentId));
                     }}
                   >
                     <X size={16} aria-hidden />
@@ -229,9 +280,9 @@ export function FileUploadDialog({
             variant="primary"
             size="compact"
             disabled={!canCreate}
-            onClick={handleCreate}
+            onClick={handleContinue}
           >
-            {creating ? "Uploading…" : "Create Data Source"}
+            {creating ? "Uploading…" : "Continue"}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -33,6 +33,11 @@ export type ConstellationCreationDraft = {
   dataSourceName: string;
   ownership: DataSourceOwnership;
   existingDataSourceId: string | null;
+  /**
+   * File (PDF) Constellations on an existing source: selected document IDs of
+   * that source. Null means every document, the behavior before document picking.
+   */
+  selectedDocumentIds?: string[] | null;
   uploadedFiles: CreationUploadedFile[];
   /** Optional schema filter during creation — not required to continue. */
   databaseSchema: string;
@@ -65,6 +70,7 @@ export function createEmptyConstellationCreationDraft(
     dataSourceName: "",
     ownership: "organizational",
     existingDataSourceId: null,
+    selectedDocumentIds: null,
     uploadedFiles: [],
     databaseSchema: "",
     selectedTableIds: [],
@@ -151,9 +157,12 @@ export function getDataFieldErrors(
   if (!draft.type) return { dataSourceName: "Choose a Constellation type." };
 
   if (draft.dataSourceMode === "existing") {
-    const errors: { existingSource?: string; tables?: string } = {};
+    const errors: { existingSource?: string; tables?: string; files?: string } = {};
     if (!draft.existingDataSourceId) {
       errors.existingSource = "Select a Data Source.";
+    }
+    if (draft.type === "pdf" && draft.existingDataSourceId && draft.selectedDocumentIds?.length === 0) {
+      errors.files = "Select at least one document.";
     }
     if (draft.type === "database" && draft.selectedTableIds.length === 0) {
       errors.tables = "Select at least one table.";
@@ -303,6 +312,7 @@ export type NewSourceModeSnapshot = {
 
 export type ExistingSourceModeSnapshot = {
   existingDataSourceId: string | null;
+  selectedDocumentIds?: string[] | null;
   selectedTableIds: string[];
   selectedViewIds: string[];
   databaseSchema: string;
@@ -350,6 +360,7 @@ export function snapshotExistingSourceModeFromDraft(
 ): ExistingSourceModeSnapshot {
   return {
     existingDataSourceId: draft.existingDataSourceId,
+    selectedDocumentIds: draft.selectedDocumentIds ?? null,
     selectedTableIds: draft.selectedTableIds,
     selectedViewIds: draft.selectedViewIds,
     databaseSchema: draft.databaseSchema,
@@ -383,6 +394,7 @@ export function mergeExistingSourceSnapshotIntoDraft(
     ...draft,
     dataSourceMode: "existing",
     existingDataSourceId: snapshot.existingDataSourceId,
+    selectedDocumentIds: snapshot.selectedDocumentIds ?? null,
     selectedTableIds: snapshot.selectedTableIds,
     selectedViewIds: snapshot.selectedViewIds,
     databaseSchema: snapshot.databaseSchema,

@@ -15,6 +15,7 @@ import {
 import { INITIAL_METRICS } from "@/app/features/metrics/data";
 import type { MetricRecord } from "@/app/features/metrics/types";
 import { activeMetricCount, cloneMetrics } from "@/app/features/metrics/utils";
+import { getDocumentExtractionStatus } from "@/app/features/data-sources/documents";
 import { INITIAL_PDF_FILES } from "@/app/features/pdf-files/data";
 import type { PDFFileRecord } from "@/app/features/pdf-files/types";
 import { activePdfCount, clonePdfFiles } from "@/app/features/pdf-files/utils";
@@ -258,6 +259,17 @@ export function summarizeCapabilityBundle(
   const relationships = activeRelationshipCount(normalized.relationships);
   const metrics = activeMetricCount(normalized.metrics);
   const pdfs = activePdfCount(normalized.pdfFiles);
+  // Known state only: Approved counts come from linked Data Source documents.
+  // Nothing in the prototype ingests files, so no "Processed" claim is made.
+  const linkedPdfs = normalized.pdfFiles.filter((file) => !file.markedForRemoval && file.dataSourceId && file.localDocumentId);
+  const approvedPdfs = linkedPdfs.filter(
+    (file) => getDocumentExtractionStatus(file.dataSourceId!, file.localDocumentId!) === "REVIEWED",
+  ).length;
+  const pdfStatusLabel = pdfs === 0
+    ? "Empty"
+    : linkedPdfs.length > 0
+      ? `${approvedPdfs} of ${linkedPdfs.length} approved`
+      : "Added";
   const crawlers = activeCrawlerCount(normalized.crawler.entries);
   const context = activeFileCount(normalized.contextFiles);
 
@@ -292,7 +304,7 @@ export function summarizeCapabilityBundle(
     },
     pdfFiles: {
       countLabel: `${pdfs} ${pdfs === 1 ? "file" : "files"}`,
-      statusLabel: "Processed",
+      statusLabel: pdfStatusLabel,
     },
     crawler: {
       countLabel: `${crawlers} ${crawlers === 1 ? "URL" : "URLs"}`,

@@ -170,6 +170,8 @@ export type { DataSourceSettingsPageProps } from "./DataSourceSettingsPage";
 
 export {
   getDataSourceSettingsContentKind,
+  getDataSourceSettingsContentLabel,
+  getDataSourceSettingsContentNavItem,
   getDataSourceSettingsNavItems,
   parseDataSourceNameInput,
   resolveDataSourceSettingsSection,

@@ -162,7 +162,9 @@ import {
   ConnectDataSourceToConstellationDialog,
   listProjectsWhereUserCanCreateConstellation,
   listConstellationsUserCanConfigure,
+  replaceConstellationDocumentAttachments,
 } from "@/app/features/data-sources";
+import { readDataSourceDocuments } from "@/app/features/data-sources/documents";
 import { commitDataSourceTagBucket, type DataSourceTagBucket } from "@/app/features/document-tags";
 import {
   LuxiaSettingsDialog,
@@ -235,6 +237,7 @@ import {
   isWorkingChatAccessible,
   setPrototypeCurrentUserId,
   formatDemoIdentityContextLabel,
+  resolveUserDataSourceAccess,
 } from "@/app/features/permissions";
 import type {
   AccessLevelRecord,
@@ -1142,6 +1145,29 @@ export default function App() {
     ),
     [runtimeConstellations, constellationSettingsById],
   );
+  // File-in-use by document: every Constellation PDF file that carries a
+  // Data Source document reference counts as an attachment of that document.
+  useEffect(() => {
+    const byId = new Map(allConstellations.map((item) => [item.id, item]));
+    replaceConstellationDocumentAttachments(
+      Object.entries(capabilityBundlesById).flatMap(([constellationId, bundle]) => {
+        const constellation = byId.get(constellationId);
+        if (!constellation) return [];
+        return bundle.pdfFiles
+          .filter((file) => file.dataSourceId && file.localDocumentId && !file.markedForRemoval)
+          .map((file) => ({
+            dataSourceId: file.dataSourceId!,
+            localDocumentId: file.localDocumentId!,
+            dependency: {
+              constellationId,
+              constellationName: constellation.label,
+              projectId: constellation.projectId,
+              projectName: getProjectNameById(constellation.projectId),
+            },
+          }));
+      }),
+    );
+  }, [capabilityBundlesById, allConstellations]);
   const [homeBrowseMode, setHomeBrowseMode] = useState<HomeBrowseMode>("overview");
   const [homeScrollRequest, setHomeScrollRequest] = useState(0);
   const [homeProjects, setHomeProjects] = useState<HomeProjectCard[]>(HOME_PROJECTS);
@@ -1221,6 +1247,10 @@ export default function App() {
   prototypeUserIdRef.current = prototypeUserId;
   const constellationCreateGuardRef = useRef<ConstellationCreateNavigationGuard | null>(null);
   const capabilityManageGuardRef = useRef<UnsavedNavigationGuard | null>(null);
+  /** Data Source Settings → Tag & Extract review with unsaved Markdown edits. */
+  const documentReviewGuardRef = useRef<UnsavedNavigationGuard | null>(null);
+  const dataSourceSettingsIdRef = useRef(dataSourceSettingsId);
+  dataSourceSettingsIdRef.current = dataSourceSettingsId;
   const settingsCapabilityPathRef = useRef(settingsCapabilityPath);
   settingsCapabilityPathRef.current = settingsCapabilityPath;
   const settingsConstellationIdRef = useRef(settingsConstellationId);
@@ -1874,6 +1904,28 @@ export default function App() {
         }
       }
 
+      // Tag & Extract Review with unsaved edits. Moving between Review and the
+      // Documents list on the same page is handled by the Documents panel.
+      const reviewSourceId = dataSourceSettingsIdRef.current;
+      if (appViewRef.current === "data-source-settings" && reviewSourceId) {
+        const guard = documentReviewGuardRef.current;
+        const stillOnSameSource =
+          resolved.kind === "data-source-settings" && resolved.dataSourceId === reviewSourceId;
+        if (guard?.isDirty() && !stillOnSameSource) {
+          window.history.pushState(
+            // The marker tells the Documents panel this entry is a restore, not a Review exit.
+            { luxiaView: "data-source-settings", dataSourceId: reviewSourceId, luxiaReviewRestore: true },
+            "",
+            getDataSourceSettingsPath(reviewSourceId),
+          );
+          guard.requestLeaveConfirmation(() => {
+            window.history.replaceState(null, "", `${pathname}${search}`);
+            applyPath(pathname, search);
+          });
+          return;
+        }
+      }
+
       applyPath(pathname, search);
     }
     window.addEventListener("popstate", onPopState);
@@ -2176,7 +2228,9 @@ export default function App() {
   /** Sidebar / chrome navigation while create or capability-manage drafts are dirty. */
   function whenUnsavedNavigationAllows(proceed: () => void) {
     runWithUnsavedNavigationGuard(constellationCreateGuardRef.current, () => {
-      runWithUnsavedNavigationGuard(capabilityManageGuardRef.current, proceed);
+      runWithUnsavedNavigationGuard(capabilityManageGuardRef.current, () => {
+        runWithUnsavedNavigationGuard(documentReviewGuardRef.current, proceed);
+      });
     });
   }
 
@@ -4831,11 +4885,18 @@ export default function App() {
     setConstellationSettingsById(nextSettings);
 
     const instructionText = draft.instruction.trim() || seeded.instructions;
+    // Existing File sources: build PDF files from the source's document records.
+    const existingSourceItem = draft.dataSourceMode === "existing" && draft.existingDataSourceId
+      ? nextDataSources.find((item) => item.id === draft.existingDataSourceId)
+      : undefined;
     const bundle = buildCapabilityBundleFromCreationDraft(
       id,
       draft,
       connectedSource,
       instructionText,
+      existingSourceItem
+        ? readDataSourceDocuments(existingSourceItem.id, existingSourceItem.contentSummary)
+        : undefined,
     );
 
     setCapabilityBundlesById((prev) => ({
@@ -6735,6 +6796,16 @@ export default function App() {
                     capabilityId={settingsCapabilityId ?? "instr"}
                     bundle={capabilityBundle}
                     connectedSourceIds={settingsPageRecord.connectedSources.map((source) => source.id)}
+                    documentSources={{
+                      // Connected File Data Sources this user can at least view.
+                      sources: dataSourcesState.filter((item) =>
+                        item.contentSummary?.kind === "file"
+                        && settingsPageRecord.connectedSources.some((source) => source.id === item.id)
+                        && Boolean(resolveUserDataSourceAccess(prototypeUserId, item.id, accessLevelsState, dataSourcesState).permission)),
+                      accessLevels: accessLevelsState,
+                      dataSources: dataSourcesState,
+                      currentUserId: prototypeUserId,
+                    }}
                     onUpdateBundle={(next) => {
                       if (!constellationId || settingsUnavailable) return;
                       const capId = settingsCapabilityId ?? "instr";
@@ -7689,6 +7760,7 @@ export default function App() {
                 );
               }}
               onBack={handleOpenDataSources}
+              navigationGuardRef={documentReviewGuardRef}
             />
           </HomePageShell>
         ) : (

@@ -21,7 +21,9 @@ export type CreationPhase =
   | "database"
   | "csv"
   | "googlesheet"
-  | "file";
+  | "file"
+  /** File only: optional Extract, Review and Tag before Create. */
+  | "file-prepare";
 
 export interface DatabaseConnectionFields {
   host: string;

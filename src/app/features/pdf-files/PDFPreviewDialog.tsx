@@ -2,6 +2,8 @@ import { useEffect, useState, type CSSProperties } from "react";
 import { Button } from "@/app/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/app/components/ui/dialog";
 import { cn } from "@/app/components/ui/utils";
+import { REVIEW_SAMPLE_PDF_URL } from "@/app/features/document-review";
+import { SAMPLE_PDF_PREVIEW_URL } from "./data";
 import { LX } from "./tokens";
 import type { PDFPreviewTarget } from "./types";
 
@@ -58,6 +60,13 @@ export function PDFPreviewDialog({
 
     if (!file) return null;
 
+    // Say what is actually shown: the matching sample, or the seeded placeholder.
+    const contentNote = previewUrl === REVIEW_SAMPLE_PDF_URL
+        ? "Sample content: the matching sample PDF."
+        : previewUrl === SAMPLE_PDF_PREVIEW_URL
+            ? "Demo data: a placeholder PDF, not this file’s content."
+            : null;
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className={PDF_DIALOG_CONTENT_CLASS}>
@@ -65,8 +74,10 @@ export function PDFPreviewDialog({
                     <DialogTitle className="luxia-type-title-panel">{file.name}</DialogTitle>
                 </DialogHeader>
                 <div className="px-6 py-4">
-                    {file.sizeLabel ? (
-                        <p className="luxia-type-metadata" style={{ color: LX.textMuted }}>{file.sizeLabel}</p>
+                    {file.sizeLabel || contentNote ? (
+                        <p className="luxia-type-metadata" style={{ color: LX.textMuted }}>
+                            {[file.sizeLabel, contentNote].filter(Boolean).join(" · ")}
+                        </p>
                     ) : null}
                     {previewUrl ? (
                         <div
@@ -102,7 +113,7 @@ export function PDFPreviewDialog({
                                     Preview unavailable
                                 </p>
                                 <p className="mt-1 luxia-type-body-dense" style={{ color: LX.textMuted }}>
-                                    This file cannot be previewed here.
+                                    {file.unavailableReason ?? "This file cannot be previewed here."}
                                 </p>
                             </div>
                         </div>

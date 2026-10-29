@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState, type MutableRefObject } from "rea
 import { Button } from "@/app/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/app/components/ui/dialog";
 import { cn } from "@/app/components/ui/utils";
-import { TagMultiSelectFilter, useFileTagFilter } from "@/app/features/document-tags";
+import { sourceIdsForFileRecord, TagMultiSelectFilter, useFileTagFilter } from "@/app/features/document-tags";
 import { ListEmptyState } from "@/app/features/shared/ListEmptyState";
 import { ListNoResultsState } from "@/app/features/shared/ListNoResultsState";
 import {
@@ -16,7 +16,14 @@ import { useManagerLeaveRegistration } from "@/app/features/shared/unsavedNaviga
 import { LUXIA_DIALOG_CLOSE_ON_DARK_CLASS } from "@/app/features/shared/structuredModalChrome";
 
 import { DiscardPDFChangesDialog } from "./DiscardPDFChangesDialog";
-import { ManagePDFFilesDialog } from "./ManagePDFFilesDialog";
+import {
+    isLegacyLibraryRecord,
+    ManagePDFFilesDialog,
+    type ManagePDFFilesSaveResult,
+    type PDFDocumentSourceContext,
+} from "./ManagePDFFilesDialog";
+import { buildFileRecordsFromDocuments } from "@/app/features/constellation-settings/dataSourceFileCatalog";
+import type { DataSourceDocumentRecord } from "@/app/features/data-sources/documents";
 import { PDFFileRow } from "./PDFFileRow";
 import { PDFPreviewDialog } from "./PDFPreviewDialog";
 import { PDFUploadZone, fileToPdfRecord } from "./PDFUploadZone";
@@ -38,7 +45,10 @@ export function PDFFilesManager({
     fileKind = "pdf",
     fileTagSourceIds = [],
     readOnly = false,
+    documentSources = null,
 }: {
+    /** Connected File Data Sources offered under Add documents. */
+    documentSources?: PDFDocumentSourceContext | null;
     open: boolean;
     files: PDFFileRecord[];
     onCommit: (next: PDFFileRecord[]) => void;
@@ -97,15 +107,22 @@ export function PDFFilesManager({
 
     const dirty = !readOnly && pdfFilesSignature(draft) !== pdfFilesSignature(initialRef.current);
     const visibleDraft = useMemo(() => draft.filter((f) => !f.markedForRemoval), [draft]);
-    const visibleFileNames = useMemo(() => visibleDraft.map((file) => file.name), [visibleDraft]);
-    const resolvedSourceIds = useMemo(() => {
-        const ids = new Set(fileTagSourceIds);
-        for (const file of visibleDraft) {
-            if (file.catalogId) ids.add(file.catalogId);
-        }
-        return [...ids];
-    }, [visibleDraft, fileTagSourceIds]);
-    const fileTagFilter = useFileTagFilter(visibleFileNames, resolvedSourceIds);
+    // Same per-file source scoping as the tag chips in PDFFileRow.
+    const fileTagTargets = useMemo(
+        () => new Map(visibleDraft.map((file) => [
+            file.id,
+            {
+                fileName: file.name,
+                sourceIds: sourceIdsForFileRecord(file.catalogId, fileTagSourceIds),
+                document: file.dataSourceId && file.localDocumentId
+                    ? { dataSourceId: file.dataSourceId, localDocumentId: file.localDocumentId }
+                    : undefined,
+            },
+        ])),
+        [visibleDraft, fileTagSourceIds],
+    );
+    const fileTagTargetList = useMemo(() => [...fileTagTargets.values()], [fileTagTargets]);
+    const fileTagFilter = useFileTagFilter(fileTagTargetList);
     const showFileTagFilter = fileTagSourceIds.length > 0;
 
     useEffect(() => {
@@ -118,13 +135,15 @@ export function PDFFilesManager({
     const filtered = useMemo(() => {
         const lowered = search.trim().toLowerCase();
         return visibleDraft.filter((file) => {
-            if (!fileTagFilter.matches(file.name)) return false;
+            const target = fileTagTargets.get(file.id);
+            if (target && !fileTagFilter.matches(target)) return false;
             if (lowered && !file.name.toLowerCase().includes(lowered)) return false;
             return true;
         });
     }, [
         visibleDraft,
         search,
+        fileTagTargets,
         fileTagFilter.matches,
         fileTagFilter.selectedTagIds,
         fileTagFilter.untaggedSelected,
@@ -186,14 +205,39 @@ export function PDFFilesManager({
         setDraft((c) => [...c, fileToPdfRecord(file)]);
     }
 
-    function handleManageSave(selectedCatalogIds: string[]) {
+    function handleManageSave({ catalogIds, documents }: ManagePDFFilesSaveResult) {
         if (readOnly) return;
+        if (catalogIds) applyLibrarySelection(catalogIds);
+        if (documents.length > 0) addDataSourceDocuments(documents);
+    }
+
+    /**
+     * Merge Data Source documents into the draft by document reference. Never
+     * removes anything; an attached document is not added twice, and one
+     * pending removal is restored instead of duplicated.
+     */
+    function addDataSourceDocuments(documents: readonly DataSourceDocumentRecord[]) {
         setDraft((current) => {
-            const uploads = current.filter((f) => !f.catalogId && !f.markedForRemoval);
+            const next = [...current];
+            const additions: DataSourceDocumentRecord[] = [];
+            for (const document of documents) {
+                const index = next.findIndex((f) =>
+                    f.dataSourceId === document.dataSourceId && f.localDocumentId === document.localDocumentId);
+                if (index === -1) additions.push(document);
+                else if (next[index]!.markedForRemoval) next[index] = { ...next[index]!, markedForRemoval: false };
+            }
+            return [...next, ...buildFileRecordsFromDocuments(additions, fileKind)];
+        });
+    }
+
+    /** Legacy file-library selection. Touches only legacy library records. */
+    function applyLibrarySelection(selectedCatalogIds: string[]) {
+        setDraft((current) => {
+            const uploads = current.filter((f) => !isLegacyLibraryRecord(f) && !f.markedForRemoval);
             const marked = current.filter((f) => f.markedForRemoval);
-            const keptCatalog = current.filter((f) => f.catalogId && !f.markedForRemoval && selectedCatalogIds.includes(f.catalogId));
+            const keptCatalog = current.filter((f) => isLegacyLibraryRecord(f) && !f.markedForRemoval && selectedCatalogIds.includes(f.catalogId!));
             const removedCatalog = current
-                .filter((f) => f.catalogId && !f.markedForRemoval && !selectedCatalogIds.includes(f.catalogId))
+                .filter((f) => isLegacyLibraryRecord(f) && !f.markedForRemoval && !selectedCatalogIds.includes(f.catalogId!))
                 .map((f) => ({ ...f, markedForRemoval: true }));
             const newCatalog: PDFFileRecord[] = selectedCatalogIds
                 .filter((id) => !keptCatalog.some((f) => f.catalogId === id))
@@ -351,7 +395,14 @@ export function PDFFilesManager({
             )}
 
             {!readOnly ? (
-                <ManagePDFFilesDialog open={manageOpen} onOpenChange={setManageOpen} catalog={PDF_CATALOG} connectedFiles={draft} onSave={handleManageSave} />
+                <ManagePDFFilesDialog
+                    open={manageOpen}
+                    onOpenChange={setManageOpen}
+                    catalog={PDF_CATALOG}
+                    connectedFiles={draft}
+                    documentSources={fileKind === "pdf" ? documentSources : null}
+                    onSave={handleManageSave}
+                />
             ) : null}
             <PDFPreviewDialog open={!!viewFile} onOpenChange={(o) => { if (!o) setViewId(null); }} file={viewFile} />
             {!readOnly ? (

@@ -5,6 +5,12 @@ export interface PDFFileRecord {
     sizeBytes: number;
     source: "upload" | "catalog";
     catalogId?: string;
+    /**
+     * Stable document reference (`dataSourceId + localDocumentId`) when the file
+     * comes from a Data Source document. Missing on legacy and library records.
+     */
+    dataSourceId?: string;
+    localDocumentId?: string;
     previewable: boolean;
     /** Local/static prototype URL for iframe preview. Null/undefined = unavailable. */
     previewUrl?: string | null;
@@ -25,4 +31,6 @@ export interface PDFPreviewTarget {
     name: string;
     sizeLabel?: string;
     previewUrl?: string | null;
+    /** Why no preview is available, when the reason is known. */
+    unavailableReason?: string;
 }

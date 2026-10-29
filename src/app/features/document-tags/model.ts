@@ -29,6 +29,9 @@ export function emptyTagLibrary(organizationId: string = PROTOTYPE_ORGANIZATION_
     dataSourceAssignments: {},
     fileAssignments: {},
     tableAssignments: {},
+    documentAssignments: {},
+    documentFileNames: {},
+    documentTagMigrations: {},
   };
 }
 

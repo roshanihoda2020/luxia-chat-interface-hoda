@@ -1,6 +1,7 @@
 import type { PDFFileRecord } from "@/app/features/pdf-files/types";
 import type { CapsuleConstellationType } from "@/app/features/constellation/capsuleCapabilities";
 import type { CreationUploadedFile } from "./constellationCreateDraft";
+import type { DataSourceDocumentRecord } from "@/app/features/data-sources/documents";
 
 export type DataSourceFileCatalogEntry = {
   id: string;
@@ -96,6 +97,34 @@ export function buildFileRecordsFromDataSource(
     source: "catalog" as const,
     catalogId: dataSourceId,
     previewable: type === "pdf",
+  }));
+}
+
+function formatSizeLabel(bytes: number | undefined): string {
+  if (typeof bytes !== "number" || bytes <= 0) return "Size unavailable";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/**
+ * Constellation file records from a Data Source's document records, keyed by
+ * document ID (never by filename). Preferred over the static inventory.
+ */
+export function buildFileRecordsFromDocuments(
+  documents: readonly DataSourceDocumentRecord[],
+  type: Extract<CapsuleConstellationType, "pdf" | "csv">,
+): PDFFileRecord[] {
+  return documents.map((document) => ({
+    id: `${document.dataSourceId}::${document.localDocumentId}`,
+    name: document.fileName,
+    sizeLabel: formatSizeLabel(document.sizeBytes),
+    sizeBytes: document.sizeBytes ?? 0,
+    source: "catalog" as const,
+    catalogId: document.dataSourceId,
+    dataSourceId: document.dataSourceId,
+    localDocumentId: document.localDocumentId,
+    previewable: type === "pdf" && document.fileFormat === "PDF",
   }));
 }
 

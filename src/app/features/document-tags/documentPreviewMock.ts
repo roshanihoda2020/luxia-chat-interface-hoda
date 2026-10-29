@@ -1,3 +1,4 @@
+import { REVIEW_SAMPLE_PDF_URL } from "@/app/features/document-review";
 import { SAMPLE_PDF_PREVIEW_URL } from "@/app/features/pdf-files/data";
 import type { PDFPreviewTarget } from "@/app/features/pdf-files/types";
 
@@ -34,21 +35,25 @@ const DOCUMENT_PREVIEW_BY_NAME: Record<string, PDFPreviewTarget> = {
     },
 };
 
-export function resolveDocumentPreviewTarget(fileName: string): PDFPreviewTarget {
-    const known = DOCUMENT_PREVIEW_BY_NAME[fileName];
+/**
+ * The sample document previews its matching sample PDF. Seeded demo names use
+ * the demo placeholder (labelled as such by the dialog). Files uploaded in the
+ * prototype were never stored, so they have no preview rather than an
+ * unrelated stand-in PDF.
+ */
+export function resolveDocumentPreviewTarget(
+    fileName: string,
+    options: { sample?: boolean; uploaded?: boolean } = {},
+): PDFPreviewTarget {
+    if (options.sample) return { name: fileName, previewUrl: REVIEW_SAMPLE_PDF_URL };
+    const known = options.uploaded ? undefined : DOCUMENT_PREVIEW_BY_NAME[fileName];
     if (known) return { ...known, name: fileName };
-
-    const lower = fileName.toLowerCase();
-    if (lower.endsWith(".pdf")) {
-        return {
-            name: fileName,
-            sizeLabel: undefined,
-            previewUrl: SAMPLE_PDF_PREVIEW_URL,
-        };
-    }
 
     return {
         name: fileName,
         previewUrl: null,
+        unavailableReason: options.uploaded
+            ? "Files added in this prototype are not stored, so they cannot be previewed."
+            : undefined,
     };
 }

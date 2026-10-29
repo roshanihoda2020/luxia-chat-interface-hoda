@@ -16,6 +16,7 @@ import type {
   DataSourceTagBucket,
   DocumentTagColorId,
   DocumentTagDefinition,
+  DocumentTagMigrationRecord,
   OrganizationTagLibrary,
   OrganizationTagStore,
 } from "./types";
@@ -228,6 +229,7 @@ function stripAccidentalTestTags(library: OrganizationTagLibrary): boolean {
 
   pruneNestedAssignmentIds(library.fileAssignments, dropIds, library.definitions);
   pruneNestedAssignmentIds(library.tableAssignments, dropIds, library.definitions);
+  pruneNestedAssignmentIds(library.documentAssignments, dropIds, library.definitions);
 
   return true;
 }
@@ -364,6 +366,7 @@ function collapseDuplicateNormalizedNames(library: OrganizationTagLibrary): void
   }
   remapNestedAssignmentIds(library.fileAssignments, idMap, library.definitions);
   remapNestedAssignmentIds(library.tableAssignments, idMap, library.definitions);
+  remapNestedAssignmentIds(library.documentAssignments, idMap, library.definitions);
 }
 
 function pruneUnassignedNonCanonicalDefinitions(library: OrganizationTagLibrary): void {
@@ -371,8 +374,10 @@ function pruneUnassignedNonCanonicalDefinitions(library: OrganizationTagLibrary)
   for (const ids of Object.values(library.dataSourceAssignments)) {
     for (const id of ids) assigned.add(id);
   }
+  // Legacy fileAssignments still count, so tags kept only by migrated-away legacy rows survive.
   collectNestedAssignmentIds(library.fileAssignments, assigned);
   collectNestedAssignmentIds(library.tableAssignments, assigned);
+  collectNestedAssignmentIds(library.documentAssignments, assigned);
   for (const [id, tag] of Object.entries(library.definitions)) {
     if (assigned.has(id)) continue;
     if (DEMO_TAG_NAME_SET.has(tag.name.trim().toLowerCase())) continue;
@@ -389,6 +394,20 @@ function cloneLibrary(library: OrganizationTagLibrary): OrganizationTagLibrary {
     ),
     fileAssignments: cloneNestedAssignments(library.fileAssignments),
     tableAssignments: cloneNestedAssignments(library.tableAssignments),
+    documentAssignments: cloneNestedAssignments(library.documentAssignments),
+    documentFileNames: Object.fromEntries(
+      Object.entries(library.documentFileNames ?? {}).map(([sourceId, names]) => [sourceId, { ...names }]),
+    ),
+    documentTagMigrations: Object.fromEntries(
+      Object.entries(library.documentTagMigrations ?? {}).map(([sourceId, record]) => [
+        sourceId,
+        {
+          ...record,
+          ambiguousFileNames: [...record.ambiguousFileNames],
+          unmatchedFileNames: [...record.unmatchedFileNames],
+        },
+      ]),
+    ),
     demoAssignmentsSeeded: library.demoAssignmentsSeeded,
   };
 }
@@ -517,6 +536,9 @@ function sanitizeLibrary(raw: unknown, fallbackOrgId: string): OrganizationTagLi
     dataSourceAssignments?: unknown;
     fileAssignments?: unknown;
     tableAssignments?: unknown;
+    documentAssignments?: unknown;
+    documentFileNames?: unknown;
+    documentTagMigrations?: unknown;
     demoAssignmentsSeeded?: unknown;
   };
   if (!record.definitions || typeof record.definitions !== "object") return null;
@@ -533,6 +555,7 @@ function sanitizeLibrary(raw: unknown, fallbackOrgId: string): OrganizationTagLi
   }
   const fileAssignments = sanitizeNestedAssignments(record.fileAssignments, definitions);
   const tableAssignments = sanitizeNestedAssignments(record.tableAssignments, definitions);
+  const documentAssignments = sanitizeNestedAssignments(record.documentAssignments, definitions);
   return {
     organizationId: typeof record.organizationId === "string" && record.organizationId
       ? record.organizationId
@@ -541,8 +564,46 @@ function sanitizeLibrary(raw: unknown, fallbackOrgId: string): OrganizationTagLi
     dataSourceAssignments,
     fileAssignments,
     tableAssignments,
+    documentAssignments,
+    documentFileNames: sanitizeDocumentFileNames(record.documentFileNames),
+    documentTagMigrations: sanitizeDocumentTagMigrations(record.documentTagMigrations),
     demoAssignmentsSeeded: record.demoAssignmentsSeeded === true,
   };
+}
+
+function sanitizeDocumentFileNames(raw: unknown): Record<string, Record<string, string>> {
+  const result: Record<string, Record<string, string>> = {};
+  if (!raw || typeof raw !== "object") return result;
+  for (const [sourceId, inner] of Object.entries(raw as Record<string, unknown>)) {
+    if (!inner || typeof inner !== "object") continue;
+    const names: Record<string, string> = {};
+    for (const [documentId, fileName] of Object.entries(inner as Record<string, unknown>)) {
+      if (typeof fileName === "string") names[documentId] = fileName;
+    }
+    if (Object.keys(names).length > 0) result[sourceId] = names;
+  }
+  return result;
+}
+
+function sanitizeStringList(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+function sanitizeDocumentTagMigrations(raw: unknown): Record<string, DocumentTagMigrationRecord> {
+  const result: Record<string, DocumentTagMigrationRecord> = {};
+  if (!raw || typeof raw !== "object") return result;
+  for (const [sourceId, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (!value || typeof value !== "object") continue;
+    const record = value as Record<string, unknown>;
+    if (typeof record.version !== "number") continue;
+    result[sourceId] = {
+      version: record.version,
+      migratedAt: typeof record.migratedAt === "string" ? record.migratedAt : "",
+      ambiguousFileNames: sanitizeStringList(record.ambiguousFileNames),
+      unmatchedFileNames: sanitizeStringList(record.unmatchedFileNames),
+    };
+  }
+  return result;
 }
 
 function sanitizeOrgStore(raw: unknown): OrganizationTagStore | null {
@@ -807,12 +868,23 @@ export function isTagBucketEmpty(bucket: DataSourceTagBucket): boolean {
     && Object.keys(bucket.tableAssignments ?? {}).length === 0;
 }
 
-/** Promote a creation-session draft into the Organization library + assignments. */
+/**
+ * Promote a creation-session draft into the Organization library + assignments.
+ * With `documents`, the draft's file keys are localDocumentIds and are written
+ * as document assignments; without it they are legacy filenames.
+ */
 export function commitDataSourceTagBucket(
   dataSourceId: string,
   bucket: DataSourceTagBucket,
+  options?: { documents?: readonly TaggableDocument[] },
 ): void {
-  if (!dataSourceId || isTagBucketEmpty(bucket)) return;
+  const documents = options?.documents;
+  if (!dataSourceId) return;
+  if (isTagBucketEmpty(bucket)) {
+    // Still record the source as document-keyed so later reads never fall back to filenames.
+    if (documents) migrateLegacyFileTags(dataSourceId, documents);
+    return;
+  }
   const library = readOrganizationTagLibrary();
   const idMap = new Map<string, string>();
   for (const def of Object.values(bucket.definitions)) {
@@ -827,8 +899,19 @@ export function commitDataSourceTagBucket(
     const next = remapIds(tagIds, idMap).filter((id) => library.definitions[id]);
     if (next.length > 0) files[fileId] = next;
   }
-  if (Object.keys(files).length > 0) library.fileAssignments[dataSourceId] = files;
-  else delete library.fileAssignments[dataSourceId];
+  if (documents) {
+    migrateLegacyFileTagsInLibrary(library, dataSourceId, documents);
+    const known = new Set(documents.map((document) => document.localDocumentId));
+    const assignments = { ...(library.documentAssignments[dataSourceId] ?? {}) };
+    for (const [documentId, tagIds] of Object.entries(files)) {
+      if (known.has(documentId)) assignments[documentId] = tagIds;
+    }
+    if (Object.keys(assignments).length > 0) library.documentAssignments[dataSourceId] = assignments;
+  } else if (Object.keys(files).length > 0) {
+    library.fileAssignments[dataSourceId] = files;
+  } else {
+    delete library.fileAssignments[dataSourceId];
+  }
 
   const tables: Record<string, string[]> = {};
   for (const [tableId, tagIds] of Object.entries(bucket.tableAssignments ?? {})) {
@@ -839,6 +922,157 @@ export function commitDataSourceTagBucket(
   else delete library.tableAssignments[dataSourceId];
 
   writeOrganizationTagLibrary(library);
+}
+
+/** Bump when the migration rules change; sources below this version migrate again. */
+export const DOCUMENT_TAG_MIGRATION_VERSION = 1;
+
+/** Minimal document shape the tag store needs. Matches DataSourceDocumentRecord. */
+export type TaggableDocument = { localDocumentId: string; fileName: string };
+
+export function isDocumentTagSourceMigrated(
+  library: OrganizationTagLibrary,
+  dataSourceId: string,
+): boolean {
+  return (library.documentTagMigrations[dataSourceId]?.version ?? 0) >= DOCUMENT_TAG_MIGRATION_VERSION;
+}
+
+/** The File Tag map that is authoritative for a source: document-keyed once migrated, legacy otherwise. */
+export function fileLevelAssignments(
+  library: OrganizationTagLibrary,
+  dataSourceId: string,
+): Record<string, string[]> {
+  return isDocumentTagSourceMigrated(library, dataSourceId)
+    ? library.documentAssignments[dataSourceId] ?? {}
+    : library.fileAssignments[dataSourceId] ?? {};
+}
+
+/**
+ * Move one Data Source's filename-keyed File Tags onto its document IDs.
+ * Mutates `library`; returns true when it changed. Runs once per source per
+ * migration version, and only with a real document list.
+ *
+ * - Each legacy name's tags go to every document with that name. A name held by
+ *   several documents is recorded in `ambiguousFileNames` (the tags were shown
+ *   on all of them before, so all of them keep them).
+ * - A legacy name with no document is recorded in `unmatchedFileNames`.
+ * - fileAssignments is never modified or deleted.
+ */
+export function migrateLegacyFileTagsInLibrary(
+  library: OrganizationTagLibrary,
+  dataSourceId: string,
+  documents: readonly TaggableDocument[],
+): boolean {
+  if (!dataSourceId || isDocumentTagSourceMigrated(library, dataSourceId)) return false;
+  const byName = new Map<string, TaggableDocument[]>();
+  for (const document of documents) {
+    const group = byName.get(document.fileName) ?? [];
+    group.push(document);
+    byName.set(document.fileName, group);
+  }
+  const assignments = { ...(library.documentAssignments[dataSourceId] ?? {}) };
+  const names = { ...(library.documentFileNames[dataSourceId] ?? {}) };
+  const ambiguousFileNames: string[] = [];
+  const unmatchedFileNames: string[] = [];
+  const legacy = library.fileAssignments[dataSourceId] ?? {};
+  for (const fileName of Object.keys(legacy).sort()) {
+    const tagIds = legacy[fileName] ?? [];
+    const matches = byName.get(fileName) ?? [];
+    if (matches.length === 0) {
+      if (tagIds.length > 0) unmatchedFileNames.push(fileName);
+      continue;
+    }
+    if (matches.length > 1) ambiguousFileNames.push(fileName);
+    for (const document of matches) {
+      const merged = mergeTagIdLists(assignments[document.localDocumentId], tagIds, library.definitions);
+      if (merged.length > 0) assignments[document.localDocumentId] = merged;
+    }
+  }
+  for (const document of documents) names[document.localDocumentId] = document.fileName;
+  if (Object.keys(assignments).length > 0) library.documentAssignments[dataSourceId] = assignments;
+  if (Object.keys(names).length > 0) library.documentFileNames[dataSourceId] = names;
+  library.documentTagMigrations[dataSourceId] = {
+    version: DOCUMENT_TAG_MIGRATION_VERSION,
+    migratedAt: new Date().toISOString(),
+    ambiguousFileNames,
+    unmatchedFileNames,
+  };
+  return true;
+}
+
+/** Persisting wrapper. Call from effects or event handlers, never during render. */
+export function migrateLegacyFileTags(
+  dataSourceId: string,
+  documents: readonly TaggableDocument[],
+): void {
+  const library = readOrganizationTagLibrary();
+  if (migrateLegacyFileTagsInLibrary(library, dataSourceId, documents)) {
+    writeOrganizationTagLibrary(library);
+  }
+}
+
+/**
+ * Tags for one document. Before migration this falls back to the legacy
+ * filename key of the same source, which is what was shown before.
+ */
+export function documentTagIdsFromLibrary(
+  library: OrganizationTagLibrary,
+  dataSourceId: string,
+  document: TaggableDocument,
+): string[] {
+  if (isDocumentTagSourceMigrated(library, dataSourceId)) {
+    return library.documentAssignments[dataSourceId]?.[document.localDocumentId] ?? [];
+  }
+  return library.fileAssignments[dataSourceId]?.[fileIdentity(document.fileName)] ?? [];
+}
+
+/**
+ * Remove every assignment of one Data Source ID. Only for a creation draft that
+ * was discarded before the source existed, so no real source data is touched.
+ * Tag definitions are kept.
+ */
+export function discardDraftDataSourceTagData(dataSourceId: string): void {
+  const library = readOrganizationTagLibrary();
+  const had = [
+    library.dataSourceAssignments,
+    library.fileAssignments,
+    library.tableAssignments,
+    library.documentAssignments,
+    library.documentFileNames,
+    library.documentTagMigrations,
+  ].some((map) => dataSourceId in map);
+  if (!had) return;
+  delete library.dataSourceAssignments[dataSourceId];
+  delete library.fileAssignments[dataSourceId];
+  delete library.tableAssignments[dataSourceId];
+  delete library.documentAssignments[dataSourceId];
+  delete library.documentFileNames[dataSourceId];
+  delete library.documentTagMigrations[dataSourceId];
+  writeOrganizationTagLibrary(library);
+}
+
+/**
+ * Remove one document's File Tags from a creation draft (the document was
+ * removed before the Data Source existed). Other documents, including
+ * same-name ones, are untouched.
+ */
+export function discardDraftDocumentTagData(dataSourceId: string, localDocumentId: string): void {
+  const library = readOrganizationTagLibrary();
+  const assignments = library.documentAssignments[dataSourceId];
+  const names = library.documentFileNames[dataSourceId];
+  if (!(assignments && localDocumentId in assignments) && !(names && localDocumentId in names)) return;
+  if (assignments) delete assignments[localDocumentId];
+  if (names) delete names[localDocumentId];
+  writeOrganizationTagLibrary(library);
+}
+
+/** Tags of one document, read from its own Data Source only. */
+export function tagsForDocumentInSource(
+  dataSourceId: string,
+  document: TaggableDocument,
+): DocumentTagDefinition[] {
+  const library = readOrganizationTagLibrary();
+  return resolveTagIds(library.definitions, documentTagIdsFromLibrary(library, dataSourceId, document));
 }
 
 export function tagsForDataSource(dataSourceId: string): DocumentTagDefinition[] {
@@ -865,7 +1099,7 @@ export function contentTagIdsFromLibrary(
   library: OrganizationTagLibrary,
   dataSourceId: string,
 ): string[] {
-  const files = library.fileAssignments[dataSourceId] ?? {};
+  const files = fileLevelAssignments(library, dataSourceId);
   const tables = library.tableAssignments?.[dataSourceId] ?? {};
   const ids: string[] = [];
   for (const tagIds of Object.values(files)) {
@@ -952,12 +1186,25 @@ export function tagsForTableInSources(
   return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
+/**
+ * File Tags for a filename in one Data Source, for consumers that have no
+ * document ID (Constellation file lists). On a migrated source this is the
+ * union of that source's documents with this name — never other sources.
+ */
 export function tagsForFile(dataSourceId: string, fileName: string): DocumentTagDefinition[] {
   const library = readOrganizationTagLibrary();
-  return resolveTagIds(
-    library.definitions,
-    library.fileAssignments[dataSourceId]?.[fileIdentity(fileName)],
-  );
+  if (!isDocumentTagSourceMigrated(library, dataSourceId)) {
+    return resolveTagIds(
+      library.definitions,
+      library.fileAssignments[dataSourceId]?.[fileIdentity(fileName)],
+    );
+  }
+  const names = library.documentFileNames[dataSourceId] ?? {};
+  const ids: string[] = [];
+  for (const [documentId, tagIds] of Object.entries(library.documentAssignments[dataSourceId] ?? {})) {
+    if (names[documentId] === fileName) ids.push(...tagIds);
+  }
+  return resolveTagIds(library.definitions, ids);
 }
 
 /** File Tags for a filename, limited to the given Data Sources (access-safe). */
@@ -994,8 +1241,12 @@ export function countTagUsage(tagId: string): TagUsageCount {
   for (const ids of Object.values(library.dataSourceAssignments)) {
     if (ids.includes(tagId)) dataSources += 1;
   }
-  for (const inner of Object.values(library.fileAssignments)) {
-    for (const ids of Object.values(inner)) {
+  const fileSourceIds = new Set([
+    ...Object.keys(library.fileAssignments),
+    ...Object.keys(library.documentAssignments),
+  ]);
+  for (const sourceId of fileSourceIds) {
+    for (const ids of Object.values(fileLevelAssignments(library, sourceId))) {
       if (ids.includes(tagId)) files += 1;
     }
   }
