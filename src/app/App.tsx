@@ -6430,6 +6430,7 @@ export default function App() {
         {appView === "home" ? (
           <HomePageShell scrollRequest={homeScrollRequest} variant="standard">
             <HomePage
+              homeLayoutUserId={prototypeUserId}
               projects={accessibleHomeProjects}
               recentWork={recentWork}
               pinnedProjectIds={pinnedProjectIds}
@@ -6470,6 +6471,22 @@ export default function App() {
               onNewChat={handleNewChat}
               onNewProject={() => setShowNewProjectModal(true)}
               onNavigateProjectDestination={handleNavigateProjectDestination}
+              homeTileDataSources={dataSourcesState
+                .filter((source) =>
+                  canUserAccessDataSource(source.id, accessLevelsState, dataSourcesState, prototypeUserId))
+                .map((source) => ({
+                  id: source.id,
+                  name: source.name,
+                  typeLabel: String(source.type),
+                  ownership: source.ownership,
+                  status: source.status,
+                  connector: source.connector,
+                }))}
+              onOpenDataSource={(dataSourceId) => handleOpenDataSourceSettings(dataSourceId)}
+              onOpenDashboard={(projectId) => handleOpenProjectDashboard(projectId)}
+              onOpenTool={(toolId) => {
+                if (toolId === "writing-assistant") handleOpenWritingAssistant();
+              }}
             />
           </HomePageShell>
         ) : appView === "project" ? (

@@ -74,6 +74,8 @@ export interface HomeHeroContent {
 export type HomeBrowseMode = "overview" | "your-work" | "projects";
 
 export interface HomePageProps {
+  /** Prototype user whose saved Home Layout is shown. */
+  homeLayoutUserId: string;
   projects: HomeProjectCard[];
   recentWork: HomeRecentWorkItem[];
   pinnedProjectIds: string[];
@@ -115,4 +117,16 @@ export interface HomePageProps {
     destination: ProjectDestination,
     projectId: string,
   ) => void;
+  /** Data Sources the current user can already access (Home Tile Library). */
+  homeTileDataSources?: Array<{
+    id: string;
+    name: string;
+    typeLabel: string;
+    ownership?: "organizational" | "private";
+    status?: string;
+    connector?: string;
+  }>;
+  onOpenDataSource?: (dataSourceId: string) => void;
+  onOpenDashboard?: (projectId: string) => void;
+  onOpenTool?: (toolId: string) => void;
 }

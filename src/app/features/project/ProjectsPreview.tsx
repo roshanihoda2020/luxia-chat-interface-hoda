@@ -595,7 +595,11 @@ interface ProjectsPreviewProps {
   canRestoreProject?: (projectId: string) => boolean;
   onOpenProject: (projectId: string) => void;
   onNavigateProjectDestination?: (destination: ProjectDestination, projectId: string) => void;
+  /** Which Home sections to render. Default "both" keeps the original combined Home. */
+  sections?: ProjectsPreviewSections;
 }
+
+export type ProjectsPreviewSections = "pinned" | "recent" | "both";
 
 const VIEW_ALL_PROJECTS_LABEL = "View all projects";
 
@@ -615,6 +619,7 @@ export function ProjectsPreview({
   canRestoreProject,
   onOpenProject,
   onNavigateProjectDestination,
+  sections = "both",
 }: ProjectsPreviewProps) {
   // Grid/List applies only to Recent projects — not Pinned (always cards).
   const [recentProjectsView, setRecentProjectsView] = useState<CollectorViewMode>(() =>
@@ -634,6 +639,11 @@ export function ProjectsPreview({
   );
 
   if (ranked.length === 0) return null;
+
+  const showPinned = sections !== "recent" && pinned.length > 0;
+  const showRecent = sections !== "pinned" && recent.length > 0;
+  const showRecentEmpty = sections !== "pinned" && recent.length === 0 && pinned.length > 0;
+  if (!showPinned && !showRecent && !showRecentEmpty) return null;
 
   const handlers: ProjectHandlers = {
     onToggleProjectPin,
@@ -682,7 +692,7 @@ export function ProjectsPreview({
 
   return (
     <div className="space-y-8">
-      {pinned.length > 0 ? (
+      {showPinned ? (
         <section aria-labelledby="home-pinned-projects-heading">
           <SectionHeader
             title="Pinned projects"
@@ -699,7 +709,7 @@ export function ProjectsPreview({
         </section>
       ) : null}
 
-      {recent.length > 0 ? (
+      {showRecent ? (
         <section aria-labelledby="home-recent-projects-heading">
           <SectionHeader
             title="Recent projects"
@@ -717,7 +727,7 @@ export function ProjectsPreview({
             onNewProject={onNewProject}
           />
         </section>
-      ) : pinned.length > 0 ? (
+      ) : showRecentEmpty ? (
         <section aria-labelledby="home-recent-projects-heading">
           <SectionHeader
             title="Recent projects"
