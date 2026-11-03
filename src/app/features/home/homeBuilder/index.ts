@@ -1,5 +1,7 @@
 export {
   HOME_LAYOUT_SCHEMA_VERSION,
+  HOME_TILE_SURFACES,
+  isHomeTileSurfaceStyle,
 } from "./types";
 export type {
   HomeLayout,
@@ -9,6 +11,7 @@ export type {
   HomeTileSize,
   HomeTileTarget,
   HomeTileTargetScope,
+  HomeTileSurfaceStyle,
   HomeTileType,
 } from "./types";
 export {
@@ -27,6 +30,9 @@ export {
   HOME_TILE_DEFINITIONS,
   getHomeTileDefinition,
   getHomeTileSizeId,
+  getHomeTileBesideSizes,
+  getHomeTileFitSizes,
+  getHomeTileSurfaceStyle,
   homeTileHasOwnBottomSpacing,
   homeTileUsesContentHeight,
   isHomeTileType,
@@ -42,6 +48,9 @@ export {
   moveHomeTileByKeyboard,
   placeHomeTileAt,
   removeHomeTile,
+  configureHomeTile,
+  replaceHomeTileTarget,
+  setHomeTileSurface,
   resizeHomeTile,
   settleHomeTilesAfterMove,
   snapHomeTileSize,
@@ -50,19 +59,29 @@ export type { HomeTileMoveDirection, HomeTileRect } from "./layoutOps";
 export {
   HOME_TILE_EDGE_SNAP_COLUMNS,
   homeTileColumnPitch,
-  measureHomeTileResize,
+  homeTilePointerColumn,
+  measureHomeTileFluidSize,
   snapHomeTileDrop,
   snapHomeTileToEdges,
+  suggestHomeTileBesideFullWidth,
 } from "./dragGeometry";
-export type { HomeTileRowBand } from "./dragGeometry";
+export type { HomeTileBesideSuggestion, HomeTileRowBand } from "./dragGeometry";
 export { HomeTileLibrary } from "./HomeTileLibrary";
+export { HomeTileConfigureDialog, homeTileSurfaceLabel } from "./HomeTileConfigureDialog";
+export type { HomeTileConfigureChanges } from "./HomeTileConfigureDialog";
 export type { HomeTileTargetOption } from "./HomeTileLibrary";
 export { HomeBuilderToolbar } from "./HomeBuilderToolbar";
 export { useHomeLayout } from "./useHomeLayout";
 export {
   HomeUnavailableTile,
   HomeTileFacts,
-  HomeTileIcon,
+  HOME_TILE_CORNER,
+  HOME_TILE_CORNER_CLEARANCE,
+  HomeTileCornerMarker,
+  HomeTileStatus,
+  HomeTileSurfaceProvider,
+  HT,
+  useHomeTileSurface,
   HomeTileOverline,
   HomeTileSurface,
   HomeTileText,
@@ -93,6 +112,7 @@ export type { HomeLayoutReadResult } from "./storage";
 export { placeHomeTiles } from "./placement";
 export type { HomeTilePlacement } from "./placement";
 export { HomeTileGrid } from "./HomeTileGrid";
+export type { HomeLayoutUndoNotice } from "./HomeTileGrid";
 export { HomeTileSectionHeader } from "./HomeTileSectionHeader";
 export type { HomeTileSection } from "./HomeTileSectionHeader";
 export { HOME_TILE_SECTIONS, getHomeTileSection } from "./homeTileSections";

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { History, Pin, Plus } from "lucide-react";
 import { LuxiaArrowRightIcon, LuxiaProjectsIcon } from "@/assets/icons";
 import { Button } from "@/app/components/ui/button";
@@ -597,6 +597,11 @@ interface ProjectsPreviewProps {
   onNavigateProjectDestination?: (destination: ProjectDestination, projectId: string) => void;
   /** Which Home sections to render. Default "both" keeps the original combined Home. */
   sections?: ProjectsPreviewSections;
+  /**
+   * Wraps each Project-card collection (not the section heading). Home Tiles use
+   * it to frame the cards in the tile's chosen style; omitted, nothing changes.
+   */
+  collectionFrame?: (collection: ReactNode) => ReactNode;
 }
 
 export type ProjectsPreviewSections = "pinned" | "recent" | "both";
@@ -620,6 +625,7 @@ export function ProjectsPreview({
   onOpenProject,
   onNavigateProjectDestination,
   sections = "both",
+  collectionFrame = (collection) => collection,
 }: ProjectsPreviewProps) {
   // Grid/List applies only to Recent projects — not Pinned (always cards).
   const [recentProjectsView, setRecentProjectsView] = useState<CollectorViewMode>(() =>
@@ -700,12 +706,14 @@ export function ProjectsPreview({
             icon={<Pin size={22} strokeWidth={1.75} aria-hidden />}
             iconColor={HS.sectionIconProjects}
           />
-          <ProjectCollection
-            projects={pinned}
-            viewMode="grid"
-            handlers={handlers}
-            listLabel="Pinned projects"
-          />
+          {collectionFrame(
+            <ProjectCollection
+              projects={pinned}
+              viewMode="grid"
+              handlers={handlers}
+              listLabel="Pinned projects"
+            />,
+          )}
         </section>
       ) : null}
 
@@ -719,13 +727,15 @@ export function ProjectsPreview({
             iconColor={HS.sectionIconProjects}
             actions={recentHeaderActions}
           />
-          <ProjectCollection
-            projects={recent}
-            viewMode={recentProjectsView}
-            handlers={handlers}
-            listLabel="Recent projects"
-            onNewProject={onNewProject}
-          />
+          {collectionFrame(
+            <ProjectCollection
+              projects={recent}
+              viewMode={recentProjectsView}
+              handlers={handlers}
+              listLabel="Recent projects"
+              onNewProject={onNewProject}
+            />,
+          )}
         </section>
       ) : showRecentEmpty ? (
         <section aria-labelledby="home-recent-projects-heading">
@@ -745,13 +755,15 @@ export function ProjectsPreview({
           </p>
           {onNewProject ? (
             <div className="mt-3">
-              <ProjectCollection
-                projects={[]}
-                viewMode={recentProjectsView}
-                handlers={handlers}
-                listLabel="Recent projects"
-                onNewProject={onNewProject}
-              />
+              {collectionFrame(
+                <ProjectCollection
+                  projects={[]}
+                  viewMode={recentProjectsView}
+                  handlers={handlers}
+                  listLabel="Recent projects"
+                  onNewProject={onNewProject}
+                />,
+              )}
             </div>
           ) : null}
         </section>

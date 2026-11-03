@@ -1,0 +1,136 @@
+/*
+ * Home Tile card styles (Featured / Soft / Default). One set of tokens per
+ * style, scoped to a Home Tile card via [data-home-tile-surface]. Every tile
+ * component reads these variables, so there is one tile design with three
+ * surfaces — not three copies. Values reuse existing Luxia tokens:
+ *   Default  — the white Home card (unchanged).
+ *   Soft     — a light lavender card: brand lavender (#8E63EB) at 8% over white.
+ *   Featured — the dark Galaxy hero panel (HS.hero*) and on-dark buttons.
+ * Nothing here applies outside a Home Tile card or a Home Tile section panel.
+ */
+
+[data-home-tile-surface] {
+  --home-tile-bg: var(--luxia-surface);
+  --home-tile-border: var(--luxia-border-default);
+  --home-tile-hover-border: var(--luxia-opacity-brand-primary-24);
+  --home-tile-shadow: var(--luxia-shadow-sm);
+  --home-tile-hover-shadow: var(--luxia-shadow-md);
+  --home-tile-title: var(--luxia-text-project-title);
+  --home-tile-text: var(--luxia-text-primary);
+  --home-tile-text-secondary: var(--luxia-text-secondary);
+  --home-tile-text-muted: var(--luxia-text-muted);
+  --home-tile-panel: var(--luxia-opacity-brand-primary-04);
+  --home-tile-panel-hover: var(--luxia-opacity-brand-primary-08);
+  --home-tile-chip-bg: var(--luxia-opacity-brand-primary-04);
+  --home-tile-chip-border: var(--luxia-opacity-brand-primary-12);
+  --home-tile-accent: var(--luxia-purple-60);
+  --home-tile-link: var(--luxia-purple-70);
+  --home-tile-icon: var(--luxia-purple-50);
+  --home-tile-divider: var(--luxia-border-default);
+  --home-tile-row-hover: var(--luxia-opacity-brand-primary-04);
+}
+
+[data-home-tile-surface="soft"] {
+  /* Opaque so it reads lavender (not grey) on the Home canvas. */
+  --home-tile-bg:
+    linear-gradient(var(--luxia-opacity-brand-secondary-08), var(--luxia-opacity-brand-secondary-08)),
+    var(--luxia-surface);
+  --home-tile-border: var(--luxia-opacity-brand-secondary-24);
+  --home-tile-hover-border: var(--luxia-opacity-brand-secondary-48);
+  /* Panels and chips sit on white so they stay distinct from the tinted card. */
+  --home-tile-panel: var(--luxia-surface);
+  --home-tile-panel-hover: var(--luxia-opacity-brand-secondary-04);
+  --home-tile-chip-bg: var(--luxia-surface);
+  --home-tile-chip-border: var(--luxia-opacity-brand-secondary-24);
+  --home-tile-divider: var(--luxia-opacity-brand-secondary-16);
+  --home-tile-row-hover: var(--luxia-opacity-brand-secondary-08);
+}
+
+[data-home-tile-surface="featured"] {
+  --home-tile-bg: var(--luxia-gradient-galaxy-panel);
+  --home-tile-border: var(--luxia-galaxy-btn-secondary-border);
+  --home-tile-hover-border: rgba(198, 177, 245, 0.48);
+  --home-tile-shadow: var(--luxia-galaxy-shell-shadow);
+  --home-tile-hover-shadow: var(--luxia-galaxy-shell-shadow), 0 0 0 1px rgba(198, 177, 245, 0.24);
+  --home-tile-title: var(--luxia-text-inverse);
+  --home-tile-text: rgba(255, 255, 255, 0.88);
+  --home-tile-text-secondary: rgba(255, 255, 255, 0.76);
+  --home-tile-text-muted: var(--luxia-opacity-white-64);
+  --home-tile-panel: var(--luxia-opacity-white-08);
+  --home-tile-panel-hover: rgba(255, 255, 255, 0.12);
+  --home-tile-chip-bg: var(--luxia-opacity-white-08);
+  --home-tile-chip-border: rgba(255, 255, 255, 0.16);
+  --home-tile-accent: var(--luxia-brand-tertiary);
+  --home-tile-link: rgba(198, 177, 245, 0.95);
+  --home-tile-icon: rgba(198, 177, 245, 0.95);
+  --home-tile-divider: rgba(255, 255, 255, 0.12);
+  --home-tile-row-hover: var(--luxia-opacity-white-08);
+}
+
+/*
+ * The tile card itself. Kept here (not inline) so hover and keyboard focus can
+ * change it: a brand-tinted border and a lifted shadow on hover, and the
+ * standard focus ring around the whole card when anything inside has focus.
+ */
+.luxia-home-tile-card {
+  background: var(--home-tile-bg);
+  border-color: var(--home-tile-border);
+  box-shadow: var(--home-tile-shadow);
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.luxia-home-tile-card:hover {
+  border-color: var(--home-tile-hover-border);
+  box-shadow: var(--home-tile-hover-shadow);
+}
+
+.luxia-home-tile-card:has(:focus-visible) {
+  box-shadow: 0 0 0 2px var(--luxia-border-focus), var(--home-tile-shadow);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .luxia-home-tile-card {
+    transition: none;
+  }
+}
+
+/*
+ * Full-width Pinned / Recent projects: the chosen style frames the Project
+ * cards as a section panel. The cards themselves keep their own design and
+ * corner markers; the section heading stays outside the panel.
+ */
+.luxia-home-tile-panel {
+  background: var(--home-tile-bg);
+  border: 1px solid var(--home-tile-border);
+  border-radius: var(--luxia-radius-16);
+  box-shadow: var(--home-tile-shadow);
+  padding: 16px;
+}
+
+/*
+ * Featured buttons use Luxia's existing on-dark button colours (.luxia-button--on-dark).
+ * Cards only: Project cards inside a Featured section panel keep their own buttons.
+ */
+.luxia-home-tile-card[data-home-tile-surface="featured"] .luxia-button--primary {
+  color: var(--luxia-text-inverse);
+  background: linear-gradient(87.081deg, #30214e 45.623%, #8e63eb 112.38%);
+  border-color: rgba(198, 177, 245, 0.28);
+}
+
+.luxia-home-tile-card[data-home-tile-surface="featured"] .luxia-button--secondary,
+.luxia-home-tile-card[data-home-tile-surface="featured"] .luxia-button--tertiary {
+  color: rgba(198, 177, 245, 0.95);
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(198, 177, 245, 0.36);
+}
+
+.luxia-home-tile-card[data-home-tile-surface="featured"] .luxia-button--tertiary {
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.24);
+}
+
+.luxia-home-tile-card[data-home-tile-surface="featured"] .luxia-button--secondary:hover:not(:disabled),
+.luxia-home-tile-card[data-home-tile-surface="featured"] .luxia-button--tertiary:hover:not(:disabled) {
+  color: var(--luxia-text-inverse);
+  background: var(--luxia-opacity-white-08);
+}

@@ -50,6 +50,18 @@ export interface HomeTileTarget {
 }
 
 /** JSON-safe per-tile settings (e.g. a list count). */
+/**
+ * Visual style of a tile's card, chosen per tile and kept wherever it moves:
+ * Featured (dark hero surface), Soft (light lavender) or Default (white).
+ * Stored as `config.surface`; missing or unknown values use the type's default.
+ */
+export const HOME_TILE_SURFACES = ["featured", "soft", "default"] as const;
+export type HomeTileSurfaceStyle = (typeof HOME_TILE_SURFACES)[number];
+
+export function isHomeTileSurfaceStyle(value: unknown): value is HomeTileSurfaceStyle {
+  return typeof value === "string" && (HOME_TILE_SURFACES as readonly string[]).includes(value);
+}
+
 export type HomeTileConfigValue = string | number | boolean | null;
 export type HomeTileConfig = Record<string, HomeTileConfigValue>;
 

@@ -52,6 +52,10 @@ interface HomeTileLibraryProps {
   onAdd: (type: HomeTileType, target?: HomeTileTarget) => void;
 }
 
+export function sameHomeTileTarget(a: HomeTileTarget | null | undefined, b: HomeTileTarget): boolean {
+  return Boolean(a && a.scope === b.scope && a.entityId === b.entityId);
+}
+
 export function HomeTileLibrary({
   open,
   onOpenChange,
@@ -108,7 +112,11 @@ export function HomeTileLibrary({
             <TargetPicker
               definition={pickDefinition}
               options={targetOptions[pickType] ?? []}
-              isOnHome={(target) => isHomeTileTargetOnLayout(layout, pickType, target)}
+              entryState={(target) => {
+                const onHome = isHomeTileTargetOnLayout(layout, pickType, target);
+                return { status: onHome ? "On your Home" : null, selectable: !onHome };
+              }}
+              actionLabel="Add"
               query={query}
               onQueryChange={setQuery}
               onBack={() => {
@@ -199,24 +207,34 @@ function LibraryEntry({
   status,
   actionLabel,
   onSelect,
+  selected,
 }: {
   label: string;
   description: string;
   status: string | null;
   actionLabel?: string;
   onSelect?: () => void;
+  /** Configure Tile: whether this item is the one that will be saved. */
+  selected?: boolean;
 }) {
   const disabled = !onSelect;
+  const choosing = selected !== undefined;
   return (
     <button
       type="button"
       disabled={disabled}
       onClick={onSelect}
-      aria-label={disabled ? `${label} — ${status}` : `${actionLabel} ${label}`}
+      aria-pressed={choosing ? selected : undefined}
+      aria-label={disabled
+        ? `${label} — ${status}`
+        : choosing ? `${label}${status ? ` — ${status}` : ""}` : `${actionLabel} ${label}`}
       className="flex h-full w-full min-w-0 items-start justify-between gap-3 rounded-[var(--luxia-radius-12)] border px-4 py-3 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)] enabled:hover:bg-[var(--luxia-opacity-brand-primary-04)] disabled:cursor-default"
       style={{
-        borderColor: "var(--luxia-border-default)",
-        background: disabled ? "var(--luxia-neutral-surface-subtle, var(--luxia-surface))" : "var(--luxia-surface)",
+        borderColor: selected ? "var(--luxia-purple-60)" : "var(--luxia-border-default)",
+        boxShadow: selected ? "inset 0 0 0 1px var(--luxia-purple-60)" : undefined,
+        background: selected
+          ? "var(--luxia-opacity-brand-primary-04)"
+          : disabled ? "var(--luxia-neutral-surface-subtle, var(--luxia-surface))" : "var(--luxia-surface)",
       }}
     >
       <span className="min-w-0">
@@ -240,10 +258,12 @@ function LibraryEntry({
   );
 }
 
-function TargetPicker({
+/** Item list shared by Add Tile and Configure Tile. */
+export function TargetPicker({
   definition,
   options,
-  isOnHome,
+  entryState,
+  actionLabel,
   query,
   onQueryChange,
   onBack,
@@ -251,10 +271,13 @@ function TargetPicker({
 }: {
   definition: HomeTileDefinition;
   options: HomeTileTargetOption[];
-  isOnHome: (target: HomeTileTarget) => boolean;
+  /** Status text ("On your Home", "Current"), whether the item can be chosen, and (Configure) whether it is selected. */
+  entryState: (target: HomeTileTarget) => { status: string | null; selectable: boolean; selected?: boolean };
+  actionLabel: string;
   query: string;
   onQueryChange: (value: string) => void;
-  onBack: () => void;
+  /** Back to the catalog; omitted in Configure Tile. */
+  onBack?: () => void;
   onPick: (target: HomeTileTarget) => void;
 }) {
   const filtered = useMemo(() => {
@@ -268,10 +291,12 @@ function TargetPicker({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <Button type="button" variant="tertiary" size="compact" onClick={onBack}>
-          <ChevronLeft size={14} aria-hidden />
-          All tiles
-        </Button>
+        {onBack ? (
+          <Button type="button" variant="tertiary" size="compact" onClick={onBack}>
+            <ChevronLeft size={14} aria-hidden />
+            All tiles
+          </Button>
+        ) : null}
         <SearchField
           value={query}
           onChange={onQueryChange}
@@ -287,15 +312,16 @@ function TargetPicker({
       ) : (
         <ul className="space-y-2" aria-label={`${definition.label} items`}>
           {filtered.map((option) => {
-            const onHome = isOnHome(option.target);
+            const state = entryState(option.target);
             return (
               <li key={`${option.target.scope}:${option.target.entityId}`}>
                 <LibraryEntry
                   label={option.label}
                   description={option.detail ?? ""}
-                  status={onHome ? "On your Home" : null}
-                  actionLabel="Add"
-                  onSelect={onHome ? undefined : () => onPick(option.target)}
+                  status={state.status}
+                  actionLabel={actionLabel}
+                  selected={state.selected}
+                  onSelect={state.selectable ? () => onPick(option.target) : undefined}
                 />
               </li>
             );

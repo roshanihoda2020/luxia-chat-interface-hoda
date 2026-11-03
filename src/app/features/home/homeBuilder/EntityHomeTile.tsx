@@ -2,9 +2,10 @@ import type { ReactNode } from "react";
 import { ChevronRight } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import {
+  HOME_TILE_CORNER_CLEARANCE,
+  HT,
   HomeTileFacts,
-  HomeTileIcon,
-  HomeTileOverline,
+  HomeTileStatus,
   HomeTileSurface,
   HomeTileText,
   HomeTileTitleAction,
@@ -50,11 +51,7 @@ function Chips({ chips }: { chips: string[] }) {
         <li
           key={chip}
           className="max-w-full truncate rounded-[6px] px-1.5 py-0.5 luxia-type-caption"
-          style={{
-            color: "var(--luxia-text-secondary)",
-            background: "var(--luxia-opacity-brand-primary-04)",
-            border: "1px solid var(--luxia-opacity-brand-primary-12)",
-          }}
+          style={{ color: HT.secondary, background: HT.chipBg, border: `1px solid ${HT.chipBorder}` }}
         >
           {chip}
         </li>
@@ -80,9 +77,10 @@ function Actions({ primary, secondary }: { primary: EntityHomeTileAction; second
 
 /**
  * Shared layout for specific-item Home Tiles (Galaxy, Chat, Constellation,
- * Data Source, Dashboard). Same structure at each size, content per entity:
- * Small — icon, type, name, one summary line; whole card navigates.
- * Medium — identity, name, context, description / chips, related, actions.
+ * Data Source, Dashboard). The outer section heading names the category and
+ * the corner shows its icon, so the card starts with the item itself.
+ * Small — name and one summary line; the whole card navigates.
+ * Medium — name, context, description, chips or facts, related items, actions.
  * Large — Medium's text column plus a facts or related panel beside it.
  */
 export function EntityHomeTile({
@@ -101,77 +99,80 @@ export function EntityHomeTile({
   facts,
   related,
 }: EntityHomeTileProps) {
+  // The category icon lives in the card's top-right corner (the outer section heading names the category).
+  const corner = { icon };
+
   if (density === "small") {
     return (
-      <HomeTileSurface density="small" label={`${typeLabel} ${title}`} className="justify-center">
+      <HomeTileSurface density="small" label={`${typeLabel} ${title}`} className="justify-center" corner={corner}>
         <div className="flex min-w-0 items-center gap-3">
-          <HomeTileIcon size="sm">{icon(18)}</HomeTileIcon>
-          <div className="min-w-0 flex-1">
-            <HomeTileOverline status={status}>{typeLabel}</HomeTileOverline>
+          <div className="min-w-0 flex-1 space-y-0.5">
             <HomeTileTitleAction
               title={title}
               onOpen={primary.onClick}
               ariaLabel={primary.ariaLabel ?? `${primary.label}: ${title}`}
               stretched
               size="dense"
+              lines={2}
             />
-            {summary ? <HomeTileText>{summary}</HomeTileText> : null}
+            {summary || status ? <HomeTileText>{[summary, status].filter(Boolean).join(" · ")}</HomeTileText> : null}
           </div>
           <ChevronRight
             size={16}
             strokeWidth={2}
             aria-hidden
             className="shrink-0 transition-transform duration-150 group-hover/tile:translate-x-0.5"
-            style={{ color: "var(--luxia-purple-60)" }}
+            style={{ color: HT.accent }}
           />
         </div>
       </HomeTileSurface>
     );
   }
 
-  const header = (
-    <div className="flex min-w-0 items-center gap-3">
-      <HomeTileIcon>{icon(20)}</HomeTileIcon>
-      <HomeTileOverline status={status}>{typeLabel}</HomeTileOverline>
-    </div>
-  );
+  const factsPanel = facts && facts.length > 0
+    ? (
+      <div className="min-w-0 self-start rounded-[10px] px-3.5 py-3" style={{ background: HT.panel }}>
+        <HomeTileFacts facts={facts} />
+      </div>
+    )
+    : null;
 
   const text = (
     <div className="min-w-0 space-y-1.5">
-      <HomeTileTitleAction
-        title={title}
-        onOpen={primary.onClick}
-        ariaLabel={primary.ariaLabel ?? `${primary.label}: ${title}`}
-        lines={density === "large" ? 1 : 2}
-      />
+      {/* First row keeps clear of the category corner. */}
+      <div className={`flex min-w-0 items-start gap-2 ${HOME_TILE_CORNER_CLEARANCE[density]}`}>
+        <div className="min-w-0">
+          <HomeTileTitleAction
+            title={title}
+            onOpen={primary.onClick}
+            ariaLabel={primary.ariaLabel ?? `${primary.label}: ${title}`}
+            lines={2}
+          />
+        </div>
+        {status ? <span className="pt-0.5"><HomeTileStatus>{status}</HomeTileStatus></span> : null}
+      </div>
       {context ? <HomeTileText>{context}</HomeTileText> : null}
-      {description ? <HomeTileText lines={2}>{description}</HomeTileText> : null}
+      {description ? <HomeTileText lines={density === "large" ? 3 : 2}>{description}</HomeTileText> : null}
       {chips && chips.length > 0 ? <div className="pt-1"><Chips chips={chips} /></div> : null}
       {meta ? <HomeTileText tone="muted">{meta}</HomeTileText> : null}
     </div>
   );
 
-  const aside = facts && facts.length > 0
-    ? (
-      <div className="min-w-0 self-start rounded-[10px] px-3.5 py-3" style={{ background: "var(--luxia-opacity-brand-primary-04)" }}>
-        <HomeTileFacts facts={facts} />
-      </div>
-    )
-    : related;
+  // Large puts facts or related items beside the text; Medium stacks them under it.
+  const aside = factsPanel ?? (related ? <div className="min-w-0">{related}</div> : null);
 
   return (
-    <HomeTileSurface density={density} label={`${typeLabel} ${title}`} className="@container">
+    <HomeTileSurface density={density} label={`${typeLabel} ${title}`} className="@container" corner={corner}>
       <div className="flex min-h-0 flex-1 flex-col gap-3">
-        {header}
         {density === "large" && aside ? (
-          <div className="grid min-w-0 flex-1 grid-cols-1 gap-3 @md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] @md:gap-5">
+          <div className="grid min-w-0 flex-1 grid-cols-1 content-start gap-3 @md:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] @md:gap-5">
             {text}
             {aside}
           </div>
         ) : (
           <>
             {text}
-            {related ? <div className="min-w-0">{related}</div> : null}
+            {aside}
           </>
         )}
       </div>

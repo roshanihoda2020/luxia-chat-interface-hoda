@@ -1,11 +1,16 @@
-import { findHomeTileSizeByDimensions } from "./grid";
-import type {
-  HomeTile,
-  HomeTileConfig,
-  HomeTileSize,
-  HomeTileTargetScope,
-  HomeTileType,
+import { HOME_TILE_GRID, findHomeTileSizeByDimensions, getHomeTileSizePreset } from "./grid";
+import {
+  isHomeTileSurfaceStyle,
+  type HomeTile,
+  type HomeTileConfig,
+  type HomeTileSize,
+  type HomeTileSurfaceStyle,
+  type HomeTileTargetScope,
+  type HomeTileType,
 } from "./types";
+
+/** Full width spans every grid column. */
+const HOME_TILE_FULL_WIDTH_COLUMNS = HOME_TILE_GRID.columns;
 
 export type HomeTileCategory = "home" | "projects" | "conversations" | "knowledge" | "tools";
 
@@ -25,6 +30,8 @@ export interface HomeTileDefinition {
   /** Maximum instances per layout; undefined means unlimited. */
   maxInstances?: number;
   defaultConfig: HomeTileConfig;
+  /** Card style when the user hasn't chosen one (Your focus keeps its dark hero look). */
+  defaultSurface?: HomeTileSurfaceStyle;
   /**
    * Sizes at which the tile grows with its content (`h` only reserves a starting
    * span). At every other size the tile fills exactly its grid slot height.
@@ -75,6 +82,7 @@ export const HOME_TILE_DEFINITIONS: Record<HomeTileType, HomeTileDefinition> = {
     requiresTarget: false,
     maxInstances: 1,
     defaultConfig: {},
+    defaultSurface: "featured",
     contentHeightSizes: ["wide"],
     // At Full width HomeHero's root section carries HI.sectionGap (mb-7).
     ownBottomSpacingSizes: ["wide"],
@@ -190,6 +198,43 @@ export function getHomeTileSizeId(tile: Pick<HomeTile, "w" | "h">): HomeTileSize
 export function homeTileUsesContentHeight(tile: Pick<HomeTile, "type" | "w" | "h">): boolean {
   const size = getHomeTileSizeId(tile);
   return Boolean(size && getHomeTileDefinition(tile.type).contentHeightSizes?.includes(size));
+}
+
+/**
+ * Smaller allowed sizes a dragged tile may take to fit beside other tiles,
+ * largest first (narrower, never taller). Empty for tiles at a content-height
+ * size (Full-width Your focus / Pinned / Recent): shrinking those swaps their
+ * whole section for a compact tile, so it's never done automatically.
+ */
+export function getHomeTileFitSizes(tile: HomeTile): Array<{ id: HomeTileSize; w: number; h: number }> {
+  if (homeTileUsesContentHeight(tile)) return [];
+  return getHomeTileDefinition(tile.type).allowedSizes
+    .map((id) => getHomeTileSizePreset(id))
+    .filter((size) => size.w < tile.w && size.h <= tile.h)
+    .sort((a, b) => b.w - a.w || b.h - a.h)
+    .map(({ id, w, h }) => ({ id, w, h }));
+}
+
+/**
+ * Smaller sizes a Full-width tile may take so another tile fits beside it,
+ * largest first. Only offered after the user rests a dragged tile beside it
+ * (never automatically): these tiles switch from their full Home section to a
+ * compact tile. Empty for tiles that aren't Full width.
+ */
+export function getHomeTileBesideSizes(tile: HomeTile): Array<{ id: HomeTileSize; w: number; h: number }> {
+  if (tile.w !== HOME_TILE_FULL_WIDTH_COLUMNS) return [];
+  return getHomeTileDefinition(tile.type).allowedSizes
+    .map((id) => getHomeTileSizePreset(id))
+    .filter((size) => size.w < HOME_TILE_FULL_WIDTH_COLUMNS)
+    .sort((a, b) => b.w - a.w || b.h - a.h)
+    .map(({ id, w, h }) => ({ id, w, h }));
+}
+
+/** The tile's card style: its saved choice, or its type's default (Default white unless stated). */
+export function getHomeTileSurfaceStyle(tile: Pick<HomeTile, "type" | "config">): HomeTileSurfaceStyle {
+  const saved = tile.config.surface;
+  if (isHomeTileSurfaceStyle(saved)) return saved;
+  return getHomeTileDefinition(tile.type).defaultSurface ?? "default";
 }
 
 /** True when the rendered component already ends with its own section margin at this size. */

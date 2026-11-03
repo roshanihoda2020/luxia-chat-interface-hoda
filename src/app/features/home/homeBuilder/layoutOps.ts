@@ -1,6 +1,13 @@
 import { HOME_TILE_GRID, getHomeTileSizePreset } from "./grid";
 import { getHomeTileDefinition } from "./registry";
-import type { HomeLayout, HomeTile, HomeTileSize, HomeTileTarget, HomeTileType } from "./types";
+import type {
+  HomeLayout,
+  HomeTile,
+  HomeTileSize,
+  HomeTileSurfaceStyle,
+  HomeTileTarget,
+  HomeTileType,
+} from "./types";
 
 /** Unique, stable once created; never derived from position or content. */
 export function createHomeTileId(type: HomeTileType): string {
@@ -76,6 +83,50 @@ export function addHomeTile(
     config: { ...definition.defaultConfig },
   };
   return { layout: { ...layout, tiles: [...layout.tiles, tile] }, tile };
+}
+
+/**
+ * Points an existing tile at a different item (Configure Tile). The tile keeps
+ * its id, position, size and configuration; only its target changes. Returns
+ * the layout unchanged when the tile is missing or the target doesn't suit it.
+ */
+export function replaceHomeTileTarget(layout: HomeLayout, tileId: string, target: HomeTileTarget): HomeLayout {
+  const tile = layout.tiles.find((entry) => entry.id === tileId);
+  if (!tile || !getHomeTileDefinition(tile.type).targetScopes.includes(target.scope)) return layout;
+  return {
+    ...layout,
+    tiles: layout.tiles.map((entry) => (entry.id === tileId ? { ...entry, target: { ...target } } : entry)),
+  };
+}
+
+/**
+ * Sets a tile's card style. The style lives in the tile's config, so it stays
+ * with the tile through moves, resizes and item changes. Choosing the type's
+ * default style removes the key, keeping the saved layout minimal.
+ */
+export function setHomeTileSurface(layout: HomeLayout, tileId: string, surface: HomeTileSurfaceStyle): HomeLayout {
+  const tile = layout.tiles.find((entry) => entry.id === tileId);
+  if (!tile) return layout;
+  const typeDefault = getHomeTileDefinition(tile.type).defaultSurface ?? "default";
+  const { surface: _previous, ...rest } = tile.config;
+  const config = surface === typeDefault ? rest : { ...rest, surface };
+  if (JSON.stringify(config) === JSON.stringify(tile.config)) return layout;
+  return {
+    ...layout,
+    tiles: layout.tiles.map((entry) => (entry.id === tileId ? { ...entry, config } : entry)),
+  };
+}
+
+/** Configure Tile: a different item and/or style, applied together (one save, one Undo). */
+export function configureHomeTile(
+  layout: HomeLayout,
+  tileId: string,
+  changes: { target?: HomeTileTarget; surface?: HomeTileSurfaceStyle },
+): HomeLayout {
+  let next = layout;
+  if (changes.target) next = replaceHomeTileTarget(next, tileId, changes.target);
+  if (changes.surface) next = setHomeTileSurface(next, tileId, changes.surface);
+  return next;
 }
 
 /** Removes a tile from the layout only. Other tiles keep their positions. */
@@ -266,14 +317,21 @@ export function resizeHomeTile(layout: HomeLayout, tileId: string, sizeId: HomeT
 }
 
 /** Closest allowed preset to a free-form size in grid units; never an in-between size. */
-export function snapHomeTileSize(type: HomeTileType, desiredW: number, desiredH: number): HomeTileSize {
+export function snapHomeTileSize(
+  type: HomeTileType,
+  desiredW: number,
+  desiredH: number,
+  /** 0 snaps by width only (tiles whose height follows their content). */
+  heightWeight = 1,
+): HomeTileSize {
   const allowed = getHomeTileDefinition(type).allowedSizes;
   let best = allowed[0];
   let bestScore = Number.POSITIVE_INFINITY;
   for (const sizeId of allowed) {
     const preset = getHomeTileSizePreset(sizeId);
     const score =
-      Math.abs(preset.w - desiredW) / HOME_TILE_GRID.columns + Math.abs(preset.h - desiredH) / 8;
+      Math.abs(preset.w - desiredW) / HOME_TILE_GRID.columns
+      + (heightWeight * Math.abs(preset.h - desiredH)) / 8;
     if (score < bestScore) {
       bestScore = score;
       best = sizeId;

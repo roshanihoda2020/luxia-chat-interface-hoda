@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
 import { luxiaToast } from "@/app/features/shared/luxiaToast";
 import { createDefaultHomeLayout } from "./defaultLayout";
-import { addHomeTile, removeHomeTile } from "./layoutOps";
+import { addHomeTile, configureHomeTile, removeHomeTile } from "./layoutOps";
 import { clearHomeLayout, readHomeLayout, writeHomeLayout } from "./storage";
-import type { HomeLayout, HomeTile, HomeTileTarget, HomeTileType } from "./types";
+import type { HomeLayout, HomeTile, HomeTileSurfaceStyle, HomeTileTarget, HomeTileType } from "./types";
 
 const DEFAULT_LAYOUT_JSON = JSON.stringify(createDefaultHomeLayout());
 
@@ -58,6 +58,34 @@ export function useHomeLayout(userId: string) {
     );
   }
 
+/**
+   * Configure Tile: a different item and/or card style, saved together so one
+   * Undo restores both. Place and size never change.
+   */
+  function configureTile(
+    tile: HomeTile,
+    changes: { target?: HomeTileTarget; surface?: HomeTileSurfaceStyle },
+    labels: { before: string; after: string; surface?: string },
+  ) {
+    const previous = layout;
+    const next = configureHomeTile(layout, tile.id, changes);
+    if (next === layout || !commit(next)) return;
+    const itemChanged = next.tiles.find((entry) => entry.id === tile.id)?.target?.entityId !== tile.target?.entityId;
+    if (itemChanged) {
+      offerUndo(
+        `Tile changed to ${labels.after}${labels.surface ? ` · ${labels.surface} style` : ""}`,
+        `It was ${labels.before}. Its place and size on your Home stay the same.`,
+        previous,
+      );
+    } else {
+      offerUndo(
+        `${labels.after} is now ${labels.surface ?? "restyled"}`,
+        "Only how this tile looks changed. It keeps its place, size and item.",
+        previous,
+      );
+    }
+  }
+
   function resetToDefault() {
     const previous = layout;
     clearHomeLayout(userId);
@@ -76,10 +104,15 @@ export function useHomeLayout(userId: string) {
     stopEditing: () => setEditingUserId(null),
     addTile,
     removeTile,
+    configureTile,
     resetToDefault,
-    /** Saves a rearranged or resized layout (drag, keyboard move, size change). */
-    updateLayout: (next: HomeLayout) => {
-      commit(next);
+    /**
+     * Saves a rearranged or resized layout (drag, keyboard move, size change).
+     * With `undo`, also offers Undo (e.g. a tile shrunk to fit while dragging).
+     */
+    updateLayout: (next: HomeLayout, undo?: { title: string; description: string }) => {
+      const previous = layout;
+      if (commit(next) && undo) offerUndo(undo.title, undo.description, previous);
     },
     isDefaultLayout: JSON.stringify(layout) === DEFAULT_LAYOUT_JSON,
   };

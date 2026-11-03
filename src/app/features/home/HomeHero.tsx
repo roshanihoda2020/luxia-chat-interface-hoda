@@ -63,7 +63,8 @@ function getHeroContextFields(hero: HomeHeroContent): HeroContextFields | null {
   return fields;
 }
 
-function getHeroCornerMarkerStyle(
+/** Corner colour per focus item; reused by the compact Your focus Home Tile. */
+export function getHeroCornerMarkerStyle(
   hero: HomeHeroContent,
   entityType: HomeShortcutEntityType,
 ): { color: string; background: string } {
@@ -119,27 +120,98 @@ function HeroEntityCornerMarker({
   );
 }
 
+/** Card style of the Your focus Home Tile at Full width (Featured is the original hero). */
+export type HomeHeroSurface = "featured" | "soft" | "default";
+
+interface HeroPalette {
+  surface: string;
+  border: string;
+  shadow: string;
+  title: string;
+  description: string;
+  label: string;
+  value: string;
+  meta: string;
+  divider: string;
+  controlTone: "dark" | "light";
+  /** Extra classes for the secondary (tertiary) action on this surface. */
+  secondaryClassName: string;
+}
+
+/**
+ * Featured keeps the hero exactly as designed. Soft and Default reuse the Home
+ * Tile surfaces (homeTileSurfaces.css) with dark text, so the same structure
+ * stays readable on a light card.
+ */
+const HERO_PALETTE: Record<HomeHeroSurface, HeroPalette> = {
+  featured: {
+    surface: HS.heroSurface,
+    border: HS.heroBorder,
+    shadow: HS.heroShadow,
+    title: HS.heroText,
+    description: HS.heroDescription,
+    label: HS.heroSoft,
+    value: HS.heroContextValue,
+    meta: HS.heroSoft,
+    divider: HS.heroBorder,
+    controlTone: "dark",
+    secondaryClassName:
+      "!border-[var(--luxia-opacity-white-24)] !text-[var(--luxia-opacity-white-80)] hover:!bg-[var(--luxia-opacity-white-08)]",
+  },
+  soft: {
+    surface:
+      "linear-gradient(var(--luxia-opacity-brand-secondary-08), var(--luxia-opacity-brand-secondary-08)), var(--luxia-surface)",
+    border: "var(--luxia-opacity-brand-secondary-24)",
+    shadow: "var(--luxia-shadow-sm)",
+    title: "var(--luxia-purple-70)",
+    description: "var(--luxia-text-secondary)",
+    // Secondary (not muted) text keeps the 13px labels above 4.5:1 on light surfaces.
+    label: "var(--luxia-text-secondary)",
+    value: "var(--luxia-text-primary)",
+    meta: "var(--luxia-text-secondary)",
+    divider: "var(--luxia-opacity-brand-secondary-16)",
+    controlTone: "light",
+    secondaryClassName: "",
+  },
+  default: {
+    surface: "var(--luxia-surface)",
+    border: "var(--luxia-border-default)",
+    shadow: "var(--luxia-shadow-sm)",
+    title: "var(--luxia-purple-70)",
+    description: "var(--luxia-text-secondary)",
+    // Secondary (not muted) text keeps the 13px labels above 4.5:1 on light surfaces.
+    label: "var(--luxia-text-secondary)",
+    value: "var(--luxia-text-primary)",
+    meta: "var(--luxia-text-secondary)",
+    divider: "var(--luxia-border-default)",
+    controlTone: "light",
+    secondaryClassName: "",
+  },
+};
+
 function HeroContextGroup({
   label,
   value,
   sourceTag,
+  palette,
 }: {
   label: string;
   value: string;
   sourceTag?: HeroContextFields["sourceTag"];
+  palette: HeroPalette;
 }) {
   return (
     <div className="min-w-0">
       <p
         className="luxia-type-label-form"
-        style={{ color: HS.heroSoft, fontSize: 13, lineHeight: 1.35 }}
+        style={{ color: palette.label, fontSize: 13, lineHeight: 1.35 }}
       >
         {label}
       </p>
       <div className="flex min-w-0 items-center gap-2" style={{ marginTop: 6 }}>
         <p
           className="min-w-0 truncate luxia-type-body-default-strong"
-          style={{ color: HS.heroContextValue, fontSize: 16, lineHeight: 1.35 }}
+          style={{ color: palette.value, fontSize: 16, lineHeight: 1.35 }}
           title={value}
         >
           {value}
@@ -168,6 +240,8 @@ interface HomeHeroProps {
   onSetPrimary: (entityKey: HomeEntityKey) => void;
   onDismissFromContinue: (entityKey: HomeEntityKey) => void;
   onViewAll: () => void;
+  /** Home Tile style at Full width; Featured (the original dark hero) by default. */
+  surface?: HomeHeroSurface;
 }
 
 export function HomeHero({
@@ -181,8 +255,10 @@ export function HomeHero({
   onSetPrimary,
   onDismissFromContinue,
   onViewAll,
+  surface = "featured",
 }: HomeHeroProps) {
   const [changePrimaryOpen, setChangePrimaryOpen] = useState(false);
+  const palette = HERO_PALETTE[surface];
 
   const sectionHeading = (
     <SectionHeader
@@ -280,16 +356,17 @@ export function HomeHero({
 
       <div
         className="relative w-full"
+        data-home-hero-surface={surface}
         style={{
-          border: `1px solid ${HS.heroBorder}`,
-          boxShadow: HS.heroShadow,
+          border: `1px solid ${palette.border}`,
+          boxShadow: palette.shadow,
           borderRadius: HS.heroRadius,
         }}
       >
           <div
             className="relative overflow-hidden"
             style={{
-              background: HS.heroSurface,
+              background: palette.surface,
               borderRadius: HS.heroRadius,
             }}
           >
@@ -304,7 +381,7 @@ export function HomeHero({
                     <PinButton
                       pinned={Boolean(hero.isPinned)}
                       label={hero.title}
-                      tone="dark"
+                      tone={palette.controlTone}
                       controlSize="hero"
                       onToggle={onTogglePin!}
                     />
@@ -312,7 +389,7 @@ export function HomeHero({
                   {heroMenuItems.length > 0 ? (
                     <HomeContinueMenu
                       label={hero.title}
-                      tone="dark"
+                      tone={palette.controlTone}
                       controlSize="hero"
                       items={heroMenuItems}
                     />
@@ -331,7 +408,7 @@ export function HomeHero({
                   <h2
                     className="line-clamp-1 luxia-type-heading-h3"
                     style={{
-                      color: HS.heroText,
+                      color: palette.title,
                       fontSize: 30,
                       lineHeight: 1.2,
                       letterSpacing: "-0.025em",
@@ -346,7 +423,7 @@ export function HomeHero({
                     <p
                       className="luxia-type-body-default"
                       style={{
-                        color: HS.heroDescription,
+                        color: palette.description,
                         marginTop: 12,
                         fontSize: 15,
                         lineHeight: 1.5,
@@ -366,12 +443,13 @@ export function HomeHero({
                 <div className="min-w-0 lg:pt-0.5">
                   {contextFields ? (
                     <div className="space-y-4">
-                      <HeroContextGroup label="Project" value={contextFields.project} />
+                      <HeroContextGroup label="Project" value={contextFields.project} palette={palette} />
                       {showConstellation ? (
                         <HeroContextGroup
                           label="Constellation"
                           value={contextFields.constellation!}
                           sourceTag={contextFields.sourceTag}
+                          palette={palette}
                         />
                       ) : null}
                     </div>
@@ -381,7 +459,7 @@ export function HomeHero({
                     <p
                       className="flex items-center gap-1.5 luxia-type-body-small"
                       style={{
-                        color: HS.heroSoft,
+                        color: palette.meta,
                         marginTop: contextFields ? 18 : 0,
                         fontSize: 14,
                       }}
@@ -395,7 +473,7 @@ export function HomeHero({
 
               <div
                 className="flex flex-wrap items-center gap-4 border-t"
-                style={{ borderColor: HS.heroBorder, marginTop: 16, paddingTop: 16 }}
+                style={{ borderColor: palette.divider, marginTop: 16, paddingTop: 16 }}
               >
                 <Button type="button" variant="primary" onClick={onPrimary}>
                   {hero.primaryLabel}
@@ -405,7 +483,7 @@ export function HomeHero({
                     type="button"
                     variant="tertiary"
                     onClick={onSecondary}
-                    className="!border-[var(--luxia-opacity-white-24)] !text-[var(--luxia-opacity-white-80)] hover:!bg-[var(--luxia-opacity-white-08)]"
+                    className={palette.secondaryClassName}
                   >
                     {hero.secondaryLabel}
                     <LuxiaArrowRightIcon size={13} aria-hidden className="ml-0.5" />

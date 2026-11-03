@@ -2,6 +2,7 @@ import { HOME_TILE_GRID, HOME_TILE_SIZE_PRESETS } from "./grid";
 import { getHomeTileDefinition, isHomeTileType } from "./registry";
 import {
   HOME_LAYOUT_SCHEMA_VERSION,
+  isHomeTileSurfaceStyle,
   type HomeLayout,
   type HomeTileConfig,
   type HomeTile,
@@ -68,6 +69,8 @@ function parseConfig(raw: unknown): HomeTileConfig | string {
       || typeof value === "boolean"
       || (typeof value === "number" && Number.isFinite(value));
     if (!valid) return `config "${key}" must be a string, number, boolean or null`;
+    // An unknown card style falls back to the tile's default instead of rejecting the layout.
+    if (key === "surface" && !isHomeTileSurfaceStyle(value)) continue;
     config[key] = value as HomeTileConfig[string];
   }
   return config;

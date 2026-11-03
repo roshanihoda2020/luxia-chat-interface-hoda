@@ -21,7 +21,10 @@ import {
   FocusHomeTile,
   HomeBuilderToolbar,
   HomeTileGrid,
+  HT,
+  HomeTileConfigureDialog,
   HomeTileLibrary,
+  homeTileSurfaceLabel,
   HomeUnavailableTile,
   PROJECT_LIST_TILE_ROWS,
   ProjectHomeTile,
@@ -30,11 +33,13 @@ import {
   getHomeTileDefinition,
   getHomeTileSection,
   getHomeTileSizeId,
+  getHomeTileSurfaceStyle,
   useHomeLayout,
   type EntityHomeTileProps,
   type HomeTile,
   type HomeTileDensity,
   type HomeTileTargetOption,
+  type HomeTileSurfaceStyle,
   type HomeTileType,
 } from "./homeBuilder";
 import { HS } from "./homeSurfaces";
@@ -103,6 +108,8 @@ export function HomePage({
 }: HomePageProps) {
   const homeBuilder = useHomeLayout(homeLayoutUserId);
   const [libraryOpen, setLibraryOpen] = useState(false);
+  /** Tile whose item is being changed (Configure Tile), or null. */
+  const [configureTile, setConfigureTile] = useState<HomeTile | null>(null);
 
   const projectsWithPin = useMemo(
     () => projects.map((project) => ({
@@ -291,6 +298,19 @@ export function HomePage({
   const chatItems = workWithPin.filter((item) => item.kind === "chat");
   const projectSections = getHomeProjectsSections(activeProjects, pinnedProjectIds, null);
 
+  /**
+   * Full-width Pinned / Recent projects: Soft and Featured frame the Project cards
+   * as a section panel in that style; Default keeps the original open section.
+   */
+  function fullWidthSectionFrame(surface: HomeTileSurfaceStyle) {
+    if (surface === "default") return undefined;
+    return (collection: ReactNode) => (
+      <div className="luxia-home-tile-panel" data-home-tile-surface={surface} data-home-tile-section-panel="">
+        {collection}
+      </div>
+    );
+  }
+
   function densityOf(tile: HomeTile): HomeTileDensity {
     const size = getHomeTileSizeId(tile);
     return size === "large" ? "large" : size === "medium" ? "medium" : "small";
@@ -326,6 +346,7 @@ export function HomePage({
             onSetPrimary={onSetPrimaryHero}
             onDismissFromContinue={onDismissFromContinue}
             onViewAll={() => onBrowseModeChange("your-work")}
+            surface={getHomeTileSurfaceStyle(tile)}
           />
         );
       case "pinned-projects":
@@ -370,6 +391,7 @@ export function HomePage({
             canRestoreProject={canRestoreProject}
             onOpenProject={onOpenProject}
             onNavigateProjectDestination={handleNavigate}
+            collectionFrame={fullWidthSectionFrame(getHomeTileSurfaceStyle(tile))}
           />
         );
       }
@@ -394,7 +416,6 @@ export function HomePage({
           typeLabel: "Galaxy",
           title: `${project.name} Galaxy`,
           summary: counts,
-          context: project.name,
           description: project.description,
           chips: [counts, `${project.sourceCount ?? 0} ${(project.sourceCount ?? 0) === 1 ? "Source" : "Sources"}`],
           primary: { label: "Open Galaxy", ariaLabel: `Open Galaxy for ${project.name}`, onClick: () => onOpenGalaxy(project.id) },
@@ -412,6 +433,7 @@ export function HomePage({
           title: item.title,
           summary: [item.constellationName, projectName].filter(Boolean).join(" · "),
           context: [projectName, item.constellationName].filter(Boolean).join(" · "),
+          description: item.constellationDescription?.trim() || undefined,
           chips: source ? [source] : undefined,
           meta: item.updatedAt ? `Updated ${item.updatedAt}` : undefined,
           primary: { label: "Continue Chat", ariaLabel: `Continue Chat ${item.title}`, onClick: () => onContinueWork(item) },
@@ -432,6 +454,7 @@ export function HomePage({
           title: constellation.label,
           summary: [projectName, SOURCE_LABEL[constellation.type]].filter(Boolean).join(" · "),
           context: projectName,
+          description: recentChats.find((item) => item.constellationDescription?.trim())?.constellationDescription?.trim(),
           chips: [SOURCE_LABEL[constellation.type] ?? constellation.type],
           meta: recentChats.length > 0
             ? `${recentChats.length} recent ${recentChats.length === 1 ? "Chat" : "Chats"}`
@@ -458,8 +481,12 @@ export function HomePage({
           status: source.status && source.status !== "active" ? status : undefined,
           title: source.name,
           summary: [source.typeLabel, ownership].filter(Boolean).join(" · "),
-          context: connector && connector !== source.typeLabel ? `${source.typeLabel} · ${connector}` : source.typeLabel,
-          chips: [ownership, status].filter((value): value is string => Boolean(value)),
+          facts: [
+            { label: "Type", value: source.typeLabel },
+            ...(connector && connector !== source.typeLabel ? [{ label: "Connector", value: connector }] : []),
+            ...(ownership ? [{ label: "Access", value: ownership }] : []),
+            ...(status ? [{ label: "Status", value: status }] : []),
+          ],
           primary: { label: "Open Data Source", ariaLabel: `Open Data Source ${source.name}`, onClick: () => onOpenDataSource(source.id) },
         };
       }
@@ -484,8 +511,11 @@ export function HomePage({
                   {latest.map((output) => (
                     <li key={output.id} className="min-w-0">
                       <DashboardOutputPreviewGraphic variant={output.outputType} />
-                      <p className="mt-1 truncate luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }} title={output.name}>
+                      <p className="mt-1.5 truncate luxia-type-body-dense-strong" style={{ color: HT.text }} title={output.name}>
                         {output.name}
+                      </p>
+                      <p className="truncate luxia-type-caption" style={{ color: HT.muted }}>
+                        {outputTypeLabel(output.outputType)}
                       </p>
                     </li>
                   ))}
@@ -495,10 +525,10 @@ export function HomePage({
                 <ul className="min-w-0 space-y-1" aria-label="Latest saved outputs">
                   {latest.map((output) => (
                     <li key={output.id} className="flex min-w-0 items-center justify-between gap-2 luxia-type-caption">
-                      <span className="min-w-0 truncate" style={{ color: "var(--luxia-text-secondary)" }} title={output.name}>
+                      <span className="min-w-0 truncate" style={{ color: HT.secondary }} title={output.name}>
                         {output.name}
                       </span>
-                      <span className="shrink-0" style={{ color: "var(--luxia-text-muted)" }}>
+                      <span className="shrink-0" style={{ color: HT.muted }}>
                         {outputTypeLabel(output.outputType)}
                       </span>
                     </li>
@@ -527,6 +557,13 @@ export function HomePage({
           onOpenProject={onOpenProject}
           onNavigate={handleNavigate}
           onTogglePin={onToggleProjectPin}
+          // Only Constellations the user already reached through their work; one row each.
+          constellations={[...new Map(
+            constellations
+              .filter((entry) => entry.projectId === project.id)
+              .map((entry) => [entry.id, { id: entry.id, label: entry.label, typeLabel: SOURCE_LABEL[entry.type] }]),
+          ).values()]}
+          onOpenConstellation={onOpenConstellation}
         />
       );
     }
@@ -663,8 +700,25 @@ export function HomePage({
           onRemoveTile={(tile) => homeBuilder.removeTile(tile, getTileLabel(tile))}
           onLayoutChange={homeBuilder.updateLayout}
           getTileSection={getHomeTileSection}
+          onConfigureTile={setConfigureTile}
         />
       )}
+
+      <HomeTileConfigureDialog
+        key={configureTile?.id ?? "none"}
+        tile={configureTile}
+        tileLabel={configureTile ? getTileLabel(configureTile) : ""}
+        layout={homeLayout}
+        targetOptions={targetOptions}
+        onClose={() => setConfigureTile(null)}
+        onSave={(tile, changes) => {
+          homeBuilder.configureTile(tile, changes, {
+            before: getTileLabel(tile),
+            after: getTileLabel(changes.target ? { ...tile, target: changes.target } : tile),
+            surface: changes.surface ? homeTileSurfaceLabel(changes.surface) : undefined,
+          });
+        }}
+      />
 
       <HomeTileLibrary
         open={libraryOpen}

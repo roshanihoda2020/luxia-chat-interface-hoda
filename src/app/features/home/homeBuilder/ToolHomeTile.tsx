@@ -3,8 +3,9 @@ import { Button } from "@/app/components/ui/button";
 import { LuxiaArrowRightIcon, LuxiaWritingAssistantIcon } from "@/assets/icons";
 import type { LuxiaToolDefinition } from "@/app/features/tools/types";
 import {
-  HomeTileIcon,
-  HomeTileOverline,
+  HOME_TILE_CORNER_CLEARANCE,
+  HT,
+  HomeTileStatus,
   HomeTileSurface,
   HomeTileText,
   HomeTileTitleAction,
@@ -30,16 +31,13 @@ export function ToolHomeTile({
   onOpen: () => void;
 }) {
   const status = tool.status ? STATUS_LABEL[tool.status] : undefined;
+  const corner = { icon: (size: number) => <LuxiaWritingAssistantIcon size={size} color="currentColor" /> };
 
   if (density === "small") {
     return (
-      <HomeTileSurface density="small" label={`Tool ${tool.name}`} className="justify-center">
+      <HomeTileSurface density="small" label={`Tool ${tool.name}`} className="justify-center" corner={corner}>
         <div className="flex min-w-0 items-center gap-3">
-          <HomeTileIcon size="sm">
-            <LuxiaWritingAssistantIcon size={20} color="currentColor" />
-          </HomeTileIcon>
-          <div className="min-w-0 flex-1">
-            <HomeTileOverline status={status}>Tool</HomeTileOverline>
+          <div className="min-w-0 flex-1 space-y-0.5">
             <HomeTileTitleAction
               title={tool.name}
               onOpen={onOpen}
@@ -47,14 +45,14 @@ export function ToolHomeTile({
               stretched
               size="dense"
             />
-            <HomeTileText>{tool.description}</HomeTileText>
+            <HomeTileText>{status ? `${status} · ${tool.description}` : tool.description}</HomeTileText>
           </div>
           <ChevronRight
             size={16}
             strokeWidth={2}
             aria-hidden
             className="shrink-0 transition-transform duration-150 group-hover/tile:translate-x-0.5"
-            style={{ color: "var(--luxia-purple-60)" }}
+            style={{ color: HT.accent }}
           />
         </div>
       </HomeTileSurface>
@@ -62,16 +60,13 @@ export function ToolHomeTile({
   }
 
   return (
-    <HomeTileSurface density="medium" label={`Tool ${tool.name}`}>
-      <div className="flex min-h-0 flex-1 flex-col gap-4">
-        <div className="flex min-w-0 items-center gap-3">
-          <HomeTileIcon size="lg">
-            <LuxiaWritingAssistantIcon size={26} color="currentColor" />
-          </HomeTileIcon>
+    <HomeTileSurface density="medium" label={`Tool ${tool.name}`} corner={corner}>
+      <div className="flex min-h-0 flex-1 flex-col gap-2">
+        <div className={`flex min-w-0 items-start gap-2 ${HOME_TILE_CORNER_CLEARANCE.medium}`}>
           <div className="min-w-0">
-            <HomeTileOverline status={status}>Tool</HomeTileOverline>
             <HomeTileTitleAction title={tool.name} onOpen={onOpen} ariaLabel={`Open ${tool.name}`} />
           </div>
+          {status ? <span className="pt-0.5"><HomeTileStatus>{status}</HomeTileStatus></span> : null}
         </div>
         <HomeTileText lines={3}>{tool.description}</HomeTileText>
       </div>
