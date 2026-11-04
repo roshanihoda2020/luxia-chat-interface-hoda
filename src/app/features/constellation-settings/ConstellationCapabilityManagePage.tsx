@@ -11,7 +11,6 @@ import {
 } from "@/app/components/LuxiaPageFrame";
 import { LuxiaPageReadOnlyBadge } from "@/app/components/LuxiaPageReadOnlyBadge";
 import {
-  LuxiaPageGuide,
   LuxiaPageHeader,
   LUXIA_PAGE_HEADER_ACTION,
 } from "@/app/components/LuxiaPageHeader";

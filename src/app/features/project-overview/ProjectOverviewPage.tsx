@@ -6,6 +6,7 @@ import {
 } from "@/app/features/vidgets";
 import { VIDGET_CHANNEL_LABELS, VIDGET_STATUS_LABELS } from "@/app/features/vidgets/types";
 import { getProjectActivity, getProjectDashboardOutputs } from "./data";
+import { listProjectDashboards, useProjectDashboards } from "./projectDashboardStore";
 import { ProjectAssistantOverviewEntry } from "@/app/features/project-assistant";
 import type { ActivityNavigationContext } from "./activityNavigation";
 import { openProjectActivity } from "./activityNavigation";
@@ -46,7 +47,10 @@ export interface ProjectOverviewPageProps {
   onViewAllChats?: (projectId: string) => void;
   onNewChat: (projectId: string) => void;
   onAddConstellation?: (projectId: string, name: string, type: "database" | "csv" | "pdf") => void;
-  onOpenDashboard?: (projectId: string) => void;
+  /** Project › Dashboards (a named Dashboard when `dashboardId` is given). */
+  onOpenDashboard?: (projectId: string, dashboardId?: string | null) => void;
+  /** Project › All Outputs. */
+  onOpenAllOutputs?: (projectId: string) => void;
   onOpenDashboardOutput?: (projectId: string, outputId: string) => void;
   onOpenVirtualAssistant?: (projectId: string, vidgetId: string) => void;
   onViewAllActivity?: (projectId: string) => void;
@@ -93,6 +97,7 @@ export function ProjectOverviewPage({
   onNewChat,
   onAddConstellation,
   onOpenDashboard,
+  onOpenAllOutputs,
   onOpenDashboardOutput,
   onBrowseModeChange,
   onRenameProject,
@@ -155,6 +160,8 @@ export function ProjectOverviewPage({
     () => (projectId ? getProjectActivity(projectId) : []),
     [projectId],
   );
+  // Re-render when Dashboards change (the outputs module shows their count).
+  useProjectDashboards();
   const dashboardOutputs = useMemo(
     () => (projectId ? getProjectDashboardOutputs(projectId) : []),
     [projectId],
@@ -222,7 +229,7 @@ export function ProjectOverviewPage({
     openProjectActivity(item, activityNavigationContext, {
       onOpenChat,
       onOpenConstellation,
-      onOpenDashboard: (projectId) => onOpenDashboard?.(projectId),
+      onOpenDashboard: (projectId, dashboardId) => onOpenDashboard?.(projectId, dashboardId ?? null),
       onOpenDashboardOutput: (projectId, outputId) =>
         onOpenDashboardOutput?.(projectId, outputId),
       onOpenVidget: (projectId, vidgetId) =>
@@ -285,9 +292,15 @@ export function ProjectOverviewPage({
           <OverviewLabel>Project outputs</OverviewLabel>
           <DashboardsModule
             outputs={dashboardOutputs}
-            onOpenDashboard={
+            dashboardCount={listProjectDashboards(resolvedProject.id).length}
+            onOpenDashboards={
               onOpenDashboard
-                ? () => onOpenDashboard(resolvedProject.id)
+                ? () => onOpenDashboard(resolvedProject.id, null)
+                : undefined
+            }
+            onOpenAllOutputs={
+              onOpenAllOutputs
+                ? () => onOpenAllOutputs(resolvedProject.id)
                 : undefined
             }
           />

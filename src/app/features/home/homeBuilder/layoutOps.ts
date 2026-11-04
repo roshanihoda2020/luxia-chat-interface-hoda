@@ -3,6 +3,8 @@ import { getHomeTileDefinition } from "./registry";
 import type {
   HomeLayout,
   HomeTile,
+  HomeTileConfig,
+  HomeTileConfigValue,
   HomeTileSize,
   HomeTileSurfaceStyle,
   HomeTileTarget,
@@ -68,6 +70,7 @@ export function addHomeTile(
   layout: HomeLayout,
   type: HomeTileType,
   target?: HomeTileTarget,
+  config?: HomeTileConfig,
 ): { layout: HomeLayout; tile: HomeTile } {
   const definition = getHomeTileDefinition(type);
   const size = getHomeTileSizePreset(definition.defaultSize);
@@ -80,7 +83,7 @@ export function addHomeTile(
     y: slot.y,
     w: size.w,
     h: size.h,
-    config: { ...definition.defaultConfig },
+    config: { ...definition.defaultConfig, ...config },
   };
   return { layout: { ...layout, tiles: [...layout.tiles, tile] }, tile };
 }
@@ -117,14 +120,44 @@ export function setHomeTileSurface(layout: HomeLayout, tileId: string, surface: 
   };
 }
 
-/** Configure Tile: a different item and/or style, applied together (one save, one Undo). */
+/**
+ * Merges settings into a tile's config (e.g. a collection's `view` or `limit`).
+ * `null` removes a key. `surface` is never set here (use setHomeTileSurface).
+ * Returns the layout unchanged when nothing would change.
+ */
+export function setHomeTileConfig(
+  layout: HomeLayout,
+  tileId: string,
+  patch: Record<string, HomeTileConfigValue>,
+): HomeLayout {
+  const tile = layout.tiles.find((entry) => entry.id === tileId);
+  if (!tile) return layout;
+  const config: HomeTileConfig = { ...tile.config };
+  for (const [key, value] of Object.entries(patch)) {
+    if (key === "surface") continue;
+    if (value === null) delete config[key];
+    else config[key] = value;
+  }
+  if (JSON.stringify(config) === JSON.stringify(tile.config)) return layout;
+  return {
+    ...layout,
+    tiles: layout.tiles.map((entry) => (entry.id === tileId ? { ...entry, config } : entry)),
+  };
+}
+
+/** Configure Tile: a different item, settings and/or style, applied together (one save, one Undo). */
 export function configureHomeTile(
   layout: HomeLayout,
   tileId: string,
-  changes: { target?: HomeTileTarget; surface?: HomeTileSurfaceStyle },
+  changes: {
+    target?: HomeTileTarget;
+    surface?: HomeTileSurfaceStyle;
+    config?: Record<string, HomeTileConfigValue>;
+  },
 ): HomeLayout {
   let next = layout;
   if (changes.target) next = replaceHomeTileTarget(next, tileId, changes.target);
+  if (changes.config) next = setHomeTileConfig(next, tileId, changes.config);
   if (changes.surface) next = setHomeTileSurface(next, tileId, changes.surface);
   return next;
 }

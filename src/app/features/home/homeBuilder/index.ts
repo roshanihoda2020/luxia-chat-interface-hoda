@@ -1,9 +1,15 @@
 export {
+  HOME_COLLECTION_TILE_TYPES,
   HOME_LAYOUT_SCHEMA_VERSION,
+  HOME_PROJECTS_VIEWS,
   HOME_TILE_SURFACES,
+  isHomeProjectsView,
   isHomeTileSurfaceStyle,
 } from "./types";
 export type {
+  HomeCollectionTileType,
+  HomeItemTileType,
+  HomeProjectsView,
   HomeLayout,
   HomeTileConfig,
   HomeTileConfigValue,
@@ -28,6 +34,8 @@ export type { HomeTileSizePreset } from "./grid";
 export {
   HOME_TILE_CATEGORY_LABELS,
   HOME_TILE_DEFINITIONS,
+  HOME_TILE_MODEL_LABELS,
+  isHomeCollectionTile,
   getHomeTileDefinition,
   getHomeTileSizeId,
   getHomeTileBesideSizes,
@@ -37,7 +45,7 @@ export {
   homeTileUsesContentHeight,
   isHomeTileType,
 } from "./registry";
-export type { HomeTileCategory, HomeTileDefinition } from "./registry";
+export type { HomeTileCategory, HomeTileDefinition, HomeTileModel } from "./registry";
 export {
   addHomeTile,
   canAddHomeTileType,
@@ -50,6 +58,7 @@ export {
   removeHomeTile,
   configureHomeTile,
   replaceHomeTileTarget,
+  setHomeTileConfig,
   setHomeTileSurface,
   resizeHomeTile,
   settleHomeTilesAfterMove,
@@ -69,7 +78,7 @@ export type { HomeTileBesideSuggestion, HomeTileRowBand } from "./dragGeometry";
 export { HomeTileLibrary } from "./HomeTileLibrary";
 export { HomeTileConfigureDialog, homeTileSurfaceLabel } from "./HomeTileConfigureDialog";
 export type { HomeTileConfigureChanges } from "./HomeTileConfigureDialog";
-export type { HomeTileTargetOption } from "./HomeTileLibrary";
+export type { HomeCollectionAvailability, HomeTileTargetOption } from "./HomeTileLibrary";
 export { HomeBuilderToolbar } from "./HomeBuilderToolbar";
 export { useHomeLayout } from "./useHomeLayout";
 export {
@@ -104,6 +113,7 @@ export {
 export type { HomeLayoutParseResult } from "./validation";
 export {
   clearHomeLayout,
+  getHomeLayoutBackupKey,
   getHomeLayoutStorageKey,
   readHomeLayout,
   writeHomeLayout,
@@ -115,4 +125,49 @@ export { HomeTileGrid } from "./HomeTileGrid";
 export type { HomeLayoutUndoNotice } from "./HomeTileGrid";
 export { HomeTileSectionHeader } from "./HomeTileSectionHeader";
 export type { HomeTileSection } from "./HomeTileSectionHeader";
-export { HOME_TILE_SECTIONS, getHomeTileSection } from "./homeTileSections";
+export { HOME_TILE_SECTIONS, getHomeTileHeading, getHomeTileSection } from "./homeTileSections";
+export { CollectionHomeTile } from "./CollectionHomeTile";
+export { ChatHomeTile, ChatsCollectionHomeTile } from "./ChatHomeTiles";
+export {
+  ConstellationHomeTile,
+  ConstellationsCollectionHomeTile,
+  DataSourceHomeTile,
+  DataSourcesCollectionHomeTile,
+} from "./KnowledgeHomeTiles";
+export type { HomeConstellationTileItem, HomeDataSourceTileItem } from "./KnowledgeHomeTiles";
+export { DashboardHomeTile, DashboardsCollectionHomeTile } from "./DashboardHomeTiles";
+export {
+  homeDashboardTarget,
+  isLegacyDashboardTarget,
+  resolveHomeDashboardTarget,
+  withResolvedDashboardTarget,
+} from "./dashboardTargets";
+export type { HomeDashboardRef, HomeDashboardResolution } from "./dashboardTargets";
+export type { HomeDashboardOutput, HomeDashboardTileItem } from "./DashboardHomeTiles";
+export { knowledgeKindOf, monogramOf } from "./homeTileIdentity";
+export { GalaxyHomeTile, GalaxiesCollectionHomeTile, galaxyCountsLabel } from "./GalaxyHomeTiles";
+export type { HomeGalaxyTileItem } from "./GalaxyHomeTiles";
+export type { HomeChatTileItem } from "./ChatHomeTiles";
+export { formatHomeChatActivity } from "./chatActivity";
+export type { HomeChatActivity } from "./chatActivity";
+export type {
+  HomeCollectionDensity,
+  HomeCollectionEmptyState,
+  HomeCollectionItem,
+} from "./CollectionHomeTile";
+export {
+  HOME_PROJECTS_VIEW_COPY,
+  getHomeProjectsView,
+  getHomeTileListDisplay,
+  getHomeTileListLimit,
+  formatHomeDataSourceContent,
+  listHomeDataSourceContents,
+  selectDashboards,
+  selectHomeProjects,
+  selectRecentChats,
+  sortByName,
+  uniqueById,
+} from "./collections";
+export type { HomeCollectionDisplay } from "./collections";
+export { LEGACY_PROJECT_LIST_TILE_VIEWS, migrateHomeLayoutData } from "./migration";
+export type { HomeLayoutMigrationContext, HomeLayoutMigrationResult } from "./migration";

@@ -51,6 +51,7 @@ export {
   getGalaxyPath,
   getGalaxySettingsPath,
   getDashboardPath,
+  getProjectOutputsPath,
   getConstellationsPath,
   getProjectChatsPath,
   getProjectActivityPath,
@@ -91,3 +92,10 @@ export {
   writePinnedProjectIds,
 } from "@/app/features/project";
 export type { LuxiaResolvedPath } from "@/app/features/project";
+export { useUserHomePreference } from "./useUserHomePreference";
+export {
+  LEGACY_HOME_PREFERENCE_OWNER,
+  readUserHomePreference,
+  userScopedHomePreferenceKey,
+  writeUserHomePreference,
+} from "./homePreferenceScope";

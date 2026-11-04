@@ -15,7 +15,6 @@ import { luxiaToast } from "@/app/features/shared/luxiaToast";
 import { SearchField } from "@/app/features/shared/SearchField";
 import { useManagerLeaveRegistration } from "@/app/features/shared/unsavedNavigationGuard";
 import { LUXIA_DIALOG_CLOSE_ON_DARK_CLASS } from "@/app/features/shared/structuredModalChrome";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/components/ui/select";
 import { Switch } from "@/app/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/app/components/ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/app/components/ui/tooltip";
@@ -24,7 +23,6 @@ import { TableRowMenu } from "./TableRowMenu";
 import { LX } from "./tokens";
 import type { DataTableCatalogItem, DataTableRecord } from "./types";
 import { cloneTables, tableSignature } from "./utils";
-
 
 export function ActiveDataTablesManager({
     open,

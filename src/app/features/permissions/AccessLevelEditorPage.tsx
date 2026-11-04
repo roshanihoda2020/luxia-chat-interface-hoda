@@ -288,7 +288,6 @@ export function AccessLevelEditorPage({
   const [memberQuery, setMemberQuery] = useState("");
   const [sourceQuery, setSourceQuery] = useState("");
   const [nameError, setNameError] = useState<string | null>(null);
-  const [saveNotice, setSaveNotice] = useState<string | null>(null);
   const [activeSection, setActiveSection] =
     useState<AccessLevelEditorSectionId>("general");
   const [leaveOpen, setLeaveOpen] = useState(false);
@@ -309,7 +308,6 @@ export function AccessLevelEditorPage({
     initialRef.current = record;
     setDraft(structuredClone(record));
     setNameError(null);
-    setSaveNotice(null);
   }, [record]);
 
   const visibleSections = useMemo(
@@ -443,7 +441,6 @@ export function AccessLevelEditorPage({
     if (isDirty) {
       setDraft(structuredClone(initialRef.current));
       setNameError(null);
-      setSaveNotice(null);
       return;
     }
 
@@ -454,7 +451,6 @@ export function AccessLevelEditorPage({
     setLeaveOpen(false);
     setDraft(structuredClone(initialRef.current));
     setNameError(null);
-    setSaveNotice(null);
     if (leaveTarget === "home") {
       onNavigateHome();
       return;
@@ -468,7 +464,6 @@ export function AccessLevelEditorPage({
         ...prev,
         memberUserIds: [...prev.memberUserIds, userId],
       }));
-      setSaveNotice(null);
       return;
     }
     setPendingMemberRemove(userId);
@@ -483,7 +478,6 @@ export function AccessLevelEditorPage({
       ),
     }));
     setPendingMemberRemove(null);
-    setSaveNotice(null);
   }
 
   function getGrant(dataSourceId: string): AccessLevelSourceGrant | undefined {
@@ -510,7 +504,6 @@ export function AccessLevelEditorPage({
           ],
         };
       });
-      setSaveNotice(null);
       return;
     }
     setPendingSourceRemove(dataSourceId);
@@ -525,7 +518,6 @@ export function AccessLevelEditorPage({
       ),
     }));
     setPendingSourceRemove(null);
-    setSaveNotice(null);
   }
 
   function setSourcePermission(
@@ -543,13 +535,11 @@ export function AccessLevelEditorPage({
   function handleArchive() {
     if (readOnly || draft.status === "inactive") return;
     setDraft((prev) => ({ ...prev, status: "inactive" }));
-    setSaveNotice(null);
   }
 
   function handleReactivate() {
     if (readOnly || draft.status === "active") return;
     setDraft((prev) => ({ ...prev, status: "active" }));
-    setSaveNotice(null);
   }
 
   const pageTitle = isNew
@@ -720,7 +710,6 @@ export function AccessLevelEditorPage({
                             name: event.target.value,
                           }));
                           if (nameError) setNameError(null);
-                          setSaveNotice(null);
                         }}
                         placeholder="Access level name"
                         aria-invalid={Boolean(nameError)}
@@ -744,7 +733,6 @@ export function AccessLevelEditorPage({
                             ...prev,
                             description: event.target.value,
                           }));
-                          setSaveNotice(null);
                         }}
                         placeholder="Describe who this level is for"
                         rows={3}
@@ -759,7 +747,6 @@ export function AccessLevelEditorPage({
                           ...prev,
                           status: event.target.value as AccessLevelRecord["status"],
                         }));
-                        setSaveNotice(null);
                       }}
                     >
                       <option value="active">Active</option>
@@ -904,7 +891,6 @@ export function AccessLevelEditorPage({
                                 className="mt-0.5"
                                 onCheckedChange={(value) => {
                                   toggleMember(user.id, value === true);
-                                  setSaveNotice(null);
                                 }}
                               />
                               <Label
@@ -1144,7 +1130,6 @@ export function AccessLevelEditorPage({
                                       source.id,
                                       value as AccessLevelPermission,
                                     );
-                                    setSaveNotice(null);
                                   }}
                                 >
                                   <SelectTrigger

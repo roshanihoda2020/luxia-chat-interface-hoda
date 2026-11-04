@@ -1,8 +1,7 @@
 import type { ReactNode } from "react";
-import { ChevronRight, History } from "lucide-react";
+import { History } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { LuxiaArrowRightIcon, LuxiaChatIcon, LuxiaGalaxyIcon } from "@/assets/icons";
-import { getHeroCornerMarkerStyle } from "../HomeHero";
 import type { HomeHeroContent } from "../types";
 import {
   HOME_TILE_CORNER_CLEARANCE,
@@ -11,6 +10,7 @@ import {
   HomeTileSurface,
   type HomeTileDensity,
 } from "./HomeTileSurface";
+import { CardArrow, GlyphChip } from "./homeTileVisuals";
 
 const SOURCE_LABEL: Record<string, string> = { database: "DB", csv: "CSV", pdf: "PDF" };
 
@@ -18,20 +18,19 @@ const SOURCE_LABEL: Record<string, string> = { database: "DB", csv: "CSV", pdf: 
  * The shared tile card. Your focus defaults to the Featured style — the same dark
  * Galaxy panel as the full-width hero — and follows Soft or Default when chosen.
  */
-function FocusSurface({ density, children, label }: { density: HomeTileDensity; children: ReactNode; label: string }) {
+function FocusSurface({ density, children, label, centered = true }: { density: HomeTileDensity; children: ReactNode; label: string; centered?: boolean }) {
   return (
-    <HomeTileSurface density={density} label={label} className={density === "small" ? "justify-center" : ""}>
+    <HomeTileSurface density={density} label={label} className={density === "small" && centered ? "justify-center" : ""}>
       {children}
     </HomeTileSurface>
   );
 }
 
-/** Same corner as the full-width hero: the focus item's icon in the hero's colour for that item. */
+/** The focus item's icon (Chat or Galaxy) in the shared surface-aware corner colours. */
 function FocusCorner({ hero, galaxy, density }: { hero: HomeHeroContent; galaxy: boolean; density: HomeTileDensity }) {
   return (
     <HomeTileCornerMarker
       density={density}
-      tone={getHeroCornerMarkerStyle(hero, galaxy ? "galaxy-conversation" : "chat")}
       icon={(size) => (galaxy
         ? <LuxiaGalaxyIcon size={size} color="currentColor" />
         : <LuxiaChatIcon size={size} color="currentColor" />)}
@@ -72,32 +71,31 @@ export function FocusHomeTile({
 
   if (density === "small") {
     return (
-      <FocusSurface density="small" label={`Your focus: ${hero.title}`}>
+      <FocusSurface density="small" label={`Your focus: ${hero.title}`} centered={false}>
         <FocusCorner hero={hero} galaxy={galaxy} density="small" />
-        <div className="flex min-w-0 items-center gap-3">
+        <div className={`flex min-w-0 items-center gap-2 ${HOME_TILE_CORNER_CLEARANCE.small}`}>
+          <GlyphChip size={24} tone="strong">
+            {galaxy ? <LuxiaGalaxyIcon size={13} color="currentColor" /> : empty ? <History size={13} strokeWidth={2} /> : <LuxiaChatIcon size={13} color="currentColor" />}
+          </GlyphChip>
+          <span className="truncate luxia-type-overline-data" style={{ color: HT.muted }}>{kindLabel ?? "Your focus"}</span>
+        </div>
+        <div className="mt-auto flex min-w-0 items-end gap-2">
           <div className="min-w-0 flex-1">
-            {kindLabel ? <Overline>{kindLabel}</Overline> : null}
             <button
               type="button"
               onClick={onPrimary}
               aria-label={`${hero.primaryLabel}: ${hero.title}`}
               title={hero.title}
               className="block max-w-full truncate text-left luxia-type-body-dense-strong outline-none after:absolute after:inset-0 after:content-['']"
-              style={{ color: HT.title }}
+              style={{ color: HT.title, fontSize: 15, lineHeight: "20px" }}
             >
               {hero.title}
             </button>
-            <p className="truncate luxia-type-caption" style={{ color: HT.text }}>
-              {empty ? hero.context : hero.primaryLabel}
+            <p className="truncate luxia-type-caption" style={{ color: HT.secondary }}>
+              {empty ? hero.context : contextLine || hero.primaryLabel}
             </p>
           </div>
-          <ChevronRight
-            size={16}
-            strokeWidth={2}
-            aria-hidden
-            className="shrink-0 transition-transform duration-150 group-hover/tile:translate-x-0.5"
-            style={{ color: HT.accent }}
-          />
+          <CardArrow />
         </div>
       </FocusSurface>
     );

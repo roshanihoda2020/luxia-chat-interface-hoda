@@ -7,6 +7,7 @@ export type ProjectOverviewBrowseMode =
   | "chats"
   | "constellations"
   | "dashboards"
+  | "outputs"
   | "virtual-assistants";
 
 export type ProjectNavSection =
@@ -77,7 +78,35 @@ export interface ProjectDashboardOutput {
   createdByUserId: string;
 }
 
-/** @deprecated Prefer ProjectDashboardOutput for Overview gallery; kept for library prototypes. */
+/**
+ * A named Dashboard inside a Project: an ordered selection of the Project's
+ * saved outputs. A Project may have zero, one or many Dashboards. Outputs
+ * belong to the Project (All Outputs), not to a Dashboard, so changing a
+ * Dashboard never creates, edits or deletes an output.
+ */
+export interface ProjectDashboard {
+  /** Stable ID, unique across Projects. */
+  id: string;
+  projectId: string;
+  /** User-visible name; unique within its Project. */
+  name: string;
+  /** Saved output IDs from the same Project, in display order. */
+  outputIds: string[];
+  /** Who created it — Analyst management rights depend on this. */
+  createdByUserId: string;
+  createdAtTimestamp: number;
+  updatedAtTimestamp: number;
+  /**
+   * The Dashboard that replaced the Project's single Dashboard of the old
+   * model. Home Tiles saved under that model map to it.
+   */
+  migratedFromLegacy?: boolean;
+}
+
+/**
+ * @deprecated Superseded by ProjectDashboard (named Dashboards with output
+ * selections, projectDashboardStore.ts). Not used by any screen.
+ */
 export interface ProjectDashboardItem {
   id: string;
   projectId: string;

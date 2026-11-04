@@ -14,7 +14,6 @@ import { TablePreviewDrawer } from "./TablePreviewDrawer";
 import type { DataTableRecord } from "./types";
 import { cloneTables } from "./utils";
 
-
 /**
  * Chat capsule Active Data Tables — expandable summary + dialog shortcut.
  * Reads/writes the same Constellation `bundle.tables` as Settings.

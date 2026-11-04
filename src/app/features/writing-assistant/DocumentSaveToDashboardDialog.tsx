@@ -83,7 +83,7 @@ export function DocumentSaveToDashboardDialog({
         <DialogHeader className="border-b px-5 py-4" style={{ borderColor: "var(--luxia-border-subtle)" }}>
           <DialogTitle>Save to Luxia</DialogTitle>
           <DialogDescription className="mt-1.5">
-            Keep “{documentTitle.trim() || "Untitled document"}” in Luxia as a Project Dashboard output.
+            Keep “{documentTitle.trim() || "Untitled document"}” in Luxia as a saved output in the Project's All Outputs.
           </DialogDescription>
         </DialogHeader>
 
@@ -135,7 +135,7 @@ export function DocumentSaveToDashboardDialog({
                 className="luxia-type-caption mt-2 leading-snug"
                 style={{ color: "var(--luxia-text-muted)" }}
               >
-                Appears as an output on the Project Dashboard.
+                Appears in the Project's All Outputs, ready to add to any of its Dashboards.
               </p>
             </div>
           )}

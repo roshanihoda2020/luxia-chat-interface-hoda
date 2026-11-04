@@ -8,12 +8,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/app/components/ui/dialog";
+import { HOME_PROJECTS_VIEW_COPY, getHomeProjectsView } from "./collections";
 import { isHomeTileTargetOnLayout } from "./layoutOps";
 import { getHomeTileDefinition, getHomeTileSurfaceStyle, homeTileUsesContentHeight } from "./registry";
 import { sameHomeTileTarget, TargetPicker, type HomeTileTargetOption } from "./HomeTileLibrary";
 import "./homeTileSurfaces.css";
 import {
+  HOME_PROJECTS_VIEWS,
   HOME_TILE_SURFACES,
+  type HomeProjectsView,
   type HomeLayout,
   type HomeTile,
   type HomeTileSurfaceStyle,
@@ -24,6 +27,8 @@ import {
 export interface HomeTileConfigureChanges {
   target?: HomeTileTarget;
   surface?: HomeTileSurfaceStyle;
+  /** Collection settings, e.g. the Projects collection's `view`. */
+  config?: { view: HomeProjectsView };
 }
 
 const SURFACE_COPY: Record<HomeTileSurfaceStyle, { label: string; hint: string }> = {
@@ -61,6 +66,8 @@ export function HomeTileConfigureDialog({
   const initialSurface = tile ? getHomeTileSurfaceStyle(tile) : "default";
   const [surface, setSurface] = useState<HomeTileSurfaceStyle>(initialSurface);
   const [target, setTarget] = useState<HomeTileTarget | null>(tile?.target ?? null);
+  const initialView = tile?.type === "projects-collection" ? getHomeProjectsView(tile) : null;
+  const [view, setView] = useState<HomeProjectsView | null>(initialView);
   const [query, setQuery] = useState("");
   const returnFocusRef = useRef<HTMLElement | null>(null);
 
@@ -68,7 +75,8 @@ export function HomeTileConfigureDialog({
   const definition = getHomeTileDefinition(tile.type);
   const typeDefault = definition.defaultSurface ?? "default";
   const targetChanged = Boolean(target && !sameHomeTileTarget(tile.target, target));
-  const dirty = surface !== initialSurface || targetChanged;
+  const viewChanged = view !== initialView;
+  const dirty = surface !== initialSurface || targetChanged || viewChanged;
   const fullWidthSection = homeTileUsesContentHeight(tile);
 
   function save() {
@@ -76,6 +84,7 @@ export function HomeTileConfigureDialog({
     onSave(tile, {
       ...(surface !== initialSurface ? { surface } : {}),
       ...(targetChanged && target ? { target } : {}),
+      ...(viewChanged && view ? { config: { view } } : {}),
     });
     onClose();
   }
@@ -96,14 +105,24 @@ export function HomeTileConfigureDialog({
         }}
       >
         <DialogHeader>
-          <DialogTitle>{`Configure ${definition.label} tile`}</DialogTitle>
+          <DialogTitle>{`Edit ${definition.label} tile`}</DialogTitle>
           <DialogDescription>
             {definition.requiresTarget
               ? `Choose how ${tileLabel} looks and which item it shows. Its place and size on your Home stay the same.`
-              : `Choose how ${tileLabel} looks. Its place and size on your Home stay the same.`}
+              : view
+                ? `Choose which Projects ${tileLabel} lists and how it looks. Its place and size on your Home stay the same.`
+                : `Choose how ${tileLabel} looks. Its place and size on your Home stay the same.`}
           </DialogDescription>
         </DialogHeader>
         <div className="max-h-[min(64vh,600px)] space-y-6 overflow-y-auto px-6 py-5">
+          {view ? (
+            <section aria-labelledby="home-tile-configure-view">
+              <h3 id="home-tile-configure-view" className="mb-2 luxia-type-overline-data" style={{ color: "var(--luxia-text-muted)" }}>
+                Projects to show
+              </h3>
+              <ProjectsViewOptions value={view} onChange={setView} />
+            </section>
+          ) : null}
           <section aria-labelledby="home-tile-configure-style">
             <h3 id="home-tile-configure-style" className="mb-2 luxia-type-overline-data" style={{ color: "var(--luxia-text-muted)" }}>
               Style
@@ -239,5 +258,60 @@ function SurfacePreview({ surface }: { surface: HomeTileSurfaceStyle }) {
       <span className="absolute left-2.5 top-6 block h-1 w-2/3 rounded-full" style={{ background: "var(--home-tile-text-muted)", opacity: 0.7 }} />
       <span className="absolute bottom-2 left-2.5 block h-2 w-8 rounded-full" style={{ background: "var(--home-tile-accent)" }} />
     </span>
+  );
+}
+
+/** The Projects collection's view as a radio group; arrow keys move between options. */
+function ProjectsViewOptions({
+  value,
+  onChange,
+}: {
+  value: HomeProjectsView;
+  onChange: (view: HomeProjectsView) => void;
+}) {
+  const refs = useRef<Array<HTMLButtonElement | null>>([]);
+
+  function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    const step = event.key === "ArrowRight" || event.key === "ArrowDown" ? 1
+      : event.key === "ArrowLeft" || event.key === "ArrowUp" ? -1 : 0;
+    if (!step) return;
+    event.preventDefault();
+    const index = HOME_PROJECTS_VIEWS.indexOf(value);
+    const next = (index + step + HOME_PROJECTS_VIEWS.length) % HOME_PROJECTS_VIEWS.length;
+    onChange(HOME_PROJECTS_VIEWS[next]);
+    refs.current[next]?.focus();
+  }
+
+  return (
+    <div role="radiogroup" aria-label="Projects to show" className="grid grid-cols-1 gap-2 sm:grid-cols-3" onKeyDown={onKeyDown}>
+      {HOME_PROJECTS_VIEWS.map((option, index) => {
+        const checked = option === value;
+        const copy = HOME_PROJECTS_VIEW_COPY[option];
+        return (
+          <button
+            key={option}
+            ref={(el) => { refs.current[index] = el; }}
+            type="button"
+            role="radio"
+            aria-checked={checked}
+            tabIndex={checked ? 0 : -1}
+            data-home-tile-view-option={option}
+            onClick={() => onChange(option)}
+            className="flex min-w-0 flex-col rounded-[var(--luxia-radius-12)] border px-3 py-2.5 text-left outline-none transition-colors hover:bg-[var(--luxia-opacity-brand-primary-04)] focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]"
+            style={{
+              borderColor: checked ? "var(--luxia-purple-60)" : "var(--luxia-border-default)",
+              boxShadow: checked ? "inset 0 0 0 1px var(--luxia-purple-60)" : undefined,
+            }}
+          >
+            <span className="luxia-type-body-dense-strong" style={{ color: "var(--luxia-purple-70)" }}>
+              {copy.label}
+            </span>
+            <span className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
+              {copy.hint}
+            </span>
+          </button>
+        );
+      })}
+    </div>
   );
 }

@@ -24,15 +24,10 @@ import { cn } from "@/app/components/ui/utils";
 import { CsvFileGlyph } from "./DataSourceTypeIcon";
 import {
   CSV_COLUMN_TYPES,
-  CSV_ENCODING_LABELS,
-  CSV_DELIMITER_LABELS,
   columnTypeConfidence,
   csvColumnTypeLabel,
-  csvHeaderConfigFor,
-  csvHeaderSummaryLabel,
   csvFileNotices,
   selectedColumnType,
-  valueMatchesType,
   type CsvImportFileDraft,
 } from "./csv";
 import type { CsvColumnDraft, CsvValidationIssue, CsvValidationSummary } from "./types";
@@ -262,27 +257,6 @@ function schemaDataColumnTrack(column: CsvColumnDraft, index: number, total: num
 function schemaGridTemplate(columns: CsvColumnDraft[]): string {
   const tracks = columns.map((column, index) => schemaDataColumnTrack(column, index, columns.length));
   return `56px ${tracks.join(" ")} 96px`;
-}
-
-function validExamplesForColumn(file: CsvImportFileDraft, columnId: string): string[] {
-  const index = file.columns.findIndex((column) => column.id === columnId);
-  const column = file.columns[index];
-  if (index < 0 || !column) return [];
-  const expected = selectedColumnType(column);
-  const skipped = new Set(file.skipped);
-  const examples: string[] = [];
-  const seen = new Set<string>();
-  for (const record of file.parsed?.records ?? []) {
-    if (skipped.has(record.rowNumber)) continue;
-    const value = (file.overrides[record.rowNumber]?.[column.id] ?? record.fields[index] ?? "")
-      .replace(/\s+/g, " ")
-      .trim();
-    if (!value || seen.has(value) || !valueMatchesType(value, expected)) continue;
-    seen.add(value);
-    examples.push(value);
-    if (examples.length >= 5) break;
-  }
-  return examples;
 }
 
 function isGeneratedFallbackName(file: CsvImportFileDraft, column: CsvColumnDraft): boolean {

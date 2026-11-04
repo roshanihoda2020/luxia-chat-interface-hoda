@@ -12,10 +12,23 @@ import {
 /** Full width spans every grid column. */
 const HOME_TILE_FULL_WIDTH_COLUMNS = HOME_TILE_GRID.columns;
 
-export type HomeTileCategory = "home" | "projects" | "conversations" | "knowledge" | "tools";
+/** Collection: several accessible items. Item: one chosen (or resolved) item. Tool: a Luxia tool. */
+export type HomeTileModel = "collection" | "item" | "tool";
+
+/** The kind of Luxia content a tile is about; collections and items share these. */
+export type HomeTileCategory =
+  | "projects"
+  | "chats"
+  | "galaxies"
+  | "constellations"
+  | "data-sources"
+  | "dashboards"
+  | "continue"
+  | "tools";
 
 export interface HomeTileDefinition {
   type: HomeTileType;
+  model: HomeTileModel;
   label: string;
   /** One line for the Home Tile Library. */
   description: string;
@@ -44,7 +57,7 @@ export interface HomeTileDefinition {
   ownBottomSpacingSizes?: readonly HomeTileSize[];
 }
 
-function entityTile(
+function itemTile(
   type: HomeTileType,
   label: string,
   description: string,
@@ -55,6 +68,7 @@ function entityTile(
 ): HomeTileDefinition {
   return {
     type,
+    model: scope === "tool" ? "tool" : "item",
     label,
     description,
     category,
@@ -66,16 +80,83 @@ function entityTile(
   };
 }
 
+/** Collections never have a target and may be added any number of times. */
+function collectionTile(
+  type: HomeTileType,
+  label: string,
+  description: string,
+  category: HomeTileCategory,
+  options: Pick<HomeTileDefinition, "allowedSizes"> & Partial<HomeTileDefinition> = {
+    allowedSizes: ["small", "medium", "large", "wide"],
+  },
+): HomeTileDefinition {
+  return {
+    type,
+    model: "collection",
+    label,
+    description,
+    category,
+    defaultSize: "medium",
+    targetScopes: [],
+    requiresTarget: false,
+    defaultConfig: {},
+    ...options,
+  };
+}
+
 /**
- * Tile catalog. Your focus, Pinned and Recent keep their original full-width
- * sections at Full width and switch to compact Home Tile layouts when smaller.
+ * Tile catalog. Collections first, then specific items, then tools.
+ * The Projects collection replaces the former Pinned projects / Recent projects
+ * tiles (now its "pinned" / "updated" views) and keeps their Full-width section.
  */
 export const HOME_TILE_DEFINITIONS: Record<HomeTileType, HomeTileDefinition> = {
+  "projects-collection": collectionTile(
+    "projects-collection",
+    "Projects",
+    "Your pinned, recently updated or all Projects.",
+    "projects",
+    {
+      allowedSizes: ["small", "medium", "large", "wide-tall"],
+      defaultConfig: { view: "pinned" },
+      contentHeightSizes: ["wide-tall"],
+    },
+  ),
+  "chats-collection": collectionTile(
+    "chats-collection",
+    "Chats",
+    "Your Constellation Chats, most recently opened first.",
+    "chats",
+  ),
+  "galaxies-collection": collectionTile(
+    "galaxies-collection",
+    "Galaxies",
+    "The Galaxy of each Project you can access.",
+    "galaxies",
+  ),
+  "constellations-collection": collectionTile(
+    "constellations-collection",
+    "Constellations",
+    "Constellations you can use, grouped by Project.",
+    "constellations",
+  ),
+  "data-sources-collection": collectionTile(
+    "data-sources-collection",
+    "Data Sources",
+    "Data Sources you can access.",
+    "data-sources",
+  ),
+  "dashboards-collection": collectionTile(
+    "dashboards-collection",
+    "Dashboards",
+    "Named Dashboards from your Projects, recently updated first.",
+    "dashboards",
+  ),
   "your-focus": {
     type: "your-focus",
+    model: "item",
     label: "Your focus",
     description: "Continue your most recent Chat or Galaxy, or the one you choose.",
-    category: "home",
+    category: "continue",
     allowedSizes: ["small", "medium", "large", "wide"],
     defaultSize: "wide",
     targetScopes: [],
@@ -87,33 +168,7 @@ export const HOME_TILE_DEFINITIONS: Record<HomeTileType, HomeTileDefinition> = {
     // At Full width HomeHero's root section carries HI.sectionGap (mb-7).
     ownBottomSpacingSizes: ["wide"],
   },
-  "pinned-projects": {
-    type: "pinned-projects",
-    label: "Pinned projects",
-    description: "The Projects you pinned, from a short list to full cards.",
-    category: "home",
-    allowedSizes: ["small", "medium", "large", "wide-tall"],
-    defaultSize: "wide-tall",
-    targetScopes: [],
-    requiresTarget: false,
-    maxInstances: 1,
-    defaultConfig: {},
-    contentHeightSizes: ["wide-tall"],
-  },
-  "recent-projects": {
-    type: "recent-projects",
-    label: "Recent projects",
-    description: "Your most recently updated Projects, from a short list to the full library view.",
-    category: "home",
-    allowedSizes: ["small", "medium", "large", "wide-tall"],
-    defaultSize: "wide-tall",
-    targetScopes: [],
-    requiresTarget: false,
-    maxInstances: 1,
-    defaultConfig: {},
-    contentHeightSizes: ["wide-tall"],
-  },
-  project: entityTile(
+  project: itemTile(
     "project",
     "Project",
     "One Project card with quick links to its Galaxy.",
@@ -122,48 +177,48 @@ export const HOME_TILE_DEFINITIONS: Record<HomeTileType, HomeTileDefinition> = {
     "medium",
     ["small", "medium", "large"],
   ),
-  galaxy: entityTile(
+  chat: itemTile(
+    "chat",
+    "Chat",
+    "Continue one Constellation Chat.",
+    "chats",
+    "chat",
+    "small",
+  ),
+  galaxy: itemTile(
     "galaxy",
     "Galaxy",
     "Open one Project's Galaxy directly.",
-    "projects",
+    "galaxies",
     "galaxy",
     "small",
   ),
-  dashboard: entityTile(
+  constellation: itemTile(
+    "constellation",
+    "Constellation",
+    "Open one Constellation you can use.",
+    "constellations",
+    "constellation",
+    "small",
+  ),
+  "data-source": itemTile(
+    "data-source",
+    "Data Source",
+    "Open one Data Source's settings.",
+    "data-sources",
+    "data-source",
+    "small",
+  ),
+  dashboard: itemTile(
     "dashboard",
-    "Project dashboard",
-    "Open one Project's Dashboard of saved outputs.",
-    "projects",
+    "Dashboard",
+    "One named Dashboard and its saved outputs.",
+    "dashboards",
     "dashboard",
     "small",
     ["small", "medium", "large"],
   ),
-  chat: entityTile(
-    "chat",
-    "Chat",
-    "Continue one Constellation Chat.",
-    "conversations",
-    "chat",
-    "small",
-  ),
-  constellation: entityTile(
-    "constellation",
-    "Constellation",
-    "Open one Constellation you can use.",
-    "knowledge",
-    "constellation",
-    "small",
-  ),
-  "data-source": entityTile(
-    "data-source",
-    "Data Source",
-    "Open one Data Source's settings.",
-    "knowledge",
-    "data-source",
-    "small",
-  ),
-  tool: entityTile(
+  tool: itemTile(
     "tool",
     "Tool",
     "Open a Luxia tool such as Writing Assistant.",
@@ -174,12 +229,25 @@ export const HOME_TILE_DEFINITIONS: Record<HomeTileType, HomeTileDefinition> = {
 };
 
 export const HOME_TILE_CATEGORY_LABELS: Record<HomeTileCategory, string> = {
-  home: "Home sections",
   projects: "Projects",
-  conversations: "Conversations",
-  knowledge: "Knowledge & data",
+  chats: "Chats",
+  galaxies: "Galaxies",
+  constellations: "Constellations",
+  "data-sources": "Data Sources",
+  dashboards: "Dashboards",
+  continue: "Continue",
   tools: "Tools",
 };
+
+export const HOME_TILE_MODEL_LABELS: Record<HomeTileModel, string> = {
+  collection: "Collections",
+  item: "Specific items",
+  tool: "Tools",
+};
+
+export function isHomeCollectionTile(tile: Pick<HomeTile, "type">): boolean {
+  return getHomeTileDefinition(tile.type).model === "collection";
+}
 
 export function isHomeTileType(value: unknown): value is HomeTileType {
   return typeof value === "string" && Object.prototype.hasOwnProperty.call(HOME_TILE_DEFINITIONS, value);
@@ -203,7 +271,7 @@ export function homeTileUsesContentHeight(tile: Pick<HomeTile, "type" | "w" | "h
 /**
  * Smaller allowed sizes a dragged tile may take to fit beside other tiles,
  * largest first (narrower, never taller). Empty for tiles at a content-height
- * size (Full-width Your focus / Pinned / Recent): shrinking those swaps their
+ * size (Full-width Your focus / Projects collection): shrinking those swaps their
  * whole section for a compact tile, so it's never done automatically.
  */
 export function getHomeTileFitSizes(tile: HomeTile): Array<{ id: HomeTileSize; w: number; h: number }> {

@@ -1260,7 +1260,7 @@ body:has(.luxia-login-shell),
   }
 }
 
-/* --- Auth V2 handoff additions (compact, reuse existing tokens) --- */
+/* Auth V2 additions (compact, reuse existing tokens) */
 
 .luxia-login-method-list {
   display: flex;

@@ -1,13 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import ReactDOM from "react-dom";
-import flagUs from "@/assets/flags/us.svg";
-import flagIt from "@/assets/flags/it.svg";
-import flagSa from "@/assets/flags/sa.svg";
-import flagFr from "@/assets/flags/fr.svg";
-import flagDe from "@/assets/flags/de.svg";
-import flagEs from "@/assets/flags/es.svg";
-import flagCn from "@/assets/flags/cn.svg";
-import { LuxiaStarLogo } from "@/app/components/LuxiaStarLogo";
+import { useState, useRef, useEffect, useMemo } from "react";
 import {
   LoginPage,
   MfaInAppNudge,
@@ -24,29 +15,19 @@ import {
   runWithUnsavedNavigationGuard,
   type UnsavedNavigationGuard,
 } from "@/app/features/shared/unsavedNavigationGuard";
-import { ActiveDataTablesSection } from "@/app/features/active-data-tables/ActiveDataTablesSection";
 import type { DataTableRecord } from "@/app/features/active-data-tables/types";
-import { ExtraContextFilesSection } from "@/app/features/extra-context-files/ExtraContextFilesSection";
 import type { ExtraContextFile } from "@/app/features/extra-context-files/types";
-import { InstructionSection } from "@/app/features/instruction/InstructionSection";
 import {
-  KnowledgeBaseSection,
   type KnowledgeBaseEntry,
 } from "@/app/features/knowledge-base";
-import { DataViewsSection } from "@/app/features/data-views";
-import { MetricsSection } from "@/app/features/metrics/MetricsSection";
 import type { MetricRecord } from "@/app/features/metrics/types";
-import { PDFFilesSection } from "@/app/features/pdf-files/PDFFilesSection";
 import type { PDFFileRecord } from "@/app/features/pdf-files/types";
-import { CrawlerSection } from "@/app/features/crawler/CrawlerSection";
 import type { CrawlerState } from "@/app/features/crawler/types";
-import { RelationshipSection } from "@/app/features/relationship/RelationshipSection";
 import type { RelationshipRecord } from "@/app/features/relationship/types";
 import {
   GalaxyActivityPanel,
   GalaxyCollapsedRail,
   GalaxyEmptyState,
-  GalaxyRouteSelector,
   GALAXY_COLLAPSED_WIDTH,
   GALAXY_DEFAULT_INSTRUCTION,
   GALAXY_PANEL_OUTER_GAP,
@@ -70,6 +51,7 @@ import {
   getGalaxyPath,
   getGalaxySettingsPath,
   getDashboardPath,
+  getProjectOutputsPath,
   getChatPath,
   getConstellationChatPath,
   getConstellationsPath,
@@ -111,6 +93,7 @@ import {
   writeHomePrimaryPreference,
   writePinnedEntityOrder,
   writePinnedProjectIds,
+  useUserHomePreference,
 } from "@/app/features/home";
 import type { HomeBrowseMode, HomeProjectCard, HomeRecentWorkItem } from "@/app/features/home";
 import { getProjectNameById, ProjectManageDialogs, deriveProjectEntityCounts, filterActiveProjects } from "@/app/features/project";
@@ -176,10 +159,8 @@ import {
 } from "@/app/features/settings";
 import { Toaster, toast } from "sonner";
 import {
-  CAPSULE_CAPABILITY_ICON,
   CAPSULE_CAPABILITY_PATH,
   capabilityIdFromPath,
-  capsuleCapabilitiesForType,
   isCapsuleCapabilityAllowed,
   CANONICAL_CONSTELLATIONS,
   getCanonicalConstellationById,
@@ -249,7 +230,9 @@ import type {
 } from "@/app/features/permissions";
 import {
   ProjectOverviewPage,
-  ProjectDashboardPage,
+  ProjectDashboardsPage,
+  listProjectDashboards,
+  useProjectDashboards,
   ChatsLibrary,
   ConstellationsLibrary,
   ActivityLibrary,
@@ -352,22 +335,11 @@ import {
 } from "@/app/features/vidget-inbox";
 import { parseSharedReviewShareIdFromPath } from "@/app/features/project/projectPaths";
 import { parseLuxiaRelativeTimestamp } from "@/app/features/project-overview/projectOverviewPreview";
+import { LUXIA_PAGE_INTRO } from "@/app/components/LuxiaPageHeader";
 import {
-  LuxiaBreadcrumb,
-  buildChatBreadcrumbItems,
-  buildGalaxyBreadcrumbItems,
-} from "@/app/components/LuxiaBreadcrumb";
-import { LuxiaPageHeader, LuxiaPageHeaderShell, LUXIA_PAGE_INTRO, LUXIA_PAGE_HEADER_ACTION } from "@/app/components/LuxiaPageHeader";
-import { LuxiaEntityOptionsMenu } from "@/app/components/LuxiaEntityOptionsMenu";
-import { ResponseActionsFooter } from "@/app/features/chat/ResponseActionsFooter";
-import { LuxiaResponseCard } from "@/app/features/chat/LuxiaResponseCard";
-import type { LuxiaResponsePresentation } from "@/app/features/chat/LuxiaResponseCard";
-import {
-  hydrateMessageResponsePresentation,
   makeResponseConfidenceDemoMessages,
 } from "@/app/features/constellation-settings/responseConfidence";
 import { LX } from "@/app/features/active-data-tables/tokens";
-import { IC, IC_BTN_ICON, IC_BTN_OPEN, IC_CARD_HEADER, IC_INPUT_TEXT, IC_SEARCH_SHELL, IC_SEARCH_SHELL_STYLE, icCardStyle, icHoverOff, icHoverOn, icInspectorAccentStyle, icInspectorDescriptionColor, icInspectorTitleColor, icOpenActiveOn, icSearchShellBlur, icSearchShellFocus, icSearchShellHoverOff, icSearchShellHoverOn, icTextareaStyle } from "@/app/features/active-data-tables/inspectorTheme";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
 import {
@@ -384,25 +356,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/app/components/ui/alert-dialog";
-import { Badge } from "@/app/components/ui/badge";
 import { Label } from "@/app/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/app/components/ui/radio-group";
 import { SearchableSelect } from "@/app/components/ui/searchable-select";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/app/components/ui/tooltip";
 import {
-  ChevronDown, ChevronRight, ChevronLeft,
-  Plus, X, Pin, Copy, SquareArrowOutUpRight,
-  FileText, Database, BookOpen,
-  Send, Mic, Eye, Upload, GripVertical,
-  Trash2, Check, Edit3, BarChart3, Table2,
-  Search, MoreHorizontal,
-  AlignLeft, Layers, Share2, List, FileBarChart2,
-  type LucideIcon,
+  X,
 } from "lucide-react";
 import {
-  LuxiaGalaxyIcon,
   LuxiaHomeIcon,
-  LuxiaSettingsIcon,
 } from "@/assets/icons";
 import {
   LeftNav,
@@ -414,13 +375,11 @@ import {
 } from "@/app/features/navigation/LeftNav";
 
 import {
-  CONSTELLATION_STYLE,
   getConstellationSourceLabel,
   ConstellationSourceBadge,
   type Chat,
   type ChatScope,
   type Constellation,
-  type ConstellationType,
   type Message,
   type NewChatPayload,
   type Project,
@@ -435,10 +394,6 @@ import {
   UserBubble,
 } from "@/app/app-sections/ChatContentSection";
 import { ConstellationSidebar } from "@/app/app-sections/ConstellationSidebarSection";
-
-
-
-
 
 function getProjectConstellations(
   projectId: string,
@@ -677,13 +632,10 @@ function readInitialShellFromLocation(): {
 
 const INITIAL_SHELL = readInitialShellFromLocation();
 
-
-
 const INSPECTOR_NARROW_BREAKPOINT = 1280;
 const INSPECTOR_WIDTH_DEFAULT = 288;
 const INSPECTOR_WIDTH_MIN = 260;
 const INSPECTOR_WIDTH_HARD_MAX = 360;
-const CONSTELLATION_COLLAPSED_WIDTH = 56;
 const CHAT_MIN_USABLE_WIDTH = 480;
 
 const GALAXY_WIDTH_DEFAULT = 360;
@@ -727,8 +679,6 @@ function clampGalaxyWidth(width: number, viewportWidth: number, leftNavWidth: nu
   const maxWidth = Math.min(GALAXY_WIDTH_HARD_MAX, maxByViewportShare, maxByChat);
   return Math.max(GALAXY_WIDTH_MIN, Math.min(maxWidth, width));
 }
-
-
 
 function ChatTypeOption({
   id,
@@ -979,8 +929,6 @@ function NewChatModal({
   );
 }
 
-
-
 export default function App() {
   const [chats, setChats] = useState<Chat[]>(INITIAL_CHATS);
   const [activeChat, setActiveChat] = useState(INITIAL_SHELL.activeChat);
@@ -1100,7 +1048,10 @@ export default function App() {
     INITIAL_SHELL.sharedReviewShareId,
   );
   const [dashboardFocusOutputId, setDashboardFocusOutputId] = useState<string | null>(null);
-  const [activeDashboardOutputId, setActiveDashboardOutputId] = useState<string | null>(null);
+  /** The open named Dashboard (Project › Dashboards › name), or null for the list. */
+  const [activeDashboardId, setActiveDashboardId] = useState<string | null>(null);
+  /** Re-render when Dashboards are created, renamed or deleted (sidebar, Home Tiles). */
+  const projectDashboardsSnapshot = useProjectDashboards();
   const [dashboardViewResetKey, setDashboardViewResetKey] = useState(0);
   const [vidgetSettingsSection, setVidgetSettingsSection] = useState<VidgetSettingsSectionId>("general");
   const [vidgetSettingsFocusPreview, setVidgetSettingsFocusPreview] = useState(false);
@@ -1202,10 +1153,12 @@ export default function App() {
     allConstellations,
     constellationSettingsById,
   ]);
-  const [pinnedProjectIds, setPinnedProjectIds] = useState<string[]>(readPinnedProjectIds);
+  // Home personalization is per user (see homePreferenceScope). Work pins stay
+  // shared for now: they mirror Chat pins (`chats[].pinned`) used outside Home.
+  const [pinnedProjectIds, setPinnedProjectIds] = useUserHomePreference(prototypeUserId, readPinnedProjectIds);
   const [pinnedEntityOrder, setPinnedEntityOrder] = useState(readPinnedEntityOrder);
-  const [primaryPreference, setPrimaryPreference] = useState(readHomePrimaryPreference);
-  const [dismissedContinueKeys, setDismissedContinueKeys] = useState(readDismissedContinueKeys);
+  const [primaryPreference, setPrimaryPreference] = useUserHomePreference(prototypeUserId, readHomePrimaryPreference);
+  const [dismissedContinueKeys, setDismissedContinueKeys] = useUserHomePreference(prototypeUserId, readDismissedContinueKeys);
   const [galaxySessions, setGalaxySessions] = useState<Record<string, GalaxySessionState>>(() => ({
     "galaxy-01": createIdleGalaxySession(getProjectNameById("project-01")),
     "galaxy-02": createIdleGalaxySession(getProjectNameById("project-02")),
@@ -1391,7 +1344,16 @@ export default function App() {
       if (resolved.kind === "dashboard") {
         clearSettingsRouteState();
         setActiveProjectId(resolved.projectId);
+        setActiveDashboardId(resolved.dashboardId);
         setProjectBrowseMode("dashboards");
+        setAppView("project");
+        return;
+      }
+
+      if (resolved.kind === "project-outputs") {
+        clearSettingsRouteState();
+        setActiveProjectId(resolved.projectId);
+        setProjectBrowseMode("outputs");
         setAppView("project");
         return;
       }
@@ -1932,7 +1894,6 @@ export default function App() {
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
 
-
   useEffect(() => {
     if (!isMobileNav) setMobileNavOpen(false);
   }, [isMobileNav]);
@@ -1993,6 +1954,8 @@ export default function App() {
       if (projectBrowseMode === "chats") return "chats";
       if (projectBrowseMode === "constellations") return "constellations";
       if (projectBrowseMode === "dashboards") return "dashboard";
+      // All outputs is a tab of the Project's one Dashboard page.
+      if (projectBrowseMode === "outputs") return "dashboard";
       if (projectBrowseMode === "virtual-assistants") return "virtual-assistant";
       return "overview";
     }
@@ -4004,11 +3967,19 @@ export default function App() {
     }
   }
 
-  function syncDashboardPath(projectId: string) {
+  function syncDashboardPath(projectId: string, dashboardId: string | null = null) {
     if (typeof window === "undefined") return;
-    const next = getDashboardPath(projectId);
+    const next = getDashboardPath(projectId, dashboardId);
     if (window.location.pathname !== next) {
-      window.history.pushState({ luxiaView: "dashboard", projectId }, "", next);
+      window.history.pushState({ luxiaView: "dashboard", projectId, dashboardId }, "", next);
+    }
+  }
+
+  function syncOutputsPath(projectId: string) {
+    if (typeof window === "undefined") return;
+    const next = getProjectOutputsPath(projectId);
+    if (window.location.pathname !== next) {
+      window.history.pushState({ luxiaView: "project", projectId, browse: "outputs" }, "", next);
     }
   }
 
@@ -4038,7 +4009,7 @@ export default function App() {
   function handleOpenProjectOverview(
     projectId: string,
     browseMode: ProjectOverviewBrowseMode = "overview",
-    options?: { skipMembershipCheck?: boolean; project?: HomeProjectCard },
+    options?: { skipMembershipCheck?: boolean; project?: HomeProjectCard; dashboardId?: string | null },
   ) {
     if (!options?.skipMembershipCheck) {
       if (!canAccessProject(projectId, projectMembershipsState, prototypeUserId)) {
@@ -4061,7 +4032,9 @@ export default function App() {
       );
       setAppView("project");
       if (browseMode === "dashboards") {
-        syncDashboardPath(projectId);
+        syncDashboardPath(projectId, options?.dashboardId ?? null);
+      } else if (browseMode === "outputs") {
+        syncOutputsPath(projectId);
       } else if (browseMode === "constellations") {
         if (typeof window !== "undefined") {
           const next = getConstellationsPath(projectId);
@@ -4082,15 +4055,17 @@ export default function App() {
     }
     setActiveProjectId(projectId);
     setProjectBrowseMode(
-      browseMode === "dashboards"
-        ? "dashboards"
+      browseMode === "dashboards" || browseMode === "outputs"
+        ? browseMode
         : browseMode === "constellations"
           ? "constellations"
           : "overview",
     );
     setAppView("project");
     if (browseMode === "dashboards") {
-      syncDashboardPath(projectId);
+      syncDashboardPath(projectId, options?.dashboardId ?? null);
+    } else if (browseMode === "outputs") {
+      syncOutputsPath(projectId);
     } else if (browseMode === "constellations") {
       if (typeof window !== "undefined") {
         const next = getConstellationsPath(projectId);
@@ -4108,23 +4083,28 @@ export default function App() {
     setHomeScrollRequest((value) => value + 1);
   }
 
-  function handleOpenProjectDashboard(
-    projectId: string,
-    options?: { outputId?: string },
-  ) {
+  /**
+   * Project › Dashboards. With `dashboardId`, opens that named Dashboard;
+   * without, the Project's Dashboards list.
+   */
+  function handleOpenProjectDashboard(projectId: string, dashboardId: string | null = null) {
+    setActiveDashboardId(dashboardId);
+    handleOpenProjectOverview(projectId, "dashboards", { dashboardId });
+  }
+
+  /** Project › All Outputs, optionally opening one output's preview. */
+  function handleOpenProjectOutputs(projectId: string, options?: { outputId?: string }) {
     if (options?.outputId) {
       setDashboardFocusOutputId(options.outputId);
-      setActiveDashboardOutputId(options.outputId);
     } else {
       setDashboardFocusOutputId(null);
-      setActiveDashboardOutputId(null);
       setDashboardViewResetKey((value) => value + 1);
     }
-    handleOpenProjectOverview(projectId, "dashboards");
+    handleOpenProjectOverview(projectId, "outputs");
   }
 
   function handleOpenDashboardOutput(projectId: string, outputId: string) {
-    handleOpenProjectDashboard(projectId, { outputId });
+    handleOpenProjectOutputs(projectId, { outputId });
   }
   function handleNavigateProjectDestination(
     destination: "galaxy" | "constellations" | "openProject",
@@ -4186,9 +4166,9 @@ export default function App() {
     );
     if (!homePrimaryPreferencesEqual(normalized, primaryPreference)) {
       setPrimaryPreference(normalized);
-      writeHomePrimaryPreference(normalized);
+      writeHomePrimaryPreference(prototypeUserId, normalized);
     }
-  }, [dismissedContinueKeys, primaryPreference, recentWork]);
+  }, [dismissedContinueKeys, primaryPreference, prototypeUserId, recentWork]);
 
   function handleToggleWorkPin(itemId: string) {
     const item = recentWork.find((entry) => entry.id === itemId);
@@ -4209,7 +4189,7 @@ export default function App() {
 
     const next = togglePinnedProjectId(pinnedProjectIds, projectId);
     setPinnedProjectIds(next);
-    writePinnedProjectIds(next);
+    writePinnedProjectIds(prototypeUserId, next);
     setHomeProjects((prev) => prev.map((project) => (
       project.id === projectId ? { ...project, isPinned: next.includes(projectId) } : project
     )));
@@ -4229,7 +4209,7 @@ export default function App() {
     if (pinnedProjectIds.includes(projectId)) {
       const nextPins = pinnedProjectIds.filter((id) => id !== projectId);
       setPinnedProjectIds(nextPins);
-      writePinnedProjectIds(nextPins);
+      writePinnedProjectIds(prototypeUserId, nextPins);
     }
   }
 
@@ -4326,7 +4306,7 @@ export default function App() {
     if (pinnedProjectIds.includes(projectId)) {
       const nextPins = pinnedProjectIds.filter((id) => id !== projectId);
       setPinnedProjectIds(nextPins);
-      writePinnedProjectIds(nextPins);
+      writePinnedProjectIds(prototypeUserId, nextPins);
     }
 
     setChats((prev) => prev.filter((chat) => chat.projectId !== projectId));
@@ -4336,27 +4316,6 @@ export default function App() {
     }
   }
 
-  function handleRenameGalaxy(projectId: string, name: string) {
-    const trimmed = name.trim();
-    if (!trimmed) return;
-    const galaxyId = homeProjects.find((project) => project.id === projectId)?.galaxyId
-      ?? INITIAL_CHATS.find((chat) => chat.chatType === "galaxy" && chat.projectId === projectId)?.id;
-    if (!galaxyId) return;
-    setChats((prev) => prev.map((chat) => (
-      chat.id === galaxyId && chat.chatType === "galaxy"
-        ? { ...chat, label: trimmed }
-        : chat
-    )));
-    setGalaxySettingsById((prev) => {
-      const existing = prev[galaxyId];
-      if (!existing) return prev;
-      return {
-        ...prev,
-        [galaxyId]: { ...existing, name: trimmed, updatedAt: "Just now" },
-      };
-    });
-  }
-
   function handleSetPrimaryHero(entityKey: string) {
     if (!parseEntityKey(entityKey)) return;
     const exists = recentWork.some((item) => workItemEntityKey(item) === entityKey);
@@ -4364,41 +4323,41 @@ export default function App() {
 
     const next = { mode: "manual" as const, entityKey };
     setPrimaryPreference(next);
-    writeHomePrimaryPreference(next);
+    writeHomePrimaryPreference(prototypeUserId, next);
     if (dismissedContinueKeys.includes(entityKey)) {
       const cleared = dismissedContinueKeys.filter((key) => key !== entityKey);
       setDismissedContinueKeys(cleared);
-      writeDismissedContinueKeys(cleared);
+      writeDismissedContinueKeys(prototypeUserId, cleared);
     }
   }
 
   function clearManualHomeFocus() {
     const next = { mode: "automatic" as const, entityKey: null };
     setPrimaryPreference(next);
-    writeHomePrimaryPreference(next);
+    writeHomePrimaryPreference(prototypeUserId, next);
   }
 
   function handleShowAllOnHome() {
     setDismissedContinueKeys([]);
-    writeDismissedContinueKeys([]);
+    writeDismissedContinueKeys(prototypeUserId, []);
     clearManualHomeFocus();
   }
 
   function handleDismissFromContinue(entityKey: string) {
     const next = [...new Set([...dismissedContinueKeys, entityKey])];
     setDismissedContinueKeys(next);
-    writeDismissedContinueKeys(next);
+    writeDismissedContinueKeys(prototypeUserId, next);
     if (primaryPreference.mode === "manual" && primaryPreference.entityKey === entityKey) {
       const automatic = { mode: "automatic" as const, entityKey: null };
       setPrimaryPreference(automatic);
-      writeHomePrimaryPreference(automatic);
+      writeHomePrimaryPreference(prototypeUserId, automatic);
     }
   }
 
   function handleRestoreToContinue(entityKey: string) {
     const next = dismissedContinueKeys.filter((key) => key !== entityKey);
     setDismissedContinueKeys(next);
-    writeDismissedContinueKeys(next);
+    writeDismissedContinueKeys(prototypeUserId, next);
   }
 
   function ensureChatOpen(chatId: string) {
@@ -5923,14 +5882,15 @@ export default function App() {
     dataSourcesState,
   ]);
 
-  const sidebarProjectDashboardOutputs = useMemo(() => {
+  /** The context Project's named Dashboards (sidebar Dashboards panel). */
+  const sidebarProjectDashboards = useMemo(() => {
     if (!contextProjectId || !contextProjectMembership) return [];
-    return getProjectDashboardOutputs(contextProjectId).map((item) => ({
+    return listProjectDashboards(contextProjectId).map((item) => ({
       id: item.id,
       label: item.name,
       updatedAtTimestamp: item.updatedAtTimestamp,
     }));
-  }, [contextProjectId, contextProjectMembership]);
+  }, [contextProjectId, contextProjectMembership, projectDashboardsSnapshot]);
 
   const sidebarProjectVidgets = useMemo(() => {
     if (!contextProjectId || !contextProjectMembership) return [];
@@ -5960,8 +5920,10 @@ export default function App() {
 
   useEffect(() => {
     setDashboardFocusOutputId(null);
-    setActiveDashboardOutputId(null);
     setDashboardViewResetKey((value) => value + 1);
+    // activeDashboardId is not reset here: every way into the Dashboard page sets it
+    // (route, sidebar, Home tile), and clearing it on a Project change would drop the
+    // Dashboard a Home tile just asked to open.
   }, [activeProjectId]);
 
   const workingAccessibleChats = useMemo(
@@ -6350,9 +6312,9 @@ export default function App() {
             ? settingsConstellationId
             : null
         }
-        activeDashboardOutputId={
+        activeDashboardId={
           appView === "project" && projectBrowseMode === "dashboards"
-            ? activeDashboardOutputId
+            ? activeDashboardId
             : null
         }
         activeVidgetId={appView === "vidget-settings" ? vidgetId : null}
@@ -6363,13 +6325,13 @@ export default function App() {
         }
         projectChats={sidebarProjectChats}
         projectConstellations={sidebarProjectConstellations}
-        projectDashboardOutputs={sidebarProjectDashboardOutputs}
+        projectDashboards={sidebarProjectDashboards}
         projectVidgets={sidebarProjectVidgets}
         projectPipelines={sidebarProjectPipelines}
         switchableProjects={sidebarSwitchableProjects}
         chatTotalCount={sidebarProjectChats.length}
         constellationTotalCount={sidebarProjectConstellations.length}
-        dashboardTotalCount={sidebarProjectDashboardOutputs.length}
+        dashboardTotalCount={sidebarProjectDashboards.length}
         vidgetTotalCount={sidebarProjectVidgets.length}
         pipelineTotalCount={sidebarPipelineCount}
         onHomeClick={() => whenUnsavedNavigationAllows(handleNavigateHome)}
@@ -6392,8 +6354,8 @@ export default function App() {
             handleOpenConstellationSettings(projectId, constellationId, "general");
           });
         }}
-        onOpenDashboardOutput={(projectId, outputId) => {
-          whenUnsavedNavigationAllows(() => handleOpenDashboardOutput(projectId, outputId));
+        onOpenDashboard={(projectId, dashboardId) => {
+          whenUnsavedNavigationAllows(() => handleOpenProjectDashboard(projectId, dashboardId));
         }}
         onOpenVidget={(projectId, nextVidgetId) => {
           whenUnsavedNavigationAllows(() => {
@@ -6441,7 +6403,7 @@ export default function App() {
               onBrowseModeChange={setHomeBrowseMode}
               onPrimaryPreferenceChange={(preference) => {
                 setPrimaryPreference(preference);
-                writeHomePrimaryPreference(preference);
+                writeHomePrimaryPreference(prototypeUserId, preference);
               }}
               onDismissFromContinue={handleDismissFromContinue}
               onRestoreToContinue={handleRestoreToContinue}
@@ -6467,6 +6429,8 @@ export default function App() {
                 label: item.label,
                 projectId: item.projectId,
                 type: item.type,
+                description: item.description,
+                sourceCount: item.sourceCount,
               }))}
               onNewChat={handleNewChat}
               onNewProject={() => setShowNewProjectModal(true)}
@@ -6481,9 +6445,10 @@ export default function App() {
                   ownership: source.ownership,
                   status: source.status,
                   connector: source.connector,
+                  contentSummary: source.contentSummary,
                 }))}
               onOpenDataSource={(dataSourceId) => handleOpenDataSourceSettings(dataSourceId)}
-              onOpenDashboard={(projectId) => handleOpenProjectDashboard(projectId)}
+              onOpenDashboard={(projectId, dashboardId) => handleOpenProjectDashboard(projectId, dashboardId ?? null)}
               onOpenTool={(toolId) => {
                 if (toolId === "writing-assistant") handleOpenWritingAssistant();
               }}
@@ -6494,15 +6459,16 @@ export default function App() {
             scrollRequest={homeScrollRequest}
             variant="standard"
           >
-            {projectBrowseMode === "dashboards" ? (
-              <ProjectDashboardPage
+            {projectBrowseMode === "dashboards" || projectBrowseMode === "outputs" ? (
+              <ProjectDashboardsPage
                 projectId={activeProjectId}
+                dashboardId={projectBrowseMode === "dashboards" ? activeDashboardId : null}
+                tab={projectBrowseMode === "outputs" ? "outputs" : "dashboards"}
                 projects={homeProjects}
                 projectRole={prototypeProjectRole}
                 currentUserId={prototypeUserId}
                 focusOutputId={dashboardFocusOutputId}
                 viewResetKey={dashboardViewResetKey}
-                onViewOutputIdChange={setActiveDashboardOutputId}
                 onNavigateHome={handleNavigateHome}
                 onViewProjects={() => {
                   setAppView("home");
@@ -6518,6 +6484,8 @@ export default function App() {
                   handleOpenProjectOverview(projectId, "overview");
                 }}
                 onOpenGalaxy={handleOpenGalaxyFromHome}
+                onOpenDashboard={handleOpenProjectDashboard}
+                onOpenAllOutputs={(projectId) => handleOpenProjectOutputs(projectId)}
               />
             ) : projectBrowseMode === "constellations" && activeProjectId ? (
               <ConstellationsLibrary
@@ -6605,6 +6573,7 @@ export default function App() {
                     : undefined
                 }
                 onOpenDashboard={handleOpenProjectDashboard}
+                onOpenAllOutputs={(projectId) => handleOpenProjectOutputs(projectId)}
                 onOpenDashboardOutput={handleOpenDashboardOutput}
                 onViewAllActivity={handleOpenActivityList}
                 activityNavigationContext={projectActivityNavigationContext ?? undefined}

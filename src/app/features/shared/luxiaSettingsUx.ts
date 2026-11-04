@@ -23,9 +23,8 @@
  *
  * SIDEBAR — navigation/disclosure only.
  *
- * EXCEPTION — Access Level editor historically used header Save/Cancel for a
- *   multi-tab page draft. That exception is retired: use local LuxiaSettingsFormActions
- *   inside the Settings content frame like Galaxy / Constellation / Data Source.
+ * MULTI-TAB DRAFTS (e.g. Access Level editor) — local LuxiaSettingsFormActions inside
+ *   the Settings content frame, like Galaxy / Constellation / Data Source.
  *   Nested capability managers keep content Save.
  */
 

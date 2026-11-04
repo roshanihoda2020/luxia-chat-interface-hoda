@@ -28,6 +28,12 @@
   --home-tile-icon: var(--luxia-purple-50);
   --home-tile-divider: var(--luxia-border-default);
   --home-tile-row-hover: var(--luxia-opacity-brand-primary-04);
+  /*
+   * Category corner marker (geometry in HomeTileCornerMarker). Default: deep
+   * Luxia purple; white icon 5.6:1.
+   */
+  --home-tile-corner-bg: var(--luxia-purple-60);
+  --home-tile-corner-icon: var(--luxia-text-inverse);
 }
 
 [data-home-tile-surface="soft"] {
@@ -44,6 +50,9 @@
   --home-tile-chip-border: var(--luxia-opacity-brand-secondary-24);
   --home-tile-divider: var(--luxia-opacity-brand-secondary-16);
   --home-tile-row-hover: var(--luxia-opacity-brand-secondary-08);
+  /* Corner: the brand purple the lavender tint is made from. */
+  --home-tile-corner-bg: var(--luxia-purple-50);
+  --home-tile-corner-icon: var(--luxia-text-inverse);
 }
 
 [data-home-tile-surface="featured"] {
@@ -65,6 +74,116 @@
   --home-tile-icon: rgba(198, 177, 245, 0.95);
   --home-tile-divider: rgba(255, 255, 255, 0.12);
   --home-tile-row-hover: var(--luxia-opacity-white-08);
+  /* Corner: light lavender on the dark panel (the Featured link colour), deep purple icon. */
+  --home-tile-corner-bg: var(--luxia-purple-20);
+  --home-tile-corner-icon: var(--luxia-purple-70);
+}
+
+/*
+ * Visual primitives (homeTileVisuals.tsx): identity glyphs and monograms, the
+ * display figure, the real-data mix bar and the whole-card arrow. One set per
+ * surface, all from existing Luxia purples — no new hues.
+ */
+[data-home-tile-surface] {
+  --home-tile-glyph-bg: var(--luxia-opacity-brand-secondary-12);
+  --home-tile-glyph-fg: var(--luxia-purple-60);
+  --home-tile-glyph-border: transparent;
+  --home-tile-glyph-strong-bg: var(--luxia-purple-60);
+  --home-tile-glyph-strong-fg: var(--luxia-text-inverse);
+  --home-tile-monogram-bg: linear-gradient(140deg, var(--luxia-purple-70) 0%, var(--luxia-purple-60) 100%);
+  --home-tile-monogram-fg: var(--luxia-text-inverse);
+  --home-tile-stat: var(--luxia-purple-70);
+  --home-tile-mix-1: var(--luxia-purple-70);
+  --home-tile-mix-2: var(--luxia-purple-50);
+  --home-tile-mix-3: var(--luxia-purple-20);
+  --home-tile-arrow-bg: var(--luxia-opacity-brand-secondary-12);
+  --home-tile-arrow-fg: var(--luxia-purple-60);
+  --home-tile-stack-ring: var(--luxia-surface);
+}
+
+[data-home-tile-surface="soft"] {
+  --home-tile-glyph-bg: var(--luxia-surface);
+  --home-tile-glyph-border: var(--luxia-opacity-brand-secondary-24);
+  --home-tile-glyph-strong-bg: var(--luxia-purple-50);
+  --home-tile-monogram-bg: linear-gradient(140deg, var(--luxia-purple-60) 0%, var(--luxia-purple-50) 100%);
+  --home-tile-arrow-bg: var(--luxia-surface);
+  --home-tile-stack-ring: #f6f2fe;
+}
+
+[data-home-tile-surface="featured"] {
+  --home-tile-glyph-bg: rgba(255, 255, 255, 0.1);
+  --home-tile-glyph-fg: var(--luxia-purple-20);
+  --home-tile-glyph-border: rgba(255, 255, 255, 0.08);
+  --home-tile-glyph-strong-bg: var(--luxia-purple-20);
+  --home-tile-glyph-strong-fg: var(--luxia-purple-70);
+  --home-tile-monogram-bg: linear-gradient(140deg, var(--luxia-purple-20) 0%, var(--luxia-purple-10) 100%);
+  --home-tile-monogram-fg: var(--luxia-purple-70);
+  --home-tile-stat: var(--luxia-text-inverse);
+  --home-tile-mix-1: var(--luxia-purple-10);
+  --home-tile-mix-2: var(--luxia-purple-40);
+  --home-tile-mix-3: rgba(255, 255, 255, 0.32);
+  --home-tile-arrow-bg: rgba(255, 255, 255, 0.1);
+  --home-tile-arrow-fg: var(--luxia-purple-20);
+  --home-tile-stack-ring: #261a3f;
+}
+
+.luxia-home-glyph {
+  background: var(--home-tile-glyph-bg);
+  color: var(--home-tile-glyph-fg);
+  box-shadow: inset 0 0 0 1px var(--home-tile-glyph-border);
+}
+.luxia-home-glyph[data-tone="strong"] {
+  background: var(--home-tile-glyph-strong-bg);
+  color: var(--home-tile-glyph-strong-fg);
+  box-shadow: none;
+}
+.luxia-home-stack-item > .luxia-home-glyph {
+  box-shadow: 0 0 0 2px var(--home-tile-stack-ring), inset 0 0 0 1px var(--home-tile-glyph-border);
+}
+.luxia-home-monogram {
+  background: var(--home-tile-monogram-bg);
+  color: var(--home-tile-monogram-fg);
+  font-family: var(--luxia-font-family);
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.luxia-home-stat {
+  color: var(--home-tile-stat);
+  font-family: var(--luxia-font-family);
+  font-size: 28px;
+  line-height: 30px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+.luxia-home-stat-sm {
+  font-size: 22px;
+  line-height: 26px;
+}
+.luxia-home-card-arrow {
+  background: var(--home-tile-arrow-bg);
+  color: var(--home-tile-arrow-fg);
+}
+/* A single scrollable row of compact links (every item stays reachable; focus scrolls it into view). */
+.luxia-home-chip-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--home-tile-chip-border) transparent;
+}
+
+/* Reduced motion: no hover nudges on tile arrows and cues. */
+@media (prefers-reduced-motion: reduce) {
+  .luxia-home-tile-card [class*="translate-x"],
+  .luxia-home-card-arrow {
+    transition: none !important;
+    transform: none !important;
+  }
+}
+
+/* Output thumbnails: the symbolic Dashboard preview at tile size. */
+.luxia-home-output-thumb [role="img"] {
+  height: var(--thumb-h, 56px);
+  border-radius: 8px;
 }
 
 /*
@@ -133,4 +252,280 @@
 .luxia-home-tile-card[data-home-tile-surface="featured"] .luxia-button--tertiary:hover:not(:disabled) {
   color: var(--luxia-text-inverse);
   background: var(--luxia-opacity-white-08);
+}
+
+/* Home Builder Undo toast (Luxia styling over Sonner; behaviour lives in useHomeLayout) */
+[data-sonner-toast].luxia-home-undo-toast {
+  background: var(--luxia-surface);
+  color: var(--luxia-text-primary);
+  border: 1px solid var(--luxia-opacity-brand-secondary-24);
+  border-radius: var(--luxia-radius-12);
+  box-shadow: var(--luxia-shadow-lg);
+  padding: 12px 12px 12px 14px;
+  gap: 10px;
+  font-family: var(--luxia-font-family);
+  align-items: center;
+}
+[data-sonner-toast].luxia-home-undo-toast [data-icon] {
+  color: var(--luxia-purple-60);
+  align-self: flex-start;
+  margin-top: 1px;
+}
+[data-sonner-toast].luxia-home-undo-toast [data-title] {
+  color: var(--luxia-purple-70);
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 700;
+}
+[data-sonner-toast].luxia-home-undo-toast [data-description] {
+  color: var(--luxia-text-secondary);
+  font-size: 12px;
+  line-height: 16px;
+  margin-top: 2px;
+}
+[data-sonner-toast].luxia-home-undo-toast [data-button] {
+  height: 32px;
+  padding-inline: 14px;
+  border-radius: var(--luxia-radius-button);
+  background: var(--luxia-purple-60);
+  color: var(--luxia-text-inverse);
+  font-family: var(--luxia-font-family);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  box-shadow: var(--luxia-shadow-sm);
+  transition: background-color 150ms ease;
+  flex-shrink: 0;
+}
+[data-sonner-toast].luxia-home-undo-toast [data-button]:hover {
+  background: var(--luxia-purple-70);
+}
+[data-sonner-toast].luxia-home-undo-toast [data-button]:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--luxia-opacity-brand-secondary-32);
+}
+[data-sonner-toast].luxia-home-undo-toast [data-close-button] {
+  background: var(--luxia-surface);
+  border-color: var(--luxia-border-default);
+  color: var(--luxia-text-secondary);
+}
+[data-sonner-toast].luxia-home-undo-toast [data-close-button]:hover {
+  background: var(--luxia-opacity-brand-primary-04);
+  color: var(--luxia-purple-70);
+}
+
+/* Customize Home: toolbar, touch targets, edit frames, drag feedback */
+.luxia-home-builder-toolbar {
+  /* Opaque so tiles scrolling under the sticky toolbar never show through. */
+  background:
+    linear-gradient(var(--luxia-opacity-brand-secondary-08), var(--luxia-opacity-brand-secondary-08)),
+    var(--luxia-surface);
+  border-color: var(--luxia-opacity-brand-secondary-32);
+  box-shadow: var(--luxia-shadow-sm);
+  transition: box-shadow 160ms ease, padding 160ms ease;
+}
+.luxia-home-builder-toolbar[data-stuck] {
+  box-shadow: var(--luxia-shadow-md);
+}
+
+/*
+ * Customize Home entry (normal Home): a brand-tinted secondary button, so it
+ * reads as an action next to the tiles without competing with New Chat.
+ * The attribute selector outranks the generic secondary-button hover rule.
+ */
+.luxia-button.luxia-home-customize-entry[data-home-customize-entry] {
+  color: var(--luxia-purple-70);
+  background:
+    linear-gradient(var(--luxia-opacity-brand-secondary-08), var(--luxia-opacity-brand-secondary-08)),
+    var(--luxia-surface);
+  border-color: var(--luxia-opacity-brand-secondary-32);
+  font-weight: 700;
+  box-shadow: var(--luxia-shadow-sm);
+}
+.luxia-button.luxia-home-customize-entry[data-home-customize-entry]:hover:not(:disabled) {
+  color: var(--luxia-purple-70);
+  background:
+    linear-gradient(var(--luxia-opacity-brand-secondary-16), var(--luxia-opacity-brand-secondary-16)),
+    var(--luxia-surface);
+  border-color: var(--luxia-purple-50);
+}
+.luxia-button.luxia-home-customize-entry[data-home-customize-entry]:focus-visible {
+  box-shadow: 0 0 0 3px var(--luxia-opacity-brand-secondary-32);
+}
+
+/* Comfortable touch targets on coarse pointers (phones, tablets). */
+@media (pointer: coarse) {
+  .luxia-button.luxia-home-touch-target {
+    min-height: 44px;
+    height: 44px;
+  }
+  .luxia-home-tile-controls button {
+    width: 40px;
+    height: 40px;
+  }
+}
+
+/* Phones: Reset becomes an icon button (its label stays as the accessible name). */
+@media (max-width: 639px) {
+  .luxia-button.luxia-home-toolbar-reset {
+    width: 38px;
+    min-width: 38px;
+    padding-inline: 0;
+  }
+}
+@media (max-width: 639px) and (pointer: coarse) {
+  .luxia-button.luxia-home-toolbar-reset {
+    width: 44px;
+    min-width: 44px;
+  }
+}
+
+/* A tile while customizing: a quiet outline that strengthens on hover / focus. */
+.luxia-home-tile-edit-frame {
+  outline: 1px solid var(--luxia-opacity-brand-secondary-24);
+  outline-offset: 3px;
+  border-radius: var(--luxia-radius-12);
+  transition: outline-color 150ms ease;
+}
+.luxia-home-tile-edit-frame:hover {
+  outline-color: var(--luxia-opacity-brand-secondary-32);
+  outline-width: 1.5px;
+}
+
+/* One control group per tile: style/item, size, remove. */
+.luxia-home-tile-controls {
+  background: var(--luxia-surface);
+  border: 1px solid var(--luxia-border-default);
+  box-shadow: var(--luxia-shadow-sm);
+}
+.luxia-home-tile-controls button {
+  color: var(--luxia-purple-60);
+}
+.luxia-home-tile-controls button:hover {
+  background: var(--luxia-opacity-brand-secondary-12);
+}
+.luxia-home-tile-controls button[data-home-tile-control="remove"] {
+  color: var(--luxia-error-70);
+}
+.luxia-home-tile-controls button[data-home-tile-control="remove"]:hover {
+  background: var(--luxia-opacity-error-08);
+}
+
+/* Where the dragged tile will land. */
+.luxia-home-drop-placeholder {
+  border: 2px solid var(--luxia-opacity-brand-secondary-32);
+  border-radius: var(--luxia-radius-12);
+  background: var(--luxia-opacity-brand-secondary-08);
+  box-shadow: inset 0 0 0 4px var(--luxia-opacity-brand-secondary-04);
+}
+.luxia-home-drop-placeholder[data-invalid] {
+  border-style: dashed;
+  border-color: var(--luxia-opacity-brand-primary-24);
+  background: var(--luxia-opacity-brand-primary-04);
+  box-shadow: none;
+}
+
+/* Column guides, only while a tile is being dragged or resized. */
+.luxia-home-grid-guides {
+  animation: luxia-home-guides-in 140ms ease-out both;
+}
+.luxia-home-grid-guides > span {
+  border-radius: 8px;
+  background: var(--luxia-opacity-brand-secondary-04);
+  transition: background-color 120ms ease;
+}
+.luxia-home-grid-guides > span[data-target] {
+  background: var(--luxia-opacity-brand-secondary-08);
+}
+@keyframes luxia-home-guides-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* "Keep holding" progress shown on a Full-width tile before it makes room. */
+.luxia-home-dwell-progress {
+  animation: luxia-home-dwell 400ms linear both;
+  transform-origin: left center;
+}
+@keyframes luxia-home-dwell {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .luxia-home-grid-guides,
+  .luxia-home-dwell-progress {
+    animation: none;
+  }
+  .luxia-home-builder-toolbar,
+  .luxia-home-tile-edit-frame,
+  .luxia-home-grid-guides > span {
+    transition: none;
+  }
+}
+
+/* Tile headings: on very narrow headings the icon gives its room to the name. */
+.luxia-home-tile-heading {
+  container-type: inline-size;
+}
+@container (max-width: 239px) {
+  .luxia-home-tile-heading-icon {
+    display: none;
+  }
+}
+
+/* Two rows of preview cards in one collection tile: shorter previews so both rows fit. */
+.luxia-home-card-previews-compact [role="img"] {
+  height: 72px;
+}
+
+/* Add Tile: second-step choice cards */
+.luxia-home-choice-card {
+  background: var(--luxia-surface);
+  border-color: var(--luxia-border-default);
+  box-shadow: var(--luxia-shadow-sm);
+  transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease, transform 150ms ease;
+}
+.luxia-home-choice-card:enabled:hover {
+  border-color: var(--luxia-purple-50);
+  background:
+    linear-gradient(var(--luxia-opacity-brand-secondary-04), var(--luxia-opacity-brand-secondary-04)),
+    var(--luxia-surface);
+  box-shadow: var(--luxia-shadow-md);
+}
+.luxia-home-choice-card:enabled:active {
+  transform: translateY(1px);
+  border-color: var(--luxia-purple-60);
+  box-shadow: inset 0 0 0 1px var(--luxia-purple-60), var(--luxia-shadow-sm);
+}
+/* Keyboard focus: the standard Luxia ring (set here because this card styles its own shadow). */
+.luxia-home-choice-card:focus-visible {
+  border-color: var(--luxia-purple-50);
+  box-shadow: 0 0 0 3px var(--luxia-opacity-brand-secondary-32), var(--luxia-shadow-md);
+}
+.luxia-home-choice-card:disabled {
+  background: var(--luxia-opacity-brand-primary-04);
+  box-shadow: none;
+}
+.luxia-home-choice-arrow {
+  color: var(--luxia-purple-60);
+  background: var(--luxia-opacity-brand-secondary-08);
+  transition: transform 150ms ease, background-color 150ms ease, color 150ms ease;
+}
+.luxia-home-choice-card:enabled:hover .luxia-home-choice-arrow,
+.luxia-home-choice-card:focus-visible .luxia-home-choice-arrow {
+  transform: translateX(2px);
+  background: var(--luxia-purple-60);
+  color: var(--luxia-text-inverse);
+}
+@media (prefers-reduced-motion: reduce) {
+  .luxia-home-choice-card,
+  .luxia-home-choice-arrow {
+    transition: none;
+  }
+  .luxia-home-choice-card:enabled:hover .luxia-home-choice-arrow,
+  .luxia-home-choice-card:focus-visible .luxia-home-choice-arrow,
+  .luxia-home-choice-card:enabled:active {
+    transform: none;
+  }
 }

@@ -14,7 +14,6 @@ import { VIEW_CATALOG } from "./catalog";
 import { CompactViewsList } from "./CompactViewsList";
 import { DataViewsManager } from "./DataViewsManager";
 
-
 /**
  * Chat capsule Views — expandable summary + dialog shortcut.
  * Reads/writes the same Constellation `bundle.views` as Settings.

@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactDOM from "react-dom";
 import {
   ChevronDown, ChevronRight, ChevronLeft, Plus, X, Search, MoreHorizontal,
-  Eye, Upload, GripVertical, Trash2, Check, Edit3, Table2,
-  FileText, Database, BookOpen,
+  Eye, Upload, GripVertical, Trash2, Check, Table2,
+  FileText, Database,
 } from "lucide-react";
 import { ActiveDataTablesSection } from "@/app/features/active-data-tables/ActiveDataTablesSection";
 import type { DataTableRecord } from "@/app/features/active-data-tables/types";
@@ -23,19 +23,11 @@ import { CrawlerSection } from "@/app/features/crawler/CrawlerSection";
 import type { CrawlerState } from "@/app/features/crawler/types";
 import { RelationshipSection } from "@/app/features/relationship/RelationshipSection";
 import type { RelationshipRecord } from "@/app/features/relationship/types";
-import {
-  CAPSULE_CAPABILITY_PATH,
-  capabilityIdFromPath,
-  isCapsuleCapabilityAllowed,
-  type CapsuleCapabilityId,
-} from "@/app/features/constellation";
 import { GALAXY_PANEL_OUTER_GAP } from "@/app/features/galaxy";
 import { LX } from "@/app/features/active-data-tables/tokens";
 import {
-  IC, IC_BTN_ICON, IC_BTN_OPEN, IC_CARD_HEADER, IC_INPUT_TEXT, IC_SEARCH_SHELL, IC_SEARCH_SHELL_STYLE,
-  icCardStyle, icHoverOff, icHoverOn, icInspectorAccentStyle, icInspectorDescriptionColor,
-  icInspectorTitleColor, icOpenActiveOn, icSearchShellBlur, icSearchShellFocus,
-  icSearchShellHoverOff, icSearchShellHoverOn, icTextareaStyle,
+  IC, icInspectorAccentStyle, icInspectorDescriptionColor,
+  icInspectorTitleColor,
 } from "@/app/features/active-data-tables/inspectorTheme";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
@@ -53,82 +45,12 @@ import {
   ConstellationNameWithSource,
   ConstellationSourceBadge,
   type Constellation,
-  type ConstellationType,
   type SectionId,
   type SectionIcon,
 } from "./appSectionShared";
 
 /** Matches App.tsx layout constant — sidebar chrome width when collapsed. */
 const CONSTELLATION_COLLAPSED_WIDTH = 56;
-
-function SidebarListItem({ label, icon: Icon, onView, onRemove, draggable: isDraggable, onDragStart, onDragOver, onDrop, onDragEnd, dragOver }: {
-  label: string; icon: SectionIcon;
-  onView?: () => void; onRemove: () => void;
-  draggable?: boolean; onDragStart?: () => void; onDragOver?: (e: React.DragEvent) => void;
-  onDrop?: () => void; onDragEnd?: () => void; dragOver?: boolean;
-}) {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!menuOpen) return;
-    const close = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
-    };
-    window.addEventListener("mousedown", close);
-    return () => window.removeEventListener("mousedown", close);
-  }, [menuOpen]);
-
-  return (
-    <div
-      draggable={isDraggable}
-      onDragStart={onDragStart}
-      onDragOver={(e) => { e.preventDefault(); onDragOver?.(e); }}
-      onDrop={onDrop}
-      onDragEnd={onDragEnd}
-      className="flex items-center gap-1.5 px-2 py-1.5 rounded-[7px] group transition-colors relative"
-      style={{ borderTop: dragOver ? `2px solid ${LX.accent}` : "2px solid transparent", background: dragOver ? `${LX.accent}08` : "transparent" }}
-      onMouseEnter={(e) => { if (!dragOver) (e.currentTarget as HTMLElement).style.background = LX.borderSubtle; }}
-      onMouseLeave={(e) => { if (!dragOver) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
-    >
-      {isDraggable && <GripVertical size={10} color={LX.borderStrong} className="flex-shrink-0 cursor-grab" />}
-      <Icon size={11} color={LX.accent} className="flex-shrink-0" />
-      <span className="flex-1 luxia-type-caption truncate select-none" style={{ color: LX.primary, fontWeight: 600 }}>{label}</span>
-      <div ref={menuRef} className="relative flex-shrink-0">
-        <button onClick={() => setMenuOpen(p => !p)}
-          className="w-5 h-5 flex items-center justify-center rounded-[5px] transition-all"
-          style={{ opacity: menuOpen ? 1 : 0 }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = "1"; (e.currentTarget as HTMLElement).style.background = LX.border; }}
-          onMouseLeave={(e) => { if (!menuOpen) { (e.currentTarget as HTMLElement).style.opacity = "0"; (e.currentTarget as HTMLElement).style.background = "transparent"; } }}>
-          <MoreHorizontal size={11} style={{ color: LX.textMuted }} />
-        </button>
-        {menuOpen && (
-          <div className="absolute right-0 top-full mt-1 z-40 min-w-[176px] py-1"
-            style={{ background: "white", boxShadow: LX.shadow.lg, border: `1px solid ${LX.border}`, borderRadius: 12 }}
-            onClick={(e) => e.stopPropagation()}>
-            {onView && (
-              <button onClick={() => { setMenuOpen(false); onView(); }}
-                className="w-full flex items-center gap-2.5 px-3.5 luxia-type-profile-secondary transition-colors text-left"
-                style={{ color: LX.primary, height: 36 }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.borderSubtle; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
-                <Eye size={13} style={{ color: LX.textMuted }} />View
-              </button>
-            )}
-            <div className="h-px mx-3 my-0.5" style={{ background: LX.borderSubtle }} />
-            <button onClick={() => { setMenuOpen(false); onRemove(); }}
-              className="w-full flex items-center gap-2.5 px-3.5 luxia-type-profile-secondary transition-colors text-left"
-              style={{ color: LX.error, height: 36 }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = LX.state.error06; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
-              <Trash2 size={13} style={{ color: LX.error }} />Remove
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
 
 function ConfirmRemoveDialog({ label, onConfirm, onCancel }: {
   label: string; onConfirm: () => void; onCancel: () => void;
@@ -257,7 +179,6 @@ function SectionWorkspaceModal({ sectionId, items, instruction, onSave, onClose 
   const [confirmRemoveIdx, setConfirmRemoveIdx] = useState<number | null>(null);
   const [previewIdx, setPreviewIdx] = useState<number | null>(null);
   const [itemMenu, setItemMenu] = useState<number | null>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (itemMenu === null) return;
@@ -840,9 +761,6 @@ export function ConstellationSidebar({
     setKbWorkspaceOpen(false);
   });
 
-  const [dragSrc, setDragSrc] = useState<{ sid: SectionId; i: number } | null>(null);
-  const [dragOver, setDragOver] = useState<{ sid: SectionId; i: number } | null>(null);
-
   const [sectionSignatures, setSectionSignatures] = useState<Record<string, string>>({});
   const [savedConstellationSnapshot, setSavedConstellationSnapshot] = useState<string | null>(null);
   const [constellationSaving, setConstellationSaving] = useState(false);
@@ -918,15 +836,6 @@ export function ConstellationSidebar({
 
   function updateItems(sid: SectionId, next: string[]) {
     setItems(prev => ({ ...prev, [sid]: next }));
-  }
-
-  function handleDrop(sid: SectionId, targetIdx: number) {
-    if (!dragSrc || dragSrc.sid !== sid || dragSrc.i === targetIdx) return;
-    const next = [...items[sid]];
-    const [moved] = next.splice(dragSrc.i, 1);
-    next.splice(targetIdx, 0, moved);
-    updateItems(sid, next);
-    setDragSrc(null); setDragOver(null);
   }
 
   const projectConstellations = useMemo(
@@ -1203,8 +1112,6 @@ export function ConstellationSidebar({
         className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto luxia-scrollbar luxia-scrollbar-dark luxia-scrollbar-vertical galaxy-panel-scroll px-5 pt-5 pb-2.5 space-y-2"
       >
         {sectionIds.map((sid) => {
-          const meta = SECTION_META[sid];
-          const Icon = meta.icon;
           const isOpen = openSections[sid];
 
           if (sid === "dataTable") {

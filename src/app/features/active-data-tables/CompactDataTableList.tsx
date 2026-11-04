@@ -4,7 +4,6 @@ import { IC, IC_BTN_ICON, IC_BTN_OPEN, IC_CARD_HEADER, IC_INPUT_TEXT, IC_SEARCH_
 import type { DataTableRecord } from "./types";
 import { TableRowMenu } from "./TableRowMenu";
 
-
 export function CompactDataTableList({
     tables,
     isOpen,

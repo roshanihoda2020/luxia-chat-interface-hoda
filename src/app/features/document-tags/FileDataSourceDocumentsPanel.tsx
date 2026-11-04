@@ -622,7 +622,7 @@ export function FileDataSourceDocumentsPanel({
     });
   }
 
-  // ---- AI tag suggestions (prototype rules). Manage only; never in picker mode.
+  // AI tag suggestions (prototype rules). Manage only; never in picker mode.
   const suggestionsEnabled = canEdit && !pickerMode;
   const suggestionRecords = useDataSourceTagSuggestions(dataSourceId);
   const [suggesting, setSuggesting] = useState(false);

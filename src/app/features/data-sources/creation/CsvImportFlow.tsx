@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import {
   Check,
-  CheckCircle2,
   ChevronDown,
   ChevronUp,
   Eye,
@@ -97,7 +96,6 @@ import {
   includedCsvFiles,
   csvColumnTypeLabel,
   inferColumnType,
-  columnReviewReason,
   replaceCsvImportFileContents,
   reparseCsvImportFile,
   selectedColumnType,
@@ -134,14 +132,13 @@ import { CsvFileGlyph } from "./DataSourceTypeIcon";
 import {
   ColumnStructureTable,
   SchemaDataPreview,
-  type DisplayCsvIssue,
 } from "./CsvImportRowActions";
 import { CsvValidationWorkspace } from "./CsvValidationWorkspace";
 import { CsvAiOriginBadge } from "./CsvAiOriginBadge";
 import { CsvRowDescriptionsSection } from "./CsvRowDescriptions";
 import { CsvColumnDescriptions } from "./CsvColumnDescriptions";
 import { CsvValueContextSection } from "./CsvValueContextSection";
-import { DocumentTagSummary, DraftDataSourceTagsField, DraftTableTagRow, type DocumentTagDefinition, type DraftDataSourceTagsApi } from "@/app/features/document-tags";
+import { DraftDataSourceTagsField, DraftTableTagRow, type DraftDataSourceTagsApi } from "@/app/features/document-tags";
 import { LuxiaAiButton } from "@/app/components/LuxiaAiButton";
 import { luxiaToast } from "@/app/features/shared/luxiaToast";
 import { proposeCsvSimilarRepairs, proposeCsvTableMetadata, suggestedRepairValue } from "./csvAi";
@@ -157,7 +154,6 @@ const CSV_STEP = {
   columnDescriptions: 7,
   summary: 8,
 } as const;
-
 
 const STEPS = [
   { id: CSV_STEP.upload, label: "Upload File" },
@@ -302,12 +298,6 @@ function uploadFileStatusLabel(status: CsvFileUiStatus): string {
   return "Review parsing";
 }
 
-function schemaFileStatusLabel(status: CsvFileUiStatus): string {
-  if (status === "ready") return "Ready";
-  if (status === "excluded") return "Excluded";
-  return "Needs review";
-}
-
 type StatusToneKind =
   | CsvFileUiStatus
   | ValidationFileStatus;
@@ -406,10 +396,6 @@ function liveValidationForFile(file: CsvImportFileDraft): CsvValidationSummary {
   return csvFileOutcome(file).summary;
 }
 
-function validationForFile(file: CsvImportFileDraft): CsvValidationSummary {
-  return csvFileOutcome(file).summary;
-}
-
 function mismatchesForFile(
   file: CsvImportFileDraft,
   summary: CsvValidationSummary,
@@ -421,84 +407,6 @@ function mismatchesForFile(
     summary,
     skipped: new Set(file.skipped),
   });
-}
-
-function schemaDiagnosis(
-  file: CsvImportFileDraft,
-  summary: CsvValidationSummary,
-): {
-  title: string;
-  body: string;
-  mismatch?: CsvColumnTypeMismatch;
-  topColumnId?: string;
-  recommendedType?: string;
-} | null {
-  if (csvFileHasSuspiciousDelimiter(file) || csvFileNeedsParsingReview(file)) {
-    const n = file.parsed?.records.length ?? 0;
-    return {
-      title: "Most issues appear to come from parsing.",
-      body:
-        n > 0
-          ? `Review parsing — ${n.toLocaleString()} rows are affected.`
-          : "Review delimiter or encoding before fixing individual values.",
-    };
-  }
-  const mismatches = mismatchesForFile(file, summary);
-  if (mismatches[0]) {
-    const mismatch = mismatches[0];
-    return {
-      title: `Most issues appear to come from the ${mismatch.columnName} column type.`,
-      body: `${mismatch.invalidCount.toLocaleString()} rows are affected by the selected type.`,
-      mismatch,
-      recommendedType: mismatch.detectedType,
-      topColumnId: mismatch.columnId,
-    };
-  }
-  if (summary.invalidRows >= 8 && summary.totalRows > 0 && summary.invalidRows / summary.totalRows >= 0.5) {
-    const counts = new Map<string, { name: string; count: number }>();
-    for (const issue of summary.issues) {
-      const current = counts.get(issue.columnId) ?? { name: issue.columnName, count: 0 };
-      current.count += 1;
-      counts.set(issue.columnId, current);
-    }
-    let top: { id: string; name: string; count: number } | null = null;
-    for (const [id, item] of counts) {
-      if (!top || item.count > top.count) top = { id, name: item.name, count: item.count };
-    }
-    return {
-      title: top
-        ? `Most issues appear to come from the ${top.name} column.`
-        : "Most issues appear to come from a selected column type.",
-      body: `${summary.invalidRows.toLocaleString()} rows are affected by the selected type.`,
-      topColumnId: top?.id,
-    };
-  }
-  return null;
-}
-
-function excludedRowPlaceholders(
-  file: CsvImportFileDraft,
-  existing: DisplayCsvIssue[],
-): DisplayCsvIssue[] {
-  const covered = new Set(
-    existing.filter((issue) => issue.resolution === "skipped").map((issue) => issue.rowNumber),
-  );
-  const records = file.parsed?.records ?? [];
-  return file.skipped
-    .filter((rowNumber) => !covered.has(rowNumber))
-    .map((rowNumber) => {
-      const record = records.find((item) => item.rowNumber === rowNumber);
-      const recordIndex = records.findIndex((item) => item.rowNumber === rowNumber);
-      return {
-        rowNumber,
-        rowIndex: recordIndex >= 0 ? recordIndex : 0,
-        columnId: `${file.id}:excluded:${rowNumber}`,
-        columnName: "Row",
-        value: record ? record.fields.filter(Boolean).slice(0, 3).join(" · ") : "",
-        expected: "—",
-        resolution: "skipped" as const,
-      };
-    });
 }
 
 function validationFileStatus(
@@ -585,39 +493,6 @@ function csvFileCanPreview(file: CsvImportFileDraft): boolean {
 function csvPreviewShowsParseWarning(file: CsvImportFileDraft): boolean {
   if (!csvFileCanPreview(file)) return false;
   return csvFileHasSuspiciousDelimiter(file) || !csvFileHasUsableParse(file);
-}
-
-function displayIssuesFor(
-  file: CsvImportFileDraft,
-  summary: CsvValidationSummary,
-): Array<CsvValidationIssue & { resolution: "open" | "skipped" | "resolved" }> {
-  if (!file.validationRan || file.validationStale) return [];
-  const skippedRows = new Set(file.skipped);
-  const liveKeys = new Set(
-    summary.issues.map((issue) => `${issue.rowNumber}:${issue.columnId}`),
-  );
-  const byKey = new Map<string, CsvValidationIssue & { resolution: "open" | "skipped" | "resolved" }>();
-  for (const issue of file.issueSnapshot ?? []) {
-    byKey.set(`${issue.rowNumber}:${issue.columnId}`, { ...issue, resolution: "open" });
-  }
-  for (const issue of summary.issues) {
-    byKey.set(`${issue.rowNumber}:${issue.columnId}`, { ...issue, resolution: "open" });
-  }
-  return [...byKey.values()]
-    .map((issue) => {
-      const key = `${issue.rowNumber}:${issue.columnId}`;
-      if (skippedRows.has(issue.rowNumber)) {
-        return { ...issue, resolution: "skipped" as const };
-      }
-      if (liveKeys.has(key)) return { ...issue, resolution: "open" as const };
-      const override = file.overrides[issue.rowNumber]?.[issue.columnId];
-      return {
-        ...issue,
-        value: override ?? issue.value,
-        resolution: "resolved" as const,
-      };
-    })
-    .sort((a, b) => a.rowNumber - b.rowNumber || a.columnName.localeCompare(b.columnName));
 }
 
 export interface CsvImportFlowProps {
@@ -718,9 +593,6 @@ export function CsvImportFlow({
     return map;
   }, [outcomes]);
 
-  const activeValidation = activeFile
-    ? validations.get(activeFile.id) ?? EMPTY_VALIDATION
-    : EMPTY_VALIDATION;
   const duplicateNames = useMemo(() => duplicateTableNameKeys(files), [files]);
   const importOutcomeSignature = useMemo(
     () => included.map((file) => {
@@ -1545,43 +1417,6 @@ export function CsvImportFlow({
         ? runValidationFor(nextFile)
         : { ...nextFile, validationRan: false, validationStale: true };
     });
-  }
-
-  function applyDetectedType(fileId: string, columnId: string, detectedType: string) {
-    setActiveFileId(fileId);
-    setFiles((prev) =>
-      prev.map((file) => {
-        if (file.id !== fileId) return file;
-        const current = file.columns.find((column) => column.id === columnId);
-        if (!current || current.type === detectedType) {
-          return file.parsed ? runValidationFor(file) : file;
-        }
-        const base = file.importAsText ? restoreColumnSnapshot(file) : file;
-        const nextFile: CsvImportFileDraft = {
-          ...base,
-          columns: base.columns.map((item) => {
-            if (item.id !== columnId) return item;
-            return {
-              ...item,
-              type: detectedType,
-              status: schemaStatusForType(detectedType, item.detectedType),
-            };
-          }),
-          aiProposals: base.aiProposals.filter((proposal) =>
-            proposal.columnId !== columnId || proposal.status === "accepted" || proposal.status === "rejected",
-          ),
-          importAsText: false,
-        };
-        return nextFile.parsed && csvFileIsStructurallyUsable(nextFile)
-          ? runValidationFor(nextFile)
-          : { ...nextFile, validationRan: false, validationStale: true };
-      }),
-    );
-  }
-
-  function reviewColumnType(fileId: string, columnId: string) {
-    setActiveFileId(fileId);
-    goToStep(CSV_STEP.columns, { focusColumnId: columnId });
   }
 
   function confirmColumnType(columnId: string, fileId?: string) {
@@ -3483,40 +3318,6 @@ function reviewValueCount(count: number): string {
   return `${count.toLocaleString()} value${count === 1 ? "" : "s"}`;
 }
 
-function ReviewSourceSummary({
-  name,
-  ownershipLabel,
-  tags,
-  fileCount,
-  importedRows,
-  skippedRows,
-}: {
-  name: string;
-  ownershipLabel: string;
-  tags: DocumentTagDefinition[];
-  fileCount: number;
-  importedRows: number;
-  skippedRows: number;
-}) {
-  const facts = [
-    `${fileCount.toLocaleString()} file${fileCount === 1 ? "" : "s"}`,
-    `${importedRows.toLocaleString()} row${importedRows === 1 ? "" : "s"} will be imported`,
-  ];
-  if (skippedRows > 0) {
-    facts.push(`${skippedRows.toLocaleString()} row${skippedRows === 1 ? "" : "s"} will be skipped`);
-  }
-  return (
-    <section className={`${LUXIA_SETTINGS_SECTION_SURFACE_CLASS} luxia-csv-review-source`} aria-label={name}>
-      <div className="luxia-csv-review-source-identity">
-        <p className="luxia-csv-review-source-name" title={name}>{name}</p>
-        <p className="luxia-csv-review-source-ownership">{ownershipLabel}</p>
-      </div>
-      {tags.length > 0 ? <DocumentTagSummary tags={tags} /> : null}
-      <p className="luxia-csv-review-source-facts">{facts.join(" · ")}</p>
-    </section>
-  );
-}
-
 function ReviewFileCard({
   outcome,
   tableName,
@@ -3643,19 +3444,6 @@ function StepIntro({ title, body }: { title: string; body?: string }) {
           {body}
         </p>
       ) : null}
-    </div>
-  );
-}
-
-function ReviewCell({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
-        {label}
-      </dt>
-      <dd className="mt-1 truncate luxia-type-body-dense" style={{ color: "var(--luxia-text-primary)" }} title={value}>
-        {value}
-      </dd>
     </div>
   );
 }
@@ -4916,16 +4704,6 @@ function ParseSettingsFields({
         </div>
       ) : null}
     </div>
-  );
-}
-
-function skippedDisplayIssues(file: CsvImportFileDraft): DisplayCsvIssue[] {
-  if (file.skipped.length === 0) return [];
-  const fromSnapshot = (file.issueSnapshot ?? [])
-    .filter((issue) => file.skipped.includes(issue.rowNumber))
-    .map((issue) => ({ ...issue, resolution: "skipped" as const }));
-  return [...fromSnapshot, ...excludedRowPlaceholders(file, fromSnapshot)].sort(
-    (a, b) => a.rowNumber - b.rowNumber || a.columnName.localeCompare(b.columnName),
   );
 }
 

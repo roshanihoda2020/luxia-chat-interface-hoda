@@ -1,7 +1,6 @@
 import type { VidgetSourceType } from "@/app/features/vidgets/types";
 import type {
   VidgetInboxAssistantTurn,
-  VidgetInboxSession,
   VidgetInboxTurn,
   VidgetInboxVisitorTurn,
 } from "./types";

@@ -1,11 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Search } from "lucide-react";
-import {
-  LuxiaBreadcrumb,
-  buildProjectDashboardBreadcrumbItems,
-} from "@/app/components/LuxiaBreadcrumb";
 import { LuxiaEntityOptionsMenu } from "@/app/components/LuxiaEntityOptionsMenu";
-import { LuxiaPageHeader, LUXIA_PAGE_HEADER_ACTION } from "@/app/components/LuxiaPageHeader";
+import { LUXIA_PAGE_HEADER_ACTION } from "@/app/components/LuxiaPageHeader";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,7 +30,6 @@ import {
   ResultsCount,
 } from "@/app/features/home/browserShared";
 import { HS } from "@/app/features/home/homeSurfaces";
-import { getProjectNameById } from "@/app/features/project";
 import type { HomeProjectCard } from "@/app/features/project/types";
 import { CURRENT_USER_ID } from "@/app/features/permissions";
 import type { ProjectRole } from "@/app/features/permissions";
@@ -64,6 +59,13 @@ import {
   subscribeDashboardOutputStore,
 } from "./dashboardOutputStore";
 import { ProjectNotFoundState } from "./ProjectHeader";
+import {
+  AddToDashboardDialog,
+  DashboardTabToolbar,
+  OutputPreviewDialog,
+  canManageProjectDashboard,
+} from "./ProjectDashboardsPage";
+import { listProjectDashboards, useProjectDashboards } from "./projectDashboardStore";
 import { ProjectModuleEmptyState } from "./ProjectModuleShared";
 import type {
   ProjectDashboardConversationSource,
@@ -73,8 +75,6 @@ import type {
 
 type OutputTypeFilter = "all" | ProjectDashboardOutputType;
 type ConversationSourceFilter = "all" | ProjectDashboardConversationSource;
-
-const PROJECT_NAME_FALLBACK = "Project name 01";
 
 /**
  * Output types with a real editable prototype flow.
@@ -128,7 +128,15 @@ export interface ProjectDashboardPageProps {
   onViewProjects: () => void;
   onOpenProjectOverview: (projectId: string) => void;
   onOpenGalaxy?: (projectId: string) => void;
+  /** Opens one of this Project's Dashboards, or the Dashboards list when null. */
+  onOpenDashboard?: (projectId: string, dashboardId: string | null) => void;
 }
+
+/**
+ * All outputs: every saved output in the Project, whether or not a Dashboard
+ * shows it. Outputs can be added to Dashboards from here; taking an output
+ * off a Dashboard never removes it from this page.
+ */
 
 export function ProjectDashboardPage({
   projectId,
@@ -142,7 +150,10 @@ export function ProjectDashboardPage({
   onViewProjects,
   onOpenProjectOverview,
   onOpenGalaxy,
+  onOpenDashboard,
 }: ProjectDashboardPageProps) {
+  useProjectDashboards();
+  const [addToDashboardOutputId, setAddToDashboardOutputId] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<OutputTypeFilter>("all");
   const [sourceFilter, setSourceFilter] = useState<ConversationSourceFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -172,10 +183,6 @@ export function ProjectDashboardPage({
   const project = projectId
     ? projects.find((entry) => entry.id === projectId)
     : undefined;
-
-  const projectName = projectId
-    ? getProjectNameById(projectId, projects, PROJECT_NAME_FALLBACK)
-    : PROJECT_NAME_FALLBACK;
 
   useEffect(() => {
     setOutputs(projectId ? getProjectDashboardOutputs(projectId).map((item) => ({ ...item })) : []);
@@ -351,6 +358,18 @@ export function ProjectDashboardPage({
     setDeleteOutputId(outputId);
   }
 
+  const projectDashboards = projectId ? listProjectDashboards(projectId) : [];
+  const canAddToDashboard = canCreate
+    || projectDashboards.some((dashboard) => canManageProjectDashboard(projectRole, dashboard, currentUserId));
+
+  /** "On Dashboard name 02", "On 2 Dashboards" or "Not on a Dashboard". */
+  function dashboardMembership(outputId: string): string {
+    const on = projectDashboards.filter((dashboard) => dashboard.outputIds.includes(outputId));
+    if (on.length === 0) return "Not on a Dashboard";
+    if (on.length === 1) return `On ${on[0].name}`;
+    return `On ${on.length} Dashboards`;
+  }
+
   function getOutputMenuItems(item: ProjectDashboardOutput) {
     const canMutateItem = canMutateOutput(projectRole, item, currentUserId);
     const showEdit = canMutateItem && canEditDashboardOutput(item.outputType);
@@ -360,6 +379,9 @@ export function ProjectDashboardPage({
         label: "View",
         onSelect: () => openView(item.id),
       },
+      ...(canAddToDashboard
+        ? [{ id: "add-to-dashboard", label: "Add to Dashboard…", onSelect: () => setAddToDashboardOutputId(item.id) }]
+        : []),
       ...(canMutateItem
         ? [
             {
@@ -407,7 +429,7 @@ export function ProjectDashboardPage({
     }
     const trimmed = createName.trim();
     if (!trimmed) {
-      setCreateError("Enter a Dashboard output name.");
+      setCreateError("Enter an output name.");
       createInputRef.current?.focus();
       return;
     }
@@ -421,7 +443,7 @@ export function ProjectDashboardPage({
       sourceContext: "Galaxy",
     });
     if (!record) {
-      toast.error("Couldn’t create Dashboard output");
+      toast.error("Couldn’t create output");
       return;
     }
     setOutputs((prev) => {
@@ -431,7 +453,7 @@ export function ProjectDashboardPage({
     setCreateOpen(false);
     setCreateName("");
     setCreateError(null);
-    toast.success("Dashboard output created");
+    toast.success("Output created");
   }
 
   useEffect(() => {
@@ -462,59 +484,21 @@ export function ProjectDashboardPage({
   }
 
   const lastUpdated = outputs[0]?.updatedAt;
-  const crumbItems = buildProjectDashboardBreadcrumbItems({
-    projectId: project.id,
-    projectName,
-  });
 
+  // Rendered as the Dashboard page's "All outputs" tab: the page header and tabs belong to ProjectDashboardsPage.
   return (
-    <div className="min-w-0 w-full">
-      <LuxiaPageHeader
-        contentGap="page"
-        className="mb-4"
-        pageTypeLabel="DASHBOARD"
-        title="Dashboard"
-        titleStyle={{ color: "var(--luxia-purple-70)" }}
-        breadcrumb={
-          <LuxiaBreadcrumb
-            tone="page"
-            items={crumbItems}
-            handlers={{
-              onHome: onNavigateHome,
-              onProject: onOpenProjectOverview,
-            }}
-          />
+    <div className="min-w-0 w-full" data-dashboard-tab-panel="outputs">
+      <DashboardTabToolbar
+        summary={
+          outputs.length === 0
+            ? ""
+            : `${outputs.length} ${outputs.length === 1 ? "saved output" : "saved outputs"}${lastUpdated ? ` · Last updated ${lastUpdated}` : ""}`
         }
-        context={
-          <div
-            className="flex flex-wrap items-center gap-x-3 gap-y-1 luxia-type-caption"
-            style={{ color: "var(--luxia-text-secondary)" }}
-          >
-            <span>
-              {outputs.length} {outputs.length === 1 ? "saved output" : "saved outputs"}
-            </span>
-            {lastUpdated ? (
-              <>
-                <span aria-hidden="true">·</span>
-                <span>Last updated {lastUpdated}</span>
-              </>
-            ) : null}
-            <span aria-hidden="true">·</span>
-            <span className="truncate">{projectName}</span>
-          </div>
-        }
-        guide="Saved charts, tables, reports, metrics, and analyses from Project conversations."
-        primaryAction={
-          canCreate ? (
-            <Button
-              type="button"
-              {...LUXIA_PAGE_HEADER_ACTION.primary}
-              onClick={openCreateDialog}
-            >
-              Create Dashboard
-            </Button>
-          ) : undefined
-        }
+        action={canCreate ? (
+          <Button type="button" {...LUXIA_PAGE_HEADER_ACTION.secondary} onClick={openCreateDialog}>
+            New output
+          </Button>
+        ) : undefined}
       />
 
       {outputs.length > 0 ? (
@@ -684,10 +668,10 @@ export function ProjectDashboardPage({
                       {outputTypeLabel(item.outputType)} · {item.sourceContext}
                     </p>
                     <p
-                      className="mt-auto pt-1 luxia-type-caption"
+                      className="mt-auto truncate pt-1 luxia-type-caption"
                       style={{ color: "var(--luxia-neutral-500, #64748B)" }}
                     >
-                      Updated {item.updatedAt}
+                      Updated {item.updatedAt} · <span data-output-dashboards="">{dashboardMembership(item.id)}</span>
                     </p>
                   </div>
                 </button>
@@ -733,6 +717,7 @@ export function ProjectDashboardPage({
                     <span>{outputTypeLabel(item.outputType)}</span>
                     <span className="hidden sm:inline">{` · ${item.sourceContext}`}</span>
                     <span className="hidden md:inline">{` · Updated ${item.updatedAt}`}</span>
+                    <span className="hidden lg:inline">{` · ${dashboardMembership(item.id)}`}</span>
                   </p>
                   <p
                     className="mt-0.5 truncate luxia-type-caption sm:hidden"
@@ -756,29 +741,33 @@ export function ProjectDashboardPage({
         </div>
       )}
 
-      <AlertDialog
-        open={Boolean(viewOutput)}
-        onOpenChange={(open) => !open && setViewOutputId(null)}
-      >
-        <AlertDialogContent className="max-w-lg">
-          <AlertDialogHeader>
-            <AlertDialogTitle>{viewOutput?.name ?? "Output"}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {viewOutput
-                ? `${outputTypeLabel(viewOutput.outputType)} from ${viewOutput.sourceContext}. Updated ${viewOutput.updatedAt}.`
-                : null}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          {viewOutput ? (
-            <div className="mt-1 px-6 py-4">
-              <DashboardOutputPreviewGraphic variant={viewOutput.outputType} size="full" />
-            </div>
-          ) : null}
-          <AlertDialogFooter>
-            <AlertDialogCancel>Close</AlertDialogCancel>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <OutputPreviewDialog
+        output={viewOutput}
+        onClose={() => setViewOutputId(null)}
+        footerStart={viewOutput && canAddToDashboard ? (
+          <Button
+            type="button"
+            variant="secondary"
+            size="compact"
+            onClick={() => {
+              const id = viewOutput.id;
+              setViewOutputId(null);
+              setAddToDashboardOutputId(id);
+            }}
+          >
+            Add to Dashboard
+          </Button>
+        ) : undefined}
+      />
+
+      <AddToDashboardDialog
+        output={addToDashboardOutputId ? outputs.find((item) => item.id === addToDashboardOutputId) ?? null : null}
+        projectId={project.id}
+        projectRole={projectRole}
+        currentUserId={currentUserId}
+        onClose={() => setAddToDashboardOutputId(null)}
+        onOpenDashboard={onOpenDashboard ? (dashboardId) => onOpenDashboard(project.id, dashboardId) : undefined}
+      />
 
       <Dialog
         open={createOpen}
@@ -793,9 +782,9 @@ export function ProjectDashboardPage({
         <DialogContent className="sm:max-w-md">
           <form onSubmit={submitCreate}>
             <DialogHeader>
-              <DialogTitle>Create Dashboard</DialogTitle>
+              <DialogTitle>New output</DialogTitle>
               <DialogDescription>
-                Add a saved output to this Project Dashboard. It will be owned by you.
+                Add a saved output to this Project's All outputs. It will be owned by you.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-2 px-6 py-4">
@@ -859,7 +848,7 @@ export function ProjectDashboardPage({
             <DialogHeader>
               <DialogTitle>Rename output</DialogTitle>
               <DialogDescription>
-                Update the name for this Dashboard output only.
+                Update the name for this output only. Dashboards that show it use the new name.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-2 px-6 py-4">
@@ -916,7 +905,7 @@ export function ProjectDashboardPage({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete this output?</AlertDialogTitle>
             <AlertDialogDescription>
-              This output will be removed from the Project Dashboard. Its source Chat, Galaxy, or Constellation will not be deleted.
+              This output will be removed from All outputs. Its source Chat, Galaxy, or Constellation will not be deleted.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

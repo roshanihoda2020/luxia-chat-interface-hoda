@@ -4,6 +4,7 @@ export type HomeConstellationSource = "database" | "csv" | "pdf";
 import type { HomeEntityKey } from "./homeEntityKeys";
 import type { HomePrimaryPreference } from "./homePrimaryPreference";
 import type { HomeProjectCard, ProjectDestination } from "@/app/features/project/types";
+import type { DataSourceContentSummary } from "@/app/features/permissions/types";
 
 export type { HomeProjectCard, ProjectDestination };
 
@@ -112,6 +113,10 @@ export interface HomePageProps {
     label: string;
     projectId: string;
     type: "database" | "csv" | "pdf";
+    /** The Constellation's own description (Home Tiles). */
+    description?: string;
+    /** Data Sources it draws on (Home Tiles). */
+    sourceCount?: number;
   }>;
   onNavigateProjectDestination?: (
     destination: ProjectDestination,
@@ -125,8 +130,11 @@ export interface HomePageProps {
     ownership?: "organizational" | "private";
     status?: string;
     connector?: string;
+    /** Non-secret content snapshot (tables, files, database), summarised on Home Tiles. */
+    contentSummary?: DataSourceContentSummary;
   }>;
   onOpenDataSource?: (dataSourceId: string) => void;
-  onOpenDashboard?: (projectId: string) => void;
+  /** Opens one named Dashboard in its Project (Project › Dashboards › name). */
+  onOpenDashboard?: (projectId: string, dashboardId: string) => void;
   onOpenTool?: (toolId: string) => void;
 }

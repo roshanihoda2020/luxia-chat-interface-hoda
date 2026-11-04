@@ -338,6 +338,28 @@ export function buildProjectDashboardBreadcrumbItems(input: {
   ];
 }
 
+/** Home › Project › Dashboard › Dashboard name (a named Dashboard inside the Project's Dashboard page). */
+export function buildProjectNamedDashboardBreadcrumbItems(input: {
+  projectId: string;
+  projectName: string;
+  dashboard: { id: string; name: string };
+}): LuxiaBreadcrumbItem[] {
+  return [
+    { id: "home", label: "Home", destination: { kind: "home" } },
+    {
+      id: `project-${input.projectId}`,
+      label: input.projectName,
+      destination: { kind: "project", projectId: input.projectId },
+    },
+    {
+      id: `dashboard-${input.projectId}`,
+      label: "Dashboard",
+      destination: { kind: "dashboard", projectId: input.projectId },
+    },
+    { id: `dashboard-${input.dashboard.id}`, label: input.dashboard.name, destination: { kind: "current" } },
+  ];
+}
+
 export function buildHomeArchiveBreadcrumbItems(input: {
   archiveId: string;
   archiveLabel: string;

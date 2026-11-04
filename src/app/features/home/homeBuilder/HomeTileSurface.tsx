@@ -7,7 +7,8 @@ import "./homeTileSurfaces.css";
  * 1px default border, 12px radius (the Home Project card radius), small shadow,
  * and a brand-tinted border on hover. Keyboard focus anywhere inside shows the
  * standard focus ring around the whole card. Its category identity is the
- * purple corner (HomeTileCornerMarker); the outer section heading names it.
+ * corner marker (HomeTileCornerMarker), coloured for the card's surface; the
+ * outer section heading names it.
  *
  * Every colour comes from the tile's surface style (Featured / Soft / Default,
  * see homeTileSurfaces.css), read through `--home-tile-*` variables — so each
@@ -83,7 +84,10 @@ export function HomeTileSurface({
 export interface HomeTileCorner {
   /** Renders the category icon at the given pixel size, in `currentColor`. */
   icon: (size: number) => ReactNode;
-  /** Defaults to the Luxia purple Project corner; Your focus passes the hero's colours. */
+  /**
+   * Defaults to the surface's corner colours (deep purple on Default, brand
+   * purple on Soft, light lavender on Featured); Your focus passes the hero's colours.
+   */
   tone?: { color: string; background: string };
 }
 
@@ -116,8 +120,9 @@ export function HomeTileCornerMarker({ density, icon, tone }: HomeTileCorner & {
         width: corner.boxPx,
         height: corner.boxPx,
         borderRadius: corner.radius,
-        color: tone?.color ?? "var(--luxia-text-inverse)",
-        background: tone?.background ?? "var(--luxia-purple-50)",
+        // Surface-aware by default (--home-tile-corner-*, homeTileSurfaces.css); an explicit tone wins.
+        color: tone?.color ?? "var(--home-tile-corner-icon)",
+        background: tone?.background ?? "var(--home-tile-corner-bg)",
       }}
     >
       {icon(corner.iconPx)}
@@ -206,6 +211,8 @@ export function HomeTileText({
   const clamp = lines === 1 ? "truncate" : lines === 2 ? "line-clamp-2" : "line-clamp-3";
   return (
     <p
+      // Plain text gets its full wording as a tooltip, in case the line(s) are cut short.
+      title={typeof children === "string" ? children : undefined}
       className={`min-w-0 ${clamp} ${lines === 1 ? "luxia-type-caption" : "luxia-type-body-dense"}`}
       style={{
         color: tone === "muted" ? HT.muted : HT.secondary,
@@ -239,16 +246,45 @@ export function HomeTileFacts({ facts }: { facts: Array<{ label: string; value: 
   );
 }
 
-/** Shown when a tile's saved item no longer exists or is no longer accessible. Reveals nothing about it. */
-export function HomeUnavailableTile({ typeLabel }: { typeLabel: string }) {
+/**
+ * Shown when a tile's saved item no longer exists or is no longer accessible.
+ * Reveals nothing about it. Optional actions (e.g. "Choose another", "Remove")
+ * let the user fix the tile without entering Customize.
+ */
+export function HomeUnavailableTile({
+  typeLabel,
+  message = "This item is no longer available to you.",
+  actions,
+}: {
+  typeLabel: string;
+  message?: string;
+  actions?: Array<{ label: string; ariaLabel?: string; onClick: () => void }>;
+}) {
   return (
     <div
       data-home-tile-surface="default"
-      className="flex h-full min-w-0 flex-col justify-center gap-1 rounded-[var(--luxia-radius-12)] border border-dashed px-4 py-3.5"
+      data-home-tile-unavailable=""
+      className="flex h-full min-w-0 flex-col justify-center gap-1 overflow-hidden rounded-[var(--luxia-radius-12)] border border-dashed px-4 py-3"
       style={{ borderColor: "var(--luxia-border-default)", background: "var(--luxia-surface)" }}
     >
       <HomeTileOverline>{typeLabel}</HomeTileOverline>
-      <HomeTileText lines={2}>This item is no longer available to you.</HomeTileText>
+      <HomeTileText lines={2}>{message}</HomeTileText>
+      {actions && actions.length > 0 ? (
+        <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+          {actions.map((action) => (
+            <button
+              key={action.label}
+              type="button"
+              onClick={action.onClick}
+              aria-label={action.ariaLabel ?? action.label}
+              className="rounded-[4px] luxia-type-label-small underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]"
+              style={{ color: "var(--luxia-purple-60)" }}
+            >
+              {action.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

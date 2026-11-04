@@ -17,25 +17,56 @@ import { GlobalSearch, type HomeSearchResult } from "./GlobalSearch";
 import { HomeHeader } from "./HomeHeader";
 import { HomeHero } from "./HomeHero";
 import {
+  ChatHomeTile,
+  ChatsCollectionHomeTile,
+  ConstellationHomeTile,
+  ConstellationsCollectionHomeTile,
+  DashboardHomeTile,
+  DashboardsCollectionHomeTile,
+  DataSourceHomeTile,
+  DataSourcesCollectionHomeTile,
+  formatHomeDataSourceContent,
+  knowledgeKindOf,
+  listHomeDataSourceContents,
+  GalaxiesCollectionHomeTile,
+  GalaxyHomeTile,
+  CollectionHomeTile,
   EntityHomeTile,
   FocusHomeTile,
+  HOME_PROJECTS_VIEW_COPY,
+  HOME_PROJECTS_VIEWS,
+  HomeTileSectionHeader,
   HomeBuilderToolbar,
   HomeTileGrid,
-  HT,
   HomeTileConfigureDialog,
   HomeTileLibrary,
   homeTileSurfaceLabel,
   HomeUnavailableTile,
-  PROJECT_LIST_TILE_ROWS,
   ProjectHomeTile,
   ProjectListHomeTile,
   ToolHomeTile,
+  getHomeProjectsView,
   getHomeTileDefinition,
+  getHomeTileHeading,
+  getHomeTileListDisplay,
   getHomeTileSection,
   getHomeTileSizeId,
   getHomeTileSurfaceStyle,
+  selectHomeProjects,
+  selectRecentChats,
+  sortByName,
+  uniqueById,
+  formatHomeChatActivity,
   useHomeLayout,
   type EntityHomeTileProps,
+  type HomeChatTileItem,
+  type HomeConstellationTileItem,
+  type HomeDashboardTileItem,
+  type HomeDataSourceTileItem,
+  type HomeGalaxyTileItem,
+  type HomeCollectionAvailability,
+  type HomeCollectionDensity,
+  type HomeProjectsView,
   type HomeTile,
   type HomeTileDensity,
   type HomeTileTargetOption,
@@ -43,16 +74,20 @@ import {
   type HomeTileType,
 } from "./homeBuilder";
 import { HS } from "./homeSurfaces";
-import { readHomeRecentPreviewCount, resolveHomeRecentPreviewLimit } from "./homeRecentPreviewCount";
+import { parseHomeRecentPreviewCount } from "./homeRecentPreviewCount";
 import { canCreateProject } from "@/app/features/permissions";
 import { formatDataSourceConnectorLabel } from "@/app/features/permissions/data";
 import { ProjectsBrowser, ProjectsPreview } from "@/app/features/project";
-import { filterActiveProjects, getHomeProjectsSections } from "@/app/features/project/data";
+import { filterActiveProjects, rankProjectsByRecency } from "@/app/features/project/data";
 import { getProjectDashboardOutputs } from "@/app/features/project-overview/data";
+import { useProjectDashboards } from "@/app/features/project-overview/projectDashboardStore";
+import { formatDashboardUpdated, resolveDashboardOutputs } from "@/app/features/project-overview/ProjectDashboardsPage";
+import type { ProjectDashboard } from "@/app/features/project-overview/types";
 import {
-  DashboardOutputPreviewGraphic,
-  outputTypeLabel,
-} from "@/app/features/project-overview/DashboardOutputPreviews";
+  resolveHomeDashboardTarget,
+  withResolvedDashboardTarget,
+  type HomeDashboardResolution,
+} from "./homeBuilder/dashboardTargets";
 import { LUXIA_TOOLS } from "@/app/features/tools/data";
 import {
   LuxiaChatIcon,
@@ -60,10 +95,13 @@ import {
   LuxiaDashboardIcon,
   LuxiaDatasourceIcon,
   LuxiaGalaxyIcon,
+  LuxiaProjectsIcon,
 } from "@/assets/icons";
 import type {
   HomeHeroContent,
   HomePageProps,
+  HomeProjectCard,
+  HomeRecentWorkItem,
   ProjectDestination,
 } from "./types";
 
@@ -107,6 +145,8 @@ export function HomePage({
   onOpenTool,
 }: HomePageProps) {
   const homeBuilder = useHomeLayout(homeLayoutUserId);
+  /** Every named Dashboard (re-renders when one is created, renamed or deleted). */
+  const allDashboards = useProjectDashboards();
   const [libraryOpen, setLibraryOpen] = useState(false);
   /** Tile whose item is being changed (Configure Tile), or null. */
   const [configureTile, setConfigureTile] = useState<HomeTile | null>(null);
@@ -194,6 +234,8 @@ export function HomePage({
             : item.constellationSource === "csv"
               ? ("csv" as const)
               : ("database" as const),
+        description: item.constellationDescription,
+        sourceCount: undefined as number | undefined,
       }));
   }, [searchConstellations, workWithPin]);
 
@@ -292,11 +334,10 @@ export function HomePage({
   const hero = heroResolution.hero;
   const heroWorkItem = workWithPin.find((item) => item.id === hero.workItemId);
 
-  // ── Home Tiles: every tile resolves on each render from data the user can already access ──
+  // Home Tiles: every tile resolves on each render from data the user can already access
 
   const projectById = new Map(activeProjects.map((project) => [project.id, project]));
   const chatItems = workWithPin.filter((item) => item.kind === "chat");
-  const projectSections = getHomeProjectsSections(activeProjects, pinnedProjectIds, null);
 
   /**
    * Full-width Pinned / Recent projects: Soft and Featured frame the Project cards
@@ -314,6 +355,305 @@ export function HomePage({
   function densityOf(tile: HomeTile): HomeTileDensity {
     const size = getHomeTileSizeId(tile);
     return size === "large" ? "large" : size === "medium" ? "medium" : "small";
+  }
+
+  function collectionDensityOf(tile: HomeTile): HomeCollectionDensity {
+    return getHomeTileSizeId(tile) === "wide" ? "wide" : densityOf(tile);
+  }
+
+  function plural(count: number, singular: string, pluralForm = `${singular}s`) {
+    return `${count} ${count === 1 ? singular : pluralForm}`;
+  }
+
+  const projectsIcon = (size: number) => <LuxiaProjectsIcon size={size} color="currentColor" />;
+
+  function projectsEmptyState(view: HomeProjectsView) {
+    if (view === "pinned") {
+      return {
+        title: "No pinned Projects yet",
+        body: "Pin a Project from its card or the Projects library and it appears here.",
+        action: { label: "Browse Projects", onClick: () => onBrowseModeChange("projects") },
+      };
+    }
+    return {
+      title: "No Projects yet",
+      body: "Projects you're a member of appear here.",
+      action: canCreateProject() ? { label: "New Project", onClick: onNewProject } : undefined,
+    };
+  }
+
+  /**
+   * Projects collection. Full width keeps the existing Home section
+   * (ProjectsPreview), with this tile's own Show and Grid / List choices once
+   * the user sets them here (until then, the shared saved choice applies, as
+   * before). Smaller sizes use the compact Project list.
+   */
+  function renderProjectsCollection(tile: HomeTile) {
+    const view = getHomeProjectsView(tile);
+    const copy = HOME_PROJECTS_VIEW_COPY[view];
+    const projects = selectHomeProjects(activeProjects, pinnedProjectIds, view);
+    if (getHomeTileSizeId(tile) === "wide-tall") {
+      if (projects.length === 0) {
+        // The section would render nothing; keep the tile visible, with its heading and what to do next.
+        return (
+          <section aria-label={copy.title}>
+            <HomeTileSectionHeader section={getHomeTileHeading(tile)} />
+            <div className="flex min-h-[136px] flex-col [&>*]:flex-1">
+              <CollectionHomeTile
+                density="wide"
+                label={copy.title}
+                icon={projectsIcon}
+                items={[]}
+                summary=""
+                empty={projectsEmptyState(view)}
+              />
+            </div>
+          </section>
+        );
+      }
+      return (
+        <ProjectsPreview
+          sections={view === "pinned" ? "pinned" : "recent"}
+          recentSection={view === "pinned"
+            ? undefined
+            : {
+              title: copy.title,
+              description: copy.subtitle,
+              order: view === "name" ? "name" : "updated",
+              icon: view === "name" ? <LuxiaProjectsIcon size={22} color="currentColor" aria-hidden /> : undefined,
+            }}
+          recentPreviewCount={parseHomeRecentPreviewCount(tile.config.limit) ?? undefined}
+          onRecentPreviewCountChange={(count) => homeBuilder.updateTileConfig(tile, { limit: String(count) })}
+          recentViewMode={getHomeTileListDisplay(tile) ?? undefined}
+          onRecentViewModeChange={(mode) => homeBuilder.updateTileConfig(tile, { display: mode })}
+          headingIdSuffix={`-${tile.id}`}
+          pinnedSparseHint
+          projects={activeProjects}
+          pinnedProjectOrder={pinnedProjectIds}
+          onViewAll={() => onBrowseModeChange("projects")}
+          // No in-collection New Project: Home's header always offers it, and the Projects page keeps its own.
+          onToggleProjectPin={onToggleProjectPin}
+          onArchiveProject={onArchiveProject}
+          onRestoreProject={onRestoreProject}
+          onEditProject={onEditProject}
+          onDeleteProject={onDeleteProject}
+          canEditProject={canEditProject}
+          canArchiveProject={canArchiveProject}
+          canDeleteProject={canDeleteProject}
+          canRestoreProject={canRestoreProject}
+          onOpenProject={onOpenProject}
+          onNavigateProjectDestination={handleNavigate}
+          collectionFrame={fullWidthSectionFrame(getHomeTileSurfaceStyle(tile))}
+        />
+      );
+    }
+    const density = densityOf(tile);
+    if (projects.length === 0) {
+      return (
+        <CollectionHomeTile
+          density={density}
+          label={copy.title}
+          icon={projectsIcon}
+          items={[]}
+          summary=""
+          empty={projectsEmptyState(view)}
+        />
+      );
+    }
+    return (
+      <ProjectListHomeTile
+        view={view}
+        projects={projects}
+        total={projects.length}
+        density={density}
+        onOpenProject={onOpenProject}
+        onViewAll={() => onBrowseModeChange("projects")}
+      />
+    );
+  }
+
+  /** A Chat's real record as Chat tiles show it (no message preview: Home's Chat records carry none). */
+  function chatTileItem(item: HomeRecentWorkItem): HomeChatTileItem {
+    return {
+      id: item.id,
+      title: item.title,
+      projectName: projectById.get(item.projectId)?.name,
+      constellationName: item.constellationName,
+      constellationType: item.constellationSource ? SOURCE_LABEL[item.constellationSource] : undefined,
+      description: item.constellationDescription?.trim() || undefined,
+      activity: formatHomeChatActivity(item.lastOpenedAt, item.updatedAt),
+      pinned: Boolean(item.isPinned),
+      openLabel: `Continue Chat ${item.title}`,
+      onOpen: () => onContinueWork(item),
+    };
+  }
+
+  /**
+   * A Galaxy as Galaxy tiles show it: its Project's real data, the Constellations
+   * the user can access, and — only when their recent work has it — when they last
+   * opened this Galaxy. Project activity is never presented as Galaxy activity.
+   */
+  function galaxyTileItem(project: HomeProjectCard): HomeGalaxyTileItem {
+    const session = workWithPin.find((item) => item.kind === "galaxySession" && item.projectId === project.id && item.chatId === project.galaxyId);
+    return {
+      id: project.id,
+      title: `${project.name} Galaxy`,
+      projectName: project.name,
+      constellationCount: project.constellationCount,
+      sourceCount: project.sourceCount ?? 0,
+      projectUpdatedAt: project.updatedAt,
+      constellations: [...new Map(
+        constellations
+          .filter((entry) => entry.projectId === project.id)
+          .map((entry) => [entry.id, { id: entry.id, label: entry.label, typeLabel: SOURCE_LABEL[entry.type] }]),
+      ).values()],
+      lastOpened: session?.lastOpenedAt ? formatHomeChatActivity(session.lastOpenedAt, undefined) : undefined,
+      openLabel: `Open Galaxy for ${project.name}`,
+      onOpen: () => onOpenGalaxy(project.id),
+    };
+  }
+
+  /** A Constellation as Constellation tiles show it (only real fields). */
+  function constellationTileItem(constellation: (typeof constellations)[number]): HomeConstellationTileItem {
+    const open = onOpenConstellation;
+    return {
+      id: constellation.id,
+      title: constellation.label,
+      kind: knowledgeKindOf(constellation.type),
+      typeLabel: SOURCE_LABEL[constellation.type] ?? constellation.type,
+      projectId: constellation.projectId,
+      projectName: projectById.get(constellation.projectId)?.name,
+      openLabel: `Open Constellation ${constellation.label}`,
+      onOpen: () => open?.(constellation.projectId, constellation.id),
+    };
+  }
+
+  /** A Data Source as Data Source tiles show it: type, connector, access, status and one content fact. */
+  function dataSourceTileItem(source: (typeof homeTileDataSources)[number]): HomeDataSourceTileItem {
+    const access = source.ownership === "private" ? "Private" : source.ownership === "organizational" ? "Organizational" : undefined;
+    const status = source.status && source.status !== "active"
+      ? source.status.charAt(0).toUpperCase() + source.status.slice(1)
+      : undefined;
+    // The connector only when it adds something to the type (PostgreSQL, Snowflake — not "CSV" for a CSV).
+    const connector = formatDataSourceConnectorLabel(source.connector) ?? undefined;
+    const connectorLabel = connector && connector.toLowerCase() !== source.typeLabel.toLowerCase() && source.connector !== "file"
+      ? connector
+      : undefined;
+    return {
+      id: source.id,
+      name: source.name,
+      kind: knowledgeKindOf(source.connector === "googlesheet" ? "googlesheet" : source.typeLabel),
+      typeLabel: source.typeLabel,
+      connectorLabel,
+      access,
+      status,
+      contentDetail: formatHomeDataSourceContent(source.contentSummary),
+      contents: listHomeDataSourceContents(source.contentSummary),
+      openLabel: `Open Data Source ${source.name}`,
+      onOpen: () => onOpenDataSource?.(source.id),
+    };
+  }
+
+  /** A named Dashboard as Dashboard tiles show it: its outputs in Dashboard order (names and types only). */
+  function dashboardTileItem(dashboard: ProjectDashboard, project: HomeProjectCard): HomeDashboardTileItem {
+    return {
+      id: dashboard.id,
+      title: dashboard.name,
+      projectId: project.id,
+      projectName: project.name,
+      outputs: resolveDashboardOutputs(dashboard, getProjectDashboardOutputs(project.id)).map((output) => ({
+        id: output.id,
+        name: output.name,
+        type: output.outputType,
+        updatedAt: output.updatedAt,
+        source: output.conversationSource,
+      })),
+      updatedAt: formatDashboardUpdated(dashboard.updatedAtTimestamp),
+      openLabel: `Open Dashboard ${dashboard.name} in ${project.name}`,
+      onOpen: () => onOpenDashboard?.(project.id, dashboard.id),
+    };
+  }
+
+  /** What a Specific Dashboard tile's saved target points at now (see dashboardTargets.ts). */
+  function resolveDashboardTile(tile: HomeTile): HomeDashboardResolution<ProjectDashboard> {
+    return resolveHomeDashboardTarget(tile.target, accessibleDashboards, accessibleProjectIds, allDashboardIds);
+  }
+
+  /** Chats, Galaxies, Constellations, Data Sources and Dashboards collections. */
+  function renderCollectionTile(tile: HomeTile) {
+    const density = collectionDensityOf(tile);
+    switch (tile.type) {
+      case "chats-collection": {
+        const chats = recentChats.map(chatTileItem);
+        return (
+          <ChatsCollectionHomeTile
+            density={density}
+            label="Recent chats"
+            chats={chats}
+            summary={`${plural(chats.length, "Chat")} · most recently opened first`}
+            count={plural(chats.length, "Chat")}
+            empty={{
+              title: "No recent Chats",
+              body: "Chats you open appear here, most recent first.",
+              action: { label: "New Chat", onClick: onNewChat },
+            }}
+            viewAll={{ label: "View all your work", ariaLabel: "View all your recent work", onClick: () => onBrowseModeChange("your-work") }}
+            onNewChat={onNewChat}
+          />
+        );
+      }
+      case "galaxies-collection": {
+        const galaxies = galaxyProjects.map(galaxyTileItem);
+        const count = plural(galaxies.length, "Galaxy", "Galaxies");
+        return (
+          <GalaxiesCollectionHomeTile
+            density={density}
+            label="Galaxies"
+            galaxies={galaxies}
+            summary={`${count} · latest Project activity first`}
+            count={count}
+            empty={{ title: "No Galaxies yet", body: "Each Project you're a member of has a Galaxy." }}
+          />
+        );
+      }
+      case "constellations-collection": {
+        const items = onOpenConstellation ? usableConstellations.map(constellationTileItem) : [];
+        return (
+          <ConstellationsCollectionHomeTile
+            density={density}
+            label="Constellations"
+            items={items}
+            empty={{ title: "No Constellations to use yet", body: "Constellations you can use appear here." }}
+          />
+        );
+      }
+      case "data-sources-collection": {
+        const items = onOpenDataSource ? dataSources.map(dataSourceTileItem) : [];
+        return (
+          <DataSourcesCollectionHomeTile
+            density={density}
+            label="Data sources"
+            items={items}
+            empty={{ title: "No Data Sources yet", body: "Data Sources you have access to appear here." }}
+          />
+        );
+      }
+      case "dashboards-collection": {
+        const items = onOpenDashboard
+          ? accessibleDashboards.map((dashboard) => dashboardTileItem(dashboard, projectById.get(dashboard.projectId)!))
+          : [];
+        return (
+          <DashboardsCollectionHomeTile
+            density={density}
+            label="Dashboards"
+            items={items}
+            empty={{ title: "No Dashboards yet", body: "Dashboards created in your Projects appear here." }}
+          />
+        );
+      }
+      default:
+        return null;
+    }
   }
 
   function renderHomeTile(tile: HomeTile) {
@@ -349,52 +689,14 @@ export function HomePage({
             surface={getHomeTileSurfaceStyle(tile)}
           />
         );
-      case "pinned-projects":
-      case "recent-projects": {
-        const pinned = tile.type === "pinned-projects";
-        if (size !== "wide-tall") {
-          const density = densityOf(tile);
-          // Same ordering as the full sections; Recent also respects the Show 3/6/9/All preference.
-          const source = pinned ? projectSections.pinned : projectSections.recent;
-          const showLimit = resolveHomeRecentPreviewLimit(readHomeRecentPreviewCount());
-          const rows = Math.min(
-            PROJECT_LIST_TILE_ROWS[density],
-            pinned ? Number.POSITIVE_INFINITY : showLimit ?? Number.POSITIVE_INFINITY,
-          );
-          if (source.length === 0) return null;
-          return (
-            <ProjectListHomeTile
-              variant={pinned ? "pinned" : "recent"}
-              projects={source.slice(0, rows)}
-              total={pinned ? projectSections.pinnedTotal : projectSections.recentEligibleTotal}
-              density={density}
-              onOpenProject={onOpenProject}
-              onViewAll={() => onBrowseModeChange("projects")}
-            />
-          );
-        }
-        return (
-          <ProjectsPreview
-            sections={pinned ? "pinned" : "recent"}
-            projects={activeProjects}
-            pinnedProjectOrder={pinnedProjectIds}
-            onViewAll={() => onBrowseModeChange("projects")}
-            onNewProject={canCreateProject() ? onNewProject : undefined}
-            onToggleProjectPin={onToggleProjectPin}
-            onArchiveProject={onArchiveProject}
-            onRestoreProject={onRestoreProject}
-            onEditProject={onEditProject}
-            onDeleteProject={onDeleteProject}
-            canEditProject={canEditProject}
-            canArchiveProject={canArchiveProject}
-            canDeleteProject={canDeleteProject}
-            canRestoreProject={canRestoreProject}
-            onOpenProject={onOpenProject}
-            onNavigateProjectDestination={handleNavigate}
-            collectionFrame={fullWidthSectionFrame(getHomeTileSurfaceStyle(tile))}
-          />
-        );
-      }
+      case "projects-collection":
+        return renderProjectsCollection(tile);
+      case "chats-collection":
+      case "galaxies-collection":
+      case "constellations-collection":
+      case "data-sources-collection":
+      case "dashboards-collection":
+        return renderCollectionTile(tile);
       default:
         return renderItemTile(tile);
     }
@@ -491,52 +793,20 @@ export function HomePage({
         };
       }
       case "dashboard": {
-        const project = projectById.get(target.entityId);
-        if (!project || !onOpenDashboard) return null;
-        const outputs = getProjectDashboardOutputs(project.id);
-        const count = `${outputs.length} saved ${outputs.length === 1 ? "output" : "outputs"}`;
-        const density = densityOf(tile);
-        const latest = outputs.slice(0, density === "large" ? 2 : 3);
+        // Specific Dashboard tiles render DashboardHomeTile; this only names the tile (labels, Undo).
+        const resolution = resolveDashboardTile(tile);
+        if (resolution.status !== "ok" || !onOpenDashboard) return null;
+        const project = projectById.get(resolution.dashboard.projectId);
+        if (!project) return null;
         return {
           icon: (size) => <LuxiaDashboardIcon size={size} color="currentColor" />,
           typeLabel: "Dashboard",
-          title: `${project.name} Dashboard`,
-          summary: count,
-          context: count,
-          related: outputs.length === 0
-            ? undefined
-            : density === "large"
-              ? (
-                <ul className="grid grid-cols-2 gap-2" aria-label="Latest saved outputs">
-                  {latest.map((output) => (
-                    <li key={output.id} className="min-w-0">
-                      <DashboardOutputPreviewGraphic variant={output.outputType} />
-                      <p className="mt-1.5 truncate luxia-type-body-dense-strong" style={{ color: HT.text }} title={output.name}>
-                        {output.name}
-                      </p>
-                      <p className="truncate luxia-type-caption" style={{ color: HT.muted }}>
-                        {outputTypeLabel(output.outputType)}
-                      </p>
-                    </li>
-                  ))}
-                </ul>
-              )
-              : (
-                <ul className="min-w-0 space-y-1" aria-label="Latest saved outputs">
-                  {latest.map((output) => (
-                    <li key={output.id} className="flex min-w-0 items-center justify-between gap-2 luxia-type-caption">
-                      <span className="min-w-0 truncate" style={{ color: HT.secondary }} title={output.name}>
-                        {output.name}
-                      </span>
-                      <span className="shrink-0" style={{ color: HT.muted }}>
-                        {outputTypeLabel(output.outputType)}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              ),
-          primary: { label: "Open Dashboard", ariaLabel: `Open Dashboard for ${project.name}`, onClick: () => onOpenDashboard(project.id) },
-          secondary: { label: "Open Project", ariaLabel: `Open Project ${project.name}`, onClick: () => onOpenProject(project.id) },
+          title: `${resolution.dashboard.name} · ${project.name}`,
+          primary: {
+            label: "Open Dashboard",
+            ariaLabel: `Open Dashboard ${resolution.dashboard.name} in ${project.name}`,
+            onClick: () => onOpenDashboard(project.id, resolution.dashboard.id),
+          },
         };
       }
       default:
@@ -578,6 +848,92 @@ export function HomePage({
         />
       );
     }
+    if (tile.type === "galaxy" && tile.target) {
+      const project = projectById.get(tile.target.entityId);
+      if (!project) return <HomeUnavailableTile typeLabel={definition.label} />;
+      return (
+        <GalaxyHomeTile
+          density={density === "small" ? "small" : "medium"}
+          galaxy={galaxyTileItem(project)}
+          openProject={{ ariaLabel: `Open Project ${project.name}`, onClick: () => onOpenProject(project.id) }}
+        />
+      );
+    }
+    if (tile.type === "chat" && tile.target) {
+      const item = chatItems.find((entry) => entry.chatId === tile.target?.entityId);
+      if (!item) return <HomeUnavailableTile typeLabel={definition.label} />;
+      const projectName = projectById.get(item.projectId)?.name;
+      return (
+        <ChatHomeTile
+          density={density === "small" ? "small" : "medium"}
+          chat={chatTileItem(item)}
+          openProject={projectName
+            ? { ariaLabel: `Open Project ${projectName}`, onClick: () => onOpenProject(item.projectId) }
+            : undefined}
+        />
+      );
+    }
+    if (tile.type === "constellation" && tile.target) {
+      const constellation = constellations.find((entry) => entry.id === tile.target?.entityId);
+      if (!constellation || !onOpenConstellation || !projectById.has(constellation.projectId)) {
+        return <HomeUnavailableTile typeLabel={definition.label} />;
+      }
+      const recent = chatItems.filter((item) => item.constellationId === constellation.id);
+      const latestChat = recent[0];
+      return (
+        <ConstellationHomeTile
+          density={density === "small" ? "small" : "medium"}
+          item={constellationTileItem(constellation)}
+          description={constellation.description?.trim()
+            || recent.find((item) => item.constellationDescription?.trim())?.constellationDescription?.trim()}
+          recentChatCount={recent.length}
+          sourceCount={constellation.sourceCount}
+          continueChat={latestChat
+            ? { label: "Continue Chat", ariaLabel: `Continue Chat ${latestChat.title}`, onClick: () => onContinueWork(latestChat) }
+            : undefined}
+          recentChats={recent.map((chat) => ({
+            id: chat.id,
+            title: chat.title,
+            when: formatHomeChatActivity(chat.lastOpenedAt, chat.updatedAt)?.short,
+            openLabel: `Continue Chat ${chat.title}`,
+            onOpen: () => onContinueWork(chat),
+          }))}
+        />
+      );
+    }
+    if (tile.type === "data-source" && tile.target) {
+      const source = homeTileDataSources.find((entry) => entry.id === tile.target?.entityId);
+      if (!source || !onOpenDataSource) return <HomeUnavailableTile typeLabel={definition.label} />;
+      return <DataSourceHomeTile density={density === "small" ? "small" : "medium"} item={dataSourceTileItem(source)} />;
+    }
+    if (tile.type === "dashboard" && tile.target) {
+      const resolution = resolveDashboardTile(tile);
+      const project = resolution.status === "ok" ? projectById.get(resolution.dashboard.projectId) : undefined;
+      if (resolution.status !== "ok" || !project || !onOpenDashboard) {
+        const legacyProject = resolution.status === "unavailable" && resolution.reason === "legacy-unmapped" && resolution.projectId
+          ? projectById.get(resolution.projectId)
+          : undefined;
+        return (
+          <HomeUnavailableTile
+            typeLabel={definition.label}
+            message={legacyProject
+              ? `Was ${legacyProject.name}'s Dashboard. Choose a named one.`
+              : "This Dashboard is no longer available."}
+            actions={onOpenDashboard ? [
+              { label: "Choose Dashboard", ariaLabel: "Choose a Dashboard for this tile", onClick: () => setConfigureTile(tile) },
+              { label: "Remove", ariaLabel: "Remove this tile from Home", onClick: () => homeBuilder.removeTile(tile, definition.label) },
+            ] : undefined}
+          />
+        );
+      }
+      return (
+        <DashboardHomeTile
+          density={density}
+          item={dashboardTileItem(resolution.dashboard, project)}
+          openProject={{ ariaLabel: `Open Project ${project.name}`, onClick: () => onOpenProject(project.id) }}
+        />
+      );
+    }
     const props = entityTileProps(tile);
     if (!props) return <HomeUnavailableTile typeLabel={definition.label} />;
     return <EntityHomeTile density={density} {...props} />;
@@ -585,6 +941,8 @@ export function HomePage({
 
   function getTileLabel(tile: HomeTile): string {
     const definition = getHomeTileDefinition(tile.type);
+    if (tile.type === "projects-collection") return HOME_PROJECTS_VIEW_COPY[getHomeProjectsView(tile)].title;
+    if (definition.model === "collection") return getHomeTileHeading(tile).title;
     if (!tile.target) return definition.label;
     const title = tile.type === "project"
       ? projectById.get(tile.target.entityId)?.name
@@ -593,6 +951,41 @@ export function HomePage({
         : entityTileProps(tile)?.title;
     return title ? `${definition.label} · ${title}` : definition.label;
   }
+
+  // Collection data: every list comes from data already filtered to what this user may access
+
+  const recentChats = selectRecentChats(workWithPin);
+  const galaxyProjects = rankProjectsByRecency(activeProjects);
+  // Constellations of active Projects only; one row per Constellation, grouped by Project name.
+  const usableConstellations = sortByName(
+    uniqueById(constellations).filter((constellation) => projectById.has(constellation.projectId)),
+    (constellation) => `${projectById.get(constellation.projectId)?.name ?? ""} ${constellation.label}`,
+  );
+  const dataSources = sortByName(homeTileDataSources, (source) => source.name);
+  // Named Dashboards in Projects this user can access, most recently updated first.
+  const accessibleProjectIds = new Set(activeProjects.map((project) => project.id));
+  const allDashboardIds = new Set(allDashboards.map((dashboard) => dashboard.id));
+  const accessibleDashboards = onOpenDashboard
+    ? allDashboards
+      .filter((dashboard) => accessibleProjectIds.has(dashboard.projectId))
+      .slice()
+      .sort((a, b) => b.updatedAtTimestamp - a.updatedAtTimestamp || a.name.localeCompare(b.name))
+    : [];
+
+  const collectionAvailability: Partial<Record<HomeTileType, HomeCollectionAvailability>> = {
+    "projects-collection": {
+      available: true,
+      count: activeProjects.length,
+      viewCounts: Object.fromEntries(
+        HOME_PROJECTS_VIEWS.map((view) => [view, selectHomeProjects(activeProjects, pinnedProjectIds, view).length]),
+      ),
+    },
+    "chats-collection": { available: true, count: recentChats.length },
+    "galaxies-collection": { available: true, count: galaxyProjects.length },
+    "constellations-collection": { available: Boolean(onOpenConstellation), count: usableConstellations.length },
+    "data-sources-collection": { available: Boolean(onOpenDataSource), count: dataSources.length },
+    "dashboards-collection": { available: Boolean(onOpenDashboard), count: accessibleDashboards.length },
+  };
 
   const targetOptions: Partial<Record<HomeTileType, HomeTileTargetOption[]>> = {
     project: activeProjects.map((project) => ({
@@ -605,13 +998,19 @@ export function HomePage({
       label: `${project.name} Galaxy`,
       detail: project.name,
     })),
-    dashboard: onOpenDashboard
-      ? activeProjects.map((project) => ({
-        target: { scope: "dashboard", entityId: project.id, projectId: project.id },
-        label: `${project.name} Dashboard`,
-        detail: project.name,
-      }))
-      : [],
+    // One option per named Dashboard; the Project in the detail tells same-named Dashboards apart (and is searchable).
+    dashboard: sortByName(
+      accessibleDashboards,
+      (dashboard) => `${projectById.get(dashboard.projectId)?.name ?? ""} ${dashboard.name}`,
+    ).map((dashboard) => {
+      const projectName = projectById.get(dashboard.projectId)?.name ?? "";
+      const outputCount = resolveDashboardOutputs(dashboard, getProjectDashboardOutputs(dashboard.projectId)).length;
+      return {
+        target: { scope: "dashboard" as const, entityId: dashboard.id, projectId: dashboard.projectId },
+        label: dashboard.name,
+        detail: `${projectName} · ${outputCount === 0 ? "No outputs yet" : `${outputCount} ${outputCount === 1 ? "output" : "outputs"}`}`,
+      };
+    }),
     chat: chatItems.map((item) => ({
       target: { scope: "chat", entityId: item.chatId, projectId: item.projectId },
       label: item.title,
@@ -641,6 +1040,16 @@ export function HomePage({
   };
 
   const { layout: homeLayout, editing } = homeBuilder;
+  /**
+   * Old Project-Dashboard tiles shown with the Dashboard they map to, so Add Tile
+   * and Configure treat that Dashboard as already on Home. Display only; the
+   * stored layout keeps its saved target until the user changes it.
+   */
+  const withResolvedTargets = (tile: HomeTile) =>
+    tile.type === "dashboard" ? withResolvedDashboardTarget(tile, resolveDashboardTile(tile)) : tile;
+  const pickerLayout = homeLayout.tiles.some((tile) => tile.type === "dashboard")
+    ? { ...homeLayout, tiles: homeLayout.tiles.map(withResolvedTargets) }
+    : homeLayout;
   const layoutIsEmpty = homeLayout.tiles.length === 0;
 
   return (
@@ -700,7 +1109,7 @@ export function HomePage({
           onRemoveTile={(tile) => homeBuilder.removeTile(tile, getTileLabel(tile))}
           onLayoutChange={homeBuilder.updateLayout}
           getTileSection={getHomeTileSection}
-          onConfigureTile={setConfigureTile}
+          onConfigureTile={(tile) => setConfigureTile(withResolvedTargets(tile))}
         />
       )}
 
@@ -708,7 +1117,7 @@ export function HomePage({
         key={configureTile?.id ?? "none"}
         tile={configureTile}
         tileLabel={configureTile ? getTileLabel(configureTile) : ""}
-        layout={homeLayout}
+        layout={pickerLayout}
         targetOptions={targetOptions}
         onClose={() => setConfigureTile(null)}
         onSave={(tile, changes) => {
@@ -716,6 +1125,7 @@ export function HomePage({
             before: getTileLabel(tile),
             after: getTileLabel(changes.target ? { ...tile, target: changes.target } : tile),
             surface: changes.surface ? homeTileSurfaceLabel(changes.surface) : undefined,
+            setting: changes.config ? HOME_PROJECTS_VIEW_COPY[changes.config.view].title.toLowerCase() : undefined,
           });
         }}
       />
@@ -723,10 +1133,11 @@ export function HomePage({
       <HomeTileLibrary
         open={libraryOpen}
         onOpenChange={setLibraryOpen}
-        layout={homeLayout}
+        layout={pickerLayout}
         targetOptions={targetOptions}
-        onAdd={(type, target) => {
-          homeBuilder.addTile(type, target);
+        collections={collectionAvailability}
+        onAdd={(type, target, config) => {
+          homeBuilder.addTile(type, target, config);
         }}
       />
     </>

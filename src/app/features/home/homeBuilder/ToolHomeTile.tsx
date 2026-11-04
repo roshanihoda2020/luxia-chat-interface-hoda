@@ -1,4 +1,3 @@
-import { ChevronRight } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { LuxiaArrowRightIcon, LuxiaWritingAssistantIcon } from "@/assets/icons";
 import type { LuxiaToolDefinition } from "@/app/features/tools/types";
@@ -10,6 +9,7 @@ import {
   HomeTileText,
   HomeTileTitleAction,
 } from "./HomeTileSurface";
+import { CardArrow, GlyphChip } from "./homeTileVisuals";
 
 const STATUS_LABEL: Record<NonNullable<LuxiaToolDefinition["status"]>, string> = {
   beta: "Beta",
@@ -34,26 +34,22 @@ export function ToolHomeTile({
   const corner = { icon: (size: number) => <LuxiaWritingAssistantIcon size={size} color="currentColor" /> };
 
   if (density === "small") {
+    // A launcher: the tool's mark and name lead; the whole card opens it.
     return (
-      <HomeTileSurface density="small" label={`Tool ${tool.name}`} className="justify-center" corner={corner}>
-        <div className="flex min-w-0 items-center gap-3">
-          <div className="min-w-0 flex-1 space-y-0.5">
-            <HomeTileTitleAction
-              title={tool.name}
-              onOpen={onOpen}
-              ariaLabel={`Open ${tool.name}`}
-              stretched
-              size="dense"
-            />
-            <HomeTileText>{status ? `${status} · ${tool.description}` : tool.description}</HomeTileText>
+      <HomeTileSurface density="small" label={`Tool ${tool.name}`} corner={corner}>
+        <div className="flex min-h-0 min-w-0 flex-1 items-center gap-3">
+          <GlyphChip size={44} tone="strong"><LuxiaWritingAssistantIcon size={22} color="currentColor" /></GlyphChip>
+          <div className="min-w-0 flex-1">
+            <div className={HOME_TILE_CORNER_CLEARANCE.small}>
+              <HomeTileTitleAction title={tool.name} onOpen={onOpen} ariaLabel={`Open ${tool.name}`} stretched size="dense" />
+            </div>
+            <HomeTileText lines={2}>{tool.description}</HomeTileText>
           </div>
-          <ChevronRight
-            size={16}
-            strokeWidth={2}
-            aria-hidden
-            className="shrink-0 transition-transform duration-150 group-hover/tile:translate-x-0.5"
-            style={{ color: HT.accent }}
-          />
+        </div>
+        <div className="flex min-w-0 items-center justify-between gap-2">
+          {status ? <HomeTileStatus>{status}</HomeTileStatus> : <span />}
+          <span className="ml-auto luxia-type-label-small" style={{ color: HT.link }}>Open</span>
+          <CardArrow />
         </div>
       </HomeTileSurface>
     );
@@ -61,20 +57,21 @@ export function ToolHomeTile({
 
   return (
     <HomeTileSurface density="medium" label={`Tool ${tool.name}`} corner={corner}>
-      <div className="flex min-h-0 flex-1 flex-col gap-2">
-        <div className={`flex min-w-0 items-start gap-2 ${HOME_TILE_CORNER_CLEARANCE.medium}`}>
-          <div className="min-w-0">
+      <div className="flex min-h-0 flex-1 flex-col justify-center gap-4">
+        <GlyphChip size={56} tone="strong"><LuxiaWritingAssistantIcon size={28} color="currentColor" /></GlyphChip>
+        <div className="min-w-0 space-y-1.5">
+          <div className={`flex min-w-0 items-center gap-2 ${HOME_TILE_CORNER_CLEARANCE.medium}`}>
             <HomeTileTitleAction title={tool.name} onOpen={onOpen} ariaLabel={`Open ${tool.name}`} />
+            {status ? <HomeTileStatus>{status}</HomeTileStatus> : null}
           </div>
-          {status ? <span className="pt-0.5"><HomeTileStatus>{status}</HomeTileStatus></span> : null}
+          <HomeTileText lines={3}>{tool.description}</HomeTileText>
         </div>
-        <HomeTileText lines={3}>{tool.description}</HomeTileText>
-      </div>
-      <div className="mt-4">
+      <div>
         <Button type="button" variant="primary" size="compact" onClick={onOpen} aria-label={`Open ${tool.name}`}>
           Open {tool.name}
           <LuxiaArrowRightIcon size={13} color="currentColor" aria-hidden />
         </Button>
+      </div>
       </div>
     </HomeTileSurface>
   );

@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import { ChatIcon, GalaxyIcon, ProjectIcon } from "@/app/components/icons";
 import { HS } from "./homeSurfaces";
 import type { HomeHeroContent, HomeShortcutEntityType } from "./types";

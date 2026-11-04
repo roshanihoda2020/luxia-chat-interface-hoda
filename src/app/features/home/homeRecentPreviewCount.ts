@@ -45,3 +45,23 @@ export function writeHomeRecentPreviewCount(
     /* ignore quota / private-mode failures */
   }
 }
+
+/**
+ * A stored count ("3", "6", "9", "all", or the numbers), or null when the
+ * value is missing or not one of the options. Used for per-tile settings,
+ * where an invalid value must fall back instead of picking a count silently.
+ */
+export function parseHomeRecentPreviewCount(value: unknown): HomeRecentPreviewCount | null {
+  if (value === "all") return "all";
+  const parsed = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
+  return parsed === 3 || parsed === 6 || parsed === 9 ? parsed : null;
+}
+
+/** The legacy shared Show choice, or null when none was ever saved (no default filled in). */
+export function readSavedHomeRecentPreviewCount(): HomeRecentPreviewCount | null {
+  try {
+    return parseHomeRecentPreviewCount(localStorage.getItem(STORAGE_KEY));
+  } catch {
+    return null;
+  }
+}

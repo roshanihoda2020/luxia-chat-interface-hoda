@@ -1,4 +1,5 @@
 import { HOME_TILE_GRID, HOME_TILE_SIZE_PRESETS } from "./grid";
+import { migrateHomeLayoutData } from "./migration";
 import { getHomeTileDefinition, isHomeTileType } from "./registry";
 import {
   HOME_LAYOUT_SCHEMA_VERSION,
@@ -161,10 +162,10 @@ export function serializeHomeLayout(layout: HomeLayout): string | null {
   return result.ok ? JSON.stringify(result.layout) : null;
 }
 
-/** Parses stored JSON text; malformed JSON is reported, never thrown. */
+/** Parses stored JSON text (migrating older versions); malformed JSON is reported, never thrown. */
 export function deserializeHomeLayout(text: string): HomeLayoutParseResult {
   try {
-    return parseHomeLayout(JSON.parse(text) as unknown);
+    return parseHomeLayout(migrateHomeLayoutData(JSON.parse(text) as unknown).data);
   } catch {
     return { ok: false, error: "stored layout is not valid JSON" };
   }

@@ -8,7 +8,10 @@
 
 import type { ProjectRole } from "./types";
 
-export let CURRENT_USER_ID = "user-05";
+/** The identity every prototype session starts as (the account menu can switch it). */
+export const PROTOTYPE_DEFAULT_USER_ID = "user-05";
+
+export let CURRENT_USER_ID = PROTOTYPE_DEFAULT_USER_ID;
 
 export function setPrototypeCurrentUserId(userId: string): void {
   CURRENT_USER_ID = userId;

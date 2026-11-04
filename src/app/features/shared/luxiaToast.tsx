@@ -31,6 +31,14 @@ type LuxiaToastOptions = {
   };
   duration?: number;
   id?: string | number;
+  /**
+   * Presentation only (all optional; existing toasts are unchanged):
+   * where this toast appears, a class for feature-specific styling, and an
+   * icon in place of the tone's default.
+   */
+  position?: "top-right" | "top-center" | "bottom-right" | "bottom-center";
+  className?: string;
+  icon?: ReactNode;
 };
 
 const ICONS: Record<LuxiaToastTone, ReactNode> = {
@@ -41,7 +49,7 @@ const ICONS: Record<LuxiaToastTone, ReactNode> = {
 };
 
 function show(tone: LuxiaToastTone, options: LuxiaToastOptions) {
-  const { title, description, action, duration, id } = options;
+  const { title, description, action, duration, id, position, className, icon } = options;
 
   const method =
     tone === "info"
@@ -56,7 +64,10 @@ function show(tone: LuxiaToastTone, options: LuxiaToastOptions) {
     id,
     description,
     duration,
-    icon: ICONS[tone],
+    icon: icon ?? ICONS[tone],
+    ...(position ? { position } : {}),
+    // Feature-styled toasts opt out of the Toaster's rich colours so their own styles apply.
+    ...(className ? { className, richColors: false } : {}),
     action: action
       ? {
           label: action.label,

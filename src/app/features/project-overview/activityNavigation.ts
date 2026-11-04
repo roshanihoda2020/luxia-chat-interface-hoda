@@ -1,10 +1,11 @@
+import { getProjectDashboard } from "./projectDashboardStore";
 import type { ProjectActivityItem } from "./types";
 
 export type ActivityDestination =
   | { kind: "chat"; projectId: string; chatId: string }
   | { kind: "constellation"; projectId: string; constellationId: string }
   | { kind: "dashboard-output"; projectId: string; outputId: string }
-  | { kind: "dashboard"; projectId: string }
+  | { kind: "dashboard"; projectId: string; dashboardId?: string }
   | { kind: "vidget"; projectId: string; vidgetId: string }
   | { kind: "galaxy"; projectId: string }
   | { kind: "galaxy-settings"; projectId: string };
@@ -21,7 +22,8 @@ export type ActivityNavigationContext = {
 export type ActivityNavigationHandlers = {
   onOpenChat: (chatId: string) => void;
   onOpenConstellation: (projectId: string, constellationId: string) => void;
-  onOpenDashboard: (projectId: string) => void;
+  /** Opens a named Dashboard, or the Project's Dashboards list without an id. */
+  onOpenDashboard: (projectId: string, dashboardId?: string) => void;
   onOpenDashboardOutput: (projectId: string, outputId: string) => void;
   onOpenVidget: (projectId: string, vidgetId: string) => void;
   onOpenGalaxy: (projectId: string) => void;
@@ -51,7 +53,11 @@ export function resolveActivityDestination(
       return { kind: "dashboard-output", projectId: item.projectId, outputId };
     }
     if (item.type === "dashboard") {
-      return { kind: "dashboard", projectId: item.projectId };
+      // Open the named Dashboard when it still exists in this Project; otherwise the list.
+      const dashboard = item.dashboardId ? getProjectDashboard(item.dashboardId) : null;
+      return dashboard && dashboard.projectId === item.projectId
+        ? { kind: "dashboard", projectId: item.projectId, dashboardId: dashboard.id }
+        : { kind: "dashboard", projectId: item.projectId };
     }
     const vidgetId = item.virtualAssistantId;
     if ((item.type === "widget" || item.type === "virtual-assistant") && vidgetId) {
@@ -117,7 +123,7 @@ export function openProjectActivity(
       handlers.onOpenDashboardOutput(destination.projectId, destination.outputId);
       break;
     case "dashboard":
-      handlers.onOpenDashboard(destination.projectId);
+      handlers.onOpenDashboard(destination.projectId, destination.dashboardId);
       break;
     case "vidget":
       handlers.onOpenVidget(destination.projectId, destination.vidgetId);

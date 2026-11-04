@@ -37,7 +37,6 @@ export {
 
 export { LuxiaSettingsFormActions } from "./LuxiaSettingsFormActions";
 
-/* —— Phase 1 UX foundation —— */
 export {
   StatusBadge,
   statusToneForLabel,

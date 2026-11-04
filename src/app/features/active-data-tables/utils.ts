@@ -1,4 +1,4 @@
-import type { DataTableColumn, DataTableColumnType, DataTableRecord } from "./types";
+import type { DataTableColumn, DataTableRecord } from "./types";
 
 export function truncateValue(value: string, limit = 44) {
     if (value.length <= limit) return value;

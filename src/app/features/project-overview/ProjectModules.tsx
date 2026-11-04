@@ -240,12 +240,20 @@ export function ConstellationsModule({
   );
 }
 
+/**
+ * Overview module for the Project's saved outputs. Links to All outputs (every
+ * output) and to Dashboards (named selections of outputs) separately.
+ */
 export function DashboardsModule({
   outputs,
-  onOpenDashboard,
+  dashboardCount,
+  onOpenDashboards,
+  onOpenAllOutputs,
 }: {
   outputs: ProjectDashboardOutput[];
-  onOpenDashboard?: () => void;
+  dashboardCount: number;
+  onOpenDashboards?: () => void;
+  onOpenAllOutputs?: () => void;
 }) {
   const preview = outputs.slice(0, 8);
   const lastUpdated = preview[0]?.updatedAt;
@@ -253,7 +261,7 @@ export function DashboardsModule({
   return (
     <ProjectModuleCard
       icon={<LuxiaDashboardIcon size={20} aria-hidden color="currentColor" />}
-      title="Dashboard"
+      title="Outputs & Dashboards"
       count={outputs.length}
       countLabel={outputs.length === 1 ? "saved output" : "saved outputs"}
       description="Saved charts, tables, reports, metrics, and analyses from Project conversations."
@@ -270,8 +278,11 @@ export function DashboardsModule({
       }
       footer={
         <>
-          <ProjectViewAllLink label="Open Dashboard" onClick={onOpenDashboard} />
-          <span />
+          <ProjectViewAllLink label="View all outputs" onClick={onOpenAllOutputs} />
+          <ProjectViewAllLink
+            label={dashboardCount === 0 ? "Dashboards" : `${dashboardCount} ${dashboardCount === 1 ? "Dashboard" : "Dashboards"}`}
+            onClick={onOpenDashboards}
+          />
         </>
       }
     >

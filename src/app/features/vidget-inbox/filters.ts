@@ -1,7 +1,6 @@
 import type { VidgetChannel } from "@/app/features/vidgets/types";
 import type {
   VidgetInboxDateFilter,
-  VidgetInboxProblemsFilter,
   VidgetInboxQuery,
   VidgetInboxSession,
 } from "./types";

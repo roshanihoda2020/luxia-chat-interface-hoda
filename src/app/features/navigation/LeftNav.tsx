@@ -190,12 +190,14 @@ export type LeftNavProps = {
   activeProjectSection?: ProjectNavSection | null;
   activeChatId?: string | null;
   activeConstellationId?: string | null;
-  activeDashboardOutputId?: string | null;
+  /** The open named Dashboard, highlighted in the Dashboards panel. */
+  activeDashboardId?: string | null;
   activeVidgetId?: string | null;
   activePipelineId?: string | null;
   projectChats?: LeftNavChatPreview[];
   projectConstellations?: LeftNavConstellationPreview[];
-  projectDashboardOutputs?: LeftNavDashboardPreview[];
+  /** The Project's named Dashboards (not outputs). */
+  projectDashboards?: LeftNavDashboardPreview[];
   projectVidgets?: LeftNavVidgetPreview[];
   projectPipelines?: LeftNavPipelinePreview[];
   switchableProjects?: LeftNavProjectPreview[];
@@ -214,7 +216,7 @@ export type LeftNavProps = {
   onSwitchProject?: (projectId: string) => void;
   onOpenChat?: (chatId: string) => void;
   onOpenConstellation?: (projectId: string, constellationId: string) => void;
-  onOpenDashboardOutput?: (projectId: string, outputId: string) => void;
+  onOpenDashboard?: (projectId: string, dashboardId: string) => void;
   onOpenVidget?: (projectId: string, vidgetId: string) => void;
   onOpenPipeline?: (projectId: string, pipelineId: string) => void;
   prototypeUser?: { id: string; name: string; email: string; orgRole: string };
@@ -902,12 +904,12 @@ export function LeftNav({
   activeProjectSection,
   activeChatId,
   activeConstellationId,
-  activeDashboardOutputId,
+  activeDashboardId,
   activeVidgetId,
   activePipelineId,
   projectChats = [],
   projectConstellations = [],
-  projectDashboardOutputs = [],
+  projectDashboards = [],
   projectVidgets = [],
   projectPipelines = [],
   switchableProjects = [],
@@ -926,7 +928,7 @@ export function LeftNav({
   onSwitchProject,
   onOpenChat,
   onOpenConstellation,
-  onOpenDashboardOutput,
+  onOpenDashboard,
   onOpenVidget,
   onOpenPipeline,
   prototypeUser,
@@ -994,7 +996,7 @@ export function LeftNav({
 
   const chatsCount = chatTotalCount ?? projectChats.length;
   const constellationsCount = constellationTotalCount ?? projectConstellations.length;
-  const dashboardCount = dashboardTotalCount ?? projectDashboardOutputs.length;
+  const dashboardCount = dashboardTotalCount ?? projectDashboards.length;
   const vidgetsCount = vidgetTotalCount ?? projectVidgets.length;
   const pipelinesCount = pipelineTotalCount ?? projectPipelines.length;
   const railCollapsed = isMobileDrawer ? false : collapsed;
@@ -1030,12 +1032,12 @@ export function LeftNav({
   const quickDashboardOutputs = useMemo(
     () =>
       pickQuickFlyoutItems(
-        projectDashboardOutputs,
-        activeDashboardOutputId,
+        projectDashboards,
+        activeDashboardId,
         SECONDARY_QUICK_LIMIT,
         (item) => item.updatedAtTimestamp,
       ),
-    [projectDashboardOutputs, activeDashboardOutputId],
+    [projectDashboards, activeDashboardId],
   );
 
   const quickVidgets = useMemo(
@@ -1071,8 +1073,8 @@ export function LeftNav({
   );
 
   const dashboardSearchRows = useMemo(
-    () => filterFlyoutSearch(projectDashboardOutputs, dashboardQuery, SECONDARY_SEARCH_RESULT_LIMIT),
-    [projectDashboardOutputs, dashboardQuery],
+    () => filterFlyoutSearch(projectDashboards, dashboardQuery, SECONDARY_SEARCH_RESULT_LIMIT),
+    [projectDashboards, dashboardQuery],
   );
 
   const vidgetSearchRows = useMemo(
@@ -1333,11 +1335,12 @@ export function LeftNav({
         key={item.id}
         icon={LuxiaDashboardIcon}
         label={item.label}
-        active={activeDashboardOutputId === item.id}
+        active={activeDashboardId === item.id}
+        href={projectId ? getDashboardPath(projectId, item.id) : undefined}
         onClick={() => {
           if (!projectId) return;
           navigateChildEntity(() => {
-            onOpenDashboardOutput?.(projectId, item.id);
+            onOpenDashboard?.(projectId, item.id);
           });
         }}
       />
@@ -1492,8 +1495,8 @@ export function LeftNav({
         id={dashboardPanelId}
         mode="desktop"
         title="Dashboard"
-        searchPlaceholder="Search Dashboard"
-        noMatchLabel="No matching Dashboard outputs"
+        searchPlaceholder="Search Dashboards"
+        noMatchLabel="No matching Dashboards"
         query={dashboardQuery}
         onQueryChange={setDashboardQuery}
         rows={dashboardRows}
@@ -1622,8 +1625,8 @@ export function LeftNav({
                 id={dashboardPanelId}
                 mode="mobile"
                 title="Dashboard"
-                searchPlaceholder="Search Dashboard"
-                noMatchLabel="No matching Dashboard outputs"
+                searchPlaceholder="Search Dashboards"
+                noMatchLabel="No matching Dashboards"
                 query={dashboardQuery}
                 onQueryChange={setDashboardQuery}
                 rows={dashboardRows}
@@ -1943,7 +1946,7 @@ export function LeftNav({
                             active={
                               activeProjectSection === "dashboard"
                               || flyout === "dashboard"
-                              || Boolean(activeDashboardOutputId)
+                              || Boolean(activeDashboardId)
                             }
                             collapsed
                             count={dashboardCount}
@@ -2037,9 +2040,9 @@ export function LeftNav({
                             href={dashboardHref}
                             active={
                               activeProjectSection === "dashboard"
-                              || Boolean(activeDashboardOutputId)
+                              || Boolean(activeDashboardId)
                             }
-                            childActive={Boolean(activeDashboardOutputId)}
+                            childActive={Boolean(activeDashboardId)}
                             expanded={flyout === "dashboard"}
                             panelId={dashboardPanelId}
                             anchorRef={dashboardAnchorRef}

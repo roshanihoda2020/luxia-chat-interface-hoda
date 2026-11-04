@@ -1,4 +1,5 @@
 import { workItemToHeroContent } from "./data";
+import { readUserHomePreference, writeUserHomePreference } from "./homePreferenceScope";
 import type { HomeEntityKey } from "./homeEntityKeys";
 import { parseEntityKey, workItemEntityKey } from "./homeEntityKeys";
 import type { HomeHeroContent, HomeProjectCard, HomeRecentWorkItem } from "./types";
@@ -10,6 +11,7 @@ export interface HomePrimaryPreference {
   entityKey: HomeEntityKey | null;
 }
 
+/** Base key; each user's choice is saved under their own key (see homePreferenceScope). */
 const STORAGE_KEY = "luxia-home-primary-preference";
 
 const AUTOMATIC_PREFERENCE: HomePrimaryPreference = {
@@ -57,9 +59,9 @@ export function homePrimaryPreferencesEqual(
   return a.mode === b.mode && a.entityKey === b.entityKey;
 }
 
-export function readHomePrimaryPreference(): HomePrimaryPreference {
+export function readHomePrimaryPreference(userId: string): HomePrimaryPreference {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = readUserHomePreference(STORAGE_KEY, userId);
     if (!raw) return AUTOMATIC_PREFERENCE;
     const parsed = JSON.parse(raw) as Partial<HomePrimaryPreference>;
     if (parsed.mode === "manual") {
@@ -74,20 +76,17 @@ export function readHomePrimaryPreference(): HomePrimaryPreference {
   }
 }
 
-export function writeHomePrimaryPreference(pref: HomePrimaryPreference): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(pref));
-  } catch {
-  }
+export function writeHomePrimaryPreference(userId: string, pref: HomePrimaryPreference): void {
+  writeUserHomePreference(STORAGE_KEY, userId, pref);
 }
 
 const DISMISSED_KEY = "luxia-home-dismissed-continue";
 
 export const DEFAULT_DISMISSED_CONTINUE_KEYS: HomeEntityKey[] = ["chat:chat-07"];
 
-export function readDismissedContinueKeys(): HomeEntityKey[] {
+export function readDismissedContinueKeys(userId: string): HomeEntityKey[] {
   try {
-    const raw = localStorage.getItem(DISMISSED_KEY);
+    const raw = readUserHomePreference(DISMISSED_KEY, userId);
     if (!raw) return [...DEFAULT_DISMISSED_CONTINUE_KEYS];
     return JSON.parse(raw) as HomeEntityKey[];
   } catch {
@@ -95,11 +94,8 @@ export function readDismissedContinueKeys(): HomeEntityKey[] {
   }
 }
 
-export function writeDismissedContinueKeys(keys: HomeEntityKey[]): void {
-  try {
-    localStorage.setItem(DISMISSED_KEY, JSON.stringify(keys));
-  } catch {
-  }
+export function writeDismissedContinueKeys(userId: string, keys: HomeEntityKey[]): void {
+  writeUserHomePreference(DISMISSED_KEY, userId, keys);
 }
 
 function rankWorkItem(item: HomeRecentWorkItem, pinnedOrder: HomeEntityKey[]): number {

@@ -165,7 +165,7 @@ export function EntityHomeTile({
     <HomeTileSurface density={density} label={`${typeLabel} ${title}`} className="@container" corner={corner}>
       <div className="flex min-h-0 flex-1 flex-col gap-3">
         {density === "large" && aside ? (
-          <div className="grid min-w-0 flex-1 grid-cols-1 content-start gap-3 @md:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] @md:gap-5">
+          <div className="grid min-w-0 flex-1 grid-cols-1 content-start gap-3 @sm:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] @sm:gap-5">
             {text}
             {aside}
           </div>

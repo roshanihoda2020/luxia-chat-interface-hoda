@@ -884,7 +884,6 @@ export function buildProjectDataReadiness(input: {
 }): ProjectDataReadinessResult {
   const {
     userId,
-    projectRole,
     membershipStatus,
     requiredSourceIds,
     accessLevels,

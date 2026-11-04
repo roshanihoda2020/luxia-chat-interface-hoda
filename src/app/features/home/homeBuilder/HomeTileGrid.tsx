@@ -9,14 +9,16 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
-import { Maximize2, Minus, SlidersHorizontal } from "lucide-react";
+import { CircleMinus, GripVertical, Maximize2, SlidersHorizontal } from "lucide-react";
+import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
+import * as TooltipPrimitive from "@radix-ui/react-tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/app/components/ui/tooltip";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
-  DropdownMenuTrigger,
 } from "@/app/components/ui/dropdown-menu";
 import {
   homeTileColumnPitch,
@@ -41,7 +43,7 @@ import {
   type HomeTileMoveDirection,
 } from "./layoutOps";
 import { HomeTileSectionHeader, type HomeTileSection } from "./HomeTileSectionHeader";
-import { HOME_TILE_CORNER, HomeTileSurfaceProvider } from "./HomeTileSurface";
+import { HomeTileSurfaceProvider } from "./HomeTileSurface";
 import { placeHomeTiles } from "./placement";
 import {
   getHomeTileBesideSizes,
@@ -77,20 +79,26 @@ interface HomeTileGridProps {
 }
 
 /**
- * Customize-mode frame: an outline drawn just outside the tile, so the frame
- * matches the visible tile exactly and adds no inner padding. Its controls sit
- * on the card itself: Remove on the top-left corner, Configure and Size on the
- * top-right, resize grips on the side edges and bottom corners.
+ * Customize-mode frame: a quiet outline drawn just outside the tile
+ * (.luxia-home-tile-edit-frame), strengthening on hover and focus, so the
+ * frame matches the visible tile and adds no inner padding. One control group
+ * (style / item, size, remove) sits in the tile's heading row — or just above
+ * a Full-width section — never over the card; resize grips sit on the edges.
  */
 const EDIT_FRAME_STYLE: CSSProperties = {
-  outline: "1.5px dashed var(--luxia-opacity-brand-primary-24)",
-  outlineOffset: 2,
   borderRadius: "var(--luxia-radius-12)",
 };
 
 const ACTIVE_FRAME_STYLE: CSSProperties = {
   ...EDIT_FRAME_STYLE,
   outline: "2px solid var(--luxia-purple-60)",
+  outlineOffset: 3,
+};
+
+/** The lifted tile over a spot where it can't be dropped (releasing cancels the move). */
+const INVALID_FRAME_STYLE: CSSProperties = {
+  outline: "2px solid var(--luxia-error)",
+  cursor: "not-allowed",
 };
 
 /** The dragged tile while it follows the pointer: lifted above the page on an opaque surface. */
@@ -102,13 +110,21 @@ const LIFTED_FRAME_STYLE: CSSProperties = {
   willChange: "transform",
 };
 
-/** Dashed slot showing where the dragged tile will land. */
-const DROP_PLACEHOLDER_STYLE: CSSProperties = {
-  border: "2px dashed var(--luxia-opacity-brand-primary-24)",
-  borderRadius: "var(--luxia-radius-12)",
-  background: "var(--luxia-opacity-brand-primary-04)",
+/** Size names in the Size menu, with how much of a row each takes. */
+const SIZE_HINTS: Partial<Record<HomeTileSize, string>> = {
+  small: "Quarter row",
+  medium: "Third of a row",
+  large: "Half row",
+  wide: "Whole row",
+  "wide-tall": "Whole row",
 };
 
+/**
+ * Releasing this far outside the tile area cancels the move (shown before
+ * release) instead of clamping the tile to the nearest edge. Below the grid
+ * is allowed further, so tiles can still be dropped into a new last row.
+ */
+const OUTSIDE_GRID_PX = { side: 48, top: 48, bottom: 200 } as const;
 
 const KEY_DIRECTIONS: Record<string, HomeTileMoveDirection> = {
   ArrowLeft: "left",
@@ -124,18 +140,42 @@ const DRAG_THRESHOLD_PX = 6;
 const TOUCH_HOLD_MS = 300;
 const TOUCH_HOLD_SLOP_PX = 8;
 
-/** Top padding while customizing, so the first row's Remove badges aren't clipped. */
-const EDIT_GRID_TOP_PX = 12;
 /**
- * Full-width section tiles (Your focus / Pinned / Recent) carry their edit
- * controls just above the frame — clear of "View all", pin and view controls
- * and of the section title — so the first row needs this much room above it.
+ * While customizing, every tile's control group sits just above its frame, at
+ * the right — never in the heading row, so headings keep their full width,
+ * and never over the card, its corner icon or a section's own actions. Rows
+ * get a little extra space above them in Customize mode only, so the group
+ * clears the frame outline (offset 3px) and the tile above. Touch screens use
+ * larger buttons, so they get more room.
+ * - offset: how far above the frame the group's top sits (group height + 4px).
+ * - extraTop: added to the row gap above each lower row.
+ * - firstRowTop: grid padding above the first row.
  */
-const EDIT_GRID_TOP_SECTION_PX = 36;
-/** Edit controls above a section tile's frame: 28px buttons plus a 4px gap. */
-const SECTION_CONTROLS_OFFSET_PX = 32;
-/** Inset from the frame's edges, clear of the resize grips of a tile in the row above. */
+const EDIT_CONTROLS_SPACE = {
+  pointer: { offset: 36, extraTop: 16, firstRowTop: 44 },
+  touch: { offset: 50, extraTop: 24, firstRowTop: 56 },
+} as const;
+/** Inset from the frame's right edge, clear of the corner resize grip. */
+const TILE_CONTROLS_INSET_PX = 12;
+/** Full-width sections: further in, clear of the resize grips of a tile in the row above. */
 const SECTION_CONTROLS_INSET_PX = 24;
+
+/** True on coarse pointers (touch), where controls are larger. */
+function useCoarsePointer(): boolean {
+  const query = "(pointer: coarse)";
+  const [coarse, setCoarse] = useState(
+    () => typeof window !== "undefined" && window.matchMedia?.(query).matches === true,
+  );
+  useEffect(() => {
+    const list = window.matchMedia?.(query);
+    if (!list) return;
+    const update = () => setCoarse(list.matches);
+    update();
+    list.addEventListener("change", update);
+    return () => list.removeEventListener("change", update);
+  }, []);
+  return coarse;
+}
 
 /** A resized tile glides from the size the user drew into its snapped size. */
 const RESIZE_SETTLE_MS = 200;
@@ -162,13 +202,7 @@ const RESIZE_GRIP_CLASS: Record<HomeTileResizeEdge, string> = {
   "bottom-right": "size-2.5 rounded-br-[5px] border-b-2 border-r-2",
 };
 const TILE_ACTION_CLASS =
-  "inline-flex size-7 items-center justify-center rounded-[8px] border outline-none transition-colors hover:bg-[var(--luxia-opacity-brand-primary-08)] focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]";
-const TILE_ACTION_STYLE: CSSProperties = {
-  background: "var(--luxia-surface)",
-  borderColor: "var(--luxia-border-default)",
-  color: "var(--luxia-purple-60)",
-  boxShadow: "var(--luxia-shadow-xs)",
-};
+  "inline-flex size-7 items-center justify-center rounded-[8px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]";
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), Math.max(min, max));
@@ -184,6 +218,30 @@ const BESIDE_DWELL_SLOP_PX = 24;
 
 /** Neighbouring tiles glide to their new slots; the dragged tile settles into its slot on release. */
 const REFLOW_TRANSITION = "transform 180ms cubic-bezier(0.2, 0, 0, 1)";
+
+/**
+ * While a fluid resize draws the tile at a free size, its card body must follow
+ * the frame instead of holding its slot height; afterwards the held height comes
+ * back unless React has already set a new one (the size changed).
+ */
+function releaseBodyHeight(body: HTMLElement) {
+  if (body.dataset.homeTileHeldHeight === undefined) {
+    body.dataset.homeTileHeldHeight = JSON.stringify([body.style.minHeight, body.style.height, body.style.flex]);
+  }
+  body.style.minHeight = "0px";
+  body.style.height = "auto";
+  body.style.flex = "1 1 0%";
+}
+
+function restoreBodyHeight(body: HTMLElement) {
+  const saved = body.dataset.homeTileHeldHeight;
+  if (saved === undefined) return;
+  delete body.dataset.homeTileHeldHeight;
+  const [minHeight, height, flex] = JSON.parse(saved) as [string, string, string];
+  if (body.style.minHeight === "0px") body.style.minHeight = minHeight;
+  if (body.style.height === "auto") body.style.height = height;
+  if (body.style.flex === "1 1 0%") body.style.flex = flex;
+}
 
 function prefersReducedMotion(): boolean {
   return typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
@@ -213,8 +271,6 @@ interface DragSession {
     /** Preset the drawn size would snap to on release. */
     hint: HomeTileSize | null;
     moved: boolean;
-    /** The card's min-height before the gesture, restored when it settles. */
-    bodyMinHeight: string;
   } | null;
   base: HomeLayout;
   pointerId: number;
@@ -244,6 +300,8 @@ interface DragSession {
   bands: HomeTileRowBand[];
   /** Latest preview; kept here so a fast release never commits a stale render. */
   preview: HomeLayout;
+  /** Pointer is too far outside the tile area: releasing cancels the move. */
+  invalid: boolean;
   /** Tile ids in DOM order when the drag began; kept fixed so no node moves mid-drag. */
   domOrder: string[];
   /** Removes the window listeners that follow this gesture. */
@@ -276,10 +334,19 @@ export function HomeTileGrid({
   const sessionRef = useRef<DragSession | null>(null);
   const pendingFocusRef = useRef<{ tileId: string; control: "move" | "remove" | "size" | "configure" } | null>(null);
   /** A resized tile settling from its drawn size into its snapped size (next render). */
-  const pendingResizeRef = useRef<{ tileId: string; rect: DOMRect; bodyMinHeight: string } | null>(null);
+  const pendingResizeRef = useRef<{ tileId: string; rect: DOMRect } | null>(null);
   const [stacked, setStacked] = useState(false);
+  const controlsSpace = EDIT_CONTROLS_SPACE[useCoarsePointer() ? "touch" : "pointer"];
   const [emptyKey, setEmptyKey] = useState("");
-  const [drag, setDrag] = useState<{ tileId: string; mode: "move" | "resize"; preview: HomeLayout } | null>(null);
+  const [drag, setDrag] = useState<{
+    tileId: string;
+    mode: "move" | "resize";
+    preview: HomeLayout;
+    /** Releasing now would cancel (pointer outside the tile area). */
+    invalid?: boolean;
+  } | null>(null);
+  /** Full-width tile the pointer is resting beside; it makes room once the rest completes. */
+  const [dwellTileId, setDwellTileId] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState("");
   /** Size a fluid resize would snap to, shown on the tile while resizing. */
   const [resizeHint, setResizeHint] = useState<{ tileId: string; label: string } | null>(null);
@@ -391,17 +458,17 @@ export function HomeTileGrid({
     if (!frame) return;
     const body = frame.querySelector<HTMLElement>("[data-home-tile-body]");
     const content = body?.firstElementChild instanceof HTMLElement ? body.firstElementChild : null;
-    const release = (minHeight: string) => {
+    const release = () => {
       frame.style.transition = "";
       frame.style.transform = "";
       frame.style.width = "";
       frame.style.height = "";
       frame.style.flex = "";
       if (content) content.style.overflow = "";
-      // Only restore the card's min-height if React didn't already set a new one.
-      if (body && body.style.minHeight === "0px") body.style.minHeight = minHeight;
+      // Only restores the card's held height if React didn't already set a new one.
+      if (body) restoreBodyHeight(body);
     };
-    release(pending.bodyMinHeight);
+    release();
     if (prefersReducedMotion()) return;
 
     const natural = frame.getBoundingClientRect();
@@ -413,11 +480,10 @@ export function HomeTileGrid({
       Math.abs(from.height - natural.height),
     );
     if (moved < 1) return;
-    const minHeight = body?.style.minHeight ?? "";
     frame.style.transition = "none";
     frame.style.flex = "none";
     if (content) content.style.overflow = "hidden";
-    if (body) body.style.minHeight = "0px";
+    if (body) releaseBodyHeight(body);
     frame.style.transform = `translate3d(${from.left - natural.left}px, ${from.top - natural.top}px, 0)`;
     frame.style.width = `${from.width}px`;
     frame.style.height = `${from.height}px`;
@@ -426,9 +492,8 @@ export function HomeTileGrid({
     frame.style.transform = "translate3d(0, 0, 0)";
     frame.style.width = `${natural.width}px`;
     frame.style.height = `${natural.height}px`;
-    window.setTimeout(() => release(minHeight), RESIZE_SETTLE_MS + 40);
+    window.setTimeout(release, RESIZE_SETTLE_MS + 40);
   });
-
 
   useEffect(() => {
     if (!drag) return;
@@ -481,7 +546,7 @@ export function HomeTileGrid({
   const commitRef = useRef(commit);
   commitRef.current = commit;
 
-  // ── Pointer drag (move) and corner resize ──
+  // Pointer drag (move) and corner resize
 
   /** Tile body pressed in Customize mode: drag it, unless the press is on an edit control. */
   function startBodyDrag(event: ReactPointerEvent<HTMLElement>, tile: HomeTile) {
@@ -506,7 +571,6 @@ export function HomeTileGrid({
     const wrapper = event.currentTarget.closest<HTMLElement>("[data-home-tile-id]");
     const frame = wrapper?.querySelector<HTMLElement>("[data-home-tile-frame]")?.getBoundingClientRect();
     const body = wrapper?.querySelector<HTMLElement>("[data-home-tile-body]")?.getBoundingClientRect();
-    const bodyElement = wrapper?.querySelector<HTMLElement>("[data-home-tile-body]");
 
     // Rows of the other tiles as currently rendered, keyed by stored row.
     const bandMap = new Map<number, HomeTileRowBand>();
@@ -543,7 +607,6 @@ export function HomeTileGrid({
           height: frame.height,
           hint: null,
           moved: false,
-          bodyMinHeight: bodyElement?.style.minHeight ?? "",
         }
         : null,
       base: layout,
@@ -569,6 +632,7 @@ export function HomeTileGrid({
       bodyTop: (body?.top ?? grid.top) - grid.top,
       bands: [...bandMap.values()].sort((a, b) => a.top - b.top),
       preview: layout,
+      invalid: false,
       domOrder: placements.map((entry) => entry.tile.id),
       detach: () => undefined,
     };
@@ -633,7 +697,16 @@ export function HomeTileGrid({
       return;
     }
     let preview: HomeLayout;
-    const neighbour = session.mode === "move" ? besideDwellTarget(session, tile, pointerY) : null;
+    const gridRect = gridRef.current?.getBoundingClientRect();
+    const invalid = session.mode === "move" && Boolean(gridRect) && (
+      event.clientX < gridRect!.left - OUTSIDE_GRID_PX.side
+      || event.clientX > gridRect!.right + OUTSIDE_GRID_PX.side
+      || event.clientY < gridRect!.top - OUTSIDE_GRID_PX.top
+      || event.clientY > gridRect!.bottom + OUTSIDE_GRID_PX.bottom
+    );
+    session.invalid = invalid;
+    const neighbour = session.mode === "move" && !invalid ? besideDwellTarget(session, tile, pointerY) : null;
+    if (invalid) clearDwell(session);
     const suggestion = neighbour
       ? suggestHomeTileBesideFullWidth({
         tileSizes: [{ w: tile.w, h: tile.h }, ...session.fitSizes],
@@ -642,7 +715,10 @@ export function HomeTileGrid({
         pointerColumn: homeTilePointerColumn(session.gridWidth, pointerX, session.grabOffsetX),
       })
       : null;
-    if (neighbour && suggestion) {
+    if (invalid) {
+      // Nothing moves while the tile is outside: it would return to where it was.
+      preview = session.base;
+    } else if (neighbour && suggestion) {
       // Preview only: the Full-width tile shrinks in its row and the dragged tile goes beside it.
       const shrunk = placeHomeTileAt(session.base, neighbour.id, suggestion.neighbour);
       preview = settleHomeTilesAfterMove(
@@ -671,11 +747,12 @@ export function HomeTileGrid({
       return;
     }
     session.preview = preview;
-    // Re-render only when the snapped slot changes; between snaps only the lifted tile moves.
-    const key = layoutPositionsKey(preview);
+    // Re-render only when the snapped slot (or validity) changes; between snaps only the lifted tile moves.
+    const key = `${layoutPositionsKey(preview)}${invalid ? "|invalid" : ""}`;
     if (key === session.previewKey) return;
+    if (invalid && !session.previewKey.endsWith("|invalid")) setAnnouncement("Outside your Home tiles. Release to cancel the move.");
     session.previewKey = key;
-    setDrag({ tileId: tile.id, mode: session.mode, preview });
+    setDrag({ tileId: tile.id, mode: session.mode, preview, invalid });
     if (session.mode === "move") {
       const summary = resizeSummary(session);
       const changeKey = summary?.key ?? "";
@@ -708,6 +785,7 @@ export function HomeTileGrid({
     clearDwell(session);
     if (!neighbour) return null;
     const pointerId = session.pointerId;
+    setDwellTileId(neighbour.id);
     session.dwell = {
       tileId: neighbour.id,
       anchorX: session.pointerX,
@@ -716,6 +794,7 @@ export function HomeTileGrid({
       timer: window.setTimeout(() => {
         if (sessionRef.current !== session || session.dwell?.tileId !== neighbour.id) return;
         session.dwell.ready = true;
+        setDwellTileId(null);
         moveSession({ pointerId, clientX: session.pointerX, clientY: session.pointerY });
       }, BESIDE_DWELL_MS),
     };
@@ -725,6 +804,7 @@ export function HomeTileGrid({
   function clearDwell(session: DragSession) {
     if (session.dwell) window.clearTimeout(session.dwell.timer);
     session.dwell = null;
+    setDwellTileId(null);
   }
 
   /**
@@ -825,7 +905,7 @@ export function HomeTileGrid({
     if (tall) {
       frame.style.height = `${height}px`;
       const body = frame.querySelector<HTMLElement>("[data-home-tile-body]");
-      if (body) body.style.minHeight = "0px";
+      if (body) releaseBodyHeight(body);
       const content = body?.firstElementChild;
       if (content instanceof HTMLElement) content.style.overflow = "hidden";
     }
@@ -850,7 +930,6 @@ export function HomeTileGrid({
     pendingResizeRef.current = {
       tileId: tile.id,
       rect: frame.getBoundingClientRect(),
-      bodyMinHeight: session.resize.bodyMinHeight,
     };
     if (cancelled) {
       setAnnouncement("Resize cancelled.");
@@ -918,6 +997,10 @@ export function HomeTileGrid({
     }
     settleDraggedTile(session);
     setDrag(null);
+    if (session.invalid && session.started && !cancelled) {
+      setAnnouncement("Move cancelled. The tile stayed where it was.");
+      return;
+    }
     if (!cancelled && session.started) {
       const summary = session.mode === "move" ? resizeSummary(session) : null;
       commitRef.current(
@@ -929,7 +1012,7 @@ export function HomeTileGrid({
     }
   }
 
-  // ── Keyboard and button alternatives ──
+  // Keyboard and button alternatives
 
   function handleMoveKey(event: ReactKeyboardEvent<HTMLElement>, tile: HomeTile) {
     if (event.target !== event.currentTarget) return;
@@ -960,7 +1043,6 @@ export function HomeTileGrid({
 
   function renderContent(tile: HomeTile) {
     // Grid-height tiles stretch their card to fill the reserved height; content-height tiles stay natural.
-    const definition = getHomeTileDefinition(tile.type);
     const fillsSlot = !homeTileUsesContentHeight(tile);
     // While customizing, drop a section's own trailing margin so the frame hugs the visible content.
     const trimSectionMargin = editing && homeTileHasOwnBottomSpacing(tile)
@@ -977,13 +1059,20 @@ export function HomeTileGrid({
             contentRefs.current.delete(tile.id);
           }
         }}
-        className={(fillsSlot ? "flex min-w-0 flex-1 flex-col [&>*]:flex-1" : "min-w-0") + trimSectionMargin}
+        // min-h-0 lets the card take exactly the body's height instead of its content's.
+        className={(fillsSlot ? "flex min-h-0 min-w-0 flex-1 flex-col [&>*]:min-h-0 [&>*]:flex-1" : "min-w-0") + trimSectionMargin}
       >
         {/* The tile's chosen style travels with it: moves and resizes never change it. */}
         <HomeTileSurfaceProvider value={getHomeTileSurfaceStyle(tile)}>{renderTile(tile)}</HomeTileSurfaceProvider>
       </div>
     );
   }
+
+  const editTopPadding = editing ? controlsSpace.firstRowTop : undefined;
+  /** Columns the dragged (or resized) tile will occupy, for the guides. */
+  const guideTarget = drag
+    ? (drag.mode === "move" ? drag.preview : layout).tiles.find((entry) => entry.id === drag.tileId) ?? null
+    : null;
 
   return (
     <div className={drag ? "select-none" : undefined}>
@@ -997,19 +1086,35 @@ export function HomeTileGrid({
       </p>
       <div
         ref={gridRef}
-        className="luxia-home-tile-grid grid min-w-0"
+        // isolate: the drag guides sit behind the tiles (z -1) without leaving the grid.
+        className="luxia-home-tile-grid relative isolate grid min-w-0"
         style={{
           gridTemplateColumns: `repeat(${HOME_TILE_GRID.columns}, minmax(0, 1fr))`,
           columnGap: HOME_TILE_GRID.gapPx,
-          // Room for the first row's Remove badges while customizing.
-          paddingTop: editing
-            ? placements.some(({ tile, rowStart }, index) =>
-              (stacked ? index === 0 : rowStart === 1) && homeTileUsesContentHeight(tile))
-              ? EDIT_GRID_TOP_SECTION_PX
-              : EDIT_GRID_TOP_PX
-            : undefined,
+          // Room for the frame outline, and for Full-width sections' controls above them.
+          paddingTop: editTopPadding,
         }}
       >
+        {drag && !stacked ? (
+          // Column guides only while dragging or resizing; the columns the tile will cover are stronger.
+          <div
+            aria-hidden
+            data-home-grid-guides=""
+            className="luxia-home-grid-guides pointer-events-none absolute inset-x-0 bottom-0 z-[-1] grid"
+            style={{
+              top: editTopPadding ?? 0,
+              gridTemplateColumns: `repeat(${HOME_TILE_GRID.columns}, minmax(0, 1fr))`,
+              columnGap: HOME_TILE_GRID.gapPx,
+            }}
+          >
+            {Array.from({ length: HOME_TILE_GRID.columns }, (_, column) => (
+              <span
+                key={column}
+                data-target={guideTarget && !drag.invalid && column >= guideTarget.x && column < guideTarget.x + guideTarget.w ? "" : undefined}
+              />
+            ))}
+          </div>
+        ) : null}
         {placements.map(({ tile, rowStart, rowEnd }, index) => {
           const definition = getHomeTileDefinition(tile.type);
           const startsLowerRow = stacked ? index > 0 : rowStart > 1;
@@ -1025,14 +1130,15 @@ export function HomeTileGrid({
           // Every tile can change its style; tiles that show one item can also change the item.
           const configurable = Boolean(onConfigureTile);
           const hintLabel = resizeHint?.tileId === tile.id ? resizeHint.label : undefined;
-          const slotTop = startsLowerRow ? HOME_TILE_GRID.rowGapPx : 0;
+          const editExtraTop = editing && startsLowerRow ? controlsSpace.extraTop : 0;
+          const slotTop = startsLowerRow ? HOME_TILE_GRID.rowGapPx + editExtraTop : 0;
           const style: CSSProperties = {
             gridColumn: stacked ? "1 / -1" : `${tile.x + 1} / span ${tile.w}`,
             gridRow: stacked ? undefined : `${rowStart} / ${rowEnd}`,
             // The lifted or resized tile draws above its neighbours.
             position: isActive ? "relative" : undefined,
             zIndex: isActive ? 30 : undefined,
-            paddingTop: startsLowerRow ? HOME_TILE_GRID.rowGapPx : undefined,
+            paddingTop: startsLowerRow ? HOME_TILE_GRID.rowGapPx + editExtraTop : undefined,
             marginBottom:
               homeTileHasOwnBottomSpacing(tile) && !editing ? -HOME_TILE_GRID.rowGapPx : undefined,
           };
@@ -1041,12 +1147,19 @@ export function HomeTileGrid({
           const section = getTileSection?.(tile) ?? null;
           const headingId = section ? `home-tile-heading-${tile.id}` : undefined;
           const sectionTile = homeTileUsesContentHeight(tile);
-          // Stacked (tablet / phone): cards follow their content, never shorter than a Small tile.
-          // Only the rendering changes; the saved desktop size and position are untouched.
-          const minHeight = sectionTile
-            ? undefined
-            : homeTileBodyHeightPx(stacked ? 2 : tile.h, Boolean(section));
-          const sectionHeader = section ? <HomeTileSectionHeader section={section} id={headingId} /> : null;
+          // Arranged on the grid, a card is exactly its slot height: content fits the slot
+          // (collections show as many rows as fit) instead of growing the tile and stretching
+          // its row. Stacked (tablet / phone): cards follow their content, never shorter than
+          // a Small tile. Only the rendering changes; saved sizes and positions are untouched.
+          const slotHeight = sectionTile ? undefined : homeTileBodyHeightPx(stacked ? 2 : tile.h, Boolean(section));
+          const fixedBody = !sectionTile && !stacked;
+          const bodyStyle: CSSProperties = fixedBody
+            ? { height: slotHeight, minHeight: slotHeight }
+            : { minHeight: slotHeight };
+          const bodyFlex = fixedBody ? "flex-none" : "flex-1";
+          const sectionHeader = section
+            ? <HomeTileSectionHeader section={section} id={headingId} compact={!stacked && tile.w <= 3} />
+            : null;
           return (
             <div
               key={tile.id}
@@ -1056,13 +1169,21 @@ export function HomeTileGrid({
               style={style}
             >
               {isLifted ? (
-                // Where the tile will land; the tile itself follows the pointer.
+                // Where the tile will land (or return to); the tile itself follows the pointer.
                 <div
                   aria-hidden
                   data-home-tile-placeholder=""
-                  className="pointer-events-none absolute inset-x-0 bottom-0"
-                  style={{ ...DROP_PLACEHOLDER_STYLE, top: slotTop }}
-                />
+                  data-invalid={drag?.invalid ? "" : undefined}
+                  className="luxia-home-drop-placeholder pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-center p-3"
+                  style={{ top: slotTop }}
+                >
+                  <span
+                    className="max-w-full truncate rounded-full px-3 py-1 luxia-type-caption font-semibold shadow-[var(--luxia-shadow-sm)]"
+                    style={{ background: "var(--luxia-surface)", color: "var(--luxia-purple-70)" }}
+                  >
+                    {drag?.invalid ? "Returns here" : fitLabel ? `Lands here · ${fitLabel}` : "Lands here"}
+                  </span>
+                </div>
               ) : null}
               {editing ? (
                 // The whole tile (heading + card) is the drag surface; arrow keys move it when focused.
@@ -1072,10 +1193,12 @@ export function HomeTileGrid({
                   data-home-tile-frame=""
                   data-home-tile-control="move"
                   tabIndex={canArrange ? 0 : undefined}
-                  className="group/tile relative flex min-w-0 flex-1 select-none flex-col outline-none transition-[outline-color] duration-150 focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)] focus-visible:ring-offset-4"
+                  className="luxia-home-tile-edit-frame group/tile relative flex min-w-0 flex-1 select-none flex-col focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)] focus-visible:ring-offset-4"
+                  data-home-tile-lifted={isLifted ? "" : undefined}
                   style={{
                     ...(isLifted ? LIFTED_FRAME_STYLE : isActive ? ACTIVE_FRAME_STYLE : EDIT_FRAME_STYLE),
-                    cursor: isLifted ? "grabbing" : canArrange ? "grab" : undefined,
+                    ...(isLifted && drag?.invalid ? INVALID_FRAME_STYLE : {}),
+                    cursor: isLifted ? (drag?.invalid ? "not-allowed" : "grabbing") : canArrange ? "grab" : undefined,
                     // Vertical swipes still scroll the page until a press-and-hold picks the tile up.
                     touchAction: canArrange ? "pan-y" : undefined,
                     WebkitTouchCallout: "none",
@@ -1088,7 +1211,26 @@ export function HomeTileGrid({
                   }}
                 >
                   {sectionHeader}
-                  <div className="relative flex min-w-0 flex-1 flex-col" data-home-tile-body="" style={{ minHeight }}>
+                  {onRemoveTile || configurable || canSize ? (
+                    <TileControls
+                      tile={tile}
+                      label={label}
+                      sectionTile={sectionTile}
+                      offset={controlsSpace.offset}
+                      requiresTarget={definition.requiresTarget}
+                      configurable={configurable}
+                      sizeOptions={canSize ? sizeOptions : []}
+                      currentSize={size?.id}
+                      canMove={canArrange}
+                      onConfigure={() => {
+                        pendingFocusRef.current = { tileId: tile.id, control: "configure" };
+                        onConfigureTile?.(tile);
+                      }}
+                      onSize={(sizeId) => handleSize(tile, sizeId)}
+                      onRemove={onRemoveTile ? () => handleRemove(tile) : undefined}
+                    />
+                  ) : null}
+                  <div className={`relative flex min-w-0 ${bodyFlex} flex-col`} data-home-tile-body="" style={bodyStyle}>
                     {renderContent(tile)}
                     {emptyIds.has(tile.id) ? (
                       <p
@@ -1102,94 +1244,37 @@ export function HomeTileGrid({
                         Nothing to show here right now. This tile appears on Home when it has content.
                       </p>
                     ) : null}
-                    {fitLabel || hintLabel ? (
+                    {isLifted && drag?.invalid ? (
+                      <span
+                        data-home-tile-invalid=""
+                        className="pointer-events-none absolute left-1/2 top-3 z-[3] -translate-x-1/2 rounded-full px-2.5 py-1 luxia-type-caption font-semibold whitespace-nowrap shadow-[var(--luxia-shadow-sm)]"
+                        style={{ background: "var(--luxia-error-70)", color: "var(--luxia-text-inverse)" }}
+                      >
+                        Release to cancel
+                      </span>
+                    ) : fitLabel || hintLabel ? (
                       // Size this drop or resize will give the tile — shown before the user lets go.
                       <span
                         {...(fitLabel ? { "data-home-tile-fit": "" } : { "data-home-tile-resize-hint": "" })}
                         className="pointer-events-none absolute left-1/2 top-3 z-[3] -translate-x-1/2 rounded-full px-2.5 py-1 luxia-type-caption font-semibold whitespace-nowrap shadow-[var(--luxia-shadow-sm)]"
                         style={{ background: "var(--luxia-purple-70)", color: "var(--luxia-text-inverse)" }}
                       >
-                        {fitLabel ? `Will become ${fitLabel}` : hintLabel}
+                        {fitLabel ? `Will become ${fitLabel}` : `Resize to ${hintLabel}`}
                       </span>
-                    ) : null}
-                    {onRemoveTile ? (
-                      <button
-                        type="button"
-                        data-home-tile-control="remove"
-                        aria-label={`Remove ${label} from Home`}
-                        title="Remove from Home"
-                        onClick={() => handleRemove(tile)}
-                        className={`absolute z-[4] inline-flex size-6 items-center justify-center rounded-full border-2 shadow-[var(--luxia-shadow-sm)] outline-none transition-transform hover:scale-110 focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)] focus-visible:ring-offset-2 ${
-                          // A section tile's title sits at its top-left, so its badge sits just above the frame.
-                          sectionTile ? "" : "-left-2.5 -top-2.5"
-                        }`}
-                        style={{
-                          background: "var(--luxia-error)",
-                          borderColor: "var(--luxia-surface)",
-                          color: "var(--luxia-text-inverse)",
-                          // Inset like the right-hand controls, clear of the row above's bottom-left resize grip.
-                          ...(sectionTile ? { top: -(SECTION_CONTROLS_OFFSET_PX - 2), left: SECTION_CONTROLS_INSET_PX } : {}),
-                        }}
+                    ) : dwellTileId === tile.id ? (
+                      // Resting beside a Full-width tile: it makes room once the bar fills.
+                      <span
+                        data-home-tile-dwell=""
+                        className="pointer-events-none absolute left-1/2 top-3 z-[3] -translate-x-1/2 overflow-hidden rounded-full px-3 py-1 luxia-type-caption font-semibold whitespace-nowrap shadow-[var(--luxia-shadow-sm)]"
+                        style={{ background: "var(--luxia-surface)", color: "var(--luxia-purple-70)", border: "1px solid var(--luxia-opacity-brand-secondary-32)" }}
                       >
-                        <Minus size={14} strokeWidth={2.75} aria-hidden />
-                      </button>
-                    ) : null}
-                    {configurable || canSize ? (
-                      // Section-style tiles (Full-width Your focus / Pinned / Recent) have their own
-                      // links and controls top-right, so their actions sit just above the frame.
-                      // Other tiles keep them just left of the card's category corner, never over it.
-                      <div
-                        className={`absolute z-[4] flex items-center gap-1 ${sectionTile ? "" : "top-2"}`}
-                        style={sectionTile
-                          ? { top: -SECTION_CONTROLS_OFFSET_PX, right: SECTION_CONTROLS_INSET_PX }
-                          : { right: HOME_TILE_CORNER[size?.id === "small" ? "small" : "medium"].boxPx + 8 }}
-                      >
-                        {configurable ? (
-                          <button
-                            type="button"
-                            data-home-tile-control="configure"
-                            aria-label={definition.requiresTarget ? `Configure ${label}: style and item` : `Configure ${label}: style`}
-                            title={definition.requiresTarget ? "Configure style and item" : "Configure style"}
-                            onClick={() => {
-                              pendingFocusRef.current = { tileId: tile.id, control: "configure" };
-                              onConfigureTile?.(tile);
-                            }}
-                            className={TILE_ACTION_CLASS}
-                            style={TILE_ACTION_STYLE}
-                          >
-                            <SlidersHorizontal size={14} strokeWidth={2} aria-hidden />
-                          </button>
-                        ) : null}
-                        {canSize ? (
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <button
-                                type="button"
-                                data-home-tile-control="size"
-                                aria-label={`Size of ${label}: ${size?.label ?? "custom"}`}
-                                title="Size"
-                                className={TILE_ACTION_CLASS}
-                                style={TILE_ACTION_STYLE}
-                              >
-                                <Maximize2 size={14} strokeWidth={2} aria-hidden />
-                              </button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="min-w-[10rem]">
-                              <DropdownMenuLabel>Tile size</DropdownMenuLabel>
-                              <DropdownMenuRadioGroup
-                                value={size?.id ?? ""}
-                                onValueChange={(value) => handleSize(tile, value as HomeTileSize)}
-                              >
-                                {sizeOptions.map((sizeId) => (
-                                  <DropdownMenuRadioItem key={sizeId} value={sizeId}>
-                                    {HOME_TILE_SIZE_PRESETS[sizeId].label}
-                                  </DropdownMenuRadioItem>
-                                ))}
-                              </DropdownMenuRadioGroup>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        ) : null}
-                      </div>
+                        Hold here to fit beside
+                        <span
+                          aria-hidden
+                          className="luxia-home-dwell-progress absolute inset-x-0 bottom-0 h-[3px]"
+                          style={{ background: "var(--luxia-purple-50)" }}
+                        />
+                      </span>
                     ) : null}
                     {canArrange && sizeOptions.length > 1
                       ? RESIZE_EDGES.map((edge) => (
@@ -1216,7 +1301,7 @@ export function HomeTileGrid({
               ) : (
                 <section aria-labelledby={headingId} className="flex min-w-0 flex-1 flex-col">
                   {sectionHeader}
-                  <div className="flex min-w-0 flex-1 flex-col" style={{ minHeight }}>
+                  <div className={`flex min-w-0 ${bodyFlex} flex-col`} data-home-tile-body="" style={bodyStyle}>
                     {renderContent(tile)}
                   </div>
                 </section>
@@ -1231,6 +1316,136 @@ export function HomeTileGrid({
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+/**
+ * The one control group of a tile while customizing: a drag grip (pointer
+ * users; keyboard users focus the tile and use the arrow keys), Style & item,
+ * Size, and — set apart — Remove. Sits just above the tile's frame at the
+ * right, so headings keep their full width and it never covers card content,
+ * the category corner, or a section's own View all / pin / Grid–List controls.
+ */
+function TileControls({
+  tile,
+  label,
+  sectionTile,
+  requiresTarget,
+  configurable,
+  sizeOptions,
+  currentSize,
+  canMove,
+  onConfigure,
+  onSize,
+  onRemove,
+  offset,
+}: {
+  tile: HomeTile;
+  label: string;
+  sectionTile: boolean;
+  requiresTarget: boolean;
+  configurable: boolean;
+  sizeOptions: readonly HomeTileSize[];
+  currentSize?: HomeTileSize;
+  canMove: boolean;
+  onConfigure: () => void;
+  onSize: (size: HomeTileSize) => void;
+  onRemove?: () => void;
+  /** Distance from the group's top to the frame's top (see EDIT_CONTROLS_SPACE). */
+  offset: number;
+}) {
+  const configureHint = requiresTarget ? "Change style or item" : tile.type.endsWith("-collection") ? "Change style or what it shows" : "Change style";
+  return (
+    <div
+      data-home-tile-controls=""
+      data-section={sectionTile ? "" : undefined}
+      className="luxia-home-tile-controls absolute z-[4] flex items-center gap-0.5 rounded-[10px] p-px"
+      style={{ top: -offset, right: sectionTile ? SECTION_CONTROLS_INSET_PX : TILE_CONTROLS_INSET_PX }}
+    >
+      {canMove ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span
+              aria-hidden
+              data-home-tile-grip=""
+              className="flex h-7 w-5 cursor-grab items-center justify-center"
+              style={{ color: "var(--luxia-text-muted)" }}
+            >
+              <GripVertical size={14} strokeWidth={2} />
+            </span>
+          </TooltipTrigger>
+          <TooltipContent side="top">Drag to move</TooltipContent>
+        </Tooltip>
+      ) : null}
+      {configurable ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              data-home-tile-control="configure"
+              aria-label={`Edit ${label}: ${configureHint.toLowerCase()}`}
+              onClick={onConfigure}
+              className={TILE_ACTION_CLASS}
+            >
+              <SlidersHorizontal size={15} strokeWidth={2} aria-hidden />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="top">{configureHint}</TooltipContent>
+        </Tooltip>
+      ) : null}
+      {sizeOptions.length > 1 ? (
+        <DropdownMenu>
+          <Tooltip>
+            {/* Radix triggers forward refs, so one button can open the menu and show the tooltip. */}
+            <TooltipPrimitive.Trigger asChild>
+              <DropdownMenuPrimitive.Trigger asChild>
+                <button
+                  type="button"
+                  data-home-tile-control="size"
+                  aria-label={`Size of ${label}: ${currentSize ? HOME_TILE_SIZE_PRESETS[currentSize].label : "custom"}`}
+                  className={TILE_ACTION_CLASS}
+                >
+                  <Maximize2 size={15} strokeWidth={2} aria-hidden />
+                </button>
+              </DropdownMenuPrimitive.Trigger>
+            </TooltipPrimitive.Trigger>
+            <TooltipContent side="top">Change size</TooltipContent>
+          </Tooltip>
+          <DropdownMenuContent align="end" className="min-w-[12rem]">
+            <DropdownMenuLabel>Tile size</DropdownMenuLabel>
+            <DropdownMenuRadioGroup value={currentSize ?? ""} onValueChange={(value) => onSize(value as HomeTileSize)}>
+              {sizeOptions.map((sizeId) => (
+                <DropdownMenuRadioItem key={sizeId} value={sizeId} className="justify-between gap-4">
+                  <span>{HOME_TILE_SIZE_PRESETS[sizeId].label}</span>
+                  {SIZE_HINTS[sizeId] ? (
+                    <span className="luxia-type-caption" style={{ color: "var(--luxia-text-muted)" }}>{SIZE_HINTS[sizeId]}</span>
+                  ) : null}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : null}
+      {onRemove ? (
+        <>
+          <span aria-hidden className="mx-0.5 h-4 w-px" style={{ background: "var(--luxia-border-default)" }} />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                data-home-tile-control="remove"
+                aria-label={`Remove ${label} from Home`}
+                onClick={onRemove}
+                className={TILE_ACTION_CLASS}
+              >
+                <CircleMinus size={15} strokeWidth={2} aria-hidden />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="top">Remove from Home</TooltipContent>
+          </Tooltip>
+        </>
+      ) : null}
     </div>
   );
 }

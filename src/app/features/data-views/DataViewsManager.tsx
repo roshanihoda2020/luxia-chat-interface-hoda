@@ -37,7 +37,6 @@ import { VIEW_CATALOG } from "./catalog";
 import { MAX_CONSTELLATION_VIEWS } from "./constants";
 import { ManageViewsDialog } from "./ManageViewsDialog";
 
-
 /**
  * Settings page + Chat capsule dialog — same manager, canonical bundle.views.
  * Selection commits immediately via Manage Views / Remove (no outer draft Save).

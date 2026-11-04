@@ -30,8 +30,18 @@ export function getGalaxySettingsPath(
   return `${base}?tab=${encodeURIComponent(tab)}`;
 }
 
-export function getDashboardPath(projectId: string): string {
-  return `/projects/${encodeURIComponent(projectId)}/dashboard`;
+/**
+ * The Project's Dashboard page (Dashboards tab), or one named Dashboard when
+ * `dashboardId` is given.
+ */
+export function getDashboardPath(projectId: string, dashboardId?: string | null): string {
+  const base = `/projects/${encodeURIComponent(projectId)}/dashboard`;
+  return dashboardId ? `${base}/${encodeURIComponent(dashboardId)}` : base;
+}
+
+/** The Dashboard page's All outputs tab: every saved output, independent of Dashboards. */
+export function getProjectOutputsPath(projectId: string): string {
+  return `/projects/${encodeURIComponent(projectId)}/dashboard/outputs`;
 }
 
 export function getConstellationsPath(projectId: string): string {
@@ -264,8 +274,27 @@ export function parseGalaxySettingsProjectIdFromPath(pathname: string): string |
   return decodePathSegment(match[1]);
 }
 
+/**
+ * `/projects/:id/dashboard` (Dashboards tab) and `/projects/:id/dashboard/:dashboardId`.
+ * `/projects/:id/dashboard/outputs` is the All outputs tab, not a Dashboard.
+ */
 export function parseDashboardProjectIdFromPath(pathname: string): string | null {
-  const match = pathname.match(/^\/projects\/([^/]+)\/dashboard\/?$/);
+  return parseDashboardPath(pathname)?.projectId ?? null;
+}
+
+export function parseDashboardPath(
+  pathname: string,
+): { projectId: string; dashboardId: string | null } | null {
+  const match = pathname.match(/^\/projects\/([^/]+)\/dashboard(?:\/([^/]+))?\/?$/);
+  if (!match?.[1] || match[2] === "outputs") return null;
+  return {
+    projectId: decodePathSegment(match[1]),
+    dashboardId: match[2] ? decodePathSegment(match[2]) : null,
+  };
+}
+
+export function parseProjectOutputsProjectIdFromPath(pathname: string): string | null {
+  const match = pathname.match(/^\/projects\/([^/]+)\/dashboard\/outputs\/?$/);
   if (!match?.[1]) return null;
   return decodePathSegment(match[1]);
 }
@@ -473,7 +502,8 @@ export type LuxiaResolvedPath =
   | { kind: "project"; projectId: string }
   | { kind: "galaxy"; projectId: string }
   | { kind: "galaxy-settings"; projectId: string }
-  | { kind: "dashboard"; projectId: string }
+  | { kind: "dashboard"; projectId: string; dashboardId: string | null }
+  | { kind: "project-outputs"; projectId: string }
   | { kind: "constellations"; projectId: string }
   | { kind: "project-chats"; projectId: string }
   | { kind: "project-activity"; projectId: string }
@@ -581,9 +611,14 @@ export function resolveLuxiaPathname(pathname: string): LuxiaResolvedPath {
     return { kind: "galaxy", projectId: galaxyProjectId };
   }
 
-  const dashboardProjectId = parseDashboardProjectIdFromPath(pathname);
-  if (dashboardProjectId) {
-    return { kind: "dashboard", projectId: dashboardProjectId };
+  const dashboardPath = parseDashboardPath(pathname);
+  if (dashboardPath) {
+    return { kind: "dashboard", projectId: dashboardPath.projectId, dashboardId: dashboardPath.dashboardId };
+  }
+
+  const outputsProjectId = parseProjectOutputsProjectIdFromPath(pathname);
+  if (outputsProjectId) {
+    return { kind: "project-outputs", projectId: outputsProjectId };
   }
 
   const capability = parseConstellationSettingsCapabilityFromPath(pathname);
