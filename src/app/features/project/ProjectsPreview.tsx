@@ -7,7 +7,8 @@ import {
   type LuxiaEntityOptionsItem,
 } from "@/app/components/LuxiaEntityOptionsMenu";
 import { EntityIdentityRow } from "@/app/features/home/entityIdentity";
-import { getHomeCardStyle, getProjectCardTypography, HS, HI } from "@/app/features/home/homeSurfaces";
+import { HS, HI } from "@/app/features/home/homeSurfaces";
+import { useHomeTileSurface } from "@/app/features/home/homeBuilder/HomeTileSurface";
 import { HomeRecentPreviewCountControl } from "@/app/features/home/HomeRecentPreviewCountControl";
 import {
   readHomeRecentPreviewCount,
@@ -185,7 +186,7 @@ export function ProjectListTitleLink({
     >
       <LuxiaProjectsIcon
         size={16}
-        color={HS.projectIcon}
+        color={`var(--project-card-icon, ${HS.projectIcon})`}
         className="shrink-0"
         aria-hidden
       />
@@ -244,27 +245,19 @@ type ProjectHandlers = {
 function ProjectCardShell({
   project,
   handlers,
+  onDark,
 }: {
   project: HomeProjectCard;
   handlers: ProjectHandlers;
+  /** The panel is the dark Featured surface. */
+  onDark: boolean;
 }) {
-  const style = getHomeCardStyle("supportingProject");
-  const text = getProjectCardTypography(style);
   const archived = isProjectArchived(project);
   const optionsItems = buildProjectCardOptions(project, handlers);
 
   return (
-    <div
-      data-home-tile-surface="default"
-      className={`relative flex h-full min-w-0 flex-col overflow-hidden ${HI.cardPadSupporting}`}
-      style={{
-        background: style.bg,
-        border: `1px solid ${style.border}`,
-        borderRadius: "var(--luxia-radius-12)",
-        boxShadow: "var(--luxia-shadow-sm)",
-      }}
-    >
-      {/* The card is a white (Default) surface wherever it sits, so its corner uses the Default Home Tile corner tokens. */}
+    <div className={`luxia-home-project-card relative flex h-full min-w-0 flex-col overflow-hidden ${HI.cardPadSupporting}`}>
+      {/* Takes the panel's surface corner colours, like every Home Tile corner. */}
       <ProjectCornerMarker
         size="supporting"
         tone={{ color: "var(--home-tile-corner-icon)", background: "var(--home-tile-corner-bg)" }}
@@ -278,6 +271,7 @@ function ProjectCardShell({
           <PinButton
             pinned={project.isPinned}
             label={project.name}
+            tone={onDark ? "dark" : "light"}
             controlSize="project"
             onToggle={() => handlers.onToggleProjectPin(project.id)}
           />
@@ -286,6 +280,7 @@ function ProjectCardShell({
           entityType="Project"
           entityLabel={project.name}
           ariaLabel={`Project options for ${project.name}`}
+          tone={onDark ? "onDark" : "default"}
           items={optionsItems}
         />
       </div>
@@ -295,7 +290,7 @@ function ProjectCardShell({
         <div style={{ paddingRight: 116 }}>
           <EntityIdentityRow
             entityType="project"
-            iconColor={HS.projectIcon}
+            iconColor="var(--home-tile-overline)"
             size="compact"
             hideIcon
           />
@@ -308,7 +303,7 @@ function ProjectCardShell({
               handlers.onOpenProject(project.id);
             }}
             className="line-clamp-2 max-w-full rounded-[4px] text-left outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]"
-            style={{ color: text.title, overflowWrap: "anywhere" }}
+            style={{ color: "var(--home-tile-title)", overflowWrap: "anywhere" }}
             title={project.name}
             aria-label={`Open Project ${project.name}`}
           >
@@ -317,7 +312,7 @@ function ProjectCardShell({
         </h3>
         <ProjectCardDescription
           description={project.description}
-          color="var(--luxia-text-secondary)"
+          color="var(--home-tile-text-secondary)"
           lines={2}
         />
       </div>
@@ -344,9 +339,11 @@ function ProjectCardShell({
 function ProjectListRow({
   project,
   handlers,
+  onDark,
 }: {
   project: HomeProjectCard;
   handlers: ProjectHandlers;
+  onDark: boolean;
 }) {
   const description = project.description?.trim();
   const archived = isProjectArchived(project);
@@ -370,20 +367,19 @@ function ProjectListRow({
   return (
     <div
       role="listitem"
-      className="flex min-w-0 flex-wrap items-center gap-3 border-b px-4 py-3 last:border-b-0"
-      style={{ borderColor: "var(--luxia-border-default)" }}
+      className="luxia-home-project-list-row flex min-w-0 flex-wrap items-center gap-3 px-4 py-3"
     >
       <div className="min-w-0 flex-1">
         <ProjectListTitleLink
           projectId={project.id}
           projectName={project.name}
-          titleColor={HS.projectTitle}
+          titleColor="var(--home-tile-title)"
           onOpenProject={handlers.onOpenProject}
         />
         {description ? (
           <p
             className="mt-0.5 line-clamp-1 luxia-type-caption"
-            style={{ color: "var(--luxia-text-secondary)" }}
+            style={{ color: "var(--home-tile-text-secondary)" }}
             title={description}
           >
             {description}
@@ -391,7 +387,7 @@ function ProjectListRow({
         ) : null}
         <p
           className="mt-1.5 truncate luxia-type-caption"
-          style={{ color: "var(--luxia-text-muted)" }}
+          style={{ color: "var(--home-tile-text-muted)" }}
           title={secondaryMeta ? `${metaLine} · ${secondaryMeta}` : metaLine}
         >
           <span>{metaLine}</span>
@@ -406,6 +402,7 @@ function ProjectListRow({
           <PinButton
             pinned={project.isPinned}
             label={project.name}
+            tone={onDark ? "dark" : "light"}
             controlSize="project"
             onToggle={() => handlers.onToggleProjectPin(project.id)}
           />
@@ -414,6 +411,7 @@ function ProjectListRow({
           entityType="Project"
           entityLabel={project.name}
           ariaLabel={`Project options for ${project.name}`}
+          tone={onDark ? "onDark" : "default"}
           items={optionsItems}
         />
         <ProjectDestinationActions
@@ -425,120 +423,6 @@ function ProjectListRow({
         />
       </div>
     </div>
-  );
-}
-
-/** Approved soft-purple create treatment — lighter than featured Project cards. */
-const NEW_PROJECT_AFFORDANCE = {
-  bg: "var(--luxia-opacity-brand-primary-04)",
-  border: "var(--luxia-opacity-brand-primary-16)",
-  hoverBg: "var(--luxia-opacity-brand-primary-08)",
-  hoverBorder: "var(--luxia-opacity-brand-primary-24)",
-  plus: "var(--luxia-purple-60)",
-  plusRing: "var(--luxia-opacity-brand-primary-16)",
-  label: HS.viewAllText,
-  helper: "var(--luxia-text-muted)",
-  chevron: "var(--luxia-text-muted)",
-} as const;
-
-function NewProjectCreateTile({ onNewProject }: { onNewProject: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onNewProject}
-      aria-label="New project"
-      className={`group flex h-full min-h-[140px] min-w-0 cursor-pointer flex-col items-center justify-center border border-dashed text-center outline-none transition-[border-color,background-color] duration-150 focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)] ${HI.cardPadSupporting}`}
-      style={{
-        borderColor: NEW_PROJECT_AFFORDANCE.border,
-        borderRadius: "var(--luxia-radius-12)",
-        background: NEW_PROJECT_AFFORDANCE.bg,
-      }}
-      onMouseEnter={(event) => {
-        const el = event.currentTarget;
-        el.style.borderColor = NEW_PROJECT_AFFORDANCE.hoverBorder;
-        el.style.background = NEW_PROJECT_AFFORDANCE.hoverBg;
-      }}
-      onMouseLeave={(event) => {
-        const el = event.currentTarget;
-        el.style.borderColor = NEW_PROJECT_AFFORDANCE.border;
-        el.style.background = NEW_PROJECT_AFFORDANCE.bg;
-      }}
-    >
-      {/* Slight lift from vertical center so the tile feels composed, not empty. */}
-      <span className="flex -translate-y-2 flex-col items-center gap-1.5">
-        <span
-          className="inline-flex size-8 items-center justify-center rounded-full"
-          style={{
-            border: `1px solid ${NEW_PROJECT_AFFORDANCE.plusRing}`,
-            background: "var(--luxia-surface)",
-            color: NEW_PROJECT_AFFORDANCE.plus,
-          }}
-          aria-hidden
-        >
-          <Plus size={16} strokeWidth={2.25} />
-        </span>
-        <span
-          className="luxia-type-body-dense-strong"
-          style={{ color: NEW_PROJECT_AFFORDANCE.label }}
-        >
-          New project
-        </span>
-        <span
-          className="luxia-type-caption"
-          style={{ color: NEW_PROJECT_AFFORDANCE.helper }}
-        >
-          Create a new workspace
-        </span>
-      </span>
-    </button>
-  );
-}
-
-function NewProjectCreateRow({
-  onNewProject,
-  showTopBorder,
-}: {
-  onNewProject: () => void;
-  showTopBorder: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      role="listitem"
-      onClick={onNewProject}
-      aria-label="New project"
-      className={`group flex w-full min-w-0 cursor-pointer items-center gap-3 px-4 py-3 text-left outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--luxia-border-focus)] ${showTopBorder ? "border-t" : ""}`}
-      style={{
-        borderColor: "var(--luxia-border-default)",
-      }}
-      onMouseEnter={(event) => {
-        event.currentTarget.style.background = NEW_PROJECT_AFFORDANCE.hoverBg;
-      }}
-      onMouseLeave={(event) => {
-        event.currentTarget.style.background = "transparent";
-      }}
-    >
-      <span
-        className="inline-flex size-7 shrink-0 items-center justify-center rounded-full"
-        style={{
-          border: `1px solid ${NEW_PROJECT_AFFORDANCE.plusRing}`,
-          background: NEW_PROJECT_AFFORDANCE.bg,
-          color: NEW_PROJECT_AFFORDANCE.plus,
-        }}
-        aria-hidden
-      >
-        <Plus size={14} strokeWidth={2.25} />
-      </span>
-      <span
-        className="min-w-0 flex-1 truncate luxia-type-body-dense-strong"
-        style={{ color: NEW_PROJECT_AFFORDANCE.label }}
-      >
-        New project
-      </span>
-      <span style={{ color: NEW_PROJECT_AFFORDANCE.chevron }} aria-hidden>
-        <LuxiaArrowRightIcon size={14} color="currentColor" />
-      </span>
-    </button>
   );
 }
 
@@ -584,29 +468,26 @@ function ProjectCollection({
   viewMode,
   handlers,
   listLabel,
-  onNewProject,
+  onDark,
   sparseHint,
 }: {
   projects: readonly HomeProjectCard[];
   viewMode: CollectorViewMode;
   handlers: ProjectHandlers;
   listLabel: string;
-  /** Contextual create — does not count toward Recent preview limits. */
-  onNewProject?: () => void;
+  onDark: boolean;
   /** Grid with fewer than three cards: fills the rest of the row (e.g. how to pin more). */
   sparseHint?: ReactNode;
 }) {
-  const showCreate = Boolean(onNewProject);
-  if (projects.length === 0 && !showCreate) return null;
+  if (projects.length === 0) return null;
 
   if (viewMode === "grid") {
-    const hint = sparseHint && !showCreate && projects.length < 3 ? sparseHint : null;
+    const hint = sparseHint && projects.length < 3 ? sparseHint : null;
     return (
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:items-stretch">
         {projects.map((project) => (
-          <ProjectCardShell key={project.id} project={project} handlers={handlers} />
+          <ProjectCardShell key={project.id} project={project} handlers={handlers} onDark={onDark} />
         ))}
-        {showCreate ? <NewProjectCreateTile onNewProject={onNewProject!} /> : null}
         {hint ? (
           <div className={`min-w-0 ${projects.length === 1 ? "lg:col-span-2" : "sm:col-span-2 lg:col-span-1"}`}>{hint}</div>
         ) : null}
@@ -615,21 +496,10 @@ function ProjectCollection({
   }
 
   return (
-    <div
-      className="overflow-hidden rounded-[var(--luxia-radius-12)] border bg-white"
-      style={{ borderColor: "var(--luxia-border-default)" }}
-      role="list"
-      aria-label={listLabel}
-    >
+    <div className="luxia-home-project-list" role="list" aria-label={listLabel}>
       {projects.map((project) => (
-        <ProjectListRow key={project.id} project={project} handlers={handlers} />
+        <ProjectListRow key={project.id} project={project} handlers={handlers} onDark={onDark} />
       ))}
-      {showCreate ? (
-        <NewProjectCreateRow
-          onNewProject={onNewProject!}
-          showTopBorder={projects.length > 0}
-        />
-      ) : null}
     </div>
   );
 }
@@ -638,7 +508,7 @@ interface ProjectsPreviewProps {
   projects: HomeProjectCard[];
   pinnedProjectOrder: string[];
   onViewAll: () => void;
-  /** Same Home New Project flow; omit when user cannot create. */
+  /** The Home New Project flow, shown as "+ New Project" in the section header; omit when the user cannot create. */
   onNewProject?: () => void;
   onToggleProjectPin: (projectId: string) => void;
   onArchiveProject?: (projectId: string) => void;
@@ -662,10 +532,11 @@ interface ProjectsPreviewProps {
    * The list section's heading and order. Default: "Recent projects", most
    * recently updated first. `order: "name"` lists every Project A–Z.
    */
-  recentSection?: { title: string; description: string; order: "updated" | "name"; icon?: ReactNode };
+  recentSection?: { title: string; order: "updated" | "name"; icon?: ReactNode };
   /**
-   * Show 3 / 6 / 9 / All and Grid / List for the list section. When given
-   * (Home Tiles keep them per tile), they replace the shared saved choices.
+   * Show 3 / 6 / 9 / All (both sections when only one is shown) and Grid / List
+   * (list section). When given (Home Tiles keep them per tile), they replace
+   * the shared saved choices.
    */
   recentPreviewCount?: HomeRecentPreviewCount;
   onRecentPreviewCountChange?: (count: HomeRecentPreviewCount) => void;
@@ -687,9 +558,16 @@ const VIEW_ALL_PROJECTS_LABEL = "View all projects";
  */
 const DEFAULT_RECENT_SECTION = {
   title: "Recent projects",
-  description: "Projects with the most recent activity.",
   order: "updated" as const,
 };
+
+/** "Showing 6 of 48 · A–Z", or "48 Projects · A–Z" / "3 pinned · Your order" when every one is shown. */
+function projectCountLabel(shown: number, total: number, order: string, pinned: boolean): string {
+  if (shown < total) return `Showing ${shown} of ${total} · ${order}`;
+  return pinned
+    ? `${total} pinned · ${order}`
+    : `${total} ${total === 1 ? "Project" : "Projects"} · ${order}`;
+}
 
 export function ProjectsPreview({
   projects,
@@ -727,12 +605,15 @@ export function ProjectsPreview({
   const recentProjectsView = controlledViewMode ?? savedRecentProjectsView;
   const recentPreviewCount = controlledPreviewCount ?? savedRecentPreviewCount;
   const recentLimit = resolveHomeRecentPreviewLimit(recentPreviewCount);
+  const onDark = useHomeTileSurface() === "featured";
   const sectionsData = getHomeProjectsSections(
     projects,
     pinnedProjectOrder,
     recentSection.order === "name" ? null : recentLimit,
+    // Pinned on its own follows Show; the combined Home keeps its short Pinned row.
+    sections === "pinned" ? (recentLimit ?? Number.POSITIVE_INFINITY) : undefined,
   );
-  const { pinned, ranked } = sectionsData;
+  const { pinned, ranked, pinnedTotal } = sectionsData;
   const recent = recentSection.order === "name"
     ? [...ranked]
       .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" }))
@@ -780,25 +661,42 @@ export function ProjectsPreview({
     writeHomeRecentPreviewCount(count);
   }
 
-  // Display group (tight) | navigation (looser gap). Whole toolbar wraps as one unit.
-  const recentHeaderActions = (
+  // Display group (tight) | actions (looser gap). Whole toolbar wraps as one unit.
+  const headerActions = (withViewToggle: boolean) => (
     <div className="flex flex-wrap items-center justify-end gap-x-5 gap-y-2">
       <div className="flex items-center gap-2">
-        <CollectorViewToggle
-          value={recentProjectsView}
-          onChange={handleRecentViewChange}
-        />
+        {withViewToggle ? (
+          <CollectorViewToggle
+            value={recentProjectsView}
+            onChange={handleRecentViewChange}
+          />
+        ) : null}
         <HomeRecentPreviewCountControl
           value={recentPreviewCount}
           onChange={handleRecentPreviewCountChange}
         />
       </div>
-      <ViewAllAction
-        label={VIEW_ALL_PROJECTS_LABEL}
-        ariaLabel="View all projects — open full project library"
-        onClick={onViewAll}
-      />
+      <div className="flex items-center gap-3">
+        {onNewProject ? (
+          <Button type="button" variant="secondary" size="compact" onClick={onNewProject} data-home-projects-new="">
+            <Plus size={14} strokeWidth={2.25} aria-hidden />
+            New Project
+          </Button>
+        ) : null}
+        <ViewAllAction
+          label={VIEW_ALL_PROJECTS_LABEL}
+          ariaLabel="View all projects — open full project library"
+          onClick={onViewAll}
+        />
+      </div>
     </div>
+  );
+  const recentHeaderActions = headerActions(true);
+  const recentCount = projectCountLabel(
+    recent.length,
+    ranked.length,
+    recentSection.order === "name" ? "A–Z" : "Newest first",
+    false,
   );
 
   return (
@@ -810,6 +708,12 @@ export function ProjectsPreview({
             titleId={pinnedHeadingId}
             icon={<Pin size={22} strokeWidth={1.75} aria-hidden />}
             iconColor={HS.sectionIconProjects}
+            {...(sections === "pinned"
+              ? {
+                description: projectCountLabel(pinned.length, pinnedTotal, "Your order", true),
+                actions: headerActions(false),
+              }
+              : {})}
           />
           {collectionFrame(
             <ProjectCollection
@@ -817,6 +721,7 @@ export function ProjectsPreview({
               viewMode="grid"
               handlers={handlers}
               listLabel="Pinned projects"
+              onDark={onDark}
               sparseHint={pinnedSparseHint ? <PinMoreHint onBrowse={onViewAll} /> : undefined}
             />,
           )}
@@ -828,7 +733,7 @@ export function ProjectsPreview({
           <SectionHeader
             title={recentSection.title}
             titleId={recentHeadingId}
-            description={recentSection.description}
+            description={recentCount}
             icon={recentSection.icon ?? <History size={22} strokeWidth={1.75} aria-hidden />}
             iconColor={HS.sectionIconProjects}
             actions={recentHeaderActions}
@@ -839,7 +744,7 @@ export function ProjectsPreview({
               viewMode={recentProjectsView}
               handlers={handlers}
               listLabel={recentSection.title}
-              onNewProject={onNewProject}
+              onDark={onDark}
             />,
           )}
         </section>
@@ -848,7 +753,6 @@ export function ProjectsPreview({
           <SectionHeader
             title={recentSection.title}
             titleId={recentHeadingId}
-            description={recentSection.description}
             icon={recentSection.icon ?? <History size={22} strokeWidth={1.75} aria-hidden />}
             iconColor={HS.sectionIconProjects}
             actions={recentHeaderActions}
@@ -859,19 +763,6 @@ export function ProjectsPreview({
           >
             No other recent projects. Open the full library to browse all projects.
           </p>
-          {onNewProject ? (
-            <div className="mt-3">
-              {collectionFrame(
-                <ProjectCollection
-                  projects={[]}
-                  viewMode={recentProjectsView}
-                  handlers={handlers}
-                  listLabel={recentSection.title}
-                  onNewProject={onNewProject}
-                />,
-              )}
-            </div>
-          ) : null}
         </section>
       ) : null}
     </div>

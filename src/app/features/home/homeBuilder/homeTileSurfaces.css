@@ -165,11 +165,6 @@
   background: var(--home-tile-arrow-bg);
   color: var(--home-tile-arrow-fg);
 }
-/* A single scrollable row of compact links (every item stays reachable; focus scrolls it into view). */
-.luxia-home-chip-scroll {
-  scrollbar-width: thin;
-  scrollbar-color: var(--home-tile-chip-border) transparent;
-}
 
 /* Reduced motion: no hover nudges on tile arrows and cues. */
 @media (prefers-reduced-motion: reduce) {
@@ -214,9 +209,9 @@
 }
 
 /*
- * Full-width Pinned / Recent projects: the chosen style frames the Project
- * cards as a section panel. The cards themselves keep their own design and
- * corner markers; the section heading stays outside the panel.
+ * Full-width Projects collection: the chosen style frames the Project cards
+ * (or list) as a section panel on every surface; the section heading stays
+ * outside the panel.
  */
 .luxia-home-tile-panel {
   background: var(--home-tile-bg);
@@ -227,29 +222,135 @@
 }
 
 /*
- * Featured buttons use Luxia's existing on-dark button colours (.luxia-button--on-dark).
- * Cards only: Project cards inside a Featured section panel keep their own buttons.
+ * Nested Project cards inside the panel: a tonal step from the panel's own
+ * surface (lighter dark purple on Featured, white on Soft, a faint lavender-grey
+ * on Default). No shadow; depth comes from tone and a hairline border.
  */
-.luxia-home-tile-card[data-home-tile-surface="featured"] .luxia-button--primary {
+[data-home-tile-surface] {
+  --home-tile-card-bg: linear-gradient(var(--luxia-opacity-brand-primary-04), var(--luxia-opacity-brand-primary-04)), var(--luxia-surface);
+  --home-tile-card-border: var(--luxia-border-default);
+  --home-tile-card-hover-bg: linear-gradient(var(--luxia-opacity-brand-primary-08), var(--luxia-opacity-brand-primary-08)), var(--luxia-surface);
+  --home-tile-card-hover-border: var(--luxia-opacity-brand-primary-24);
+  --home-tile-card-chip-bg: var(--luxia-opacity-brand-primary-08);
+  --home-tile-overline: var(--luxia-purple-60);
+  --home-tile-card-icon-constellation: var(--luxia-purple-60);
+  --home-tile-card-icon-source: var(--luxia-blue-60);
+}
+[data-home-tile-surface="soft"] {
+  --home-tile-card-bg: var(--luxia-surface);
+  --home-tile-card-border: var(--luxia-opacity-brand-secondary-16);
+  --home-tile-card-hover-bg: var(--luxia-surface);
+  --home-tile-card-hover-border: var(--luxia-opacity-brand-secondary-32);
+  --home-tile-card-chip-bg: var(--luxia-opacity-brand-primary-04);
+}
+[data-home-tile-surface="featured"] {
+  --home-tile-card-bg: rgba(255, 255, 255, 0.06);
+  --home-tile-card-border: rgba(198, 177, 245, 0.16);
+  --home-tile-card-hover-bg: rgba(255, 255, 255, 0.09);
+  --home-tile-card-hover-border: rgba(198, 177, 245, 0.32);
+  --home-tile-card-chip-bg: var(--luxia-opacity-white-08);
+  --home-tile-overline: var(--luxia-purple-20);
+  --home-tile-card-icon-constellation: var(--luxia-purple-20);
+  --home-tile-card-icon-source: var(--luxia-blue-20);
+}
+
+/*
+ * Inside these cards, the shared Project pieces (meta chips, updated time,
+ * list title link) read --project-card-* ; elsewhere they fall back to their
+ * original colours, so the Projects page and compact tiles are unchanged.
+ */
+.luxia-home-project-card,
+.luxia-home-project-list {
+  --project-card-text: var(--home-tile-text);
+  --project-card-text-secondary: var(--home-tile-text-secondary);
+  --project-card-text-muted: var(--home-tile-text-muted);
+  --project-card-chip-bg: var(--home-tile-card-chip-bg);
+  --project-card-icon: var(--home-tile-overline);
+  --project-card-icon-constellation: var(--home-tile-card-icon-constellation);
+  --project-card-icon-source: var(--home-tile-card-icon-source);
+  --project-card-icon-members: var(--home-tile-text-muted);
+}
+.luxia-home-project-card {
+  background: var(--home-tile-card-bg);
+  border: 1px solid var(--home-tile-card-border);
+  border-radius: var(--luxia-radius-12);
+  transition: background 150ms ease, border-color 150ms ease;
+}
+.luxia-home-project-card:hover,
+.luxia-home-project-card:has(:focus-visible) {
+  background: var(--home-tile-card-hover-bg);
+  border-color: var(--home-tile-card-hover-border);
+}
+.luxia-home-project-list {
+  overflow: hidden;
+  background: var(--home-tile-card-bg);
+  border: 1px solid var(--home-tile-card-border);
+  border-radius: var(--luxia-radius-12);
+}
+.luxia-home-project-list-row {
+  border-bottom: 1px solid var(--home-tile-divider);
+  transition: background-color 150ms ease;
+}
+.luxia-home-project-list-row:last-child {
+  border-bottom: 0;
+}
+.luxia-home-project-list-row:hover {
+  background: var(--home-tile-row-hover);
+}
+@media (prefers-reduced-motion: reduce) {
+  .luxia-home-project-card,
+  .luxia-home-project-list-row {
+    transition: none;
+  }
+}
+
+/* Data Sources category panels (Large, Full width): the same tonal nested surface as Project cards. */
+.luxia-home-source-panel {
+  background: var(--home-tile-card-bg);
+  border: 1px solid var(--home-tile-card-border);
+  border-radius: 10px;
+  padding: 10px 8px 8px;
+}
+
+/* On the dark Featured panel focus rings are lavender, so they stay visible. */
+.luxia-home-tile-panel[data-home-tile-surface="featured"] {
+  --luxia-border-focus: var(--luxia-purple-20);
+}
+.luxia-home-tile-panel[data-home-tile-surface="featured"] .luxia-button:focus-visible {
+  box-shadow: 0 0 0 2px var(--luxia-purple-20);
+}
+
+/*
+ * Featured buttons use Luxia's existing on-dark button colours
+ * (.luxia-button--on-dark), in Featured tile cards and the Featured
+ * Full-width Projects panel.
+ */
+.luxia-home-tile-card[data-home-tile-surface="featured"] .luxia-button--primary,
+.luxia-home-tile-panel[data-home-tile-surface="featured"] .luxia-button--primary {
   color: var(--luxia-text-inverse);
   background: linear-gradient(87.081deg, #30214e 45.623%, #8e63eb 112.38%);
   border-color: rgba(198, 177, 245, 0.28);
 }
 
 .luxia-home-tile-card[data-home-tile-surface="featured"] .luxia-button--secondary,
-.luxia-home-tile-card[data-home-tile-surface="featured"] .luxia-button--tertiary {
+.luxia-home-tile-card[data-home-tile-surface="featured"] .luxia-button--tertiary,
+.luxia-home-tile-panel[data-home-tile-surface="featured"] .luxia-button--secondary,
+.luxia-home-tile-panel[data-home-tile-surface="featured"] .luxia-button--tertiary {
   color: rgba(198, 177, 245, 0.95);
   background: rgba(255, 255, 255, 0.05);
   border-color: rgba(198, 177, 245, 0.36);
 }
 
-.luxia-home-tile-card[data-home-tile-surface="featured"] .luxia-button--tertiary {
+.luxia-home-tile-card[data-home-tile-surface="featured"] .luxia-button--tertiary,
+.luxia-home-tile-panel[data-home-tile-surface="featured"] .luxia-button--tertiary {
   background: transparent;
   border-color: rgba(255, 255, 255, 0.24);
 }
 
 .luxia-home-tile-card[data-home-tile-surface="featured"] .luxia-button--secondary:hover:not(:disabled),
-.luxia-home-tile-card[data-home-tile-surface="featured"] .luxia-button--tertiary:hover:not(:disabled) {
+.luxia-home-tile-card[data-home-tile-surface="featured"] .luxia-button--tertiary:hover:not(:disabled),
+.luxia-home-tile-panel[data-home-tile-surface="featured"] .luxia-button--secondary:hover:not(:disabled),
+.luxia-home-tile-panel[data-home-tile-surface="featured"] .luxia-button--tertiary:hover:not(:disabled) {
   color: var(--luxia-text-inverse);
   background: var(--luxia-opacity-white-08);
 }
@@ -329,28 +430,95 @@
 }
 
 /*
- * Customize Home entry (normal Home): a brand-tinted secondary button, so it
- * reads as an action next to the tiles without competing with New Chat.
- * The attribute selector outranks the generic secondary-button hover rule.
+ * Customize Home (Home header, after New Chat and New Project): a quiet
+ * tertiary action. Pressed while Customize mode is on.
  */
 .luxia-button.luxia-home-customize-entry[data-home-customize-entry] {
   color: var(--luxia-purple-70);
-  background:
-    linear-gradient(var(--luxia-opacity-brand-secondary-08), var(--luxia-opacity-brand-secondary-08)),
-    var(--luxia-surface);
-  border-color: var(--luxia-opacity-brand-secondary-32);
-  font-weight: 700;
-  box-shadow: var(--luxia-shadow-sm);
 }
 .luxia-button.luxia-home-customize-entry[data-home-customize-entry]:hover:not(:disabled) {
   color: var(--luxia-purple-70);
-  background:
-    linear-gradient(var(--luxia-opacity-brand-secondary-16), var(--luxia-opacity-brand-secondary-16)),
-    var(--luxia-surface);
-  border-color: var(--luxia-purple-50);
+  background: var(--luxia-opacity-brand-secondary-08);
+}
+.luxia-button.luxia-home-customize-entry[data-home-customize-entry][aria-pressed="true"] {
+  color: var(--luxia-purple-70);
+  background: var(--luxia-opacity-brand-secondary-16);
 }
 .luxia-button.luxia-home-customize-entry[data-home-customize-entry]:focus-visible {
   box-shadow: 0 0 0 3px var(--luxia-opacity-brand-secondary-32);
+}
+
+/*
+ * Layout menu (Customize mode): compact rows with a small lavender icon chip.
+ * Disabled rows dim the title and icon but keep the reason readable.
+ */
+.luxia-home-layout-menu {
+  padding: 6px;
+}
+.luxia-home-layout-menu .luxia-home-layout-menu-item {
+  align-items: flex-start;
+  gap: 12px;
+  min-height: 56px;
+  padding: 10px;
+}
+.luxia-home-layout-menu-chip {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--luxia-radius-8);
+  background: var(--luxia-opacity-brand-secondary-08);
+  color: var(--luxia-purple-60);
+  transition: background-color 120ms ease;
+}
+.luxia-home-layout-menu-item .luxia-home-layout-menu-chip svg {
+  color: var(--luxia-purple-60);
+}
+.luxia-home-layout-menu-item[data-highlighted] .luxia-home-layout-menu-chip {
+  background: var(--luxia-opacity-brand-secondary-16);
+}
+.luxia-home-layout-menu-label {
+  color: var(--luxia-text-primary);
+}
+.luxia-home-layout-menu-item[data-highlighted] .luxia-home-layout-menu-label {
+  color: var(--luxia-brand-primary);
+}
+.luxia-home-layout-menu-detail {
+  margin-top: 2px;
+  color: var(--luxia-text-secondary);
+  font-weight: 400;
+}
+.luxia-home-layout-menu .luxia-home-layout-menu-item[data-disabled] {
+  opacity: 1;
+}
+.luxia-home-layout-menu-item[data-disabled] .luxia-home-layout-menu-chip,
+.luxia-home-layout-menu-item[data-disabled] .luxia-home-layout-menu-label {
+  opacity: 0.45;
+}
+.luxia-home-layout-menu-item[data-disabled] .luxia-home-layout-menu-detail {
+  opacity: 0.8;
+}
+@media (prefers-reduced-motion: reduce) {
+  .luxia-home-layout-menu-chip {
+    transition: none;
+  }
+}
+
+/* Layout confirmation: one reassurance line under the header. */
+.luxia-home-layout-confirm-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 16px 24px;
+  color: var(--luxia-text-secondary);
+}
+.luxia-home-layout-confirm-note svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--luxia-purple-60);
 }
 
 /* Comfortable touch targets on coarse pointers (phones, tablets). */

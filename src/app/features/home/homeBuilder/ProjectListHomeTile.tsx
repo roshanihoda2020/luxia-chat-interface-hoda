@@ -227,7 +227,7 @@ export function ProjectListHomeTile({
   }
 
   const large = density === "large";
-  const summary = `${plural(total, view === "pinned" ? "pinned Project" : "Project")} · ${copy.orderInline}`;
+  const summary = `${view === "pinned" ? `${total} pinned` : plural(total, "Project")} · ${copy.orderInline}`;
   const header = (
     <div className={`flex min-w-0 items-center justify-between gap-3 ${HOME_TILE_CORNER_CLEARANCE[density]}`}>
       <p className="min-w-0 truncate luxia-type-caption" style={{ color: HT.muted }} title={summary}>{summary}</p>

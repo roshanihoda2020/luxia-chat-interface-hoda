@@ -176,6 +176,7 @@ import {
   ProjectMembersPage,
   DataSourceSettingsPage,
   canUserAccessDataSource,
+  getLibraryMyAccessLabel,
   ACCESS_LEVELS,
   PROJECT_MEMBERSHIPS,
   ORGANIZATION_USERS,
@@ -6117,6 +6118,25 @@ export default function App() {
     dataSourcesState,
   ]);
 
+  /**
+   * Per Data Source: how many Constellations this user can access connect it.
+   * Only visible Constellations count, so Home never reveals relationships the
+   * user can't see (the Data Sources library counts every Constellation).
+   */
+  const visibleConstellationsBySource = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const item of workingAccessibleOverviewConstellations) {
+      const record = constellationSettingsById[item.id] ?? getConstellationSettingsRecord(item.id);
+      const sourceIds = new Set(
+        record?.connectedSources.map((source) => source.id)
+          ?? getCanonicalConstellationById(item.id)?.dataSourceIds
+          ?? [],
+      );
+      for (const sourceId of sourceIds) counts.set(sourceId, (counts.get(sourceId) ?? 0) + 1);
+    }
+    return counts;
+  }, [workingAccessibleOverviewConstellations, constellationSettingsById]);
+
   const projectActivityNavigationContext = useMemo(() => {
     if (!activeProjectId) return null;
     const projectChats = workingAccessibleOverviewChats.filter(
@@ -6446,8 +6466,11 @@ export default function App() {
                   status: source.status,
                   connector: source.connector,
                   contentSummary: source.contentSummary,
+                  myAccess: getLibraryMyAccessLabel(source.id, accessLevelsState, dataSourcesState, prototypeUserId) ?? undefined,
+                  visibleConstellationCount: visibleConstellationsBySource.get(source.id) ?? 0,
                 }))}
               onOpenDataSource={(dataSourceId) => handleOpenDataSourceSettings(dataSourceId)}
+              onOpenDataSources={handleOpenDataSources}
               onOpenDashboard={(projectId, dashboardId) => handleOpenProjectDashboard(projectId, dashboardId ?? null)}
               onOpenTool={(toolId) => {
                 if (toolId === "writing-assistant") handleOpenWritingAssistant();

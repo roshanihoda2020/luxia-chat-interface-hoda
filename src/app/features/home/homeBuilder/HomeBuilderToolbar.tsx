@@ -1,44 +1,92 @@
-import { useEffect, useRef, useState } from "react";
-import { Check, LayoutGrid, Plus, RotateCcw } from "lucide-react";
+import { useEffect, useRef, useState, type RefObject } from "react";
+import {
+  BookmarkCheck,
+  BookmarkPlus,
+  Check,
+  ChevronDown,
+  History,
+  LayoutGrid,
+  LayoutTemplate,
+  Plus,
+  RotateCcw,
+  ShieldCheck,
+} from "lucide-react";
 import { Button } from "@/app/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/app/components/ui/tooltip";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/app/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/app/components/ui/dropdown-menu";
 
 interface HomeBuilderToolbarProps {
   editing: boolean;
-  onCustomize: () => void;
   onAddTile: () => void;
-  onResetToDefault: () => void;
   onDone: () => void;
-  /** False when the layout already matches the default. */
-  canReset: boolean;
+  onResetToDefault: () => void;
+  onSaveAsMyDefault: () => void;
+  onRestoreMyDefault: () => void;
+  /** When the saved layout was saved, or null when the user has none. */
+  myDefaultSavedAt: number | null;
+  /** The current Home already matches the Luxia Default. */
+  isDefaultLayout: boolean;
+  /** The current Home already matches the saved layout. */
+  isMyDefaultLayout: boolean;
+}
+
+type LayoutConfirm = "restore" | "reset" | "replace";
+
+/** "Nov 4 at 4:59 PM"; "earlier" when the time is unknown. */
+export function formatMyDefaultSavedAt(savedAt: number): string {
+  if (!savedAt) return "earlier";
+  const date = new Date(savedAt);
+  const day = date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  const time = date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  // Non-breaking, so a wrapped helper never leaves "PM" on its own line.
+  return `${day} at\u00a0${time.replace(/\s/g, "\u00a0")}`;
 }
 
 /**
- * Sits at the top of the customizable Home area, below the protected header.
- * Not editing: one clear "Customize Home" button. Editing: a toolbar that
- * stays at the top of the page while scrolling (sticky within the Home
- * scroll area, so it never floats over tiles at rest), compacting once stuck.
- * Add Tile is the primary action, Done the exit, Reset a quiet secondary action.
+ * Customize mode toolbar, shown below the Home header (whose Customize Home
+ * action opens it). Sticky within the Home scroll area, compacting once stuck.
+ * Add Tile is the primary action, Done the exit, and the Layout menu holds
+ * Save current layout, Restore saved layout and Reset to Luxia default.
+ * Renders nothing outside Customize mode.
  */
 export function HomeBuilderToolbar({
   editing,
-  onCustomize,
   onAddTile,
-  onResetToDefault,
   onDone,
-  canReset,
+  onResetToDefault,
+  onSaveAsMyDefault,
+  onRestoreMyDefault,
+  myDefaultSavedAt,
+  isDefaultLayout,
+  isMyDefaultLayout,
 }: HomeBuilderToolbarProps) {
-  const customizeRef = useRef<HTMLButtonElement>(null);
   const addTileRef = useRef<HTMLButtonElement>(null);
+  const layoutMenuRef = useRef<HTMLButtonElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const previousEditing = useRef(editing);
   const [stuck, setStuck] = useState(false);
+  const [confirm, setConfirm] = useState<LayoutConfirm | null>(null);
 
-  // The button that was pressed disappears when the mode changes; keep keyboard focus nearby.
+  // The pressed button changes with the mode; keep keyboard focus nearby.
   useEffect(() => {
     if (previousEditing.current === editing) return;
     previousEditing.current = editing;
-    (editing ? addTileRef : customizeRef).current?.focus();
+    if (editing) addTileRef.current?.focus();
+    else document.querySelector<HTMLElement>("[data-home-customize-entry]")?.focus();
   }, [editing]);
 
   // "Stuck" once the spot the toolbar started at has scrolled out of the Home scroll area.
@@ -57,31 +105,14 @@ export function HomeBuilderToolbar({
     return () => observer.disconnect();
   }, [editing]);
 
-  if (!editing) {
-    return (
-      // The start of the customizable area: one line saying what can be changed, and the action.
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <p
-          id="home-customize-hint"
-          className="min-w-0 luxia-type-body-dense"
-          style={{ color: "var(--luxia-text-secondary)" }}
-        >
-          Make Home yours — add, move and resize tiles.
-        </p>
-        <Button
-          ref={customizeRef}
-          type="button"
-          variant="secondary"
-          onClick={onCustomize}
-          data-home-customize-entry=""
-          className="luxia-home-customize-entry luxia-home-touch-target"
-          aria-describedby="home-customize-hint"
-        >
-          <LayoutGrid size={16} strokeWidth={2.25} aria-hidden style={{ color: "var(--luxia-purple-60)" }} />
-          Customize Home
-        </Button>
-      </div>
-    );
+  if (!editing) return null;
+
+  const hasMyDefault = myDefaultSavedAt !== null;
+  const savedLabel = hasMyDefault ? formatMyDefaultSavedAt(myDefaultSavedAt) : "";
+
+  function saveAsMyDefault() {
+    if (hasMyDefault) setConfirm("replace");
+    else onSaveAsMyDefault();
   }
 
   return (
@@ -109,30 +140,75 @@ export function HomeBuilderToolbar({
             </p>
             {!stuck ? (
               <p className="hidden truncate luxia-type-caption md:block" style={{ color: "var(--luxia-text-secondary)" }}>
-                Drag tiles to move them. Only your Home changes.
+                Changes save automatically. Only your Home changes.
               </p>
             ) : null}
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-          <Tooltip>
-            <TooltipTrigger asChild>
+          <DropdownMenu modal={false}>
+            <DropdownMenuTrigger asChild>
               <Button
+                ref={layoutMenuRef}
                 type="button"
                 variant="tertiary"
-                onClick={onResetToDefault}
-                disabled={!canReset}
-                aria-label="Reset to default"
+                aria-label="Layout"
+                data-home-layout-menu=""
                 className="luxia-home-touch-target luxia-home-toolbar-reset"
               >
-                <RotateCcw size={15} strokeWidth={2} aria-hidden />
-                <span className="max-sm:hidden">Reset</span>
+                <LayoutTemplate size={15} strokeWidth={2} aria-hidden />
+                <span className="max-sm:hidden">Layout</span>
+                <ChevronDown size={14} strokeWidth={2} aria-hidden className="max-sm:hidden" />
               </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">
-              {canReset ? "Reset Home to the default tiles (you can undo)" : "Home already uses the default tiles"}
-            </TooltipContent>
-          </Tooltip>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              sideOffset={6}
+              collisionPadding={16}
+              className="luxia-home-layout-menu w-[19rem] max-w-[calc(100vw-32px)]"
+            >
+              <LayoutMenuItem
+                icon={isMyDefaultLayout ? BookmarkCheck : BookmarkPlus}
+                label="Save current layout"
+                detail={
+                  isMyDefaultLayout
+                    ? "Already saved"
+                    : hasMyDefault
+                      ? `Replaces your layout from ${savedLabel}`
+                      : "Keep this arrangement to come back to"
+                }
+                disabled={isMyDefaultLayout}
+                onSelect={saveAsMyDefault}
+              />
+              <LayoutMenuItem
+                icon={History}
+                label="Restore saved layout"
+                detail={
+                  !hasMyDefault
+                    ? "No saved layout yet"
+                    : isMyDefaultLayout
+                      ? "Your Home already matches it"
+                      : `Saved ${savedLabel}`
+                }
+                disabled={!hasMyDefault || isMyDefaultLayout}
+                onSelect={() => setConfirm("restore")}
+              />
+              <DropdownMenuSeparator />
+              <LayoutMenuItem
+                icon={RotateCcw}
+                label="Reset to Luxia default"
+                detail={
+                  isDefaultLayout
+                    ? "Already the Luxia default"
+                    : hasMyDefault
+                      ? "Original Home layout · your saved layout stays"
+                      : "Original Home layout"
+                }
+                disabled={isDefaultLayout}
+                onSelect={() => setConfirm("reset")}
+              />
+            </DropdownMenuContent>
+          </DropdownMenu>
           <span aria-hidden className="mx-0.5 hidden h-6 w-px sm:block" style={{ background: "var(--luxia-border-default)" }} />
           <Button
             ref={addTileRef}
@@ -150,6 +226,119 @@ export function HomeBuilderToolbar({
           </Button>
         </div>
       </div>
+
+      <HomeLayoutConfirmDialog
+        kind={confirm}
+        savedLabel={savedLabel}
+        hasMyDefault={hasMyDefault}
+        returnFocusTo={layoutMenuRef}
+        onCancel={() => setConfirm(null)}
+        onConfirm={(kind) => {
+          setConfirm(null);
+          if (kind === "restore") onRestoreMyDefault();
+          else if (kind === "reset") onResetToDefault();
+          else onSaveAsMyDefault();
+        }}
+      />
     </>
+  );
+}
+
+function LayoutMenuItem({
+  icon: Icon,
+  label,
+  detail,
+  disabled,
+  onSelect,
+}: {
+  icon: typeof History;
+  label: string;
+  detail: string;
+  disabled?: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <DropdownMenuItem disabled={disabled} onSelect={onSelect} className="luxia-home-layout-menu-item">
+      <span aria-hidden className="luxia-home-layout-menu-chip">
+        <Icon size={16} strokeWidth={2} />
+      </span>
+      <span className="min-w-0">
+        <span className="luxia-home-layout-menu-label block luxia-type-body-dense-strong">{label}</span>
+        <span className="luxia-home-layout-menu-detail block luxia-type-caption">{detail}</span>
+      </span>
+    </DropdownMenuItem>
+  );
+}
+
+function HomeLayoutConfirmDialog({
+  kind,
+  savedLabel,
+  hasMyDefault,
+  returnFocusTo,
+  onCancel,
+  onConfirm,
+}: {
+  kind: LayoutConfirm | null;
+  savedLabel: string;
+  hasMyDefault: boolean;
+  returnFocusTo: RefObject<HTMLButtonElement | null>;
+  onCancel: () => void;
+  onConfirm: (kind: LayoutConfirm) => void;
+}) {
+  // Keeps the last dialog's copy while it animates closed.
+  const [shown, setShown] = useState<LayoutConfirm>("reset");
+  if (kind && kind !== shown) setShown(kind);
+  const current = kind ?? shown;
+
+  const copy = {
+    reset: {
+      title: "Reset Home layout?",
+      body: "Your current layout will be replaced with the original Luxia layout.",
+      reassurance: hasMyDefault ? "Your saved layout will remain available." : null,
+      action: "Reset Home",
+    },
+    restore: {
+      title: "Restore saved layout?",
+      body: `Your current layout will be replaced with the layout you saved ${savedLabel}.`,
+      reassurance: "Your saved layout stays available.",
+      action: "Restore layout",
+    },
+    replace: {
+      title: "Replace saved layout?",
+      body: `The layout you saved ${savedLabel} will be replaced with your current one.`,
+      reassurance: "Your current Home won't change.",
+      action: "Replace layout",
+    },
+  }[current];
+
+  return (
+    <AlertDialog open={kind !== null} onOpenChange={(open) => { if (!open) onCancel(); }}>
+      <AlertDialogContent
+        data-home-layout-confirm={current}
+        className="luxia-home-layout-confirm sm:max-w-[420px]"
+        aria-describedby={copy.reassurance ? "home-layout-confirm-body home-layout-confirm-note" : "home-layout-confirm-body"}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          returnFocusTo.current?.focus();
+        }}
+      >
+        <AlertDialogHeader>
+          <AlertDialogTitle>{copy.title}</AlertDialogTitle>
+          <AlertDialogDescription id="home-layout-confirm-body">{copy.body}</AlertDialogDescription>
+        </AlertDialogHeader>
+        {copy.reassurance ? (
+          <p id="home-layout-confirm-note" className="luxia-home-layout-confirm-note luxia-type-body-dense">
+            <ShieldCheck size={16} strokeWidth={2} aria-hidden />
+            {copy.reassurance}
+          </p>
+        ) : null}
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <Button type="button" variant="primary" onClick={() => onConfirm(current)}>
+            {copy.action}
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

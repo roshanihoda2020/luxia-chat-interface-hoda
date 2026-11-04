@@ -36,7 +36,7 @@ export const HOME_PROJECTS_VIEW_COPY: Record<
     title: "Pinned projects",
     subtitle: "The Projects you pinned.",
     order: "In your pin order",
-    orderInline: "in your pin order",
+    orderInline: "Your order",
   },
   updated: {
     label: "Recently updated",
@@ -44,7 +44,7 @@ export const HOME_PROJECTS_VIEW_COPY: Record<
     title: "Recently updated projects",
     subtitle: "Projects with the most recent activity.",
     order: "Most recently updated first",
-    orderInline: "most recently updated first",
+    orderInline: "Newest first",
   },
   name: {
     label: "All, A–Z",
@@ -198,4 +198,26 @@ export function listHomeDataSourceContents(summary: {
     ...(summary.host ? [{ label: "Host", value: summary.host }] : []),
     ...(summary.account ? [{ label: "Account", value: summary.account }] : []),
   ];
+}
+
+/**
+ * Splits `capacity` rows across groups (in order) so every non-empty group
+ * gets at least one row when there is room, then shares the rest one at a
+ * time. Never gives a group more rows than it has.
+ */
+export function allocateGroupRows(sizes: readonly number[], capacity: number): number[] {
+  const rows = sizes.map(() => 0);
+  let left = Math.max(0, Math.floor(capacity));
+  let progressed = true;
+  while (left > 0 && progressed) {
+    progressed = false;
+    for (let index = 0; index < sizes.length && left > 0; index += 1) {
+      if (rows[index] < sizes[index]) {
+        rows[index] += 1;
+        left -= 1;
+        progressed = true;
+      }
+    }
+  }
+  return rows;
 }

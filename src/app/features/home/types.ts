@@ -132,8 +132,14 @@ export interface HomePageProps {
     connector?: string;
     /** Non-secret content snapshot (tables, files, database), summarised on Home Tiles. */
     contentSummary?: DataSourceContentSummary;
+    /** The current user's access, as the Data Sources library words it (Owner / Manage / Use / View). */
+    myAccess?: string;
+    /** Constellations the current user can access that use this source (never the inaccessible ones). */
+    visibleConstellationCount?: number;
   }>;
   onOpenDataSource?: (dataSourceId: string) => void;
+  /** Opens the Data Sources library. */
+  onOpenDataSources?: () => void;
   /** Opens one named Dashboard in its Project (Project › Dashboards › name). */
   onOpenDashboard?: (projectId: string, dashboardId: string) => void;
   onOpenTool?: (toolId: string) => void;

@@ -77,6 +77,12 @@ import { HS } from "./homeSurfaces";
 import { parseHomeRecentPreviewCount } from "./homeRecentPreviewCount";
 import { canCreateProject } from "@/app/features/permissions";
 import { formatDataSourceConnectorLabel } from "@/app/features/permissions/data";
+import {
+  getLibraryStatusLabel,
+  getLibraryTypeCategory,
+  getLibraryTypeLabel,
+} from "@/app/features/permissions/dataSourceVisibility";
+import type { DataSourceCatalogItem } from "@/app/features/permissions";
 import { ProjectsBrowser, ProjectsPreview } from "@/app/features/project";
 import { filterActiveProjects, rankProjectsByRecency } from "@/app/features/project/data";
 import { getProjectDashboardOutputs } from "@/app/features/project-overview/data";
@@ -141,6 +147,7 @@ export function HomePage({
   onNavigateProjectDestination,
   homeTileDataSources = [],
   onOpenDataSource,
+  onOpenDataSources,
   onOpenDashboard,
   onOpenTool,
 }: HomePageProps) {
@@ -339,12 +346,8 @@ export function HomePage({
   const projectById = new Map(activeProjects.map((project) => [project.id, project]));
   const chatItems = workWithPin.filter((item) => item.kind === "chat");
 
-  /**
-   * Full-width Pinned / Recent projects: Soft and Featured frame the Project cards
-   * as a section panel in that style; Default keeps the original open section.
-   */
+  /** Full-width Projects collection: every surface frames the Project cards as a section panel in that style. */
   function fullWidthSectionFrame(surface: HomeTileSurfaceStyle) {
-    if (surface === "default") return undefined;
     return (collection: ReactNode) => (
       <div className="luxia-home-tile-panel" data-home-tile-surface={surface} data-home-tile-section-panel="">
         {collection}
@@ -418,7 +421,6 @@ export function HomePage({
             ? undefined
             : {
               title: copy.title,
-              description: copy.subtitle,
               order: view === "name" ? "name" : "updated",
               icon: view === "name" ? <LuxiaProjectsIcon size={22} color="currentColor" aria-hidden /> : undefined,
             }}
@@ -431,7 +433,8 @@ export function HomePage({
           projects={activeProjects}
           pinnedProjectOrder={pinnedProjectIds}
           onViewAll={() => onBrowseModeChange("projects")}
-          // No in-collection New Project: Home's header always offers it, and the Projects page keeps its own.
+          // A header action only (never a card taking a preview slot), and only for users who can create.
+          onNewProject={canCreateProject() ? onNewProject : undefined}
           onToggleProjectPin={onToggleProjectPin}
           onArchiveProject={onArchiveProject}
           onRestoreProject={onRestoreProject}
@@ -528,25 +531,30 @@ export function HomePage({
     };
   }
 
-  /** A Data Source as Data Source tiles show it: type, connector, access, status and one content fact. */
+  /**
+   * A Data Source as Data Source tiles show it, classified and worded as the
+   * Data Sources library does: category, connector or file type, status, the
+   * user's access, and only Constellations the user can access.
+   */
   function dataSourceTileItem(source: (typeof homeTileDataSources)[number]): HomeDataSourceTileItem {
-    const access = source.ownership === "private" ? "Private" : source.ownership === "organizational" ? "Organizational" : undefined;
-    const status = source.status && source.status !== "active"
-      ? source.status.charAt(0).toUpperCase() + source.status.slice(1)
-      : undefined;
-    // The connector only when it adds something to the type (PostgreSQL, Snowflake — not "CSV" for a CSV).
-    const connector = formatDataSourceConnectorLabel(source.connector) ?? undefined;
-    const connectorLabel = connector && connector.toLowerCase() !== source.typeLabel.toLowerCase() && source.connector !== "file"
-      ? connector
-      : undefined;
+    // Home receives these as plain strings; they are the catalog's own values.
+    const typed = {
+      type: source.typeLabel,
+      status: source.status ?? "active",
+      connector: source.connector,
+    } as Pick<DataSourceCatalogItem, "type" | "status" | "connector">;
+    const category = getLibraryTypeCategory(typed);
     return {
       id: source.id,
       name: source.name,
       kind: knowledgeKindOf(source.connector === "googlesheet" ? "googlesheet" : source.typeLabel),
-      typeLabel: source.typeLabel,
-      connectorLabel,
-      access,
-      status,
+      category,
+      // Files keep their real type (PDF or File); databases and CSV use the library's type label.
+      typeDetail: category === "file" ? source.typeLabel : getLibraryTypeLabel(typed),
+      isPrivate: source.ownership === "private",
+      myAccess: source.myAccess,
+      statusLabel: getLibraryStatusLabel(typed),
+      usedBy: source.visibleConstellationCount,
       contentDetail: formatHomeDataSourceContent(source.contentSummary),
       contents: listHomeDataSourceContents(source.contentSummary),
       openLabel: `Open Data Source ${source.name}`,
@@ -634,7 +642,12 @@ export function HomePage({
             density={density}
             label="Data sources"
             items={items}
-            empty={{ title: "No Data Sources yet", body: "Data Sources you have access to appear here." }}
+            onOpenAll={onOpenDataSources}
+            empty={{
+              title: "No Data Sources yet",
+              body: "Data Sources you have access to appear here.",
+              action: onOpenDataSources ? { label: "Open Data Sources", onClick: onOpenDataSources } : undefined,
+            }}
           />
         );
       }
@@ -1054,7 +1067,15 @@ export function HomePage({
 
   return (
     <>
-      <HomeHeader onNewChat={onNewChat} onNewProject={onNewProject} />
+      <HomeHeader
+        onNewChat={onNewChat}
+        onNewProject={onNewProject}
+        onCustomize={() => {
+          if (editing) document.querySelector<HTMLElement>("[data-home-builder-toolbar]")?.scrollIntoView({ block: "nearest" });
+          else homeBuilder.startEditing();
+        }}
+        customizing={editing}
+      />
 
       <GlobalSearch
         projects={activeProjects}
@@ -1065,11 +1086,14 @@ export function HomePage({
 
       <HomeBuilderToolbar
         editing={editing}
-        onCustomize={homeBuilder.startEditing}
         onAddTile={() => setLibraryOpen(true)}
-        onResetToDefault={homeBuilder.resetToDefault}
         onDone={homeBuilder.stopEditing}
-        canReset={!homeBuilder.isDefaultLayout}
+        onResetToDefault={homeBuilder.resetToDefault}
+        onSaveAsMyDefault={homeBuilder.saveAsMyDefault}
+        onRestoreMyDefault={homeBuilder.restoreMyDefault}
+        myDefaultSavedAt={homeBuilder.myDefault?.savedAt ?? null}
+        isDefaultLayout={homeBuilder.isDefaultLayout}
+        isMyDefaultLayout={homeBuilder.isMyDefaultLayout}
       />
 
       {layoutIsEmpty ? (
@@ -1081,7 +1105,7 @@ export function HomePage({
             Your Home has no tiles
           </p>
           <p className="max-w-md luxia-type-body-dense" style={{ color: "var(--luxia-text-secondary)" }}>
-            Add Home Tiles for the Projects, Chats and tools you use most, or reset to the default Home.
+            Add Home Tiles for the Projects, Chats and tools you use most, or start again from a saved layout.
           </p>
           <div className="flex flex-wrap justify-center gap-2">
             <Button
@@ -1095,8 +1119,13 @@ export function HomePage({
             >
               Add Tile
             </Button>
+            {homeBuilder.myDefault ? (
+              <Button type="button" variant="secondary" size="compact" onClick={homeBuilder.restoreMyDefault}>
+                Restore saved layout
+              </Button>
+            ) : null}
             <Button type="button" variant="secondary" size="compact" onClick={homeBuilder.resetToDefault}>
-              Reset to default
+              Reset to Luxia default
             </Button>
           </div>
         </div>

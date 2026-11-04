@@ -75,7 +75,7 @@ export function SectionHeader({
         </div>
       </div>
       {hasTrailing ? (
-        <div className="flex min-w-0 shrink-0 flex-wrap items-center justify-end gap-x-3 gap-y-2">
+        <div className="flex min-w-0 max-w-full shrink-0 flex-wrap items-center justify-end gap-x-3 gap-y-2">
           {actions}
           {onViewAll ? (
             <ViewAllAction

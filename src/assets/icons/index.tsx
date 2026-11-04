@@ -178,8 +178,8 @@ LuxiaPipelineIcon.displayName = "LuxiaPipelineIcon";
 export const PipelineIcon = LuxiaPipelineIcon;
 
 /**
- * Writing Assistant feature icon — document/page + small AI sparkle.
- * Canonical mark for Tools, page identity, and the right-side assistant panel.
+ * Writing Assistant icon: a page with a pen nib and a small AI sparkle. The sparkle
+ * follows the icon color unless `accentColor` is given, so it stays surface-aware.
  */
 export function LuxiaWritingAssistantIcon({
   size = 20,
@@ -194,7 +194,7 @@ export function LuxiaWritingAssistantIcon({
   ...rest
 }: LuxiaIconProps & { accentColor?: string }) {
   const resolvedColor = color ?? style?.color ?? "currentColor";
-  const sparkleColor = accentColor ?? "var(--luxia-purple-50, #8B5CF6)";
+  const sparkleColor = accentColor ?? "currentColor";
   const isDecorative =
     ariaHidden === true || ariaHidden === "true" || (!ariaLabel && !title && !role);
 
@@ -227,34 +227,32 @@ export function LuxiaWritingAssistantIcon({
         aria-hidden
         preserveAspectRatio="xMidYMid meet"
       >
-        {/* Document / page */}
         <path
-          d="M6.25 3.75h7.1L17.75 8.1v11.15c0 .83-.67 1.5-1.5 1.5H6.25c-.83 0-1.5-.67-1.5-1.5V5.25c0-.83.67-1.5 1.5-1.5Z"
+          d="M17.25 10.5V7.6L13.4 3.75H6.75A1.75 1.75 0 0 0 5 5.5v13a1.75 1.75 0 0 0 1.75 1.75H11"
           stroke="currentColor"
           strokeWidth="1.5"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
         <path
-          d="M13.35 3.75V7.6c0 .55.45 1 1 1h3.4"
+          d="M13.25 3.75V6.6c0 .6.5 1.1 1.1 1.1h2.9M8.25 11h5.5M8.25 14.25h3"
           stroke="currentColor"
           strokeWidth="1.5"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
         <path
-          d="M8.1 12.25h6.3M8.1 15.5h4.4"
+          d="M21.13 14.73a2.12 2.12 0 0 0-3-3l-4.01 4.01a2 2 0 0 0-.51.85l-.84 2.87a.5.5 0 0 0 .62.62l2.87-.84a2 2 0 0 0 .85-.5Z"
           stroke="currentColor"
           strokeWidth="1.5"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
-        {/* AI sparkle accent (Luxia 4-point star language) */}
         <path
-          d="M19.1 2.35 19.85 4.05 21.55 4.8 19.85 5.55 19.1 7.25 18.35 5.55 16.65 4.8 18.35 4.05Z"
+          d="M20.5 1.75l.55 1.2 1.2.55-1.2.55-.55 1.2-.55-1.2-1.2-.55 1.2-.55Z"
           fill={sparkleColor}
           stroke={sparkleColor}
-          strokeWidth="0.4"
+          strokeWidth="0.5"
           strokeLinejoin="round"
         />
       </svg>

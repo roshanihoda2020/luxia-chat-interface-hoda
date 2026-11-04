@@ -27,7 +27,7 @@ function ProjectStatGroup({
     <span
       className="inline-flex max-w-full shrink-0 items-center gap-1.5 rounded-[8px] px-2 py-1"
       style={{
-        background: "var(--luxia-opacity-brand-primary-04)",
+        background: "var(--project-card-chip-bg, var(--luxia-opacity-brand-primary-04))",
       }}
       aria-label={`${count} ${label}`}
     >
@@ -36,13 +36,13 @@ function ProjectStatGroup({
       </span>
       <span
         className="luxia-type-body-dense-strong tabular-nums"
-        style={{ color: "var(--luxia-text-primary)", fontSize: 14, lineHeight: 1.3 }}
+        style={{ color: "var(--project-card-text, var(--luxia-text-primary))", fontSize: 14, lineHeight: 1.3 }}
       >
         {count}
       </span>
       <span
         className="luxia-type-body-dense"
-        style={{ color: "var(--luxia-text-secondary)", fontSize: 13, lineHeight: 1.3 }}
+        style={{ color: "var(--project-card-text-secondary, var(--luxia-text-secondary))", fontSize: 13, lineHeight: 1.3 }}
       >
         {label}
       </span>
@@ -66,7 +66,7 @@ export function ProjectUpdatedMeta({
       className={`inline-flex min-w-0 shrink-0 items-center gap-1 ${
         isFeatured ? "luxia-type-body-dense" : "luxia-type-caption"
       } ${className}`}
-      style={{ color: "var(--luxia-neutral-500, #64748B)" }}
+      style={{ color: "var(--project-card-text-muted, var(--luxia-neutral-500, #64748B))" }}
       aria-label={`Updated ${updatedAt}`}
     >
       <Clock
@@ -108,21 +108,21 @@ export function ProjectCardMeta({
       <div className="flex flex-wrap items-center gap-1.5">
         <ProjectStatGroup
           icon={<LuxiaConstellationIcon size={iconSize} />}
-          iconColor="var(--luxia-purple-60)"
+          iconColor="var(--project-card-icon-constellation, var(--luxia-purple-60))"
           count={project.constellationCount}
           singular="Constellation"
           plural="Constellations"
         />
         <ProjectStatGroup
           icon={<LuxiaDatasourceIcon size={iconSize} />}
-          iconColor="var(--luxia-blue-60)"
+          iconColor="var(--project-card-icon-source, var(--luxia-blue-60))"
           count={project.sourceCount ?? 0}
           singular="Source"
           plural="Sources"
         />
         <ProjectStatGroup
           icon={<Users size={iconSize} strokeWidth={1.75} />}
-          iconColor="var(--luxia-text-muted)"
+          iconColor="var(--project-card-icon-members, var(--luxia-text-muted))"
           count={project.memberCount}
           singular="member"
           plural="members"
@@ -134,7 +134,7 @@ export function ProjectCardMeta({
       {showViewerRole ? (
         <p
           className={`min-w-0 truncate ${isFeatured ? "mt-2 luxia-type-body-dense" : "mt-1.5 luxia-type-caption"}`}
-          style={{ color: "var(--luxia-text-muted)" }}
+          style={{ color: "var(--project-card-text-muted, var(--luxia-text-muted))" }}
           title={`Your role: ${viewerRoleLabel}`}
         >
           Your role · {viewerRoleLabel}

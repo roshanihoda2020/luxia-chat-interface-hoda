@@ -17,7 +17,6 @@ import {
 import {
   CardArrow,
   GlyphChip,
-  GroupLabel,
   HOME_TILE_PANEL_BUTTON,
   HOME_TILE_ROW,
   KnowledgeGlyph,
@@ -53,7 +52,6 @@ export interface HomeGalaxyTileItem {
 
 const galaxyIcon = (size: number) => <LuxiaGalaxyIcon size={size} color="currentColor" />;
 const CORNER = { icon: galaxyIcon };
-const FOCUS_RING = "outline-none focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]";
 
 function plural(count: number, singular: string) {
   return `${count} ${count === 1 ? singular : `${singular}s`}`;
@@ -301,24 +299,6 @@ function GalaxyCard({ galaxy }: { galaxy: HomeGalaxyTileItem }) {
   );
 }
 
-/** A Galaxy whose Project has no Constellations yet: still one click away, kept quiet. */
-function EmptyGalaxyChip({ galaxy }: { galaxy: HomeGalaxyTileItem }) {
-  return (
-    <button
-      type="button"
-      onClick={galaxy.onOpen}
-      aria-label={`${galaxy.openLabel} (no Constellations yet)`}
-      title={`${galaxy.title} · Project updated ${galaxy.projectUpdatedAt}`}
-      className={`inline-flex max-w-full min-w-0 items-center gap-1.5 rounded-full border px-2.5 py-1 luxia-type-caption transition-colors hover:bg-[var(--home-tile-row-hover)] ${FOCUS_RING}`}
-      style={{ borderColor: HT.chipBorder, color: HT.secondary }}
-      data-home-galaxy-empty=""
-    >
-      <LuxiaGalaxyIcon size={12} color="currentColor" aria-hidden />
-      <span className="truncate">{galaxy.projectName}</span>
-    </button>
-  );
-}
-
 export interface GalaxiesCollectionHomeTileProps {
   density: HomeCollectionDensity;
   /** Accessible Galaxies, already ordered (latest Project activity first). */
@@ -332,19 +312,15 @@ export interface GalaxiesCollectionHomeTileProps {
 }
 
 /**
- * Every accessible Galaxy stays reachable; ones without Constellations are
- * quieter, never hidden.
  * Small — how many have Constellations, then the first Galaxies with their glyphs.
  * Medium — rows: name, the Project's last update and the Constellation glyphs.
  * Large — two columns of orchestration cards.
- * Full width — cards for Galaxies with Constellations, then the rest as
- *   compact links ("Without Constellations yet").
+ * Full width — cards for the Galaxies with Constellations.
  * There is no all-Galaxies page, so the footer counts the rest instead of linking.
  */
 export function GalaxiesCollectionHomeTile({ density, galaxies, label, summary, count, empty }: GalaxiesCollectionHomeTileProps) {
   const wide = density === "wide";
   const withConstellations = galaxies.filter((galaxy) => galaxy.constellationCount > 0);
-  const withoutConstellations = galaxies.filter((galaxy) => galaxy.constellationCount === 0);
   const primary = wide ? withConstellations : galaxies;
   const candidate = Math.min(primary.length, OFFER[density]);
   const { areaRef, listRef, count: fitting } = useFittingCount(candidate, `galaxies|${density}|${galaxies.map((galaxy) => galaxy.id).join(",")}`);
@@ -373,7 +349,7 @@ export function GalaxiesCollectionHomeTile({ density, galaxies, label, summary, 
   }
 
   const surfaceDensity = wide ? "large" : density;
-  const hidden = galaxies.length - shown.length - (wide ? withoutConstellations.length : 0);
+  const hidden = galaxies.length - shown.length;
   const header = (
     <p className={`truncate luxia-type-caption ${HOME_TILE_CORNER_CLEARANCE[surfaceDensity]}`} style={{ color: HT.muted }} title={summary}>
       {`${summary} · ${readyLine}`}
@@ -391,14 +367,6 @@ export function GalaxiesCollectionHomeTile({ density, galaxies, label, summary, 
               {shown.map((galaxy) => <li key={galaxy.id} className="min-w-0"><GalaxyCard galaxy={galaxy} /></li>)}
             </ul>
           </div>
-          {withoutConstellations.length > 0 ? (
-            <div className="min-w-0 shrink-0">
-              <GroupLabel aside={withoutConstellations.length}>Without Constellations yet</GroupLabel>
-              <ul className="luxia-home-chip-scroll -mx-1 mt-1.5 flex min-w-0 gap-1.5 overflow-x-auto px-1 pb-1.5 pt-0.5" aria-label={`${label} without Constellations yet`}>
-                {withoutConstellations.map((galaxy) => <li key={galaxy.id} className="shrink-0"><EmptyGalaxyChip galaxy={galaxy} /></li>)}
-              </ul>
-            </div>
-          ) : null}
           {restHidden > 0 ? <p className="luxia-type-caption" style={{ color: HT.muted }}>{`+${restHidden} more with Constellations`}</p> : null}
         </div>
       </HomeTileSurface>

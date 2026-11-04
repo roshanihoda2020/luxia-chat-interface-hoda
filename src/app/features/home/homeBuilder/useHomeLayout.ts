@@ -3,7 +3,14 @@ import { Undo2 } from "lucide-react";
 import { luxiaToast } from "@/app/features/shared/luxiaToast";
 import { createDefaultHomeLayout } from "./defaultLayout";
 import { addHomeTile, configureHomeTile, removeHomeTile, setHomeTileConfig } from "./layoutOps";
-import { clearHomeLayout, readHomeLayout, writeHomeLayout } from "./storage";
+import {
+  clearHomeLayout,
+  readHomeLayout,
+  readHomeMyDefault,
+  writeHomeLayout,
+  writeHomeMyDefault,
+  type HomeMyDefault,
+} from "./storage";
 import type {
   HomeLayout,
   HomeTile,
@@ -42,6 +49,10 @@ export function useHomeLayout(userId: string) {
   const [state, setState] = useState(() => ({ userId, layout: readHomeLayout(userId).layout }));
   const storedLayout = useMemo(() => readHomeLayout(userId).layout, [userId]);
   const layout = state.userId === userId ? state.layout : storedLayout;
+
+  const [myDefaultState, setMyDefaultState] = useState(() => ({ userId, value: readHomeMyDefault(userId) }));
+  const storedMyDefault = useMemo(() => readHomeMyDefault(userId), [userId]);
+  const myDefault: HomeMyDefault | null = myDefaultState.userId === userId ? myDefaultState.value : storedMyDefault;
 
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const editing = editingUserId === userId;
@@ -153,16 +164,47 @@ export function useHomeLayout(userId: string) {
     }
   }
 
+  /** Replaces the current Home with the original Luxia default. The saved layout is kept. */
   function resetToDefault() {
     const previous = layout;
     clearHomeLayout(userId);
     setState({ userId, layout: createDefaultHomeLayout() });
     offerUndo(
-      "Home reset to default",
-      "Your Home is back to the default tiles: Projects, Dashboards, Writing Assistant, Chats, Constellations, Data sources and Galaxies.",
+      "Home reset to the Luxia default",
+      myDefault ? "Your saved layout is still available." : "You can undo this.",
       previous,
     );
   }
+
+  /** Keeps a copy of the current Home as the saved layout. The current Home itself doesn't change. */
+  function saveAsMyDefault() {
+    const saved = writeHomeMyDefault(userId, layout);
+    if (!saved) {
+      luxiaToast.error("Couldn't save your layout");
+      return;
+    }
+    const replaced = myDefault !== null;
+    setMyDefaultState({ userId, value: saved });
+    luxiaToast.success({
+      title: replaced ? "Saved layout updated" : "Layout saved",
+      description: "Restore it anytime from Layout.",
+      position: "bottom-right",
+    });
+  }
+
+  /** Replaces the current Home with a copy of the saved layout, which itself doesn't change. */
+  function restoreMyDefault() {
+    if (!myDefault) return;
+    const previous = layout;
+    if (!commit(myDefault.layout)) return;
+    offerUndo(
+      "Saved layout restored",
+      "Your saved layout is unchanged.",
+      previous,
+    );
+  }
+
+  const layoutJson = JSON.stringify(layout);
 
   return {
     layout,
@@ -173,6 +215,9 @@ export function useHomeLayout(userId: string) {
     removeTile,
     configureTile,
     resetToDefault,
+    myDefault,
+    saveAsMyDefault,
+    restoreMyDefault,
     /**
      * Saves a rearranged or resized layout (drag, keyboard move, size change).
      * With `undo`, also offers Undo (e.g. a tile shrunk to fit while dragging).
@@ -190,6 +235,8 @@ export function useHomeLayout(userId: string) {
       const previous = layout;
       if (commit(next) && undo) offerUndo(undo.title, undo.description, previous);
     },
-    isDefaultLayout: JSON.stringify(layout) === DEFAULT_LAYOUT_JSON,
+    isDefaultLayout: layoutJson === DEFAULT_LAYOUT_JSON,
+    /** True when the current Home matches the saved layout. */
+    isMyDefaultLayout: myDefault !== null && layoutJson === JSON.stringify(myDefault.layout),
   };
 }

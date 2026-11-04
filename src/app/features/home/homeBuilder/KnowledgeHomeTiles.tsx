@@ -1,6 +1,8 @@
-import type { ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import { Lock } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
-import { LuxiaConstellationIcon, LuxiaDatasourceIcon, LuxiaProjectsIcon } from "@/assets/icons";
+import { LuxiaArrowRightIcon, LuxiaConstellationIcon, LuxiaDatasourceIcon, LuxiaProjectsIcon } from "@/assets/icons";
+import { allocateGroupRows } from "./collections";
 import {
   CollectionHomeTile,
   useFittingCount,
@@ -18,10 +20,12 @@ import {
   CardArrow,
   GlyphChip,
   GroupLabel,
+  HOME_TILE_FOCUS_RING,
   HOME_TILE_ROW,
   KnowledgeGlyph,
   KnowledgeIcon,
   Monogram,
+  OpenCue,
   TypeMixBar,
   TileSummaryRow,
   plural,
@@ -335,18 +339,31 @@ export function ConstellationHomeTile({ density, item, description, recentChatCo
 
 // Data Sources
 
+/** The Data Sources library's categories, in its order (Google Sheets count as CSV, PDFs as Files). */
+export type HomeDataSourceCategory = "database" | "csv" | "file";
+
+const SOURCE_CATEGORIES: ReadonlyArray<{ key: HomeDataSourceCategory; one: string; many: string; kind: HomeKnowledgeKind }> = [
+  { key: "database", one: "Database", many: "Databases", kind: "database" },
+  { key: "csv", one: "CSV", many: "CSV", kind: "csv" },
+  { key: "file", one: "File", many: "Files", kind: "file" },
+];
+
 export interface HomeDataSourceTileItem {
   id: string;
   name: string;
+  /** Its own glyph (database, CSV, Google Sheet, document). */
   kind: HomeKnowledgeKind;
-  /** "Database" | "PDF" | "CSV" | "File". */
-  typeLabel: string;
-  /** Connector name when it adds to the type ("PostgreSQL", "Snowflake"). */
-  connectorLabel?: string;
-  /** "Organizational" | "Private". */
-  access?: string;
-  /** Status when not active ("Inactive", "Archived"). */
-  status?: string;
+  /** The library category it is listed under. */
+  category: HomeDataSourceCategory;
+  /** Connector or file type ("PostgreSQL", "CSV", "PDF"). */
+  typeDetail: string;
+  isPrivate: boolean;
+  /** The user's access, in the library's words ("Owner", "Manage", "Use", "View"). */
+  myAccess?: string;
+  /** The library's status ("Connected", "Ready", "Needs attention", "Failed", "Archived"). */
+  statusLabel: string;
+  /** Constellations the user can access that use it. */
+  usedBy?: number;
   /** One real content fact ("analytics database", "3 files", "1,240 rows"). */
   contentDetail?: string;
   /** What it contains (files, tables, database and host), for the Medium tile. */
@@ -355,65 +372,206 @@ export interface HomeDataSourceTileItem {
   onOpen: () => void;
 }
 
-const SOURCE_OFFER: Record<HomeCollectionDensity, number> = { small: 2, medium: 9, large: 10, wide: 6 };
+/** Most rows a collection offers per size, before fitting to the space. */
+const SOURCE_OFFER = { medium: 9, large: 10, wide: 8 } as const;
 
-/** The source's identity line: connector (or type), access, and status when not active. */
-function sourceLine(item: HomeDataSourceTileItem, withType = false): string {
-  return [withType ? item.typeLabel : null, item.connectorLabel, item.access, item.status].filter(Boolean).join(" · ");
+function categoryInfo(key: HomeDataSourceCategory) {
+  return SOURCE_CATEGORIES.find((category) => category.key === key) ?? SOURCE_CATEGORIES[0];
 }
 
-function DataSourceRow({ item, dense = false }: { item: HomeDataSourceTileItem; dense?: boolean }) {
-  const line = sourceLine(item);
+function categoryCount(count: number, key: HomeDataSourceCategory): string {
+  const info = categoryInfo(key);
+  return `${count} ${count === 1 ? info.one : info.many}`;
+}
+
+/** Connected / Ready is the normal state; only other states are worth a badge. */
+function notableStatus(item: HomeDataSourceTileItem): string | undefined {
+  return item.statusLabel === "Connected" || item.statusLabel === "Ready" ? undefined : item.statusLabel;
+}
+
+function sourceSummary(item: HomeDataSourceTileItem): string {
+  return [
+    item.name,
+    item.typeDetail,
+    item.isPrivate ? "Private" : null,
+    item.myAccess ? `Your access: ${item.myAccess}` : null,
+    notableStatus(item),
+    item.usedBy ? `Used by ${plural(item.usedBy, "Constellation")} you can access` : null,
+  ].filter(Boolean).join(" · ");
+}
+
+function sourceAriaLabel(item: HomeDataSourceTileItem): string {
+  return [item.openLabel, item.isPrivate ? "Private" : null, notableStatus(item)].filter(Boolean).join(", ");
+}
+
+function PrivateMark() {
   return (
-    <button type="button" onClick={item.onOpen} aria-label={item.openLabel} className={`${HOME_TILE_ROW} ${dense ? "py-1" : ""}`}>
-      <KnowledgeGlyph kind={item.kind} size={dense ? 20 : 26} />
+    <span className="inline-flex shrink-0" style={{ color: HT.muted }} title="Private">
+      <Lock size={12} strokeWidth={2} aria-hidden />
+    </span>
+  );
+}
+
+/** "usage": two lines plus "Used by N" on the right (Full width only, where there is room). */
+function SourceRow({ item, detail }: { item: HomeDataSourceTileItem; detail: "dense" | "full" | "usage" }) {
+  const status = notableStatus(item);
+  const meta = [item.typeDetail, item.contentDetail].filter(Boolean).join(" · ");
+  return (
+    <button
+      type="button"
+      onClick={item.onOpen}
+      aria-label={sourceAriaLabel(item)}
+      title={sourceSummary(item)}
+      className={`${HOME_TILE_ROW} ${detail === "dense" ? "py-1" : ""}`}
+    >
+      <KnowledgeGlyph kind={item.kind} size={detail === "dense" ? 20 : 26} />
       <span className="min-w-0 flex-1">
         <span className="flex min-w-0 items-center gap-1.5">
-          <span className="min-w-0 truncate luxia-type-body-dense-strong" style={{ color: HT.title }} title={item.name}>{item.name}</span>
-          {item.status ? <HomeTileStatus>{item.status}</HomeTileStatus> : null}
+          <span className="min-w-0 truncate luxia-type-body-dense-strong" style={{ color: HT.title }}>{item.name}</span>
+          {item.isPrivate ? <PrivateMark /> : null}
+          {status ? <HomeTileStatus>{status}</HomeTileStatus> : null}
         </span>
-        {!dense && line ? <span className="block truncate luxia-type-caption" style={{ color: HT.secondary }} title={line}>{line}</span> : null}
+        {detail !== "dense" && meta ? (
+          <span className="block truncate luxia-type-caption" style={{ color: HT.secondary }}>{meta}</span>
+        ) : null}
       </span>
-      {dense && item.connectorLabel ? (
-        <span className="shrink-0 truncate luxia-type-caption" style={{ color: HT.muted, maxWidth: "42%" }}>{item.connectorLabel}</span>
+      {detail === "dense" ? (
+        <span className="shrink-0 truncate luxia-type-caption" style={{ color: HT.muted, maxWidth: "42%" }}>{item.typeDetail}</span>
+      ) : detail === "usage" && item.usedBy ? (
+        <span className="shrink-0 luxia-type-caption tabular-nums" style={{ color: HT.muted }}>{`Used by ${item.usedBy}`}</span>
       ) : null}
     </button>
   );
 }
 
-/** One chip per type: its glyph and how many sources (an inventory you can read at a glance). */
-function TypeTally({ groups, size = "small" }: { groups: Array<{ kind: HomeKnowledgeKind; count: number }>; size?: "small" | "large" }) {
-  return (
-    <ul className="flex min-w-0 flex-wrap gap-1.5" aria-label="Data Sources by type">
-      {groups.map((group) => {
-        const label = group.count === 1 ? KIND_LABEL[group.kind].one : KIND_LABEL[group.kind].many;
-        return (
-          <li
-            key={group.kind}
-            className={`inline-flex items-center gap-1.5 rounded-[8px] ${size === "large" ? "py-1 pl-1 pr-2.5" : "py-0.5 pl-0.5 pr-2"}`}
-            style={{ background: HT.panel }}
-            title={`${group.count} ${label}`}
-          >
-            <GlyphChip size={size === "large" ? 24 : 20}><KnowledgeIcon kind={group.kind} size={size === "large" ? 12 : 11} /></GlyphChip>
-            <span className="luxia-type-body-dense-strong tabular-nums" style={{ color: HT.text }}>{group.count}</span>
-            {size === "large" ? <span className="luxia-type-caption" style={{ color: HT.secondary }}>{label}</span> : <span className="sr-only">{label}</span>}
-          </li>
-        );
-      })}
-    </ul>
-  );
+/**
+ * Most rows that fit `areaRef` (never below `min`), re-measured when the
+ * observed bounds change size. Rows are dropped until the content fits.
+ */
+function useFittingCapacity(max: number, min: number, resetKey: string, boundsRef?: RefObject<HTMLElement | null>) {
+  const areaRef = useRef<HTMLDivElement>(null);
+  const [capacity, setCapacity] = useState(max);
+
+  useLayoutEffect(() => {
+    setCapacity(max);
+  }, [max, resetKey]);
+
+  useLayoutEffect(() => {
+    const area = areaRef.current;
+    if (!area || capacity <= min) return;
+    if (area.scrollHeight > area.clientHeight + 1) setCapacity(capacity - 1);
+  });
+
+  useEffect(() => {
+    const target = boundsRef?.current ?? areaRef.current;
+    if (!target || typeof ResizeObserver === "undefined") return;
+    let width = target.clientWidth;
+    let height = target.clientHeight;
+    const observer = new ResizeObserver(() => {
+      if (Math.abs(target.clientWidth - width) < 1 && Math.abs(target.clientHeight - height) < 1) return;
+      width = target.clientWidth;
+      height = target.clientHeight;
+      setCapacity(max);
+    });
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [max, boundsRef]);
+
+  return { areaRef, capacity: Math.min(capacity, max) };
 }
 
-function groupsOf(items: readonly HomeDataSourceTileItem[]) {
-  const order: HomeKnowledgeKind[] = ["database", "sheet", "csv", "pdf", "file"];
-  return order
-    .map((kind) => ({ kind, items: items.filter((item) => item.kind === kind) }))
+type SourceGroup = { key: HomeDataSourceCategory; items: readonly HomeDataSourceTileItem[] };
+
+function groupsOf(items: readonly HomeDataSourceTileItem[]): SourceGroup[] {
+  return SOURCE_CATEGORIES
+    .map((category) => ({ key: category.key, items: items.filter((item) => item.category === category.key) }))
     .filter((group) => group.items.length > 0);
 }
 
-type SourceEntry =
-  | { kind: "group"; key: string; label: string; count: number }
-  | { kind: "item"; key: string; item: HomeDataSourceTileItem };
+/** "+N more": opens the Data Sources library (which lists every category). */
+function MoreSources({ count, category, onOpenAll }: { count: number; category: HomeDataSourceCategory; onOpenAll?: () => void }) {
+  const text = `+${count} more`;
+  if (!onOpenAll) {
+    return <p className="px-1.5 pt-0.5 luxia-type-caption" style={{ color: HT.muted }}>{text}</p>;
+  }
+  return (
+    <button
+      type="button"
+      onClick={onOpenAll}
+      aria-label={`${count} more ${categoryInfo(category).many} — open the Data Sources library`}
+      className={`group/more mt-0.5 inline-flex items-center gap-1 rounded-[6px] px-1.5 py-0.5 luxia-type-label-small hover:underline ${HOME_TILE_FOCUS_RING}`}
+      style={{ color: HT.link }}
+      data-home-sources-more={category}
+    >
+      {text}
+      <LuxiaArrowRightIcon size={11} color="currentColor" aria-hidden className="transition-transform duration-150 group-hover/more:translate-x-0.5" />
+    </button>
+  );
+}
+
+function PanelHeading({ group }: { group: SourceGroup }) {
+  const info = categoryInfo(group.key);
+  return (
+    <p className="flex min-w-0 items-center gap-2 px-0.5">
+      <GlyphChip size={24}><KnowledgeIcon kind={info.kind} size={12} /></GlyphChip>
+      <span className="min-w-0 flex-1 truncate luxia-type-body-dense-strong" style={{ color: HT.text }}>{info.many}</span>
+      <span className="shrink-0 luxia-type-caption tabular-nums" style={{ color: HT.muted }}>{group.items.length}</span>
+    </p>
+  );
+}
+
+/**
+ * Categories stacked in library order. Every category keeps a heading and at
+ * least one row; the rows that fit are shared between them, and each trimmed
+ * category ends with "+N more". Whole rows only, no inner scrolling.
+ */
+function SourceGroupStack({
+  groups,
+  max,
+  detail,
+  heading,
+  onOpenAll,
+  boundsRef,
+  className = "",
+}: {
+  groups: readonly SourceGroup[];
+  max: number;
+  detail: "dense" | "full" | "usage";
+  heading: "label" | "panel";
+  onOpenAll?: () => void;
+  boundsRef?: RefObject<HTMLElement | null>;
+  className?: string;
+}) {
+  const sizes = groups.map((group) => group.items.length);
+  const total = sizes.reduce((sum, size) => sum + size, 0);
+  const resetKey = groups.map((group) => `${group.key}:${group.items.map((item) => item.id).join(",")}`).join("|");
+  const { areaRef, capacity } = useFittingCapacity(Math.min(total, max), Math.min(groups.length, total), resetKey, boundsRef);
+  const rows = allocateGroupRows(sizes, capacity);
+
+  return (
+    <div ref={areaRef} className={`min-h-0 min-w-0 overflow-hidden ${className}`}>
+      {groups.map((group, index) => (
+        <section key={group.key} aria-label={categoryCount(group.items.length, group.key)} className={index > 0 ? "mt-2" : ""}>
+          {heading === "panel" ? (
+            <PanelHeading group={group} />
+          ) : (
+            <div className="px-1.5"><GroupLabel aside={group.items.length}>{categoryInfo(group.key).many}</GroupLabel></div>
+          )}
+          {rows[index] > 0 ? (
+            <ul className="mt-0.5 min-w-0" aria-label={categoryInfo(group.key).many}>
+              {group.items.slice(0, rows[index]).map((item) => (
+                <li key={item.id} className="min-w-0"><SourceRow item={item} detail={detail} /></li>
+              ))}
+            </ul>
+          ) : null}
+          {group.items.length > rows[index] ? (
+            <MoreSources count={group.items.length - rows[index]} category={group.key} onOpenAll={onOpenAll} />
+          ) : null}
+        </section>
+      ))}
+    </div>
+  );
+}
 
 export interface DataSourcesCollectionHomeTileProps {
   density: HomeCollectionDensity;
@@ -421,112 +579,130 @@ export interface DataSourcesCollectionHomeTileProps {
   items: readonly HomeDataSourceTileItem[];
   label: string;
   empty: HomeCollectionEmptyState;
+  /** Opens the Data Sources library (View all and "+N more"). */
+  onOpenAll?: () => void;
 }
 
 /**
- * Small — an inventory tally by type, then the first sources.
- * Medium / Large — the sources grouped by type, with connector and access.
- * Full width — one column per type, each with its sources.
+ * Grouped as the Data Sources library groups them: Databases, CSV, Files.
+ * Small — the total and a labelled count per category, with View all.
+ * Medium — every category with its fitted rows.
+ * Large — Databases on the left, CSV and Files on the right.
+ * Full width — one panel per category in equal columns, each sized to its content.
  */
-export function DataSourcesCollectionHomeTile({ density, items, label, empty }: DataSourcesCollectionHomeTileProps) {
-  const groups = groupsOf(items);
-  const entries: SourceEntry[] = density === "small"
-    ? items.map((item) => ({ kind: "item", key: item.id, item }))
-    : groups.flatMap((group) => [
-      { kind: "group" as const, key: `group-${group.kind}`, label: KIND_LABEL[group.kind].many, count: group.items.length },
-      ...group.items.map((item) => ({ kind: "item" as const, key: item.id, item })),
-    ]);
-  const wide = density === "wide";
-  const candidate = wide ? 0 : Math.min(entries.length, SOURCE_OFFER[density] + (density === "small" ? 0 : groups.length));
-  const { areaRef, listRef, count } = useFittingCount(candidate, `sources|${density}|${items.map((item) => item.id).join(",")}`);
+export function DataSourcesCollectionHomeTile({ density, items, label, empty, onOpenAll }: DataSourcesCollectionHomeTileProps) {
+  const boundsRef = useRef<HTMLDivElement>(null);
 
   if (items.length === 0) {
     return <CollectionHomeTile density={density} label={label} icon={dataSourceIcon} items={[]} summary="" empty={empty} />;
   }
 
-  const tally = groups.map((group) => ({ kind: group.kind, count: group.items.length }));
-  const summary = `${plural(items.length, "Data Source")} · A–Z by type`;
+  const groups = groupsOf(items);
+  const total = plural(items.length, "Data Source");
+  const viewAll = onOpenAll ? { label: "View all", ariaLabel: "View all Data Sources", onClick: onOpenAll } : undefined;
 
   if (density === "small") {
-    const shown = items.slice(0, count);
     return (
       <HomeTileSurface density="small" label={label} corner={DATA_SOURCE_CORNER}>
-        <div className={`flex min-w-0 items-center gap-2 ${HOME_TILE_CORNER_CLEARANCE.small}`}>
-          <span className="shrink-0 luxia-type-body-dense-strong" style={{ color: HT.text }}>{plural(items.length, "Data Source")}</span>
-        </div>
-        <div className="mt-1.5"><TypeTally groups={tally} /></div>
-        <div ref={areaRef} className="mt-1 min-h-0 flex-1 overflow-hidden">
-          <ul ref={listRef} className="-mx-1.5 min-w-0" aria-label={label}>
-            {shown.map((item) => <li key={item.id} className="min-w-0"><DataSourceRow item={item} dense /></li>)}
-          </ul>
-        </div>
-      </HomeTileSurface>
-    );
-  }
-
-  if (wide) {
-    return (
-      <HomeTileSurface density="large" label={label} corner={DATA_SOURCE_CORNER} className="@container">
-        <TileSummaryRow summary={summary} clearance={HOME_TILE_CORNER_CLEARANCE.large} />
+        <p className={`truncate luxia-type-body-dense-strong ${HOME_TILE_CORNER_CLEARANCE.small}`} style={{ color: HT.text }}>{total}</p>
         <ul
-          className="mt-3 grid min-h-0 min-w-0 flex-1 grid-cols-1 gap-3 overflow-hidden @md:grid-cols-2 @3xl:grid-cols-[repeat(auto-fit,minmax(220px,1fr))]"
-          aria-label={label}
-          data-home-sources-layout="wide"
+          className="mt-2 grid min-w-0 gap-1"
+          style={{ gridTemplateColumns: `repeat(${groups.length}, minmax(0, 1fr))` }}
+          aria-label="Data Sources by category"
+          data-home-sources-tally=""
         >
           {groups.map((group) => {
-            const shown = group.items.slice(0, SOURCE_OFFER.wide);
+            const info = categoryInfo(group.key);
             return (
-              <li key={group.kind} className="flex min-h-0 min-w-0 flex-col rounded-[10px] p-3" style={{ background: HT.panel }}>
-                <p className="flex min-w-0 items-center gap-2">
-                  <KnowledgeGlyph kind={group.kind} size={26} tone="strong" />
-                  <span className="min-w-0 flex-1 truncate luxia-type-body-dense-strong" style={{ color: HT.text }}>{KIND_LABEL[group.kind].many}</span>
-                  <span className="shrink-0 luxia-type-caption tabular-nums" style={{ color: HT.muted }}>{group.items.length}</span>
-                </p>
-                <ul className="-mx-1.5 mt-1.5 min-h-0 min-w-0 flex-1 overflow-hidden" aria-label={KIND_LABEL[group.kind].many}>
-                  {shown.map((item) => (
-                    <li key={item.id} className="min-w-0">
-                      <button type="button" onClick={item.onOpen} aria-label={item.openLabel} className={`${HOME_TILE_ROW} py-1`}>
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate luxia-type-body-dense-strong" style={{ color: HT.title }} title={item.name}>{item.name}</span>
-                          <span className="block truncate luxia-type-caption" style={{ color: HT.muted }} title={sourceLine(item)}>
-                            {[item.connectorLabel, item.contentDetail, item.access === "Private" ? "Private" : null, item.status].filter(Boolean).join(" · ") || item.access}
-                          </span>
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-                {group.items.length > shown.length ? (
-                  <p className="pt-1 luxia-type-caption" style={{ color: HT.muted }}>{`+${group.items.length - shown.length} more`}</p>
-                ) : null}
+              <li key={group.key} className="flex min-w-0 flex-col rounded-[8px] px-1.5 py-1.5" style={{ background: HT.panel }} title={categoryCount(group.items.length, group.key)}>
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <span className="inline-flex shrink-0" style={{ color: HT.icon }}><KnowledgeIcon kind={info.kind} size={13} /></span>
+                  <span className="luxia-type-body-dense-strong tabular-nums" style={{ color: HT.text }}>{group.items.length}</span>
+                </span>
+                <span className="truncate luxia-type-caption" style={{ color: HT.secondary }}>{group.items.length === 1 ? info.one : info.many}</span>
               </li>
             );
           })}
         </ul>
+        {viewAll ? (
+          <div className="mt-auto flex justify-end pt-1">
+            <OpenCue label={viewAll.label} ariaLabel={viewAll.ariaLabel} onClick={viewAll.onClick} />
+          </div>
+        ) : null}
       </HomeTileSurface>
     );
   }
 
-  const shown = trimTrailingGroups(entries.slice(0, count));
-  const hidden = items.length - shown.filter((entry) => entry.kind === "item").length;
-  const large = density === "large";
+  const summary = `${total} · A–Z by type`;
+
+  if (density === "medium") {
+    return (
+      <HomeTileSurface density="medium" label={label} corner={DATA_SOURCE_CORNER}>
+        <TileSummaryRow summary={summary} clearance={HOME_TILE_CORNER_CLEARANCE.medium} action={viewAll} />
+        <SourceGroupStack
+          groups={groups}
+          max={SOURCE_OFFER.medium}
+          detail="dense"
+          heading="label"
+          onOpenAll={onOpenAll}
+          className="mt-2 flex-1"
+        />
+      </HomeTileSurface>
+    );
+  }
+
+  const wide = density === "wide";
+  const database = groups.filter((group) => group.key === "database");
+  const others = groups.filter((group) => group.key !== "database");
+  const panel = "luxia-home-source-panel flex max-h-full min-h-0 min-w-0 flex-col self-start";
 
   return (
-    <HomeTileSurface density={density} label={label} corner={DATA_SOURCE_CORNER} className="@container">
-      <TileSummaryRow summary={summary} clearance={HOME_TILE_CORNER_CLEARANCE[density]} />
-      {large ? <div className="mt-2.5"><TypeTally groups={tally} size="large" /></div> : null}
-      <div ref={areaRef} className="mt-2 min-h-0 flex-1 overflow-hidden" data-home-sources-layout={density}>
-        <ul ref={listRef} className={`-mx-1.5 min-w-0 ${large ? "grid grid-cols-1 gap-x-4 @sm:grid-cols-2" : "flex flex-col"}`} aria-label={label}>
-          {shown.map((entry) => (entry.kind === "group" ? (
-            <li key={entry.key} className={`min-w-0 px-1.5 pt-1.5 ${large ? "@sm:col-span-2" : ""}`}>
-              <GroupLabel aside={entry.count}>{entry.label}</GroupLabel>
-            </li>
-          ) : (
-            <li key={entry.key} className="min-w-0"><DataSourceRow item={entry.item} dense={!large} /></li>
-          )))}
-        </ul>
-      </div>
-      {hidden > 0 ? <p className="pt-1.5 luxia-type-caption" style={{ color: HT.muted }}>{`+${hidden} more`}</p> : null}
+    <HomeTileSurface density="large" label={label} corner={DATA_SOURCE_CORNER} className="@container">
+      <TileSummaryRow summary={summary} clearance={HOME_TILE_CORNER_CLEARANCE.large} action={viewAll} />
+      {wide ? (
+        <>
+          {/* Equal columns, one per category; each panel fits its content. */}
+          <div
+            ref={boundsRef}
+            className="mt-3 hidden min-h-0 flex-1 gap-3 @2xl:grid"
+            style={{ gridTemplateColumns: `repeat(${groups.length}, minmax(0, 1fr))`, gridTemplateRows: "minmax(0, 1fr)" }}
+            data-home-sources-layout="wide"
+          >
+            {groups.map((group) => (
+              <div key={group.key} className={panel}>
+                <SourceGroupStack groups={[group]} max={SOURCE_OFFER.wide} detail="usage" heading="panel" onOpenAll={onOpenAll} boundsRef={boundsRef} />
+              </div>
+            ))}
+          </div>
+          {/* Narrow containers: the categories stacked, as at Medium. */}
+          <SourceGroupStack
+            groups={groups}
+            max={SOURCE_OFFER.wide}
+            detail="usage"
+            heading="label"
+            onOpenAll={onOpenAll}
+            className="mt-2 flex-1 @2xl:hidden"
+          />
+        </>
+      ) : database.length > 0 && others.length > 0 ? (
+        <div ref={boundsRef} className="mt-2.5 grid min-h-0 flex-1 grid-cols-2 gap-2.5" style={{ gridTemplateRows: "minmax(0, 1fr)" }} data-home-sources-layout="large">
+          <div className={panel}>
+            <SourceGroupStack groups={database} max={SOURCE_OFFER.large} detail="full" heading="panel" onOpenAll={onOpenAll} boundsRef={boundsRef} />
+          </div>
+          <div className={panel}>
+            <SourceGroupStack groups={others} max={SOURCE_OFFER.large} detail="full" heading="panel" onOpenAll={onOpenAll} boundsRef={boundsRef} />
+          </div>
+        </div>
+      ) : (
+        <SourceGroupStack
+          groups={groups}
+          max={SOURCE_OFFER.large}
+          detail="full"
+          heading="label"
+          onOpenAll={onOpenAll}
+          className="mt-2 flex-1"
+        />
+      )}
     </HomeTileSurface>
   );
 }
@@ -534,12 +710,15 @@ export function DataSourcesCollectionHomeTile({ density, items, label, empty }: 
 // Specific Data Source
 
 /**
- * Small — the source's glyph beside its name, connector and access.
- * Medium — identity, a facts panel (type, connector, access, status) and what
- *   it contains when known, with Open Data Source.
+ * Small — the source's glyph beside its name, connector or file type, and status.
+ * Medium — identity, what it contains when known, the library facts (type,
+ *   format, your access, status, Constellations you can access using it) and Open Data Source.
  */
 export function DataSourceHomeTile({ density, item }: { density: "small" | "medium"; item: HomeDataSourceTileItem }) {
   const label = `Data Source ${item.name}`;
+  const category = categoryInfo(item.category);
+  const identity = [category.one, item.typeDetail !== category.one ? item.typeDetail : null, item.isPrivate ? "Private" : null]
+    .filter(Boolean).join(" · ");
   if (density === "small") {
     return (
       <HomeTileSurface density="small" label={label} corner={DATA_SOURCE_CORNER}>
@@ -549,14 +728,12 @@ export function DataSourceHomeTile({ density, item }: { density: "small" | "medi
             <div className={HOME_TILE_CORNER_CLEARANCE.small}>
               <HomeTileTitleAction title={item.name} onOpen={item.onOpen} ariaLabel={item.openLabel} stretched size="dense" lines={2} />
             </div>
-            <p className="truncate luxia-type-caption" style={{ color: HT.secondary }} title={sourceLine(item, true)}>
-              {item.connectorLabel ?? item.typeLabel}
-            </p>
+            <p className="truncate luxia-type-caption" style={{ color: HT.secondary }} title={sourceSummary(item)}>{identity}</p>
           </div>
         </div>
         <div className="flex min-w-0 items-center justify-between gap-2">
           <span className="min-w-0 truncate luxia-type-caption" style={{ color: HT.muted }}>
-            {[item.status, item.access, item.contentDetail].filter(Boolean).join(" · ")}
+            {[notableStatus(item), item.contentDetail].filter(Boolean).join(" · ")}
           </span>
           <CardArrow />
         </div>
@@ -564,10 +741,11 @@ export function DataSourceHomeTile({ density, item }: { density: "small" | "medi
     );
   }
   const facts: Array<{ label: string; value: string }> = [
-    { label: "Type", value: item.typeLabel },
-    ...(item.connectorLabel ? [{ label: "Connector", value: item.connectorLabel }] : []),
-    ...(item.access ? [{ label: "Access", value: item.access }] : []),
-    { label: "Status", value: item.status ?? "Active" },
+    { label: "Type", value: category.one },
+    ...(item.typeDetail !== category.one ? [{ label: item.category === "database" ? "Connector" : "Format", value: item.typeDetail }] : []),
+    ...(item.myAccess ? [{ label: "Your access", value: item.myAccess }] : []),
+    { label: "Status", value: item.statusLabel },
+    ...(item.usedBy ? [{ label: "Used by", value: plural(item.usedBy, "Constellation") }] : []),
   ];
   return (
     <HomeTileSurface density="medium" label={label} corner={DATA_SOURCE_CORNER}>
@@ -576,7 +754,7 @@ export function DataSourceHomeTile({ density, item }: { density: "small" | "medi
           <KnowledgeGlyph kind={item.kind} size={40} tone="strong" />
           <div className="min-w-0">
             <HomeTileTitleAction title={item.name} onOpen={item.onOpen} ariaLabel={item.openLabel} lines={2} />
-            <p className="truncate luxia-type-caption" style={{ color: HT.secondary }}>{sourceLine(item, true)}</p>
+            <p className="truncate luxia-type-caption" style={{ color: HT.secondary }}>{identity}</p>
           </div>
         </div>
         {item.contents && item.contents.length > 0 ? (

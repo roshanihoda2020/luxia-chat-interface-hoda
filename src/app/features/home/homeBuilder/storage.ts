@@ -102,3 +102,50 @@ export function clearHomeLayout(userId: string): void {
     /* ignore quota / private-mode failures */
   }
 }
+
+/**
+ * My Default: one optional snapshot of a Home Layout the user chose to keep,
+ * separate from the automatically saved current Home. Per prototype user, in
+ * this browser only. Reset to Luxia Default never touches it.
+ */
+const HOME_MY_DEFAULT_STORAGE_PREFIX = "luxia-home-my-default:v1:";
+
+export function getHomeMyDefaultStorageKey(userId: string): string {
+  return `${HOME_MY_DEFAULT_STORAGE_PREFIX}${userId}`;
+}
+
+export interface HomeMyDefault {
+  layout: HomeLayout;
+  savedAt: number;
+}
+
+/** The user's My Default, or null when none is saved or the saved value is unusable. */
+export function readHomeMyDefault(userId: string): HomeMyDefault | null {
+  if (!userId) return null;
+  try {
+    const raw = localStorage.getItem(getHomeMyDefaultStorageKey(userId));
+    if (raw === null) return null;
+    const data = JSON.parse(raw) as { savedAt?: unknown; layout?: unknown };
+    const parsed = parseHomeLayout(migrateHomeLayoutData(data.layout, { legacyRecentLimit: null }).data);
+    if (!parsed.ok) return null;
+    return { layout: parsed.layout, savedAt: typeof data.savedAt === "number" ? data.savedAt : 0 };
+  } catch {
+    return null;
+  }
+}
+
+/** Saves a copy of `layout` as the user's My Default. Returns the snapshot, or null when invalid or storage fails. */
+export function writeHomeMyDefault(userId: string, layout: HomeLayout, savedAt = Date.now()): HomeMyDefault | null {
+  if (!userId) return null;
+  const text = serializeHomeLayout(layout);
+  if (text === null) return null;
+  try {
+    localStorage.setItem(
+      getHomeMyDefaultStorageKey(userId),
+      JSON.stringify({ savedAt, layout: JSON.parse(text) as unknown }),
+    );
+    return { layout: JSON.parse(text) as HomeLayout, savedAt };
+  } catch {
+    return null;
+  }
+}
