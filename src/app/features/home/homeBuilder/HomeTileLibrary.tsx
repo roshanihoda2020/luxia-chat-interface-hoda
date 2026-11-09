@@ -98,6 +98,14 @@ const CATEGORIES: LibraryCategory[] = [
     blurb: "Your most recent Chat or Galaxy",
   },
   { id: "tools", label: "Tools", one: "tool", many: "tools", item: "tool", blurb: "Writing Assistant" },
+  {
+    id: "updates",
+    label: "Updates",
+    one: "update",
+    many: "updates",
+    collection: "whats-new",
+    allHint: "Product updates and Luxia news, newest first. Opens each update beside your work.",
+  },
 ];
 
 /** Things in Luxia that can't be a Home Tile yet. */

@@ -325,6 +325,10 @@ import {
   queueWritingAssistantHandoff,
 } from "@/app/features/writing-assistant";
 import { ToolsPage } from "@/app/features/tools";
+import { ExplorePage } from "@/app/features/explore/ExplorePage";
+import { useExploreFeed } from "@/app/features/explore/useExploreFeed";
+import type { ExploreAction, ExploreContentSectionId, ExploreReturnTo, ExploreSectionId } from "@/app/features/explore/types";
+import { getExplorePath, parseExplorePath, type ExplorePathSection } from "@/app/features/project/projectPaths";
 import {
   SharedReviewPage,
   VidgetInboxPage,
@@ -568,6 +572,7 @@ type LuxiaAppView =
   | "admin-pipelines"
   | "writing-assistant"
   | "tools"
+  | "explore"
   | "shared-review";
 
 function readInitialShellFromLocation(): {
@@ -582,6 +587,8 @@ function readInitialShellFromLocation(): {
   organizationUserId: string | null;
   dataSourceSettingsId: string | null;
   sharedReviewShareId: string | null;
+  exploreSection: ExplorePathSection | null;
+  exploreSlug: string | null;
 } {
   const defaults = {
     appView: "home" as LuxiaAppView,
@@ -595,6 +602,8 @@ function readInitialShellFromLocation(): {
     organizationUserId: null as string | null,
     dataSourceSettingsId: null as string | null,
     sharedReviewShareId: null as string | null,
+    exploreSection: null as ExplorePathSection | null,
+    exploreSlug: null as string | null,
   };
 
   if (typeof window === "undefined") {
@@ -614,6 +623,13 @@ function readInitialShellFromLocation(): {
       appView: "shared-review",
       sharedReviewShareId,
     };
+  }
+
+  // Explore Luxia pages survive a refresh (approved exception), keeping any query string.
+  // Only for plain URLs: auth-entry query params (invite, reset…) keep their own handling below.
+  const explore = parseExplorePath(window.location.pathname);
+  if (explore && readAuthLocationEntry().kind === "signin") {
+    return { ...defaults, appView: "explore", exploreSection: explore.section, exploreSlug: explore.slug };
   }
 
   // Prototype rule: full page load / refresh / fresh session always start at Home.
@@ -943,6 +959,12 @@ export default function App() {
   const [projectManageMode, setProjectManageMode] = useState<ProjectManageMode | null>(null);
   const [projectManageId, setProjectManageId] = useState<string | null>(null);
   const [appView, setAppView] = useState<LuxiaAppView>(INITIAL_SHELL.appView);
+  /** Explore Luxia section from the URL (null: the first visible section). */
+  const [exploreSection, setExploreSection] = useState<ExplorePathSection | null>(INITIAL_SHELL.exploreSection);
+  /** One entry's full page (its slug) in the current section, or null. */
+  const [exploreSlug, setExploreSlug] = useState<string | null>(INITIAL_SHELL.exploreSlug);
+  /** Where an entry page was opened from, for its Back link (null: its own section). */
+  const [exploreReturnTo, setExploreReturnTo] = useState<ExploreReturnTo | null>(null);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(INITIAL_SHELL.activeProjectId);
   const [projectBrowseMode, setProjectBrowseMode] = useState<ProjectOverviewBrowseMode>(
     INITIAL_SHELL.projectBrowseMode,
@@ -1683,6 +1705,21 @@ export default function App() {
         return;
       }
 
+      if (resolved.kind === "explore") {
+        setActiveProjectId(null);
+        setSettingsConstellationId(null);
+        setSettingsCapabilityPath(null);
+        setAccessLevelId(null);
+        setOrganizationUserId(null);
+        setDataSourceSettingsId(null);
+        setExploreSection(resolved.section);
+        setExploreSlug(resolved.slug);
+        const from = (window.history.state as { exploreFrom?: ExploreReturnTo } | null)?.exploreFrom;
+        setExploreReturnTo(resolved.slug ? from ?? null : null);
+        setAppView("explore");
+        return;
+      }
+
       if (resolved.kind === "personal-settings") {
         setAccountSettingsSection(
           personalSettingsSectionToAccountSection(parsePersonalSettingsTabFromSearch(search)),
@@ -1940,6 +1977,7 @@ export default function App() {
     || appView === "admin-pipelines"
     || appView === "writing-assistant"
     || appView === "tools"
+    || appView === "explore"
     ? null
     : appView === "project" || appView === "constellation-create" || appView === "constellation-settings" || appView === "galaxy-settings" || appView === "project-members" || appView === "project-vidgets" || appView === "project-pipelines" || appView === "pipeline-detail" || appView === "pipeline-run-detail" || appView === "vidget-inbox" || appView === "vidget-settings"
       ? activeProjectId
@@ -2885,6 +2923,52 @@ export default function App() {
     handleOpenWritingAssistant();
   }
 
+  /** Explore Luxia; never opened automatically. */
+  function handleOpenExplore(
+    section: ExplorePathSection | null = null,
+    options: { slug?: string | null; from?: ExploreReturnTo } = {},
+  ) {
+    setActiveProjectId(null);
+    setSettingsConstellationId(null);
+    setSettingsCapabilityPath(null);
+    setAccessLevelId(null);
+    setOrganizationUserId(null);
+    setDataSourceSettingsId(null);
+    const slug = options.slug ?? null;
+    setExploreSection(section);
+    setExploreSlug(slug);
+    setExploreReturnTo(slug ? options.from ?? null : null);
+    setAppView("explore");
+    setHomeScrollRequest((value) => value + 1);
+    if (typeof window !== "undefined") {
+      const next = getExplorePath(section, slug);
+      if (window.location.pathname !== next) {
+        window.history.pushState({ luxiaView: "explore", exploreFrom: slug ? options.from ?? null : null }, "", next);
+      }
+    }
+  }
+
+  /** Explore links go only to real, existing destinations (each keeps its own access checks). */
+  function handleExploreAction(action: ExploreAction) {
+    if (action.kind === "url") {
+      window.open(action.href, "_blank", "noopener,noreferrer");
+      return;
+    }
+    switch (action.route) {
+      case "writing-assistant": handleOpenWritingAssistant(); break;
+      case "data-sources": handleOpenDataSources(); break;
+      case "tools": handleOpenTools(); break;
+      case "home": handleNavigateHome(); break;
+      case "projects":
+        handleNavigateHome();
+        setHomeBrowseMode("projects");
+        if (typeof window !== "undefined") {
+          window.history.replaceState({ luxiaView: "home", browse: "projects" }, "", "/");
+        }
+        break;
+    }
+  }
+
   function handleOpenTools() {
     setActiveProjectId(null);
     setSettingsConstellationId(null);
@@ -3428,6 +3512,7 @@ export default function App() {
         || appView === "admin-pipelines"
         || appView === "writing-assistant"
         || appView === "tools"
+        || appView === "explore"
         ? null
         : (activeProjectId
           ?? chats.find((chat) => chat.id === activeChat)?.projectId
@@ -6137,6 +6222,9 @@ export default function App() {
     return counts;
   }, [workingAccessibleOverviewConstellations, constellationSettingsById]);
 
+  /** Explore Luxia state for the nav dot (important unread updates). */
+  const exploreFeed = useExploreFeed(prototypeUserId);
+
   const projectActivityNavigationContext = useMemo(() => {
     if (!activeProjectId) return null;
     const projectChats = workingAccessibleOverviewChats.filter(
@@ -6360,6 +6448,9 @@ export default function App() {
         onDataSourcesClick={() => whenUnsavedNavigationAllows(handleOpenDataSources)}
         onAdminPipelinesClick={() => whenUnsavedNavigationAllows(handleOpenAdminPipelines)}
         onToolsClick={() => whenUnsavedNavigationAllows(handleOpenTools)}
+        exploreActive={appView === "explore"}
+        exploreUnreadCount={exploreFeed.state.hideIndicator ? 0 : exploreFeed.important.length}
+        onExploreClick={() => whenUnsavedNavigationAllows(() => handleOpenExplore())}
         onProjectSectionClick={(section) => {
           whenUnsavedNavigationAllows(() => handleProjectNavSection(section));
         }}
@@ -6471,6 +6562,7 @@ export default function App() {
                 }))}
               onOpenDataSource={(dataSourceId) => handleOpenDataSourceSettings(dataSourceId)}
               onOpenDataSources={handleOpenDataSources}
+              onOpenExplore={(section, slug) => handleOpenExplore(section ?? null, { slug, from: "home" })}
               onOpenDashboard={(projectId, dashboardId) => handleOpenProjectDashboard(projectId, dashboardId ?? null)}
               onOpenTool={(toolId) => {
                 if (toolId === "writing-assistant") handleOpenWritingAssistant();
@@ -7637,6 +7729,25 @@ export default function App() {
           && canAdministerAccessLevels(prototypeUserId) ? (
           <HomePageShell scrollRequest={homeScrollRequest} framed={false}>
             <AdminPipelinesPage onNavigateHome={handleNavigateHome} />
+          </HomePageShell>
+        ) : appView === "explore" ? (
+          <HomePageShell scrollRequest={homeScrollRequest} framed={false}>
+            <ExplorePage
+              userId={prototypeUserId}
+              section={exploreSection}
+              slug={exploreSlug}
+              returnTo={exploreReturnTo}
+              onOpenEntry={(section: ExploreContentSectionId, slug, from) => handleOpenExplore(section, { slug, from })}
+              onSectionChange={(section: ExploreSectionId) => {
+                setExploreSection(section);
+                setExploreSlug(null);
+                setExploreReturnTo(null);
+                const next = getExplorePath(section);
+                if (window.location.pathname !== next) window.history.pushState({ luxiaView: "explore" }, "", next);
+              }}
+              onNavigateHome={handleNavigateHome}
+              onAction={handleExploreAction}
+            />
           </HomePageShell>
         ) : appView === "tools" ? (
           <HomePageShell scrollRequest={homeScrollRequest} framed={false}>

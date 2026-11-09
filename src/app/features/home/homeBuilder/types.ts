@@ -23,6 +23,7 @@ export const HOME_COLLECTION_TILE_TYPES = [
   "constellations-collection",
   "data-sources-collection",
   "dashboards-collection",
+  "whats-new",
 ] as const;
 export type HomeCollectionTileType = (typeof HOME_COLLECTION_TILE_TYPES)[number];
 

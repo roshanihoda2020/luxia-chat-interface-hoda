@@ -1,0 +1,486 @@
+/* Explore Luxia: discovery surfaces. Luxia tokens only; no new colours. */
+
+.luxia-explore-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: 999px;
+  border: 1px solid var(--luxia-opacity-brand-secondary-24);
+  background: var(--luxia-opacity-brand-secondary-08);
+  color: var(--luxia-purple-70);
+  font-family: var(--luxia-font-family);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+.luxia-explore-chip--new {
+  border-color: transparent;
+  background: var(--luxia-purple-60);
+  color: var(--luxia-text-inverse);
+}
+/* Concept Demo: a distinct amber tone so illustration never reads as product. */
+.luxia-explore-chip--concept {
+  border-color: rgba(176, 108, 0, 0.32);
+  background: var(--luxia-warning-10, #fff7e6);
+  color: var(--luxia-warning-90, #7a4a00);
+}
+.luxia-explore-chip--available {
+  border-color: rgba(21, 128, 61, 0.28);
+  background: var(--luxia-success-10, #ecfdf3);
+  color: var(--luxia-success-70, #15803d);
+}
+.luxia-explore-chip--on-request {
+  border-color: var(--luxia-opacity-brand-secondary-32);
+  background: var(--luxia-surface);
+  color: var(--luxia-purple-70);
+}
+.luxia-explore-chip--coming-soon {
+  border-color: var(--luxia-border-default);
+  background: var(--luxia-surface);
+  color: var(--luxia-text-secondary);
+}
+.luxia-explore-chip--on-dark {
+  border-color: rgba(198, 177, 245, 0.36);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--luxia-purple-20);
+}
+.luxia-explore-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+/* Home notice: one calm line between Global Search and the tiles. */
+.luxia-explore-notice {
+  border-color: var(--luxia-opacity-brand-secondary-24);
+  background:
+    linear-gradient(var(--luxia-opacity-brand-secondary-08), var(--luxia-opacity-brand-secondary-08)),
+    var(--luxia-surface);
+}
+.luxia-explore-notice-link {
+  border-radius: 6px;
+  padding: 4px 6px;
+  color: var(--luxia-purple-70);
+  font-family: var(--luxia-font-family);
+  font-size: 13px;
+  font-weight: 700;
+  outline: none;
+}
+.luxia-explore-notice-link:hover {
+  text-decoration: underline;
+}
+.luxia-explore-notice-link:focus-visible,
+.luxia-explore-filter:focus-visible,
+.luxia-explore-row:focus-visible,
+.luxia-explore-link-row:focus-visible,
+.luxia-explore-toast-link:focus-visible {
+  box-shadow: 0 0 0 2px var(--luxia-border-focus);
+}
+.luxia-explore-toast-link {
+  border-radius: 4px;
+  color: var(--luxia-purple-70);
+  font-weight: 700;
+  text-decoration: underline;
+  outline: none;
+}
+
+/* Explore page */
+.luxia-explore-demo-banner {
+  border-color: rgba(176, 108, 0, 0.28);
+  background: var(--luxia-surface);
+}
+.luxia-explore-icon-chip {
+  display: inline-flex;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: var(--luxia-opacity-brand-secondary-12);
+  color: var(--luxia-purple-60);
+}
+.luxia-explore-icon-chip--sm {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+}
+.luxia-explore-card,
+.luxia-explore-list,
+.luxia-explore-band,
+.luxia-explore-empty {
+  border-color: var(--luxia-border-default);
+  background: var(--luxia-surface);
+}
+.luxia-explore-band {
+  border-color: var(--luxia-opacity-brand-secondary-24);
+  background:
+    linear-gradient(var(--luxia-opacity-brand-secondary-08), var(--luxia-opacity-brand-secondary-08)),
+    var(--luxia-surface);
+}
+.luxia-explore-row {
+  outline: none;
+  transition: background-color 150ms ease;
+}
+.luxia-explore-list > li + li {
+  border-top: 1px solid var(--luxia-border-default);
+}
+.luxia-explore-row:hover {
+  background: var(--luxia-opacity-brand-primary-04);
+}
+.luxia-explore-link-row {
+  border-radius: 8px;
+  outline: none;
+}
+.luxia-explore-link-row:hover span {
+  text-decoration-color: currentColor;
+}
+.luxia-explore-filter {
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--luxia-border-default);
+  background: var(--luxia-surface);
+  color: var(--luxia-text-secondary);
+  font-family: var(--luxia-font-family);
+  font-size: 13px;
+  font-weight: 600;
+  outline: none;
+}
+.luxia-explore-filter:hover {
+  border-color: var(--luxia-opacity-brand-secondary-48);
+}
+.luxia-explore-filter[aria-pressed="true"] {
+  border-color: var(--luxia-purple-60);
+  background: var(--luxia-opacity-brand-secondary-12);
+  color: var(--luxia-purple-70);
+}
+.luxia-explore-featured {
+  background: var(--luxia-gradient-galaxy-panel);
+  box-shadow: var(--luxia-galaxy-shell-shadow);
+  min-height: 240px;
+}
+.luxia-explore-featured .luxia-button--tertiary {
+  color: var(--luxia-purple-20);
+}
+.luxia-explore-featured .luxia-button--tertiary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--luxia-text-inverse);
+}
+.luxia-explore-featured {
+  --luxia-border-focus: var(--luxia-purple-20);
+}
+.luxia-explore-mini {
+  background: var(--luxia-opacity-brand-primary-04);
+}
+.luxia-explore-monogram {
+  display: inline-flex;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: linear-gradient(140deg, var(--luxia-purple-70) 0%, var(--luxia-purple-60) 100%);
+  color: var(--luxia-text-inverse);
+  font-family: var(--luxia-font-family);
+  font-size: 13px;
+  font-weight: 800;
+}
+.luxia-explore-step {
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--luxia-opacity-brand-secondary-12);
+  color: var(--luxia-purple-70);
+  font-size: 11px;
+  font-weight: 700;
+}
+@media (prefers-reduced-motion: reduce) {
+  .luxia-explore-row {
+    transition: none;
+  }
+}
+
+/* Update preferences: an inline panel under What's New (no overlay). */
+.luxia-explore-prefs {
+  border-color: var(--luxia-opacity-brand-secondary-24);
+  background: var(--luxia-surface);
+}
+/* Update page */
+.luxia-explore-article {
+  border-color: var(--luxia-border-default);
+}
+
+/* ---------- Refinement: identities, gallery, journeys, detail blocks ---------- */
+
+.luxia-explore-demo-icon {
+  background: var(--luxia-warning-10, #fff7e6);
+  color: var(--luxia-warning-90, #7a4a00);
+}
+/* Illustrative content (sample data, simulated previews, example code). */
+.luxia-explore-chip--illustrative {
+  border-style: dashed;
+  border-color: rgba(176, 108, 0, 0.4);
+  background: var(--luxia-warning-10, #fff7e6);
+  color: var(--luxia-warning-90, #7a4a00);
+}
+
+/* Conceptual identity marks (not final artwork): one restrained gradient per hue. */
+.luxia-explore-identity {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: var(--luxia-text-inverse);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+}
+.luxia-explore-identity--violet { background: linear-gradient(140deg, #6d4bd8 0%, #8e63eb 100%); }
+.luxia-explore-identity--indigo { background: linear-gradient(140deg, #3b3f9e 0%, #5b61d6 100%); }
+.luxia-explore-identity--teal { background: linear-gradient(140deg, #0f6b6b 0%, #1f9a94 100%); }
+.luxia-explore-identity--blue { background: linear-gradient(140deg, #1d4f9a 0%, #3b7bd9 100%); }
+.luxia-explore-identity--rose { background: linear-gradient(140deg, #9a2f5c 0%, #d0517f 100%); }
+.luxia-explore-identity--amber { background: linear-gradient(140deg, #8a5300 0%, #c27a0a 100%); }
+.luxia-explore-identity--slate { background: linear-gradient(140deg, #334155 0%, #64748b 100%); }
+
+/* Agent Gallery card: whole-card link; hover and keyboard focus reveal the description. */
+.luxia-explore-agent {
+  border-color: var(--luxia-border-default);
+  background: var(--luxia-surface);
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+.luxia-explore-agent:hover,
+.luxia-explore-agent:focus-within {
+  border-color: var(--luxia-opacity-brand-secondary-48);
+  box-shadow: var(--luxia-shadow-sm);
+}
+.luxia-explore-agent-link {
+  outline: none;
+}
+.luxia-explore-agent-link:focus-visible {
+  box-shadow: 0 0 0 2px var(--luxia-border-focus);
+}
+.luxia-explore-agent-reveal {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  opacity: 0.0001;
+  transition: opacity 150ms ease;
+}
+.luxia-explore-agent-cue {
+  opacity: 0.0001;
+  transition: opacity 150ms ease;
+}
+.luxia-explore-agent:hover .luxia-explore-agent-reveal,
+.luxia-explore-agent:focus-within .luxia-explore-agent-reveal,
+.luxia-explore-agent:hover .luxia-explore-agent-cue,
+.luxia-explore-agent:focus-within .luxia-explore-agent-cue {
+  opacity: 1;
+}
+/* Touch screens and narrow widths: nothing is hidden behind hover. */
+@media (hover: none), (max-width: 639px) {
+  .luxia-explore-agent-reveal,
+  .luxia-explore-agent-cue {
+    opacity: 1;
+    -webkit-line-clamp: 2;
+  }
+}
+.luxia-explore-create-card {
+  border-color: var(--luxia-opacity-brand-secondary-32);
+  background: var(--luxia-surface);
+}
+.luxia-explore-agent-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--luxia-opacity-brand-primary-04);
+  border: 1px solid var(--luxia-border-default);
+  color: var(--luxia-text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+}
+.luxia-explore-agent-chip--link {
+  color: var(--luxia-purple-70);
+  outline: none;
+}
+.luxia-explore-agent-chip--link:hover {
+  border-color: var(--luxia-opacity-brand-secondary-48);
+}
+.luxia-explore-agent-chip--link:focus-visible,
+.luxia-explore-text-link:focus-visible,
+.luxia-explore-hover-card:focus-visible,
+.luxia-explore-featured-news:focus-visible,
+.luxia-explore-featured:focus-visible,
+.luxia-explore-mini:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--luxia-border-focus);
+}
+.luxia-explore-text-link {
+  border-radius: 4px;
+  color: var(--luxia-purple-70);
+  font-size: 13px;
+  font-weight: 700;
+}
+.luxia-explore-text-link:hover {
+  text-decoration: underline;
+}
+.luxia-explore-hover-card,
+.luxia-explore-mini {
+  transition: border-color 150ms ease, background-color 150ms ease;
+}
+.luxia-explore-hover-card:hover {
+  border-color: var(--luxia-opacity-brand-secondary-48);
+}
+.luxia-explore-mini:hover {
+  background: var(--luxia-opacity-brand-primary-08);
+}
+.luxia-explore-featured-news,
+.luxia-explore-featured {
+  background: var(--luxia-gradient-galaxy-panel);
+  box-shadow: var(--luxia-galaxy-shell-shadow);
+  --luxia-border-focus: var(--luxia-purple-20);
+}
+.luxia-explore-journey {
+  border-color: var(--luxia-opacity-brand-secondary-24);
+  background:
+    linear-gradient(var(--luxia-opacity-brand-secondary-08), var(--luxia-opacity-brand-secondary-08)),
+    var(--luxia-surface);
+}
+.luxia-explore-industry {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--luxia-opacity-brand-secondary-12);
+  color: var(--luxia-purple-70);
+  font-size: 11px;
+  font-weight: 700;
+}
+.luxia-explore-scroll-row {
+  scroll-snap-type: x proximity;
+}
+.luxia-explore-scroll-row > li {
+  scroll-snap-align: start;
+}
+
+/* Detail blocks */
+.luxia-explore-dossier {
+  border-color: var(--luxia-opacity-brand-secondary-24);
+  background:
+    repeating-linear-gradient(0deg, transparent 0 27px, var(--luxia-opacity-brand-primary-04) 27px 28px),
+    var(--luxia-surface);
+}
+.luxia-explore-chat {
+  border-color: var(--luxia-border-default);
+  background: var(--luxia-opacity-brand-primary-04);
+}
+.luxia-explore-bubble {
+  max-width: 82%;
+  border-radius: 14px;
+  padding: 8px 12px;
+}
+.luxia-explore-bubble--user {
+  margin-left: auto;
+  background: var(--luxia-purple-60);
+  color: var(--luxia-text-inverse);
+  border-bottom-right-radius: 4px;
+}
+.luxia-explore-bubble--agent {
+  background: var(--luxia-surface);
+  color: var(--luxia-text-primary);
+  border: 1px solid var(--luxia-border-default);
+  border-bottom-left-radius: 4px;
+}
+.luxia-explore-code {
+  background: #1b1430;
+  color: #e9e3ff;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.luxia-explore-textarea {
+  border-color: var(--luxia-border-default);
+  background: var(--luxia-surface);
+  color: var(--luxia-text-primary);
+  outline: none;
+  resize: vertical;
+}
+.luxia-explore-textarea:focus-visible {
+  border-color: var(--luxia-purple-50);
+  box-shadow: 0 0 0 2px var(--luxia-opacity-brand-secondary-32);
+}
+.luxia-explore-faq + .luxia-explore-faq {
+  border-top: 1px solid var(--luxia-border-default);
+}
+/* The page title receives focus on arrival (tabindex -1) so reading starts there; it isn't interactive, so no ring. */
+.explore-entry-title:focus {
+  outline: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .luxia-explore-agent,
+  .luxia-explore-agent-reveal,
+  .luxia-explore-agent-cue,
+  .luxia-explore-hover-card,
+  .luxia-explore-mini {
+    transition: none;
+  }
+}
+
+/* Home notice: expand / collapse and close controls. */
+.luxia-explore-notice-icon {
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  color: var(--luxia-text-secondary);
+  outline: none;
+}
+.luxia-explore-notice-icon:hover {
+  background: var(--luxia-opacity-brand-primary-08);
+  color: var(--luxia-purple-70);
+}
+.luxia-explore-notice-icon:focus-visible {
+  box-shadow: 0 0 0 2px var(--luxia-border-focus);
+}
+.luxia-explore-notice-chevron {
+  transition: transform 160ms ease;
+}
+[data-expanded] .luxia-explore-notice-chevron {
+  transform: rotate(180deg);
+}
+.luxia-explore-notice-details:not([hidden]) {
+  animation: luxia-explore-notice-open 160ms ease-out;
+}
+@keyframes luxia-explore-notice-open {
+  from { opacity: 0; transform: translateY(-3px); }
+  to { opacity: 1; transform: none; }
+}
+@media (pointer: coarse) {
+  .luxia-explore-notice-icon {
+    width: 40px;
+    height: 40px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .luxia-explore-notice-chevron,
+  .luxia-explore-notice-details:not([hidden]) {
+    transition: none;
+    animation: none;
+  }
+}

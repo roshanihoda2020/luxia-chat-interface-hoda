@@ -83,6 +83,9 @@ import {
   getLibraryTypeLabel,
 } from "@/app/features/permissions/dataSourceVisibility";
 import type { DataSourceCatalogItem } from "@/app/features/permissions";
+import { useExploreFeed } from "@/app/features/explore/useExploreFeed";
+import { WhatsNewNotice } from "@/app/features/explore/WhatsNewNotice";
+import { WhatsNewHomeTile } from "./homeBuilder/WhatsNewHomeTile";
 import { ProjectsBrowser, ProjectsPreview } from "@/app/features/project";
 import { filterActiveProjects, rankProjectsByRecency } from "@/app/features/project/data";
 import { getProjectDashboardOutputs } from "@/app/features/project-overview/data";
@@ -150,8 +153,10 @@ export function HomePage({
   onOpenDataSources,
   onOpenDashboard,
   onOpenTool,
+  onOpenExplore,
 }: HomePageProps) {
   const homeBuilder = useHomeLayout(homeLayoutUserId);
+  const explore = useExploreFeed(homeLayoutUserId);
   /** Every named Dashboard (re-renders when one is created, renamed or deleted). */
   const allDashboards = useProjectDashboards();
   const [libraryOpen, setLibraryOpen] = useState(false);
@@ -710,6 +715,15 @@ export function HomePage({
       case "data-sources-collection":
       case "dashboards-collection":
         return renderCollectionTile(tile);
+      case "whats-new":
+        return (
+          <WhatsNewHomeTile
+            userId={homeLayoutUserId}
+            density={densityOf(tile)}
+            onOpenAll={() => onOpenExplore?.("whats-new")}
+            onOpenUpdate={(updateId) => onOpenExplore?.("whats-new", updateId)}
+          />
+        );
       default:
         return renderItemTile(tile);
     }
@@ -998,6 +1012,7 @@ export function HomePage({
     "constellations-collection": { available: Boolean(onOpenConstellation), count: usableConstellations.length },
     "data-sources-collection": { available: Boolean(onOpenDataSource), count: dataSources.length },
     "dashboards-collection": { available: Boolean(onOpenDashboard), count: accessibleDashboards.length },
+    "whats-new": { available: Boolean(onOpenExplore), count: explore.updates.length },
   };
 
   const targetOptions: Partial<Record<HomeTileType, HomeTileTargetOption[]>> = {
@@ -1083,6 +1098,11 @@ export function HomePage({
         constellations={constellations}
         onSelect={handleSearchSelect}
       />
+
+      {/* Outside the tile grid; never shown while customizing. Renders nothing when there's no notice. */}
+      {!editing && onOpenExplore ? (
+        <WhatsNewNotice userId={homeLayoutUserId} onOpenUpdate={(updateId) => onOpenExplore("whats-new", updateId)} />
+      ) : null}
 
       <HomeBuilderToolbar
         editing={editing}

@@ -140,6 +140,8 @@ export interface HomePageProps {
   onOpenDataSource?: (dataSourceId: string) => void;
   /** Opens the Data Sources library. */
   onOpenDataSources?: () => void;
+  /** Opens Explore Luxia: What's New, or one update's page within it. */
+  onOpenExplore?: (section?: "whats-new", updateId?: string) => void;
   /** Opens one named Dashboard in its Project (Project › Dashboards › name). */
   onOpenDashboard?: (projectId: string, dashboardId: string) => void;
   onOpenTool?: (toolId: string) => void;

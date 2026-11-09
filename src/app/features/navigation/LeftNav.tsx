@@ -11,7 +11,7 @@ import {
   type ReactNode,
   type Ref,
 } from "react";
-import { Check, ChevronDown, ChevronLeft, ChevronRight, Users, X } from "lucide-react";
+import { Check, ChevronDown, ChevronLeft, ChevronRight, Compass, Users, X } from "lucide-react";
 import luxiaWordmarkUrl from "@/assets/brand/Luxia-Star.svg";
 import sidebarStarLogoUrl from "@/assets/brand/Star.svg";
 import { LuxiaStarLogo } from "@/app/components/LuxiaStarLogo";
@@ -28,6 +28,7 @@ import {
   getAccessLevelsPath,
   getAdminPipelinesPath,
   getToolsPath,
+  getExplorePath,
   getConstellationSettingsPath,
   getConstellationsPath,
   getDashboardPath,
@@ -176,6 +177,9 @@ export type LeftNavProps = {
   dataSourcesActive?: boolean;
   adminPipelinesActive?: boolean;
   toolsActive?: boolean;
+  exploreActive?: boolean;
+  /** Important unread updates; shows a subtle dot on Explore Luxia when above 0. */
+  exploreUnreadCount?: number;
   /** When false, Pipeline Admin nav item is hidden (non–Org Admin). */
   canAdministerPipelines?: boolean;
   /**
@@ -212,6 +216,7 @@ export type LeftNavProps = {
   onDataSourcesClick?: () => void;
   onAdminPipelinesClick?: () => void;
   onToolsClick?: () => void;
+  onExploreClick?: () => void;
   onProjectSectionClick?: (section: ProjectNavSection) => void;
   onSwitchProject?: (projectId: string) => void;
   onOpenChat?: (chatId: string) => void;
@@ -229,6 +234,11 @@ export type LeftNavProps = {
   /** Notifies shell when desktop secondary rail open state changes (for content width). */
   onSecondaryRailOpenChange?: (open: boolean) => void;
 };
+
+/** Explore Luxia: a compass, drawn at the nav icon size and colour like the Luxia icons. */
+function ExploreNavIcon({ size = 16, color }: LuxiaIconProps) {
+  return <Compass size={size} color={color ?? "currentColor"} strokeWidth={1.9} aria-hidden />;
+}
 
 const NAV_TOP_ITEMS: {
   id: string;
@@ -250,6 +260,12 @@ const NAV_TOP_ITEMS: {
     id: "tools",
     icon: LuxiaToolsGalleryIcon,
     label: "Tools",
+    available: true,
+  },
+  {
+    id: "explore",
+    icon: ExploreNavIcon,
+    label: "Explore Luxia",
     available: true,
   },
   {
@@ -314,6 +330,7 @@ function NavItem({
   ariaExpanded,
   ariaControls,
   buttonRef,
+  indicator = false,
 }: {
   icon: NavIconComponent;
   label: string;
@@ -328,6 +345,8 @@ function NavItem({
   ariaExpanded?: boolean;
   ariaControls?: string;
   buttonRef?: Ref<HTMLButtonElement>;
+  /** A small dot on the icon (e.g. unread updates); the tooltip / label says what it means. */
+  indicator?: boolean;
 }) {
   const isDisabled = Boolean(disabled);
   const tip = tooltip ?? label;
@@ -349,6 +368,13 @@ function NavItem({
     <>
       <span className="relative flex-shrink-0" aria-hidden>
         <Icon size={16} color={active ? "white" : "rgba(255,255,255,0.55)"} />
+        {indicator ? (
+          <span
+            className="absolute -right-1 -top-0.5 size-[7px] rounded-full"
+            style={{ background: "var(--luxia-cyan-40, #96dbfb)", boxShadow: "0 0 0 2px var(--luxia-sidebar-bg, #1d1238)" }}
+            data-nav-indicator=""
+          />
+        ) : null}
       </span>
       {!collapsed ? (
         <>
@@ -895,6 +921,8 @@ export function LeftNav({
   dataSourcesActive,
   adminPipelinesActive,
   toolsActive,
+  exploreActive,
+  exploreUnreadCount = 0,
   canAdministerPipelines = true,
   collapsePipelinesCollector = false,
   projectId,
@@ -924,6 +952,7 @@ export function LeftNav({
   onDataSourcesClick,
   onAdminPipelinesClick,
   onToolsClick,
+  onExploreClick,
   onProjectSectionClick,
   onSwitchProject,
   onOpenChat,
@@ -1722,12 +1751,19 @@ export function LeftNav({
                                 ? dataSourcesActive
                                 : id === "tools"
                                   ? toolsActive
+                                  : id === "explore"
+                                    ? exploreActive
                                   : id === "adminpipelines"
                                     ? adminPipelinesActive
                                     : false
                       }
                       disabled={!available}
-                      tooltip={!available ? unavailableHint ?? label : label}
+                      indicator={id === "explore" && exploreUnreadCount > 0}
+                      tooltip={!available
+                        ? unavailableHint ?? label
+                        : id === "explore" && exploreUnreadCount > 0
+                          ? `${label}, ${exploreUnreadCount} new ${exploreUnreadCount === 1 ? "update" : "updates"}`
+                          : label}
                       href={
                         id === "home" && available
                           ? "/"
@@ -1739,6 +1775,8 @@ export function LeftNav({
                                 ? getDataSourcesPath()
                                 : id === "tools" && available
                                   ? getToolsPath()
+                                  : id === "explore" && available
+                                    ? getExplorePath()
                                   : id === "adminpipelines" && available
                                     ? getAdminPipelinesPath()
                                     : undefined
@@ -1774,6 +1812,12 @@ export function LeftNav({
                                     onToolsClick?.();
                                     onMobileClose?.();
                                   }
+                                  : id === "explore"
+                                    ? () => {
+                                      closeFlyout();
+                                      onExploreClick?.();
+                                      onMobileClose?.();
+                                    }
                                   : id === "adminpipelines"
                                     ? () => {
                                       closeFlyout();

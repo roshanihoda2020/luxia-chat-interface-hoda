@@ -197,6 +197,27 @@ export function getToolsPath(): string {
   return "/tools";
 }
 
+/** Explore Luxia sections that have their own URL. */
+export const EXPLORE_PATH_SECTIONS = ["overview", "whats-new", "products", "learn", "ideas", "stories", "services"] as const;
+export type ExplorePathSection = (typeof EXPLORE_PATH_SECTIONS)[number];
+
+export function getExplorePath(section?: ExplorePathSection | null, slug?: string | null): string {
+  if (section && section !== "overview" && slug) return `/explore/${section}/${encodeURIComponent(slug)}`;
+  return section ? `/explore/${section}` : "/explore";
+}
+
+/**
+ * `/explore` → first visible section; `/explore/<section>` → that section;
+ * `/explore/<section>/<slug>` → one entry's page; anything else → undefined.
+ */
+export function parseExplorePath(pathname: string): { section: ExplorePathSection | null; slug: string | null } | undefined {
+  const match = /^\/explore(?:\/([a-z-]+)(?:\/([^/]+))?)?\/?$/.exec(pathname);
+  if (!match) return undefined;
+  const section = match[1] && (EXPLORE_PATH_SECTIONS as readonly string[]).includes(match[1]) ? (match[1] as ExplorePathSection) : null;
+  const slug = section && section !== "overview" && match[2] ? decodeURIComponent(match[2]) : null;
+  return { section, slug };
+}
+
 export type PersonalSettingsTabQuery = "profile" | "my-data";
 
 export type OrganizationSettingsTabQuery =
@@ -535,6 +556,7 @@ export type LuxiaResolvedPath =
   | { kind: "admin-pipelines" }
   | { kind: "writing-assistant" }
   | { kind: "tools" }
+  | { kind: "explore"; section: ExplorePathSection | null; slug: string | null }
   | { kind: "shared-review"; shareId: string }
   | { kind: "personal-settings" }
   | { kind: "organization-settings" }
@@ -591,6 +613,11 @@ export function resolveLuxiaPathname(pathname: string): LuxiaResolvedPath {
 
   if (parseToolsPath(pathname)) {
     return { kind: "tools" };
+  }
+
+  const explore = parseExplorePath(pathname);
+  if (explore !== undefined) {
+    return { kind: "explore", ...explore };
   }
 
   if (parsePersonalSettingsPath(pathname)) {

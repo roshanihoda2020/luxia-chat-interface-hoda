@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { History, Pin } from "lucide-react";
+import { History, Megaphone, Pin } from "lucide-react";
 import {
   LuxiaChatIcon,
   LuxiaConstellationIcon,
@@ -60,6 +60,12 @@ export const HOME_TILE_SECTIONS: Record<HomeTileType, HomeTileSection> = {
     subtitle: "From your Projects, recently updated first.",
     shortSubtitle: "Recently updated first.",
     icon: <LuxiaDashboardIcon size={ICON_SIZE} color="currentColor" />,
+  },
+  "whats-new": {
+    title: "What's New",
+    subtitle: "Product updates and Luxia news.",
+    shortSubtitle: "Product updates.",
+    icon: <Megaphone size={ICON_SIZE} strokeWidth={1.75} />,
   },
   "your-focus": {
     title: "Your focus",

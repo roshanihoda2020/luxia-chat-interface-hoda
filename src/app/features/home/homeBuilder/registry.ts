@@ -24,7 +24,8 @@ export type HomeTileCategory =
   | "data-sources"
   | "dashboards"
   | "continue"
-  | "tools";
+  | "tools"
+  | "updates";
 
 export interface HomeTileDefinition {
   type: HomeTileType;
@@ -218,6 +219,13 @@ export const HOME_TILE_DEFINITIONS: Record<HomeTileType, HomeTileDefinition> = {
     "small",
     ["small", "medium", "large"],
   ),
+  "whats-new": collectionTile(
+    "whats-new",
+    "What's New",
+    "Product updates and Luxia news, newest first.",
+    "updates",
+    { allowedSizes: ["small", "medium", "large"], maxInstances: 1 },
+  ),
   tool: itemTile(
     "tool",
     "Tool",
@@ -237,6 +245,7 @@ export const HOME_TILE_CATEGORY_LABELS: Record<HomeTileCategory, string> = {
   dashboards: "Dashboards",
   continue: "Continue",
   tools: "Tools",
+  updates: "Updates",
 };
 
 export const HOME_TILE_MODEL_LABELS: Record<HomeTileModel, string> = {
