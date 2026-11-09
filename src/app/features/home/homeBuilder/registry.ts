@@ -12,8 +12,8 @@ import {
 /** Full width spans every grid column. */
 const HOME_TILE_FULL_WIDTH_COLUMNS = HOME_TILE_GRID.columns;
 
-/** Collection: several accessible items. Item: one chosen (or resolved) item. Tool: a Luxia tool. */
-export type HomeTileModel = "collection" | "item" | "tool";
+/** Collection: several accessible items. Item: one chosen (or resolved) item. Tool: a Luxia tool. Guide: dismissible help. */
+export type HomeTileModel = "collection" | "item" | "tool" | "guide";
 
 /** The kind of Luxia content a tile is about; collections and items share these. */
 export type HomeTileCategory =
@@ -25,7 +25,9 @@ export type HomeTileCategory =
   | "dashboards"
   | "continue"
   | "tools"
-  | "updates";
+  | "updates"
+  | "guide"
+  | "vidgets";
 
 export interface HomeTileDefinition {
   type: HomeTileType;
@@ -219,6 +221,12 @@ export const HOME_TILE_DEFINITIONS: Record<HomeTileType, HomeTileDefinition> = {
     "small",
     ["small", "medium", "large"],
   ),
+  "vidgets-collection": collectionTile(
+    "vidgets-collection",
+    "Vidgets",
+    "Customer-facing assistants in the Projects you manage.",
+    "vidgets",
+  ),
   "whats-new": collectionTile(
     "whats-new",
     "What's New",
@@ -234,6 +242,35 @@ export const HOME_TILE_DEFINITIONS: Record<HomeTileType, HomeTileDefinition> = {
     "tool",
     "small",
   ),
+  "get-started": {
+    type: "get-started",
+    model: "guide",
+    label: "Get started",
+    description: "Short steps from your data to your first Chat.",
+    category: "guide",
+    allowedSizes: ["large", "wide"],
+    defaultSize: "wide",
+    targetScopes: [],
+    requiresTarget: false,
+    maxInstances: 1,
+    defaultConfig: {},
+    defaultSurface: "soft",
+    contentHeightSizes: ["wide"],
+  },
+  "try-example": {
+    type: "try-example",
+    model: "guide",
+    label: "Try an example",
+    description: "Three real tasks that open the feature they describe.",
+    category: "guide",
+    allowedSizes: ["large", "wide"],
+    defaultSize: "large",
+    targetScopes: [],
+    requiresTarget: false,
+    maxInstances: 1,
+    defaultConfig: {},
+    contentHeightSizes: ["wide"],
+  },
 };
 
 export const HOME_TILE_CATEGORY_LABELS: Record<HomeTileCategory, string> = {
@@ -246,13 +283,25 @@ export const HOME_TILE_CATEGORY_LABELS: Record<HomeTileCategory, string> = {
   continue: "Continue",
   tools: "Tools",
   updates: "Updates",
+  guide: "Getting started",
+  vidgets: "Vidgets",
 };
 
 export const HOME_TILE_MODEL_LABELS: Record<HomeTileModel, string> = {
   collection: "Collections",
   item: "Specific items",
   tool: "Tools",
+  guide: "Getting started",
 };
+
+export function isHomeGuideTile(tile: Pick<HomeTile, "type">): boolean {
+  return getHomeTileDefinition(tile.type).model === "guide";
+}
+
+/** A Guide tile the user hid: it renders as a slim bar in its own place. */
+export function isHomeTileCollapsed(tile: Pick<HomeTile, "type"> & { config?: HomeTileConfig }): boolean {
+  return isHomeGuideTile(tile) && tile.config?.hidden === true;
+}
 
 export function isHomeCollectionTile(tile: Pick<HomeTile, "type">): boolean {
   return getHomeTileDefinition(tile.type).model === "collection";
@@ -271,8 +320,14 @@ export function getHomeTileSizeId(tile: Pick<HomeTile, "w" | "h">): HomeTileSize
   return findHomeTileSizeByDimensions(tile.w, tile.h)?.id;
 }
 
-/** True when the tile grows with its content at its current size (otherwise it fills its slot). */
-export function homeTileUsesContentHeight(tile: Pick<HomeTile, "type" | "w" | "h">): boolean {
+/**
+ * True when the tile grows with its content at its current size (otherwise it fills its slot).
+ * A hidden Guide tile also hugs its slim bar, so hiding it never leaves an empty slot.
+ */
+export function homeTileUsesContentHeight(
+  tile: Pick<HomeTile, "type" | "w" | "h"> & { config?: HomeTileConfig },
+): boolean {
+  if (isHomeTileCollapsed(tile)) return true;
   const size = getHomeTileSizeId(tile);
   return Boolean(size && getHomeTileDefinition(tile.type).contentHeightSizes?.includes(size));
 }

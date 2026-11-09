@@ -697,3 +697,8 @@
     transform: none;
   }
 }
+
+/* Home header: keep room for the greeting so the actions wrap below it on narrow screens. */
+.luxia-home-header > div:first-child > div:first-child {
+  flex: 1 1 18rem;
+}

@@ -6544,6 +6544,9 @@ export default function App() {
                 sourceCount: item.sourceCount,
               }))}
               onNewChat={handleNewChat}
+              onNewChatInProject={handleNewChatFromProject}
+              homeVidgets={vidgetsState}
+              onOpenProjectVidgets={handleOpenProjectVidgets}
               onNewProject={() => setShowNewProjectModal(true)}
               onNavigateProjectDestination={handleNavigateProjectDestination}
               homeTileDataSources={dataSourcesState

@@ -26,6 +26,8 @@ export interface HomeCollectionItem {
   onOpen: () => void;
   /** Card layout only: a real preview shown above the title (e.g. a saved output). */
   preview?: ReactNode;
+  /** Rows only: a per-item visual instead of the shared item icon (e.g. a Vidget's character). */
+  leading?: ReactNode;
 }
 
 export interface HomeCollectionEmptyState {
@@ -129,7 +131,11 @@ function ItemRow({
 }) {
   return (
     <button type="button" onClick={item.onOpen} aria-label={item.openLabel} className={ROW_BUTTON}>
-      {itemIcon ? <span className="shrink-0" style={{ color: HT.icon }} aria-hidden>{itemIcon(14)}</span> : null}
+      {item.leading ? (
+        <span className="shrink-0" aria-hidden>{item.leading}</span>
+      ) : itemIcon ? (
+        <span className="shrink-0" style={{ color: HT.icon }} aria-hidden>{itemIcon(14)}</span>
+      ) : null}
       <span className="min-w-0 flex-1">
         <span className="flex min-w-0 items-center gap-1.5">
           <span className="min-w-0 truncate luxia-type-body-dense-strong" style={{ color: HT.title }} title={item.title}>

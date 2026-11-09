@@ -8,37 +8,38 @@ import {
 } from "@/app/components/LuxiaPageHeader";
 
 interface HomeHeaderProps {
-  onNewChat: () => void;
-  onNewProject: () => void;
+  /** The signed-in user's display name, from application data. */
+  userName?: string;
+  /** Omitted when the user may not create Projects. */
+  onNewProject?: () => void;
   onCustomize: () => void;
   /** Customize mode is on (its toolbar shows below the header). */
   customizing: boolean;
 }
 
-export function HomeHeader({ onNewChat, onNewProject, onCustomize, customizing }: HomeHeaderProps) {
+/** Home header. Starting a Chat lives in the Start panel below it, so the header keeps New Project and Customize Home. */
+export function HomeHeader({ userName, onNewProject, onCustomize, customizing }: HomeHeaderProps) {
   return (
     <LuxiaPageHeader
       contentGap="page"
+      className="luxia-home-header"
       pageTypeLabel="HOME"
-      title="Welcome back, User name"
+      title={userName ? `Welcome back, ${userName}` : "Welcome back"}
       titleStyle={{ color: "var(--luxia-purple-70)", letterSpacing: "-0.025em" }}
       context={
         <LuxiaPageContext>
-          Your most important work, ready to continue.
+          Ask questions about your documents and data, write with AI, and pick up your work.
         </LuxiaPageContext>
       }
       secondaryAction={
-        <Button type="button" {...LUXIA_PAGE_HEADER_ACTION.secondary} onClick={onNewProject}>
-          New Project
-        </Button>
-      }
-      primaryAction={
-        <Button type="button" {...LUXIA_PAGE_HEADER_ACTION.primary} onClick={onNewChat}>
-          New Chat
-        </Button>
+        onNewProject ? (
+          <Button type="button" {...LUXIA_PAGE_HEADER_ACTION.secondary} onClick={onNewProject}>
+            New Project
+          </Button>
+        ) : undefined
       }
       actions={
-        // Between sm and lg the title shares its row with three actions, so this one shows its icon only.
+        // Between sm and lg the title shares its row with the actions, so this one shows its icon only.
         <Tooltip>
           <TooltipTrigger asChild>
             <Button

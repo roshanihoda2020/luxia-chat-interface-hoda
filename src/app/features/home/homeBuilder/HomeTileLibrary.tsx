@@ -106,10 +106,25 @@ const CATEGORIES: LibraryCategory[] = [
     collection: "whats-new",
     allHint: "Product updates and Luxia news, newest first. Opens each update beside your work.",
   },
+  {
+    id: "vidgets",
+    label: "Vidgets",
+    one: "Vidget",
+    many: "Vidgets",
+    collection: "vidgets-collection",
+    allHint: "Customer-facing assistants in the Projects you manage, recently updated first.",
+  },
+  { id: "guide", label: "Get started", one: "guide", many: "guides", item: "get-started", blurb: "Short steps to your first Chat" },
+  { id: "guide", label: "Try an example", one: "example", many: "examples", item: "try-example", blurb: "Three real tasks to try" },
 ];
 
+/** Tiles with nothing to choose (Your focus, Get started, Try an example) are added straight away. */
+function addsDirectly(category: LibraryCategory): boolean {
+  return !category.collection && Boolean(category.item) && !HOME_TILE_DEFINITIONS[category.item!].requiresTarget;
+}
+
 /** Things in Luxia that can't be a Home Tile yet. */
-const COMING_LATER = "Coming later: single saved outputs and Vidgets.";
+const COMING_LATER = "Coming later: single saved outputs and single Vidgets.";
 
 function plural(count: number, one: string, many: string): string {
   return `${count} ${count === 1 ? one : many}`;
@@ -227,8 +242,7 @@ export function HomeTileLibrary({
               targetOptions={targetOptions}
               collections={collections}
               onOpenCategory={(entry) => {
-                // Your focus has nothing to choose: add it straight away.
-                if (entry.item === "your-focus" && !entry.collection) add("your-focus");
+                if (addsDirectly(entry)) add(entry.item!);
                 else {
                   setCategoryId(entry.id);
                   // Tools have no "all of them" list: go straight to choosing one.
@@ -263,12 +277,12 @@ function CategoryGrid({
           const collection = category.collection ? collections[category.collection] : undefined;
           const items = category.item ? targetOptions[category.item]?.length ?? 0 : 0;
           const count = collection?.available ? collection.count : items;
-          const focusOnHome = category.item === "your-focus" && !canAddHomeTileType(layout, "your-focus");
+          const focusOnHome = addsDirectly(category) && !canAddHomeTileType(layout, category.item!);
           const nothing = !focusOnHome && !category.blurb && !collection?.available && items === 0;
           const status = focusOnHome ? "On your Home" : nothing ? "Not available" : null;
           const detail = category.blurb ?? (count === 0 ? `No ${category.many} yet` : `${plural(count, category.one, category.many)} you can access`);
           return (
-            <li key={category.id}>
+            <li key={`${category.id}:${category.collection ?? category.item}`}>
               <button
                 type="button"
                 disabled={Boolean(status)}

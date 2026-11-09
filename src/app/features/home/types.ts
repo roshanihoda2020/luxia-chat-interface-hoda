@@ -5,6 +5,7 @@ import type { HomeEntityKey } from "./homeEntityKeys";
 import type { HomePrimaryPreference } from "./homePrimaryPreference";
 import type { HomeProjectCard, ProjectDestination } from "@/app/features/project/types";
 import type { DataSourceContentSummary } from "@/app/features/permissions/types";
+import type { VidgetRecord } from "@/app/features/vidgets/types";
 
 export type { HomeProjectCard, ProjectDestination };
 
@@ -107,7 +108,12 @@ export interface HomePageProps {
   onOpenChat: (chatId: string) => void;
   onOpenConstellation?: (projectId: string, constellationId: string) => void;
   onNewChat: () => void;
+  /** New Chat flow with the Project already chosen (Constellation or Galaxy is picked there). */
+  onNewChatInProject?: (projectId: string) => void;
   onNewProject: () => void;
+  /** Every Vidget in the prototype; Home lists only those in Projects the user manages or reviews. */
+  homeVidgets?: readonly VidgetRecord[];
+  onOpenProjectVidgets?: (projectId: string) => void;
   searchConstellations?: Array<{
     id: string;
     label: string;

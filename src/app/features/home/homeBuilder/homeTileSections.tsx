@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { History, Megaphone, Pin } from "lucide-react";
+import { Bot, History, ListChecks, Megaphone, Pin, Sparkles } from "lucide-react";
 import {
   LuxiaChatIcon,
   LuxiaConstellationIcon,
@@ -61,6 +61,12 @@ export const HOME_TILE_SECTIONS: Record<HomeTileType, HomeTileSection> = {
     shortSubtitle: "Recently updated first.",
     icon: <LuxiaDashboardIcon size={ICON_SIZE} color="currentColor" />,
   },
+  "vidgets-collection": {
+    title: "Vidgets",
+    subtitle: "Customer-facing assistants in the Projects you manage.",
+    shortSubtitle: "Your customer assistants.",
+    icon: <Bot size={ICON_SIZE} strokeWidth={1.75} />,
+  },
   "whats-new": {
     title: "What's New",
     subtitle: "Product updates and Luxia news.",
@@ -114,6 +120,18 @@ export const HOME_TILE_SECTIONS: Record<HomeTileType, HomeTileSection> = {
     subtitle: "Luxia tools and workspaces.",
     shortSubtitle: "Luxia tools.",
     icon: <LuxiaToolsGalleryIcon size={ICON_SIZE} color="currentColor" />,
+  },
+  "get-started": {
+    title: "Get started with Luxia",
+    subtitle: "A few short steps. Hide them whenever you like and bring them back any time.",
+    shortSubtitle: "A few short steps.",
+    icon: <ListChecks size={ICON_SIZE} strokeWidth={1.75} />,
+  },
+  "try-example": {
+    title: "Try an example",
+    subtitle: "Real starting points. Each one opens the feature it describes.",
+    shortSubtitle: "Real starting points.",
+    icon: <Sparkles size={ICON_SIZE} strokeWidth={1.75} />,
   },
 };
 

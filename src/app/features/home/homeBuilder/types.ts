@@ -24,6 +24,7 @@ export const HOME_COLLECTION_TILE_TYPES = [
   "data-sources-collection",
   "dashboards-collection",
   "whats-new",
+  "vidgets-collection",
 ] as const;
 export type HomeCollectionTileType = (typeof HOME_COLLECTION_TILE_TYPES)[number];
 
@@ -37,8 +38,11 @@ export type HomeItemTileType =
   | "dashboard"
   | "tool";
 
+/** Getting-started guidance. Dismissible: hidden with `config.hidden`, never removed by hiding. */
+export type HomeGuideTileType = "get-started" | "try-example";
+
 /** Extend these unions (and the registry) to add tile types. */
-export type HomeTileType = HomeCollectionTileType | HomeItemTileType;
+export type HomeTileType = HomeCollectionTileType | HomeItemTileType | HomeGuideTileType;
 
 /**
  * Projects collection views. "updated" is ordered by Project activity
@@ -100,6 +104,9 @@ export function isHomeTileSurfaceStyle(value: unknown): value is HomeTileSurface
  * - `view`: Projects collection view (HomeProjectsView).
  * - `limit`: Full-width Projects list length, "3" | "6" | "9" | "all".
  * - `display`: Full-width Projects list layout, "grid" | "list".
+ * - `hidden`: Guide tiles only. `true` collapses the tile to a slim "Show" bar in
+ *   its place; any other value means visible. Hiding keeps the tile in the layout,
+ *   so Save, Restore, Undo and Reset carry it like any other setting.
  * Unknown or invalid values fall back to defaults; they never reject a layout.
  */
 export type HomeTileConfigValue = string | number | boolean | null;

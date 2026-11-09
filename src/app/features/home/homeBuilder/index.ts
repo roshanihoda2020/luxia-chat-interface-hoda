@@ -43,6 +43,8 @@ export {
   getHomeTileSurfaceStyle,
   homeTileHasOwnBottomSpacing,
   homeTileUsesContentHeight,
+  isHomeGuideTile,
+  isHomeTileCollapsed,
   isHomeTileType,
 } from "./registry";
 export type { HomeTileCategory, HomeTileDefinition, HomeTileModel } from "./registry";

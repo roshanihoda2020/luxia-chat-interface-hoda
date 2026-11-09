@@ -7,6 +7,7 @@ import {
   History,
   LayoutGrid,
   LayoutTemplate,
+  ListChecks,
   Plus,
   RotateCcw,
   ShieldCheck,
@@ -42,6 +43,8 @@ interface HomeBuilderToolbarProps {
   isDefaultLayout: boolean;
   /** The current Home already matches the saved layout. */
   isMyDefaultLayout: boolean;
+  onShowGuidance?: () => void;
+  guidanceShown?: boolean;
 }
 
 type LayoutConfirm = "restore" | "reset" | "replace";
@@ -73,6 +76,8 @@ export function HomeBuilderToolbar({
   myDefaultSavedAt,
   isDefaultLayout,
   isMyDefaultLayout,
+  onShowGuidance,
+  guidanceShown = false,
 }: HomeBuilderToolbarProps) {
   const addTileRef = useRef<HTMLButtonElement>(null);
   const layoutMenuRef = useRef<HTMLButtonElement>(null);
@@ -207,6 +212,18 @@ export function HomeBuilderToolbar({
                 disabled={isDefaultLayout}
                 onSelect={() => setConfirm("reset")}
               />
+              {onShowGuidance ? (
+                <>
+                  <DropdownMenuSeparator />
+                  <LayoutMenuItem
+                    icon={ListChecks}
+                    label="Show getting started"
+                    detail={guidanceShown ? "Already on your Home" : "Brings back the short getting-started steps"}
+                    disabled={guidanceShown}
+                    onSelect={onShowGuidance}
+                  />
+                </>
+              ) : null}
             </DropdownMenuContent>
           </DropdownMenu>
           <span aria-hidden className="mx-0.5 hidden h-6 w-px sm:block" style={{ background: "var(--luxia-border-default)" }} />

@@ -12,11 +12,21 @@ import {
   resolveHomeHero,
 } from "./homePrimaryPreference";
 import { workItemEntityKey } from "./homeEntityKeys";
+import { Bot } from "lucide-react";
 import { ContinueWorkingBrowser } from "./ContinueWorkingBrowser";
+import { LuxiaCharacter } from "./LuxiaCharacter";
+import {
+  canManageVidgets,
+  canReviewVidgetInbox,
+  VIDGET_AVATARS,
+  VIDGET_CHANNEL_LABELS,
+  VIDGET_STATUS_LABELS,
+} from "@/app/features/vidgets";
 import { GlobalSearch, type HomeSearchResult } from "./GlobalSearch";
 import { HomeHeader } from "./HomeHeader";
 import { HomeHero } from "./HomeHero";
 import {
+  type HomeCollectionItem,
   ChatHomeTile,
   ChatsCollectionHomeTile,
   ConstellationHomeTile,
@@ -52,6 +62,8 @@ import {
   getHomeTileSection,
   getHomeTileSizeId,
   getHomeTileSurfaceStyle,
+  homeTileUsesContentHeight,
+  isHomeTileCollapsed,
   selectHomeProjects,
   selectRecentChats,
   sortByName,
@@ -75,7 +87,19 @@ import {
 } from "./homeBuilder";
 import { HS } from "./homeSurfaces";
 import { parseHomeRecentPreviewCount } from "./homeRecentPreviewCount";
-import { canCreateProject } from "@/app/features/permissions";
+import {
+  canCreateOrganizationalDataSource,
+  canCreateProject,
+  getOrganizationUserById,
+} from "@/app/features/permissions";
+import { HomeStartPanel, type HomeContinueItem } from "./HomeStartPanel";
+import {
+  GetStartedHomeTile,
+  HiddenGuideBar,
+  TryExampleHomeTile,
+  type HomeGuideExample,
+  type HomeGuideStep,
+} from "./homeBuilder/GuideHomeTiles";
 import { formatDataSourceConnectorLabel } from "@/app/features/permissions/data";
 import {
   getLibraryStatusLabel,
@@ -105,6 +129,7 @@ import {
   LuxiaDatasourceIcon,
   LuxiaGalaxyIcon,
   LuxiaProjectsIcon,
+  LuxiaWritingAssistantIcon,
 } from "@/assets/icons";
 import type {
   HomeHeroContent,
@@ -145,7 +170,10 @@ export function HomePage({
   onOpenChat,
   onOpenConstellation,
   onNewChat,
+  onNewChatInProject,
   onNewProject,
+  homeVidgets = [],
+  onOpenProjectVidgets,
   searchConstellations,
   onNavigateProjectDestination,
   homeTileDataSources = [],
@@ -162,6 +190,8 @@ export function HomePage({
   const [libraryOpen, setLibraryOpen] = useState(false);
   /** Tile whose item is being changed (Configure Tile), or null. */
   const [configureTile, setConfigureTile] = useState<HomeTile | null>(null);
+  /** Project chosen in the Start panel; null follows the most recent work. */
+  const [startProjectId, setStartProjectId] = useState<string | null>(null);
 
   const projectsWithPin = useMemo(
     () => projects.map((project) => ({
@@ -715,6 +745,24 @@ export function HomePage({
       case "data-sources-collection":
       case "dashboards-collection":
         return renderCollectionTile(tile);
+      case "vidgets-collection": {
+        const density = size === "wide" ? "wide" : densityOf(tile);
+        const items = vidgetItems();
+        return (
+          <CollectionHomeTile
+            density={density}
+            label="Vidgets"
+            icon={(iconSize) => <Bot size={iconSize} strokeWidth={2} />}
+            items={items}
+            summary={`${items.length} ${items.length === 1 ? "Vidget" : "Vidgets"} · recently updated first`}
+            smallSummary={`${items.length} ${items.length === 1 ? "Vidget" : "Vidgets"}`}
+            empty={{
+              title: "No Vidgets yet",
+              body: "Customer-facing assistants from the Projects you manage appear here.",
+            }}
+          />
+        );
+      }
       case "whats-new":
         return (
           <WhatsNewHomeTile
@@ -724,6 +772,32 @@ export function HomePage({
             onOpenUpdate={(updateId) => onOpenExplore?.("whats-new", updateId)}
           />
         );
+      case "get-started":
+      case "try-example": {
+        const label = getHomeTileDefinition(tile.type).label;
+        if (isHomeTileCollapsed(tile)) {
+          return (
+            <HiddenGuideBar
+              label={label}
+              showLabel={tile.type === "get-started" ? "Show getting started" : "Show examples"}
+              onShow={() => homeBuilder.setGuideHidden(tile, false, label)}
+            />
+          );
+        }
+        const onHide = () => homeBuilder.setGuideHidden(tile, true, label);
+        const steps = tile.type === "try-example"
+          ? <TryExampleHomeTile density={densityOf(tile)} examples={guideExamples} onHide={onHide} />
+          : <GetStartedHomeTile density={densityOf(tile)} steps={guideSteps} onHide={onHide} />;
+        // At Full width the tile follows its content, so it draws its own section heading.
+        if (!homeTileUsesContentHeight(tile)) return steps;
+        const headingId = `home-tile-own-heading-${tile.id}`;
+        return (
+          <section aria-labelledby={headingId} className="min-w-0">
+            <HomeTileSectionHeader section={getHomeTileHeading(tile)} id={headingId} />
+            {steps}
+          </section>
+        );
+      }
       default:
         return renderItemTile(tile);
     }
@@ -999,6 +1073,31 @@ export function HomePage({
       .sort((a, b) => b.updatedAtTimestamp - a.updatedAtTimestamp || a.name.localeCompare(b.name))
     : [];
 
+  function vidgetItems(): HomeCollectionItem[] {
+    if (!onOpenProjectVidgets) return [];
+    return homeVidgets
+      .filter((vidget) => {
+        const project = projectById.get(vidget.projectId);
+        return project && (canManageVidgets(project.viewerProjectRole) || canReviewVidgetInbox(project.viewerProjectRole));
+      })
+      .slice()
+      .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt) || a.name.localeCompare(b.name))
+      .map((vidget) => {
+        const avatar = VIDGET_AVATARS.find((entry) => entry.id === vidget.avatarId);
+        const projectName = projectById.get(vidget.projectId)?.name;
+        return {
+          id: vidget.id,
+          title: vidget.name,
+          meta: [VIDGET_CHANNEL_LABELS[vidget.channel], projectName].filter(Boolean).join(" · "),
+          badge: VIDGET_STATUS_LABELS[vidget.status],
+          aside: formatHomeChatActivity(undefined, vidget.updatedAt)?.short,
+          leading: <LuxiaCharacter role="assistant" size={28} color={avatar?.color} />,
+          openLabel: `Open Vidgets in ${projectName ?? "Project"}`,
+          onOpen: () => onOpenProjectVidgets(vidget.projectId),
+        };
+      });
+  }
+
   const collectionAvailability: Partial<Record<HomeTileType, HomeCollectionAvailability>> = {
     "projects-collection": {
       available: true,
@@ -1013,6 +1112,7 @@ export function HomePage({
     "data-sources-collection": { available: Boolean(onOpenDataSource), count: dataSources.length },
     "dashboards-collection": { available: Boolean(onOpenDashboard), count: accessibleDashboards.length },
     "whats-new": { available: Boolean(onOpenExplore), count: explore.updates.length },
+    "vidgets-collection": { available: Boolean(onOpenProjectVidgets), count: vidgetItems().length },
   };
 
   const targetOptions: Partial<Record<HomeTileType, HomeTileTargetOption[]>> = {
@@ -1067,7 +1167,117 @@ export function HomePage({
       : [],
   };
 
+  // Fixed Start panel and Guide tiles: actions adapt to the user's real access and data.
+
+  const recentProject = heroWorkItem && projectById.has(heroWorkItem.projectId)
+    ? projectById.get(heroWorkItem.projectId)
+    : galaxyProjects[0];
+  const startProject = (startProjectId ? projectById.get(startProjectId) : undefined) ?? recentProject ?? null;
+  const startChatInProject = (projectId: string) => (onNewChatInProject ? onNewChatInProject(projectId) : onNewChat());
+  const openConstellations = onNavigateProjectDestination
+    ? (projectId: string) => onNavigateProjectDestination("constellations", projectId)
+    : undefined;
+  const writingAssistant = LUXIA_TOOLS.find((tool) => tool.id === "writing-assistant");
+  const openWritingAssistant = writingAssistant && onOpenTool ? () => onOpenTool(writingAssistant.id) : undefined;
+  const mayCreateProject = canCreateProject();
+  const mayAddDataSource = canCreateOrganizationalDataSource(homeLayoutUserId);
+  const projectWithKnowledge = startProject && startProject.constellationCount > 0
+    ? startProject
+    : galaxyProjects.find((project) => project.constellationCount > 0);
+
+  const guideSteps: HomeGuideStep[] = [
+    {
+      id: "data",
+      title: mayAddDataSource ? "Connect your data" : "See the data you can use",
+      detail: mayAddDataSource
+        ? "Add a database, CSV or files as a Data Source."
+        : "Data Sources shared with you appear here. Admins connect new ones.",
+      done: dataSources.length > 0,
+      action: onOpenDataSources ? { label: "Open Data Sources", onClick: onOpenDataSources } : undefined,
+    },
+    {
+      id: "project",
+      title: "Open or create a Project",
+      detail: "A Project is a shared space for your team's knowledge and Chats.",
+      done: activeProjects.length > 0,
+      action: startProject
+        ? { label: "Open Project", ariaLabel: `Open Project ${startProject.name}`, onClick: () => onOpenProject(startProject.id) }
+        : mayCreateProject
+          ? { label: "New Project", onClick: onNewProject }
+          : undefined,
+    },
+    {
+      id: "constellation",
+      title: "Choose a Constellation",
+      detail: "A Constellation is the knowledge a Chat answers from.",
+      done: usableConstellations.length > 0,
+      action: startProject && openConstellations
+        ? {
+          label: "View Constellations",
+          ariaLabel: `View Constellations in ${startProject.name}`,
+          onClick: () => openConstellations(startProject.id),
+        }
+        : undefined,
+    },
+    {
+      id: "chat",
+      title: "Start a Chat",
+      detail: "Ask a question and check the sources in the answer.",
+      done: chatItems.length > 0,
+      action: projectWithKnowledge
+        ? { label: "Start Chat", onClick: () => startChatInProject(projectWithKnowledge.id) }
+        : undefined,
+    },
+  ];
+
+  const guideExamples: HomeGuideExample[] = [
+    {
+      id: "documents",
+      title: "Ask about your documents",
+      detail: "Policies, contracts or reports",
+      opens: "Opens New Chat",
+      character: "chat",
+      onTry: projectWithKnowledge ? () => startChatInProject(projectWithKnowledge.id) : undefined,
+      unavailable: projectWithKnowledge ? undefined : "Needs a Project with a Constellation first",
+    },
+    {
+      id: "writing",
+      title: "Write or improve a text",
+      detail: "Draft an email or polish a report",
+      opens: "Opens Writing Assistant",
+      character: "writing",
+      onTry: openWritingAssistant,
+      unavailable: openWritingAssistant ? undefined : "Writing Assistant isn't available here",
+    },
+    {
+      id: "spreadsheet",
+      title: "Work with a spreadsheet",
+      detail: mayAddDataSource ? "Import a CSV and ask about it" : "Use a spreadsheet already shared with you",
+      opens: "Opens Data Sources",
+      character: "data",
+      onTry: onOpenDataSources,
+      unavailable: onOpenDataSources ? undefined : "Data Sources aren't available here",
+    },
+  ];
+
+  const continueItems: HomeContinueItem[] = workWithPin
+    .map((item, index) => ({ item, index }))
+    .sort((a, b) => (b.item.lastOpenedAt ?? 0) - (a.item.lastOpenedAt ?? 0) || a.index - b.index)
+    .slice(0, 3)
+    .map(({ item }) => {
+      const projectName = projectById.get(item.projectId)?.name ?? item.projectName;
+      const when = formatHomeChatActivity(item.lastOpenedAt, item.updatedAt)?.short;
+      return {
+        id: item.id,
+        kind: item.kind === "galaxySession" ? "galaxy" : "chat",
+        title: item.title,
+        detail: [item.kind === "galaxySession" ? "Galaxy" : projectName, when].filter(Boolean).join(" · "),
+        onOpen: () => onContinueWork(item),
+      };
+    });
+
   const { layout: homeLayout, editing } = homeBuilder;
+  const hasWhatsNewTile = homeLayout.tiles.some((tile) => tile.type === "whats-new");
   /**
    * Old Project-Dashboard tiles shown with the Dashboard they map to, so Add Tile
    * and Configure treat that Dashboard as already on Home. Display only; the
@@ -1083,13 +1293,28 @@ export function HomePage({
   return (
     <>
       <HomeHeader
-        onNewChat={onNewChat}
-        onNewProject={onNewProject}
+        userName={getOrganizationUserById(homeLayoutUserId)?.name}
+        onNewProject={mayCreateProject ? onNewProject : undefined}
         onCustomize={() => {
           if (editing) document.querySelector<HTMLElement>("[data-home-builder-toolbar]")?.scrollIntoView({ block: "nearest" });
           else homeBuilder.startEditing();
         }}
         customizing={editing}
+      />
+
+      <HomeStartPanel
+        projects={galaxyProjects}
+        selectedProjectId={startProject?.id ?? null}
+        onSelectProject={setStartProjectId}
+        onStartChat={startChatInProject}
+        onAskProject={onOpenGalaxy}
+        onOpenConstellations={openConstellations}
+        continueItems={continueItems}
+        onViewAllWork={() => onBrowseModeChange("your-work")}
+        canCreateProject={mayCreateProject}
+        onNewProject={onNewProject}
+        onOpenWritingAssistant={openWritingAssistant}
+        onOpenDataSources={onOpenDataSources}
       />
 
       <GlobalSearch
@@ -1099,8 +1324,8 @@ export function HomePage({
         onSelect={handleSearchSelect}
       />
 
-      {/* Outside the tile grid; never shown while customizing. Renders nothing when there's no notice. */}
-      {!editing && onOpenExplore ? (
+      {/* Outside the tile grid; hidden while customizing or when a What's New tile already shows the updates. */}
+      {!editing && onOpenExplore && !hasWhatsNewTile ? (
         <WhatsNewNotice userId={homeLayoutUserId} onOpenUpdate={(updateId) => onOpenExplore("whats-new", updateId)} />
       ) : null}
 
@@ -1114,6 +1339,8 @@ export function HomePage({
         myDefaultSavedAt={homeBuilder.myDefault?.savedAt ?? null}
         isDefaultLayout={homeBuilder.isDefaultLayout}
         isMyDefaultLayout={homeBuilder.isMyDefaultLayout}
+        onShowGuidance={homeBuilder.showGuidance}
+        guidanceShown={homeBuilder.guidanceShown}
       />
 
       {layoutIsEmpty ? (

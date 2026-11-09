@@ -3,6 +3,7 @@ import { Undo2 } from "lucide-react";
 import { luxiaToast } from "@/app/features/shared/luxiaToast";
 import { createDefaultHomeLayout } from "./defaultLayout";
 import { addHomeTile, configureHomeTile, removeHomeTile, setHomeTileConfig } from "./layoutOps";
+import { isHomeGuideTile, isHomeTileCollapsed } from "./registry";
 import {
   clearHomeLayout,
   readHomeLayout,
@@ -164,6 +165,38 @@ export function useHomeLayout(userId: string) {
     }
   }
 
+  /**
+   * Hides or shows a Guide tile in place. Unlike Remove, the tile stays in the
+   * layout (its slot, size and order are unchanged), so other tiles never move.
+   */
+  function setGuideHidden(tile: HomeTile, hidden: boolean, label: string) {
+    if (!isHomeGuideTile(tile) || isHomeTileCollapsed(tile) === hidden) return;
+    const previous = layout;
+    const next = setHomeTileConfig(layout, tile.id, { hidden });
+    if (next === layout || !commit(next)) return;
+    offerUndo(
+      hidden ? `${label} hidden` : `${label} shown`,
+      hidden
+        ? "Show it again from the bar in its place, or from Layout in Customize Home."
+        : "It's back in the same place on your Home.",
+      previous,
+    );
+  }
+
+  /** Shows every hidden Guide tile; adds Get started back if it was removed. */
+  function showGuidance() {
+    const previous = layout;
+    const hiddenGuides = layout.tiles.filter((tile) => isHomeTileCollapsed(tile));
+    let next = layout;
+    if (hiddenGuides.length > 0) {
+      next = hiddenGuides.reduce((current, tile) => setHomeTileConfig(current, tile.id, { hidden: false }), layout);
+    } else if (!layout.tiles.some((tile) => tile.type === "get-started")) {
+      next = addHomeTile(layout, "get-started").layout;
+    }
+    if (next === layout || !commit(next)) return;
+    offerUndo("Getting started is shown", "You can hide it again any time.", previous);
+  }
+
   /** Replaces the current Home with the original Luxia default. The saved layout is kept. */
   function resetToDefault() {
     const previous = layout;
@@ -214,6 +247,11 @@ export function useHomeLayout(userId: string) {
     addTile,
     removeTile,
     configureTile,
+    setGuideHidden,
+    showGuidance,
+    /** Every Guide tile is visible already (nothing for Show getting started to do). */
+    guidanceShown: layout.tiles.some((tile) => tile.type === "get-started")
+      && !layout.tiles.some((tile) => isHomeTileCollapsed(tile)),
     resetToDefault,
     myDefault,
     saveAsMyDefault,

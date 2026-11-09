@@ -38,8 +38,10 @@ function roleOf(project: HomeProjectCard): string | null {
   return project.viewerProjectRole === undefined ? null : project.viewerProjectRole ?? NO_PROJECT_ROLE_LABEL;
 }
 
-function countsOf(project: HomeProjectCard): string {
-  return `${plural(project.constellationCount, "Constellation")} · ${plural(project.sourceCount ?? 0, "Source")}`;
+/** What a row says under the name on Home: the user's role, else the description. Counts live in Project Overview. */
+function contextOf(project: HomeProjectCard): string {
+  const role = roleOf(project);
+  return role ? `Your role: ${role}` : project.description?.trim() || "";
 }
 
 function Updated({ project, long = false }: { project: HomeProjectCard; long?: boolean }) {
@@ -72,7 +74,7 @@ function ProjectRow({ project, onOpen, dense = false }: { project: HomeProjectCa
           <PinMark project={project} />
         </span>
         {dense ? null : (
-          <span className="block truncate luxia-type-caption" style={{ color: HT.secondary }} title={countsOf(project)}>{countsOf(project)}</span>
+          <span className="block truncate luxia-type-caption" style={{ color: HT.secondary }} title={contextOf(project)}>{contextOf(project)}</span>
         )}
       </span>
       <Updated project={project} />
@@ -98,11 +100,6 @@ function LeadProject({
   const description = project.description?.trim();
   const role = roleOf(project);
   const clamp = descriptionLines === 1 ? "line-clamp-1" : descriptionLines === 2 ? "line-clamp-2" : "line-clamp-3";
-  const facts = [
-    { label: project.constellationCount === 1 ? "Constellation" : "Constellations", value: project.constellationCount },
-    { label: (project.sourceCount ?? 0) === 1 ? "Source" : "Sources", value: project.sourceCount ?? 0 },
-    { label: project.memberCount === 1 ? "Member" : "Members", value: project.memberCount },
-  ];
   return (
     <button
       type="button"
@@ -137,13 +134,9 @@ function LeadProject({
           {description}
         </span>
       ) : null}
-      <span className="mt-auto grid min-w-0 grid-cols-3 gap-2 border-t pt-2.5" style={{ borderColor: HT.divider }}>
-        {facts.map((fact) => (
-          <span key={fact.label} className="min-w-0">
-            <span className="block luxia-type-body-dense-strong tabular-nums" style={{ color: HT.text, fontSize: 15 }}>{fact.value}</span>
-            <span className="block truncate luxia-type-caption" style={{ color: HT.muted }}>{fact.label}</span>
-          </span>
-        ))}
+      <span className="mt-auto flex min-w-0 items-center justify-between gap-2 border-t pt-2.5 luxia-type-caption" style={{ borderColor: HT.divider, color: HT.muted }}>
+        <span className="min-w-0 truncate">Knowledge and members in the Project</span>
+        <span className="shrink-0 font-semibold" style={{ color: HT.title }} aria-hidden>Open →</span>
       </span>
     </button>
   );
