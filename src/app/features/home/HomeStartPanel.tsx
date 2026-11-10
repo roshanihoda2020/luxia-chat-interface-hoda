@@ -123,7 +123,10 @@ function HeroBackdrop() {
 }
 
 const SEGMENT =
-  "inline-flex h-8 min-w-0 items-center gap-1.5 rounded-full px-2.5 text-left transition-colors @max-[519px]:h-9 @max-[519px]:gap-1 @max-[519px]:px-2";
+  "inline-flex h-8 min-w-0 items-center gap-1.5 rounded-full border px-2.5 text-left transition-colors @max-[519px]:h-9 @max-[519px]:gap-1 @max-[519px]:px-2";
+const SELECTED_CONTEXT = { background: "var(--luxia-opacity-brand-secondary-12)", borderColor: "var(--luxia-opacity-brand-secondary-24)", color: INK };
+const OPTIONAL_CONTEXT = { background: "var(--luxia-surface)", borderColor: "var(--luxia-border-default)", color: "var(--luxia-text-secondary)" };
+const OPTIONAL_HOVER = "hover:border-[var(--luxia-opacity-brand-secondary-24)] hover:bg-[var(--luxia-opacity-brand-secondary-04)]";
 
 function ProjectContext({
   projects,
@@ -195,10 +198,8 @@ function ProjectContext({
           data-context-kind="project"
           data-context-id={project.id}
           data-active={active ? "" : undefined}
-          className={`${SEGMENT} flex-1 @[520px]:flex-none ${active ? "hover:bg-[var(--luxia-opacity-brand-secondary-04)]" : "hover:bg-[var(--luxia-opacity-brand-secondary-08)]"} ${FOCUS_RING}`}
-          style={active
-            ? { background: "var(--luxia-surface)", boxShadow: "var(--luxia-shadow-xs)", color: INK }
-            : { color: "var(--luxia-text-secondary)" }}
+          className={`${SEGMENT} flex-1 @[520px]:flex-none ${active ? "" : OPTIONAL_HOVER} ${FOCUS_RING}`}
+          style={active ? SELECTED_CONTEXT : OPTIONAL_CONTEXT}
         >
           <span
             aria-hidden
@@ -255,10 +256,8 @@ function LuxiaAiContext({ active, onSelect }: { active: boolean; onSelect: () =>
       data-home-ask-context-option="luxia-ai"
       data-context-kind="luxia-ai"
       data-active={active ? "" : undefined}
-      className={`${SEGMENT} shrink-0 ${active ? "" : "hover:bg-[var(--luxia-opacity-brand-secondary-08)]"} ${FOCUS_RING}`}
-      style={active
-        ? { background: "var(--luxia-surface)", boxShadow: "var(--luxia-shadow-xs)", color: INK }
-        : { color: "var(--luxia-text-secondary)" }}
+      className={`${SEGMENT} shrink-0 ${active ? "" : OPTIONAL_HOVER} ${FOCUS_RING}`}
+      style={active ? SELECTED_CONTEXT : OPTIONAL_CONTEXT}
     >
       <LuxiaAiIcon size={15} color={active ? "var(--luxia-purple-60)" : "currentColor"} aria-hidden />
       <span className="luxia-type-body-dense-strong">{LUXIA_ASSISTANT_CONFIG.displayName}</span>
@@ -357,7 +356,7 @@ export function HomeStartPanel({
     if (!input) return;
     input.style.height = "auto";
     input.style.height = `${Math.min(input.scrollHeight, 168)}px`;
-  }, [question]);
+  }, [question, showStarters]);
 
   function ask() {
     if (aiMode) {
@@ -448,14 +447,14 @@ export function HomeStartPanel({
               style={{ color: "var(--luxia-text-primary)" }}
             />
             {showStarters ? (
-              <div role="group" aria-label="Suggested questions" className="flex min-w-0 flex-wrap gap-1.5 px-1 pb-1 [grid-area:starters]" data-home-ai-starters="">
+              <div role="group" aria-label="Suggested questions" className="flex min-w-0 flex-wrap gap-2 px-1 pb-2 [grid-area:starters]" data-home-ai-starters="">
                 {LUXIA_ASSISTANT_CONFIG.suggestedQuestions.map((suggestion) => (
                   <button
                     key={suggestion}
                     type="button"
                     onClick={() => askAssistant(suggestion)}
-                    className={`inline-flex min-h-8 items-center rounded-full border px-3 luxia-type-caption font-semibold transition-colors hover:bg-[var(--luxia-opacity-brand-secondary-08)] ${FOCUS_RING}`}
-                    style={{ borderColor: SOFT_BORDER, color: INK }}
+                    className={`inline-flex min-h-8 items-center rounded-[10px] border px-2.5 luxia-type-caption font-medium transition-colors hover:border-[var(--luxia-opacity-brand-secondary-24)] hover:bg-[var(--luxia-opacity-brand-secondary-08)] ${FOCUS_RING}`}
+                    style={{ background: "var(--luxia-opacity-brand-secondary-04)", borderColor: "var(--luxia-opacity-brand-secondary-12)", color: INK }}
                     data-home-ai-starter=""
                   >
                     {suggestion}
@@ -466,8 +465,7 @@ export function HomeStartPanel({
             <div
               role="group"
               aria-label="Conversation context"
-              className="mt-1 flex min-w-0 items-center gap-1 justify-self-stretch rounded-full border p-1 [grid-area:context] @[520px]:justify-self-start"
-              style={{ borderColor: SOFT_BORDER, background: "var(--luxia-opacity-brand-secondary-04)" }}
+              className="mt-1 flex min-w-0 items-center gap-2 justify-self-stretch [grid-area:context] @[520px]:justify-self-start"
               data-home-ask-contexts=""
             >
               <LuxiaAiContext active={aiMode} onSelect={() => setMode("luxia-ai")} />
@@ -478,8 +476,8 @@ export function HomeStartPanel({
                   type="button"
                   onClick={() => setMode("project")}
                   aria-pressed={!aiMode}
-                  className={`${SEGMENT} flex-1 luxia-type-body-dense-strong @[520px]:flex-none ${FOCUS_RING}`}
-                  style={aiMode ? { color: "var(--luxia-text-secondary)" } : { background: "var(--luxia-surface)", color: "var(--luxia-text-muted)" }}
+                  className={`${SEGMENT} flex-1 luxia-type-body-dense-strong @[520px]:flex-none ${aiMode ? OPTIONAL_HOVER : ""} ${FOCUS_RING}`}
+                  style={aiMode ? OPTIONAL_CONTEXT : SELECTED_CONTEXT}
                   data-home-ask-context=""
                   data-context-kind="none"
                   data-active={aiMode ? undefined : ""}

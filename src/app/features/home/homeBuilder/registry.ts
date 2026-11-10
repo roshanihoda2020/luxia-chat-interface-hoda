@@ -268,7 +268,8 @@ export const HOME_TILE_DEFINITIONS: Record<HomeTileType, HomeTileDefinition> = {
     targetScopes: [],
     requiresTarget: false,
     maxInstances: 1,
-    defaultConfig: {},
+    // Stored on the tile (not as defaultSurface) so saved layouts without a style keep rendering as before.
+    defaultConfig: { surface: "featured" },
     contentHeightSizes: ["wide"],
   },
 };
@@ -367,6 +368,11 @@ export function getHomeTileSurfaceStyle(tile: Pick<HomeTile, "type" | "config">)
   const saved = tile.config.surface;
   if (isHomeTileSurfaceStyle(saved)) return saved;
   return getHomeTileDefinition(tile.type).defaultSurface ?? "default";
+}
+
+/** The style a newly added tile of this type starts with. */
+export function getHomeTileStartingSurface(type: HomeTileType): HomeTileSurfaceStyle {
+  return getHomeTileSurfaceStyle({ type, config: getHomeTileDefinition(type).defaultConfig });
 }
 
 /** True when the rendered component already ends with its own section margin at this size. */

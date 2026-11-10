@@ -10,7 +10,7 @@ import {
 } from "@/app/components/ui/dialog";
 import { HOME_PROJECTS_VIEW_COPY, getHomeProjectsView } from "./collections";
 import { isHomeTileTargetOnLayout } from "./layoutOps";
-import { getHomeTileDefinition, getHomeTileSurfaceStyle, homeTileUsesContentHeight } from "./registry";
+import { getHomeTileDefinition, getHomeTileStartingSurface, getHomeTileSurfaceStyle, homeTileUsesContentHeight } from "./registry";
 import { sameHomeTileTarget, TargetPicker, type HomeTileTargetOption } from "./HomeTileLibrary";
 import "./homeTileSurfaces.css";
 import {
@@ -73,7 +73,7 @@ export function HomeTileConfigureDialog({
 
   if (!tile) return null;
   const definition = getHomeTileDefinition(tile.type);
-  const typeDefault = definition.defaultSurface ?? "default";
+  const typeDefault = getHomeTileStartingSurface(tile.type);
   const targetChanged = Boolean(target && !sameHomeTileTarget(tile.target, target));
   const viewChanged = view !== initialView;
   const dirty = surface !== initialSurface || targetChanged || viewChanged;

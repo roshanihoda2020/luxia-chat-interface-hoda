@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { ChevronDown, ChevronUp, Maximize2, Minimize2, RotateCcw } from "lucide-react";
+import { LuxiaStarLogo } from "@/app/components/LuxiaStarLogo";
 import { LuxiaAiIcon, LuxiaArrowRightIcon } from "@/assets/icons";
 import {
   LUXIA_ASSISTANT_ACTION_LABELS,
@@ -145,12 +146,8 @@ export function HomeAssistantConversation({
               data-home-ai-message={message.role}
             >
               {message.role === "assistant" ? (
-                <span
-                  aria-hidden
-                  className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full"
-                  style={{ background: "var(--luxia-opacity-brand-secondary-08)", color: "var(--luxia-purple-60)" }}
-                >
-                  <LuxiaAiIcon size={14} color="currentColor" />
+                <span aria-hidden className="mt-0.5 flex size-7 shrink-0 items-center justify-center" data-home-ai-avatar="">
+                  <LuxiaStarLogo size={18} />
                 </span>
               ) : null}
               <div
@@ -183,12 +180,8 @@ export function HomeAssistantConversation({
           ))}
           {pending ? (
             <li className="flex min-w-0 justify-start gap-2" data-home-ai-pending="">
-              <span
-                aria-hidden
-                className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full"
-                style={{ background: "var(--luxia-opacity-brand-secondary-08)", color: "var(--luxia-purple-60)" }}
-              >
-                <LuxiaAiIcon size={14} color="currentColor" />
+              <span aria-hidden className="mt-0.5 flex size-7 shrink-0 items-center justify-center" data-home-ai-avatar="">
+                <LuxiaStarLogo size={18} />
               </span>
               <span className="rounded-[14px] px-3.5 py-2.5 luxia-type-body-dense" style={{ color: "var(--luxia-text-muted)" }}>
                 {`${LUXIA_ASSISTANT_CONFIG.displayName} is answering…`}
