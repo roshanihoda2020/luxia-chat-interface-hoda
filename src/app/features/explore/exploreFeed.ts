@@ -123,6 +123,50 @@ export function sessionNoticeUpdate(
   return eligible && !state.dismissed.includes(id) ? eligible : null;
 }
 
+/**
+ * Updates the Home notice may show: published, recent, unread, not dismissed,
+ * and relevant to this user (the caller decides, from what the user can use).
+ * Proactive updates qualify, and so does any update with an action the user
+ * can take. Nothing qualifies while Home notices are turned off.
+ */
+export function homeNoticeUpdates(
+  updates: readonly ExploreUpdate[],
+  state: ExploreState,
+  isRelevant: (update: ExploreUpdate) => boolean,
+  now = new Date(),
+): ExploreUpdate[] {
+  if (state.hideHomeNotices) return [];
+  return unreadUpdates(updates, state).filter(
+    (update) => update.publication === "published"
+      && daysSince(update.date, now) <= NOTICE_WINDOW_DAYS
+      && daysSince(update.date, now) >= -1
+      && !state.dismissed.includes(update.id)
+      && (update.proactive === true || Boolean(update.action))
+      && isRelevant(update),
+  );
+}
+
+/**
+ * The relevant update to show this page session: the one already shown while it
+ * still qualifies, otherwise the newest that does. After × the session shows
+ * none (never a replacement), as with the notice before.
+ */
+export function sessionRelevantNotice(
+  shownId: string | undefined,
+  updates: readonly ExploreUpdate[],
+  state: ExploreState,
+  isRelevant: (update: ExploreUpdate) => boolean,
+  now = new Date(),
+): ExploreUpdate | null {
+  if (state.hideHomeNotices) return null;
+  if (shownId) {
+    if (state.dismissed.includes(shownId)) return null;
+    const shown = homeNoticeUpdates(updates, state, isRelevant, now).find((update) => update.id === shownId);
+    if (shown) return shown;
+  }
+  return homeNoticeUpdates(updates, state, isRelevant, now)[0] ?? null;
+}
+
 export const EXPLORE_UPDATE_KIND_LABELS: Record<ExploreUpdate["kind"], string> = {
   "release-note": "Release note",
   announcement: "Announcement",

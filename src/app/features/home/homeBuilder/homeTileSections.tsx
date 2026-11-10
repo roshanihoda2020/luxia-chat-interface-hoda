@@ -128,7 +128,7 @@ export const HOME_TILE_SECTIONS: Record<HomeTileType, HomeTileSection> = {
     icon: <ListChecks size={ICON_SIZE} strokeWidth={1.75} />,
   },
   "try-example": {
-    title: "Try an example",
+    title: "Discover what Luxia can do",
     subtitle: "Real starting points. Each one opens the feature it describes.",
     shortSubtitle: "Real starting points.",
     icon: <Sparkles size={ICON_SIZE} strokeWidth={1.75} />,

@@ -260,10 +260,10 @@ export const HOME_TILE_DEFINITIONS: Record<HomeTileType, HomeTileDefinition> = {
   "try-example": {
     type: "try-example",
     model: "guide",
-    label: "Try an example",
-    description: "Three real tasks that open the feature they describe.",
+    label: "Discover",
+    description: "What Luxia can do, as illustrated starting points that open the real feature.",
     category: "guide",
-    allowedSizes: ["large", "wide"],
+    allowedSizes: ["small", "medium", "large", "wide"],
     defaultSize: "large",
     targetScopes: [],
     requiresTarget: false,

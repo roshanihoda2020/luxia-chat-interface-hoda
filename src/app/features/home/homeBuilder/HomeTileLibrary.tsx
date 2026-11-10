@@ -115,10 +115,10 @@ const CATEGORIES: LibraryCategory[] = [
     allHint: "Customer-facing assistants in the Projects you manage, recently updated first.",
   },
   { id: "guide", label: "Get started", one: "guide", many: "guides", item: "get-started", blurb: "Short steps to your first Chat" },
-  { id: "guide", label: "Try an example", one: "example", many: "examples", item: "try-example", blurb: "Three real tasks to try" },
+  { id: "guide", label: "Discover", one: "starting point", many: "starting points", item: "try-example", blurb: "What Luxia can do, illustrated" },
 ];
 
-/** Tiles with nothing to choose (Your focus, Get started, Try an example) are added straight away. */
+/** Tiles with nothing to choose (Your focus, Get started, Discover) are added straight away. */
 function addsDirectly(category: LibraryCategory): boolean {
   return !category.collection && Boolean(category.item) && !HOME_TILE_DEFINITIONS[category.item!].requiresTarget;
 }

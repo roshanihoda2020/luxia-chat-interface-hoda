@@ -733,12 +733,14 @@ function NewChatModal({
   onCreate,
   onClose,
   lockedProjectId,
+  question,
   constellations,
   projects,
 }: {
   onCreate: (payload: NewChatPayload) => void;
   onClose: () => void;
   lockedProjectId?: string | null;
+  question?: string;
   constellations: Constellation[];
   projects: Project[];
 }) {
@@ -855,6 +857,22 @@ function NewChatModal({
         </div>
 
         <div className="flex-1 overflow-y-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical px-7 pb-5 space-y-5">
+          {question ? (
+            <section data-new-chat-question="" className="pt-5">
+              <p className="mb-2 luxia-type-overline-form" style={{ color: LX.textMuted }}>
+                Your question
+              </p>
+              <p
+                className="whitespace-pre-wrap break-words rounded-[12px] px-3.5 py-2.5 luxia-type-body-dense"
+                style={{ background: "var(--luxia-opacity-brand-secondary-08)", color: LX.primary }}
+              >
+                {question}
+              </p>
+              <p className="mt-2 luxia-type-metadata" style={{ color: LX.textMuted }}>
+                It will be ready to send in the new Chat.
+              </p>
+            </section>
+          ) : null}
           <section>
             <Label className="mb-2 block luxia-type-overline-form" style={{ color: LX.textMuted }}>
               Chat Type
@@ -955,6 +973,7 @@ export default function App() {
   const [assistantMode, setAssistantMode] = useState("Luxia");
   const [showNewChatModal, setShowNewChatModal] = useState(false);
   const [newChatLockedProjectId, setNewChatLockedProjectId] = useState<string | null>(null);
+  const [newChatQuestion, setNewChatQuestion] = useState("");
   const [showNewProjectModal, setShowNewProjectModal] = useState(false);
   const [projectManageMode, setProjectManageMode] = useState<ProjectManageMode | null>(null);
   const [projectManageId, setProjectManageId] = useState<string | null>(null);
@@ -2194,12 +2213,14 @@ export default function App() {
 
   function handleNewChat() {
     setNewChatLockedProjectId(null);
+    setNewChatQuestion("");
     setAppView("chat");
     setShowNewChatModal(true);
   }
 
-  function handleNewChatFromProject(projectId: string) {
+  function handleNewChatFromProject(projectId: string, question?: string) {
     setNewChatLockedProjectId(projectId);
+    setNewChatQuestion(typeof question === "string" ? question.trim() : "");
     setActiveProjectId(projectId);
     setShowNewChatModal(true);
   }
@@ -2216,6 +2237,7 @@ export default function App() {
     setDataSourceSettingsId(null);
     setShowNewChatModal(false);
     setNewChatLockedProjectId(null);
+    setNewChatQuestion("");
     setShowNewProjectModal(false);
     setHomeScrollRequest((value) => value + 1);
     if (typeof window !== "undefined") {
@@ -5107,6 +5129,8 @@ export default function App() {
     setActiveChat(id);
     setShowNewChatModal(false);
     setNewChatLockedProjectId(null);
+    if (newChatQuestion) setInputValue(newChatQuestion);
+    setNewChatQuestion("");
     setAppView("chat");
     syncWorkspacePathForChat({
       id,
@@ -8200,8 +8224,10 @@ export default function App() {
           onClose={() => {
             setShowNewChatModal(false);
             setNewChatLockedProjectId(null);
+            setNewChatQuestion("");
           }}
           lockedProjectId={newChatLockedProjectId}
+          question={newChatQuestion}
           constellations={allConstellations.filter((item) =>
             workingAccessibleOverviewConstellations.some((entry) => entry.id === item.id),
           )}

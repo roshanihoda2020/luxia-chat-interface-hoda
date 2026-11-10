@@ -15,21 +15,24 @@ interface HomeHeaderProps {
   onCustomize: () => void;
   /** Customize mode is on (its toolbar shows below the header). */
   customizing: boolean;
+  /** First time this user opens Home: welcome them and say what Luxia is for. */
+  firstVisit?: boolean;
 }
 
 /** Home header. Starting a Chat lives in the Start panel below it, so the header keeps New Project and Customize Home. */
-export function HomeHeader({ userName, onNewProject, onCustomize, customizing }: HomeHeaderProps) {
+export function HomeHeader({ userName, onNewProject, onCustomize, customizing, firstVisit = false }: HomeHeaderProps) {
+  const greeting = firstVisit ? "Welcome to Luxia" : "Welcome back";
   return (
     <LuxiaPageHeader
       contentGap="page"
       className="luxia-home-header"
       pageTypeLabel="HOME"
-      title={userName ? `Welcome back, ${userName}` : "Welcome back"}
+      title={userName ? `${greeting}, ${userName}` : greeting}
       titleStyle={{ color: "var(--luxia-purple-70)", letterSpacing: "-0.025em" }}
       context={
-        <LuxiaPageContext>
-          Ask questions about your documents and data, write with AI, and pick up your work.
-        </LuxiaPageContext>
+        firstVisit ? (
+          <LuxiaPageContext>Ask questions about your organisation's documents and data.</LuxiaPageContext>
+        ) : undefined
       }
       secondaryAction={
         onNewProject ? (

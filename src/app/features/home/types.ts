@@ -109,7 +109,8 @@ export interface HomePageProps {
   onOpenConstellation?: (projectId: string, constellationId: string) => void;
   onNewChat: () => void;
   /** New Chat flow with the Project already chosen (Constellation or Galaxy is picked there). */
-  onNewChatInProject?: (projectId: string) => void;
+  /** Opens New Chat scoped to the Project; a question typed on Home is carried into the new Chat. */
+  onNewChatInProject?: (projectId: string, question?: string) => void;
   onNewProject: () => void;
   /** Every Vidget in the prototype; Home lists only those in Projects the user manages or reviews. */
   homeVidgets?: readonly VidgetRecord[];

@@ -58,7 +58,7 @@ function defaultTile(
  *   ┌──────────────────────── 12 ─────────────────────────┐
  *   │ Get started · Full width · Soft (dismissible)       │  rows 0–4
  *   ├─────────────────────────────────────────────────────┤
- *   │ Try an example · Full width (dismissible)           │  rows 4–8
+ *   │ Discover · Full width (dismissible)                 │  rows 4–8
  *   ├────── 4 ───────┬────── 4 ───────┬────── 4 ──────────┤
  *   │ Projects       │ Writing        │ Dashboards        │  rows 8–12
  *   │ Recently upd.  │ Assistant      │ Soft              │
