@@ -105,7 +105,7 @@ export { EntityHomeTile } from "./EntityHomeTile";
 export type { EntityHomeTileAction, EntityHomeTileProps } from "./EntityHomeTile";
 export { FocusHomeTile } from "./FocusHomeTile";
 export { PROJECT_LIST_TILE_ROWS, ProjectListHomeTile } from "./ProjectListHomeTile";
-export { DEFAULT_HOME_TILE_IDS, createDefaultHomeLayout } from "./defaultLayout";
+export { DEFAULT_HOME_TILE_IDS, createDefaultHomeLayout, type HomeDefaultStage } from "./defaultLayout";
 export {
   HOME_LAYOUT_LIMITS,
   deserializeHomeLayout,

@@ -231,6 +231,30 @@ export function OpenCue({
   );
 }
 
+export interface HomeTileViewAll {
+  label: string;
+  ariaLabel?: string;
+  onClick: () => void;
+}
+
+/** Under a trimmed list: how many items are not shown. */
+export function MoreRow({
+  hidden,
+  text,
+  className = "pt-1.5",
+}: {
+  hidden: number;
+  text?: string;
+  className?: string;
+}) {
+  if (hidden <= 0) return null;
+  return (
+    <div className={`mt-auto flex min-w-0 items-center justify-between gap-2 ${className}`} data-home-tile-more="">
+      <span className="min-w-0 truncate luxia-type-caption" style={{ color: HT.muted }}>{text ?? `+${hidden} more`}</span>
+    </div>
+  );
+}
+
 /** Decorative arrow for whole-card links (Small item tiles). */
 export function CardArrow() {
   return (

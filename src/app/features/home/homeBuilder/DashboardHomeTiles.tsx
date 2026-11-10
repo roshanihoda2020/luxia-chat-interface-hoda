@@ -24,6 +24,8 @@ import {
   TileStat,
   TileSummaryRow,
   plural,
+  MoreRow,
+  type HomeTileViewAll,
 } from "./homeTileVisuals";
 
 /**
@@ -190,6 +192,8 @@ export interface DashboardsCollectionHomeTileProps {
   items: readonly HomeDashboardTileItem[];
   label: string;
   empty: HomeCollectionEmptyState;
+  /** Where the Dashboards not shown live; offered only when some are trimmed. */
+  viewAll?: HomeTileViewAll;
 }
 
 /**
@@ -199,7 +203,7 @@ export interface DashboardsCollectionHomeTileProps {
  * Large — the lead large on the left, other Dashboards on the right.
  * Full width — one preview card per Dashboard: the kinds of output it holds.
  */
-export function DashboardsCollectionHomeTile({ density, items, label, empty }: DashboardsCollectionHomeTileProps) {
+export function DashboardsCollectionHomeTile({ density, items, label, empty, viewAll }: DashboardsCollectionHomeTileProps) {
   const wide = density === "wide";
   // Small and Full width list every Dashboard; Medium and Large lead with the first one.
   const rest = wide || density === "small" ? items : items.slice(1);
@@ -219,8 +223,9 @@ export function DashboardsCollectionHomeTile({ density, items, label, empty }: D
   if (density === "small") {
     return (
       <HomeTileSurface density="small" label={label} corner={CORNER}>
-        <div className={HOME_TILE_CORNER_CLEARANCE.small} title={`${summary} · recently updated first`}>
+        <div className={`flex min-w-0 items-center justify-between gap-2 ${HOME_TILE_CORNER_CLEARANCE.small}`} title={`${summary} · recently updated first`}>
           <TileStat value={items.length} label={items.length === 1 ? "Dashboard" : "Dashboards"} size="sm" />
+          {viewAll ? <OpenCue label={viewAll.label} ariaLabel={viewAll.ariaLabel} onClick={viewAll.onClick} /> : null}
         </div>
         <div ref={areaRef} className="mt-1 min-h-0 flex-1 overflow-hidden" data-home-dashboards-layout="small">
           <ul ref={listRef} className="-mx-1.5 min-w-0" aria-label={label}>
@@ -235,6 +240,7 @@ export function DashboardsCollectionHomeTile({ density, items, label, empty }: D
             ))}
           </ul>
         </div>
+        <MoreRow hidden={hidden} className="pt-1" />
       </HomeTileSurface>
     );
   }
@@ -242,13 +248,13 @@ export function DashboardsCollectionHomeTile({ density, items, label, empty }: D
   if (wide) {
     return (
       <HomeTileSurface density="large" label={label} corner={CORNER} className="@container">
-        <TileSummaryRow summary={`${summary} · recently updated first`} clearance={HOME_TILE_CORNER_CLEARANCE.large} />
+        <TileSummaryRow summary={`${summary} · recently updated first`} clearance={HOME_TILE_CORNER_CLEARANCE.large} action={viewAll} />
         <div ref={areaRef} className="mt-3 min-h-0 flex-1 overflow-hidden" data-home-dashboards-layout="wide">
           <ul ref={listRef} className="grid min-w-0 grid-cols-1 gap-3 @md:grid-cols-2 @3xl:grid-cols-3" aria-label={label}>
             {shown.map((item) => <li key={item.id} className="min-w-0"><DashboardCard item={item} /></li>)}
           </ul>
         </div>
-        {hidden > 0 ? <p className="pt-2 luxia-type-caption" style={{ color: HT.muted }}>{`+${hidden} more`}</p> : null}
+        <MoreRow hidden={hidden} className="pt-2" />
       </HomeTileSurface>
     );
   }
@@ -260,12 +266,12 @@ export function DashboardsCollectionHomeTile({ density, items, label, empty }: D
       </ul>
     </div>
   );
-  const more = hidden > 0 ? <p className="pt-1 luxia-type-caption" style={{ color: HT.muted }}>{`+${hidden} more`}</p> : null;
+  const more = <MoreRow hidden={hidden} className="pt-1" />;
 
   if (density === "large") {
     return (
       <HomeTileSurface density="large" label={label} corner={CORNER} className="@container">
-        <TileSummaryRow summary={`${summary} · recently updated first`} clearance={HOME_TILE_CORNER_CLEARANCE.large} />
+        <TileSummaryRow summary={`${summary} · recently updated first`} clearance={HOME_TILE_CORNER_CLEARANCE.large} action={viewAll} />
         <div className="mt-3 grid min-h-0 min-w-0 flex-1 grid-cols-1 gap-4 @sm:grid-cols-2" data-home-dashboards-layout="large">
           <div className="min-h-0 min-w-0"><LeadDashboard item={lead} thumbHeight={140} layout="stack" /></div>
           <div className="flex min-h-0 min-w-0 flex-col">{list}{more}</div>
@@ -276,7 +282,7 @@ export function DashboardsCollectionHomeTile({ density, items, label, empty }: D
 
   return (
     <HomeTileSurface density="medium" label={label} corner={CORNER}>
-      <TileSummaryRow summary={summary} clearance={HOME_TILE_CORNER_CLEARANCE.medium} />
+      <TileSummaryRow summary={summary} clearance={HOME_TILE_CORNER_CLEARANCE.medium} action={viewAll} />
       <div className="mt-3 flex min-h-0 min-w-0 flex-1 flex-col gap-2" data-home-dashboards-layout="medium">
         <div className="shrink-0"><LeadDashboard item={lead} thumbHeight={76} layout="row" /></div>
         {list}

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { Check, ChevronDown, ChevronRight, CircleAlert } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, CircleAlert, Info } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/app/components/ui/popover";
 import {
@@ -10,11 +10,20 @@ import {
   CommandItem,
   CommandList,
 } from "@/app/components/ui/command";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/app/components/ui/tooltip";
 import { ChatSendButton } from "@/app/features/shared/ChatSendButton";
 import { LuxiaAiIcon, LuxiaChatIcon, LuxiaGalaxyIcon, LuxiaProjectsIcon } from "@/assets/icons";
 import { canCreateConstellation } from "@/app/features/permissions";
 import { HS } from "./homeSurfaces";
+import { HomeAssistantConversation, type HomeAssistantView } from "./HomeAssistantConversation";
+import {
+  LUXIA_ASSISTANT_CONFIG,
+  answerLuxiaAssistant,
+  readLuxiaConversation,
+  writeLuxiaConversation,
+  type LuxiaAssistantAbilities,
+  type LuxiaAssistantActionId,
+  type LuxiaAssistantMessage,
+} from "./luxiaAssistant";
 import type { HomeProjectCard } from "./types";
 
 export interface HomeContinueItem {
@@ -42,7 +51,16 @@ interface HomeStartPanelProps {
   onViewAllWork: () => void;
   canCreateProject: boolean;
   onNewProject: () => void;
+  /** Luxia AI: whose conversation this is, what this user may do, and the real destinations answers can open. */
+  assistant: {
+    sessionKey: string;
+    abilities: LuxiaAssistantAbilities;
+    actions: Partial<Record<Exclude<LuxiaAssistantActionId, "project-chat">, () => void>>;
+  };
 }
+
+/** How long a demo answer takes to appear, so the exchange reads as a conversation. */
+const DEMO_ANSWER_DELAY_MS = 600;
 
 const INK = "var(--luxia-purple-70)";
 const SOFT_BORDER = "var(--luxia-opacity-brand-secondary-24)";
@@ -110,16 +128,19 @@ const SEGMENT =
 function ProjectContext({
   projects,
   project,
+  active,
   recentProjectIds = [],
   onSelect,
 }: {
   projects: HomeProjectCard[];
   project: HomeProjectCard;
+  /** Project Chat is the chosen context (otherwise this segment offers it). */
+  active: boolean;
   recentProjectIds?: string[];
   onSelect: (projectId: string) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const noKnowledge = project.constellationCount === 0;
+  const noKnowledge = active && project.constellationCount === 0;
   const recent = projects.length >= RECENT_GROUP_MIN_PROJECTS
     ? recentProjectIds
       .map((id) => projects.find((entry) => entry.id === id))
@@ -168,14 +189,16 @@ function ProjectContext({
       <PopoverTrigger asChild>
         <button
           type="button"
-          aria-label={`Asking in ${project.name}. Change Project`}
-          title={`Answers come from ${project.name}`}
+          aria-label={active ? `Project Chat in ${project.name}. Change Project` : "Chat in a Project: choose a Project. Opens a separate Project Chat"}
+          title={active ? `Answers come from ${project.name}` : "Ask about a Project's documents and data in a Project Chat"}
           data-home-ask-context=""
           data-context-kind="project"
           data-context-id={project.id}
-          data-active=""
-          className={`${SEGMENT} flex-1 @[520px]:flex-none hover:bg-[var(--luxia-opacity-brand-secondary-04)] ${FOCUS_RING}`}
-          style={{ background: "var(--luxia-surface)", boxShadow: "var(--luxia-shadow-xs)", color: INK }}
+          data-active={active ? "" : undefined}
+          className={`${SEGMENT} flex-1 @[520px]:flex-none ${active ? "hover:bg-[var(--luxia-opacity-brand-secondary-04)]" : "hover:bg-[var(--luxia-opacity-brand-secondary-08)]"} ${FOCUS_RING}`}
+          style={active
+            ? { background: "var(--luxia-surface)", boxShadow: "var(--luxia-shadow-xs)", color: INK }
+            : { color: "var(--luxia-text-secondary)" }}
         >
           <span
             aria-hidden
@@ -184,7 +207,7 @@ function ProjectContext({
           >
             {noKnowledge ? <CircleAlert size={15} strokeWidth={2.25} /> : <LuxiaProjectsIcon size={15} color="currentColor" />}
           </span>
-          <span className="min-w-0 flex-1 truncate luxia-type-body-dense-strong">{project.name}</span>
+          <span className="min-w-0 flex-1 truncate luxia-type-body-dense-strong">{active ? project.name : "Chat in a Project"}</span>
           <ChevronDown size={14} aria-hidden className="shrink-0" style={{ color: "var(--luxia-purple-60)" }} />
         </button>
       </PopoverTrigger>
@@ -212,7 +235,7 @@ function ProjectContext({
             </CommandGroup>
           </CommandList>
           <p className="mx-2 mb-1 mt-1 border-t pt-2 luxia-type-caption" style={{ borderColor: "var(--luxia-border-default)", color: "var(--luxia-text-muted)" }}>
-            Answers only use the knowledge of the Project you choose.
+            Opens a separate Project Chat. Answers only use the knowledge of the Project you choose.
           </p>
         </Command>
       </PopoverContent>
@@ -220,42 +243,33 @@ function ProjectContext({
   );
 }
 
-/** Platform assistant, planned. Visible so people know it is coming; it cannot be chosen yet. */
-function LuxiaAiContext() {
+/** Luxia AI: the default conversation on Home, for help with using Luxia. */
+function LuxiaAiContext({ active, onSelect }: { active: boolean; onSelect: () => void }) {
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          type="button"
-          aria-disabled="true"
-          aria-label="Luxia AI, coming soon. Not available yet; questions are answered from a Project."
-          onClick={(event) => event.preventDefault()}
-          data-home-ask-context-option="luxia-ai"
-          data-context-kind="luxia-ai"
-          className={`${SEGMENT} shrink-0 cursor-not-allowed ${FOCUS_RING}`}
-          style={{ color: "var(--luxia-text-muted)" }}
-        >
-          <LuxiaAiIcon size={15} color="currentColor" aria-hidden />
-          <span className="luxia-type-body-dense-strong">Luxia AI</span>
-          <span
-            className="rounded-full px-1.5 text-[11px] font-bold leading-4 @max-[519px]:px-1"
-            style={{ background: "var(--luxia-opacity-brand-secondary-08)", color: "var(--luxia-text-secondary)" }}
-          >
-            <span className="@[520px]:hidden">Soon</span>
-            <span className="hidden @[520px]:inline">Coming soon</span>
-          </span>
-        </button>
-      </TooltipTrigger>
-      <TooltipContent side="bottom" className="max-w-[260px]">
-        Luxia AI is coming soon, for help with using Luxia. Today, questions are answered from a Project.
-      </TooltipContent>
-    </Tooltip>
+    <button
+      type="button"
+      onClick={onSelect}
+      aria-pressed={active}
+      aria-label={`${LUXIA_ASSISTANT_CONFIG.displayName}: help with using Luxia`}
+      title={`${LUXIA_ASSISTANT_CONFIG.displayName} · ${LUXIA_ASSISTANT_CONFIG.disclosure}`}
+      data-home-ask-context-option="luxia-ai"
+      data-context-kind="luxia-ai"
+      data-active={active ? "" : undefined}
+      className={`${SEGMENT} shrink-0 ${active ? "" : "hover:bg-[var(--luxia-opacity-brand-secondary-08)]"} ${FOCUS_RING}`}
+      style={active
+        ? { background: "var(--luxia-surface)", boxShadow: "var(--luxia-shadow-xs)", color: INK }
+        : { color: "var(--luxia-text-secondary)" }}
+    >
+      <LuxiaAiIcon size={15} color={active ? "var(--luxia-purple-60)" : "currentColor"} aria-hidden />
+      <span className="luxia-type-body-dense-strong">{LUXIA_ASSISTANT_CONFIG.displayName}</span>
+    </button>
   );
 }
 
 /**
- * Fixed Home Hero: one question box. The question always goes to the Project shown
- * in the box and opens the existing New Chat flow with the question carried over.
+ * Fixed Home Hero: one question box. Luxia AI is the default and answers here on
+ * Home. Chat in a Project is the explicit second path: it opens the existing New
+ * Chat flow for the chosen Project, with the question carried over.
  */
 export function HomeStartPanel({
   projects,
@@ -268,14 +282,75 @@ export function HomeStartPanel({
   onViewAllWork,
   canCreateProject,
   onNewProject,
+  assistant,
 }: HomeStartPanelProps) {
   const project = projects.find((entry) => entry.id === selectedProjectId) ?? projects[0] ?? null;
+  const [mode, setMode] = useState<"luxia-ai" | "project">("luxia-ai");
   const [question, setQuestion] = useState("");
+  const [messages, setMessages] = useState<LuxiaAssistantMessage[]>(() => readLuxiaConversation(assistant.sessionKey));
+  const [pending, setPending] = useState(false);
+  const [view, setView] = useState<HomeAssistantView>("open");
+  const answerTimer = useRef<number | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const aiMode = mode === "luxia-ai";
+  const showStarters = aiMode && messages.length === 0 && !pending;
   const hasKnowledge = Boolean(project && project.constellationCount > 0);
-  const canAsk = Boolean(project && hasKnowledge);
+  const canAsk = aiMode ? Boolean(question.trim()) && !pending : Boolean(project && hasKnowledge);
   const canAddKnowledge = Boolean(project && onOpenConstellations && canCreateConstellation(project.viewerProjectRole));
-  const sendLabel = !project ? "Ask" : question.trim() ? `Ask in ${project.name}` : `Start a Chat in ${project.name}`;
+  const sendLabel = aiMode
+    ? `Ask ${LUXIA_ASSISTANT_CONFIG.displayName}`
+    : !project ? "Ask" : question.trim() ? `Ask in ${project.name}` : `Start a Chat in ${project.name}`;
+
+  useEffect(() => {
+    writeLuxiaConversation(assistant.sessionKey, messages);
+  }, [assistant.sessionKey, messages]);
+
+  useEffect(() => () => {
+    if (answerTimer.current !== null) window.clearTimeout(answerTimer.current);
+  }, []);
+
+  function askAssistant(text: string) {
+    const trimmed = text.trim();
+    if (!trimmed || pending) return;
+    const asked: LuxiaAssistantMessage = { id: `u-${Date.now()}`, role: "user", text: trimmed };
+    setMessages((current) => [...current, asked]);
+    setQuestion("");
+    setView((current) => (current === "collapsed" ? "open" : current));
+    setPending(true);
+    answerTimer.current = window.setTimeout(() => {
+      answerTimer.current = null;
+      setMessages((current) => [...current, { id: `a-${Date.now()}`, role: "assistant", ...answerLuxiaAssistant(trimmed, assistant.abilities) }]);
+      setPending(false);
+    }, DEMO_ANSWER_DELAY_MS);
+    inputRef.current?.focus();
+  }
+
+  function clearConversation() {
+    if (answerTimer.current !== null) window.clearTimeout(answerTimer.current);
+    answerTimer.current = null;
+    setPending(false);
+    setMessages([]);
+    setView("open");
+    inputRef.current?.focus();
+  }
+
+  function canRun(action: LuxiaAssistantActionId) {
+    return action === "project-chat" ? projects.length > 0 : Boolean(assistant.actions[action]);
+  }
+
+  function run(action: LuxiaAssistantActionId) {
+    if (action === "project-chat") {
+      setMode("project");
+      inputRef.current?.focus();
+      return;
+    }
+    assistant.actions[action]?.();
+  }
+
+  function chooseProject(projectId: string) {
+    onSelectProject(projectId);
+    setMode("project");
+  }
 
   useEffect(() => {
     const input = inputRef.current;
@@ -285,6 +360,10 @@ export function HomeStartPanel({
   }, [question]);
 
   function ask() {
+    if (aiMode) {
+      askAssistant(question);
+      return;
+    }
     if (!project || !canAsk) return;
     onAsk(project.id, question.trim());
   }
@@ -296,11 +375,13 @@ export function HomeStartPanel({
     }
   }
 
-  const placeholder = !project
-    ? "Projects hold the documents and data Luxia answers from."
-    : hasKnowledge
-      ? "Ask a question…"
-      : "Type your question";
+  const placeholder = aiMode
+    ? `Ask ${LUXIA_ASSISTANT_CONFIG.displayName} about using Luxia…`
+    : !project
+      ? "Projects hold the documents and data Luxia answers from."
+      : hasKnowledge
+        ? `Ask a question about ${project.name}…`
+        : "Type your question";
 
   return (
     <section
@@ -326,7 +407,7 @@ export function HomeStartPanel({
           className="mb-3 luxia-type-heading-h4 sm:text-center"
           style={{ color: INK }}
         >
-          {project ? "What would you like to find out?" : "You're not in a Project yet"}
+          {aiMode || project ? "What would you like to find out?" : "You're not in a Project yet"}
         </h2>
 
         <div
@@ -334,26 +415,54 @@ export function HomeStartPanel({
           style={{ background: "var(--luxia-surface)", borderColor: SOFT_BORDER, boxShadow: "var(--luxia-shadow-md)" }}
           data-home-ask-composer=""
         >
+          {aiMode && messages.length > 0 ? (
+            <HomeAssistantConversation
+              messages={messages}
+              pending={pending}
+              view={view}
+              onViewChange={setView}
+              onClear={clearConversation}
+              onFollowUp={askAssistant}
+              canRun={canRun}
+              onRun={run}
+            />
+          ) : null}
           <label htmlFor="home-ask-input" className="sr-only">
-            {project ? `Your question for ${project.name}` : "Your question"}
+            {aiMode ? `Your question for ${LUXIA_ASSISTANT_CONFIG.displayName}` : project ? `Your question for ${project.name}` : "Your question"}
           </label>
           <div
-            className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-x-2 [grid-template-areas:'input_send'_'context_context'_'status_status'] @[520px]:[grid-template-areas:'input_input'_'context_send'_'status_status']"
+            className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-x-2 [grid-template-areas:'input_send'_'starters_starters'_'context_context'_'status_status'] @[520px]:[grid-template-areas:'input_input'_'starters_starters'_'context_send'_'status_status']"
             data-home-ask-layout=""
           >
             <textarea
               id="home-ask-input"
               ref={inputRef}
-              rows={2}
+              rows={showStarters ? 1 : 2}
               value={question}
               onChange={(event) => setQuestion(event.target.value)}
               onKeyDown={onKeyDown}
-              disabled={!project}
+              disabled={!aiMode && !project}
               placeholder={placeholder}
               data-home-ask-input=""
-              className="block min-h-[52px] w-full resize-none bg-transparent px-1.5 pb-2 pt-1 text-[17px] leading-[26px] outline-none [grid-area:input] placeholder:text-[var(--luxia-text-muted)] disabled:cursor-not-allowed"
+              className={`block w-full resize-none ${showStarters ? "min-h-[38px]" : "min-h-[52px]"} bg-transparent px-1.5 pb-2 pt-1 text-[17px] leading-[26px] outline-none [grid-area:input] placeholder:text-[var(--luxia-text-muted)] disabled:cursor-not-allowed`}
               style={{ color: "var(--luxia-text-primary)" }}
             />
+            {showStarters ? (
+              <div role="group" aria-label="Suggested questions" className="flex min-w-0 flex-wrap gap-1.5 px-1 pb-1 [grid-area:starters]" data-home-ai-starters="">
+                {LUXIA_ASSISTANT_CONFIG.suggestedQuestions.map((suggestion) => (
+                  <button
+                    key={suggestion}
+                    type="button"
+                    onClick={() => askAssistant(suggestion)}
+                    className={`inline-flex min-h-8 items-center rounded-full border px-3 luxia-type-caption font-semibold transition-colors hover:bg-[var(--luxia-opacity-brand-secondary-08)] ${FOCUS_RING}`}
+                    style={{ borderColor: SOFT_BORDER, color: INK }}
+                    data-home-ai-starter=""
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
+            ) : null}
             <div
               role="group"
               aria-label="Conversation context"
@@ -361,26 +470,41 @@ export function HomeStartPanel({
               style={{ borderColor: SOFT_BORDER, background: "var(--luxia-opacity-brand-secondary-04)" }}
               data-home-ask-contexts=""
             >
+              <LuxiaAiContext active={aiMode} onSelect={() => setMode("luxia-ai")} />
               {project ? (
-                <ProjectContext projects={projects} project={project} recentProjectIds={recentProjectIds} onSelect={onSelectProject} />
+                <ProjectContext projects={projects} project={project} active={!aiMode} recentProjectIds={recentProjectIds} onSelect={chooseProject} />
               ) : (
-                <span
-                  className={`${SEGMENT} flex-1 luxia-type-body-dense-strong @[520px]:flex-none`}
-                  style={{ background: "var(--luxia-surface)", color: "var(--luxia-text-muted)" }}
+                <button
+                  type="button"
+                  onClick={() => setMode("project")}
+                  aria-pressed={!aiMode}
+                  className={`${SEGMENT} flex-1 luxia-type-body-dense-strong @[520px]:flex-none ${FOCUS_RING}`}
+                  style={aiMode ? { color: "var(--luxia-text-secondary)" } : { background: "var(--luxia-surface)", color: "var(--luxia-text-muted)" }}
                   data-home-ask-context=""
                   data-context-kind="none"
+                  data-active={aiMode ? undefined : ""}
                 >
                   <LuxiaProjectsIcon size={15} color="currentColor" aria-hidden />
-                  No Project
-                </span>
+                  {aiMode ? "Chat in a Project" : "No Project"}
+                </button>
               )}
-              <LuxiaAiContext />
             </div>
             <span className="shrink-0 self-end [grid-area:send]" title={canAsk ? sendLabel : undefined}>
               <ChatSendButton canSend={canAsk} onClick={ask} aria-label={sendLabel} className="h-11 w-11" />
             </span>
 
-            {project && !hasKnowledge ? (
+            {!aiMode && project && hasKnowledge ? (
+              <p
+                data-home-ask-hint="project-chat"
+                className="mt-2.5 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 border-t px-1 pt-2 luxia-type-caption [grid-area:status]"
+                style={{ borderColor: "var(--luxia-border-default)", color: "var(--luxia-text-secondary)" }}
+              >
+                <Info size={14} strokeWidth={2.25} aria-hidden className="shrink-0" style={{ color: "var(--luxia-purple-60)" }} />
+                <span>Opens a separate Project Chat. Answers come only from this Project's knowledge.</span>
+              </p>
+            ) : null}
+
+            {!aiMode && project && !hasKnowledge ? (
               <p
                 role="status"
                 data-home-ask-hint="no-knowledge"
@@ -405,7 +529,7 @@ export function HomeStartPanel({
               </p>
             ) : null}
 
-            {!project ? (
+            {!aiMode && !project ? (
               <div className="mt-3 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 px-1 [grid-area:status]" data-home-ask-hint="no-project">
                 {canCreateProject ? (
                   <Button type="button" variant="primary" size="compact" onClick={onNewProject}>New Project</Button>
@@ -419,58 +543,59 @@ export function HomeStartPanel({
         </div>
 
         {continueItems.length > 0 ? (
-          <nav
-            aria-label="Continue recent work"
-            className="mt-3 flex min-w-0 flex-col gap-2 @[620px]:flex-row @[620px]:items-center @[620px]:pl-1"
-            data-home-continue=""
-          >
-            <span className="shrink-0 luxia-type-overline-data" style={{ color: "var(--luxia-text-muted)", letterSpacing: "0.06em" }}>
-              Continue
-            </span>
-            {continueItems.map((item, index) => {
-              const isGalaxy = item.kind === "galaxy";
-              const meta = [item.projectName, item.when].filter(Boolean).join(" · ") || item.detail;
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={item.onOpen}
-                  aria-label={`Continue ${isGalaxy ? "Galaxy" : "Chat"} ${item.title}, ${item.detail}${item.pinned ? ", pinned" : ""}`}
-                  title={`${item.title} · ${item.detail}`}
-                  data-home-continue-item=""
-                  data-kind={item.kind}
-                  data-pinned={item.pinned ? "" : undefined}
-                  className={`${index >= 2 ? "@max-[619px]:hidden " : ""}flex min-h-[44px] min-w-0 items-center gap-2 rounded-[14px] border py-1 pl-1 pr-3 text-left transition-colors hover:bg-[var(--luxia-opacity-brand-secondary-08)] @[620px]:max-w-[280px] @[620px]:flex-1 ${FOCUS_RING}`}
-                  style={{ borderColor: SOFT_BORDER, background: "var(--luxia-surface)", color: INK }}
-                >
-                  <span
-                    aria-hidden
-                    className="flex size-8 shrink-0 items-center justify-center rounded-full"
-                    style={isGalaxy
-                      ? { background: HS.accentGalaxySoft, color: HS.accentGalaxy }
-                      : { background: "var(--luxia-opacity-brand-tertiary-24)", color: HS.accentChat }}
-                  >
-                    {isGalaxy ? <LuxiaGalaxyIcon size={16} color="currentColor" /> : <LuxiaChatIcon size={16} color="currentColor" />}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate luxia-type-body-dense-strong">{item.title}</span>
-                    <span className="block truncate luxia-type-caption leading-4" style={{ color: "var(--luxia-text-muted)" }}>{meta}</span>
-                  </span>
-                </button>
-              );
-            })}
-            <button
-              type="button"
-              onClick={onViewAllWork}
-              aria-label="Chat history: open Chats & Galaxies"
-              title="Open Chats & Galaxies"
-              data-home-continue-all=""
-              className={`inline-flex min-h-[40px] shrink-0 items-center gap-1 self-start rounded-[8px] px-1.5 luxia-type-body-dense-strong hover:underline @[620px]:ml-auto @[620px]:self-auto ${FOCUS_RING}`}
-              style={{ color: "var(--luxia-purple-60)" }}
-            >
-              Chat history
-              <ChevronRight size={15} aria-hidden />
-            </button>
+          <nav aria-labelledby="home-continue-title" className="mt-3 min-w-0" data-home-continue="">
+            <div className="mb-1.5 flex min-w-0 items-center justify-between gap-3 px-1">
+              <h3 id="home-continue-title" className="min-w-0 truncate luxia-type-body-dense-strong" style={{ color: "var(--luxia-text-secondary)" }}>
+                Continue where you left off
+              </h3>
+              <button
+                type="button"
+                onClick={onViewAllWork}
+                aria-label="Chat history: open Chats & Galaxies"
+                title="Open Chats & Galaxies"
+                data-home-continue-all=""
+                className={`-mr-1 inline-flex min-h-7 shrink-0 items-center gap-0.5 rounded-[8px] px-1.5 luxia-type-body-dense-strong hover:underline ${FOCUS_RING}`}
+                style={{ color: "var(--luxia-purple-60)" }}
+              >
+                Chat history
+                <ChevronRight size={15} aria-hidden />
+              </button>
+            </div>
+            <ul className="grid min-w-0 grid-cols-1 gap-2 @[620px]:grid-cols-3">
+              {continueItems.map((item, index) => {
+                const isGalaxy = item.kind === "galaxy";
+                const meta = [item.projectName, item.when].filter(Boolean).join(" · ") || item.detail;
+                return (
+                  <li key={item.id} className={`min-w-0 ${index >= 2 ? "@max-[619px]:hidden" : ""}`}>
+                    <button
+                      type="button"
+                      onClick={item.onOpen}
+                      aria-label={`Continue ${isGalaxy ? "Galaxy" : "Chat"} ${item.title}, ${item.detail}${item.pinned ? ", pinned" : ""}`}
+                      title={`${item.title} · ${item.detail}`}
+                      data-home-continue-item=""
+                      data-kind={item.kind}
+                      data-pinned={item.pinned ? "" : undefined}
+                      className={`flex min-h-11 w-full min-w-0 items-center gap-2.5 rounded-[14px] border py-1 pl-1 pr-3 text-left transition-colors hover:border-[var(--luxia-opacity-brand-secondary-32)] hover:bg-[var(--luxia-opacity-brand-secondary-04)] ${FOCUS_RING}`}
+                      style={{ borderColor: SOFT_BORDER, background: "var(--luxia-surface)", color: INK }}
+                    >
+                      <span
+                        aria-hidden
+                        className="flex size-8 shrink-0 items-center justify-center rounded-full"
+                        style={isGalaxy
+                          ? { background: HS.accentGalaxySoft, color: HS.accentGalaxy }
+                          : { background: "var(--luxia-opacity-brand-tertiary-24)", color: HS.accentChat }}
+                      >
+                        {isGalaxy ? <LuxiaGalaxyIcon size={16} color="currentColor" /> : <LuxiaChatIcon size={16} color="currentColor" />}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate luxia-type-body-dense-strong">{item.title}</span>
+                        <span className="block truncate luxia-type-caption leading-4" style={{ color: "var(--luxia-text-muted)" }}>{meta}</span>
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
           </nav>
         ) : null}
       </div>

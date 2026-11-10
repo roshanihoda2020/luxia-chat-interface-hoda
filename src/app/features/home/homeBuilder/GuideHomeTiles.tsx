@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { Check, ChevronLeft, ChevronRight, EyeOff, ListChecks, Sparkles } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, CircleCheck, Clock3, EyeOff, ListChecks, Lock, ShieldCheck, Sparkles } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { LuxiaArrowRightIcon } from "@/assets/icons";
-import { LuxiaCharacter } from "../LuxiaCharacter";
 import { DiscoverScene, type DiscoverSceneKind } from "../DiscoverScene";
 import {
   HOME_TILE_CORNER_CLEARANCE,
@@ -19,6 +18,8 @@ export interface HomeGuideStep {
   /** Reflects the user's real data (e.g. they already have a Project). */
   done: boolean;
   action?: { label: string; ariaLabel?: string; onClick: () => void };
+  /** Not done yet and not fully in the user's hands: waiting for an earlier step, or for an admin. */
+  note?: { kind: "waiting" | "admin"; text: string };
 }
 
 export interface HomeGuideExample {
@@ -66,6 +67,45 @@ function HideGuideButton({ label, onHide }: { label: string; onHide: () => void 
   );
 }
 
+function SetupProgressIcon({ complete }: { complete: boolean }) {
+  return (
+    <span
+      aria-hidden
+      className="flex size-9 shrink-0 items-center justify-center rounded-[10px]"
+      style={{ background: "var(--luxia-opacity-brand-secondary-12)", color: "var(--luxia-purple-60)" }}
+    >
+      {complete ? <CircleCheck size={18} strokeWidth={2} /> : <ListChecks size={18} strokeWidth={2} />}
+    </span>
+  );
+}
+
+function SetupProgress({ done, total }: { done: number; total: number }) {
+  const percent = total > 0 ? Math.round((done / total) * 100) : 0;
+  return (
+    <div className="flex min-w-0 flex-1 items-center gap-3" data-home-guide-progress={done}>
+      <SetupProgressIcon complete={false} />
+      <div className="min-w-0 w-full max-w-[320px]">
+        <p className="luxia-type-body-dense-strong" style={{ color: "var(--luxia-purple-70)" }}>{done} of {total} completed</p>
+        <div
+          role="progressbar"
+          aria-label="Get started progress"
+          aria-valuemin={0}
+          aria-valuemax={total}
+          aria-valuenow={done}
+          aria-valuetext={`${done} of ${total} steps completed`}
+          className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full"
+          style={{ background: "var(--luxia-opacity-brand-secondary-16)" }}
+        >
+          <div
+            className="h-full rounded-full motion-safe:transition-[width] motion-safe:duration-300"
+            style={{ width: `${percent}%`, background: "var(--luxia-purple-60)" }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function GetStartedHomeTile({
   density,
   steps,
@@ -84,7 +124,7 @@ export function GetStartedHomeTile({
         corner={{ icon: (size) => <ListChecks size={size} strokeWidth={2} /> }}
       >
         <div className={`flex min-w-0 flex-wrap items-center gap-3 ${HOME_TILE_CORNER_CLEARANCE[density]}`} data-home-guide-complete="">
-          <LuxiaCharacter role="guide" size={44} />
+          <SetupProgressIcon complete />
           <p className="min-w-[12rem] flex-1 luxia-type-body-dense" style={{ color: HT.secondary }}>
             <span className="font-semibold" style={{ color: "var(--luxia-purple-70)" }}>You've covered the basics.</span>{" "}
             Your data, a Project, a Constellation and a Chat are all set up.
@@ -101,13 +141,7 @@ export function GetStartedHomeTile({
       corner={{ icon: (size) => <ListChecks size={size} strokeWidth={2} /> }}
     >
       <div className={`flex min-w-0 items-center justify-between gap-3 ${HOME_TILE_CORNER_CLEARANCE[density]}`}>
-        <div className="flex min-w-0 items-center gap-3">
-          <LuxiaCharacter role="guide" size={44} />
-          <p className="luxia-type-body-dense" style={{ color: HT.secondary }}>
-            <span className="font-semibold" style={{ color: "var(--luxia-purple-70)" }}>{done} of {steps.length} done.</span>{" "}
-            Each step opens the place where you do it.
-          </p>
-        </div>
+        <SetupProgress done={done} total={steps.length} />
         <HideGuideButton label="Get started" onHide={onHide} />
       </div>
       <ol className="mt-3 grid min-w-0 gap-2.5" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))" }}>
@@ -134,6 +168,18 @@ export function GetStartedHomeTile({
               </span>
             </span>
             <span className="luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>{step.detail}</span>
+            {!step.done && step.note ? (
+              <span
+                className="inline-flex items-start gap-1.5 luxia-type-caption"
+                style={{ color: step.note.kind === "admin" ? "var(--luxia-purple-60)" : "var(--luxia-text-muted)" }}
+                data-home-guide-note={step.note.kind}
+              >
+                {step.note.kind === "admin"
+                  ? <ShieldCheck size={13} strokeWidth={2.25} aria-hidden className="mt-0.5 shrink-0" />
+                  : <Clock3 size={13} strokeWidth={2.25} aria-hidden className="mt-0.5 shrink-0" />}
+                <span><span className="font-semibold">{step.note.kind === "admin" ? "Needs an admin: " : "Waiting: "}</span>{step.note.text}</span>
+              </span>
+            ) : null}
             {step.action ? (
               <Button
                 type="button"
@@ -155,14 +201,15 @@ export function GetStartedHomeTile({
 
 function exampleLabel(example: HomeGuideExample) {
   return example.unavailable
-    ? `${example.title}. ${example.unavailable}`
-    : `${example.actionLabel}: ${example.title}. ${example.opens}`;
+    ? `${example.title}. ${example.outcome} ${example.unavailable}`
+    : `${example.actionLabel}: ${example.title}. ${example.outcome} ${example.opens}`;
 }
 
 function ActionLabel({ example }: { example: HomeGuideExample }) {
   const disabled = !example.onTry || Boolean(example.unavailable);
   return (
-    <span className="inline-flex items-center gap-1 luxia-type-label-small" style={{ color: disabled ? HT.muted : HT.link }}>
+    <span className="inline-flex items-center gap-1 luxia-type-label-small" style={{ color: disabled ? HT.secondary : HT.link }}>
+      {disabled ? <Lock size={12} strokeWidth={2.25} aria-hidden /> : null}
       {disabled ? example.unavailable ?? "Not available yet" : example.actionLabel}
       {disabled ? null : (
         <LuxiaArrowRightIcon size={12} color="currentColor" aria-hidden className="transition-transform duration-150 group-hover:translate-x-0.5" />
@@ -194,7 +241,7 @@ function DiscoverCard({
       data-home-guide-example={example.id}
       className={`group flex h-full w-full min-w-0 rounded-[14px] p-2 text-left transition-colors ${HOME_TILE_FOCUS_RING} ${
         shape.kind === "stacked" ? "flex-col gap-2.5" : "items-stretch gap-3"
-      } ${disabled ? "cursor-default opacity-70" : "hover:bg-[var(--home-tile-panel-hover)]"}`}
+      } ${disabled ? "cursor-default" : "hover:bg-[var(--home-tile-panel-hover)]"}`}
       style={{ background: HT.panel, border: `1px solid ${HT.chipBorder}` }}
     >
       <DiscoverScene kind={example.art} className={shape.art} />
@@ -206,8 +253,14 @@ function DiscoverCard({
         }`}
       >
         <span className="line-clamp-2 luxia-type-body-dense-strong" style={{ color: HT.title }}>{title}</span>
-        {shape.kind === "stacked" && shape.showOutcome && !example.unavailable ? (
-          <span className="luxia-type-caption" style={{ color: HT.muted }}>{example.outcome}</span>
+        {(shape.kind === "side" || shape.showOutcome) && !example.unavailable ? (
+          <span
+            className={`luxia-type-caption ${shape.kind === "side" ? (shape.short ? "hidden @[210px]:block" : "hidden @[460px]:block") : ""}`}
+            style={{ color: HT.muted }}
+            data-home-guide-description=""
+          >
+            {example.outcome}
+          </span>
         ) : null}
         <span className={shape.kind === "stacked" ? "mt-auto pt-1" : ""}><ActionLabel example={example} /></span>
       </span>
@@ -311,7 +364,7 @@ export function TryExampleHomeTile({
       ) : (
         <ul
           className={`mt-3 grid min-w-0 gap-3 ${
-            layout === "grid" ? "min-h-0 flex-1 grid-cols-2 grid-rows-2" : "grid-cols-2 @3xl:grid-cols-4"
+            layout === "grid" ? "min-h-0 flex-1 grid-cols-2 grid-rows-2" : examples.length === 3 ? "grid-cols-1 @lg:grid-cols-3" : "grid-cols-2 @3xl:grid-cols-4"
           }`}
           aria-label="Discover what Luxia can do"
           data-home-discover-layout={layout}
@@ -323,7 +376,7 @@ export function TryExampleHomeTile({
                 shape={layout === "grid"
                   ? { kind: "side", art: "h-full w-[56%] shrink-0" }
                   : layout === "compact"
-                    ? { kind: "stacked", art: "aspect-[2/1] w-full", showOutcome: false, short: true }
+                    ? { kind: "stacked", art: "aspect-[2/1] w-full", showOutcome: true, short: true }
                     : { kind: "stacked", art: "aspect-[3/2] w-full", showOutcome: true }}
               />
             </li>

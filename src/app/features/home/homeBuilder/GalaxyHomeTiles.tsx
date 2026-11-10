@@ -22,6 +22,10 @@ import {
   KnowledgeGlyph,
   KnowledgeStack,
   knowledgeKindOf,
+  MoreRow,
+  OpenCue,
+  TileSummaryRow,
+  type HomeTileViewAll,
 } from "./homeTileVisuals";
 
 /**
@@ -309,6 +313,8 @@ export interface GalaxiesCollectionHomeTileProps {
   /** Count only (e.g. "48 Galaxies"). */
   count: string;
   empty: HomeCollectionEmptyState;
+  /** Where the Galaxies not shown live; offered only when some are trimmed. */
+  viewAll?: HomeTileViewAll;
 }
 
 /**
@@ -316,9 +322,9 @@ export interface GalaxiesCollectionHomeTileProps {
  * Medium — rows: name, the Project's last update and the Constellation glyphs.
  * Large — two columns of orchestration cards.
  * Full width — cards for the Galaxies with Constellations.
- * There is no all-Galaxies page, so the footer counts the rest instead of linking.
+ * There is no all-Galaxies page; each Project has one Galaxy, so the rest are reached through Projects.
  */
-export function GalaxiesCollectionHomeTile({ density, galaxies, label, summary, count, empty }: GalaxiesCollectionHomeTileProps) {
+export function GalaxiesCollectionHomeTile({ density, galaxies, label, summary, count, empty, viewAll }: GalaxiesCollectionHomeTileProps) {
   const wide = density === "wide";
   const withConstellations = galaxies.filter((galaxy) => galaxy.constellationCount > 0);
   const primary = wide ? withConstellations : galaxies;
@@ -338,23 +344,21 @@ export function GalaxiesCollectionHomeTile({ density, galaxies, label, summary, 
         <p className={`flex min-w-0 items-baseline gap-1.5 ${HOME_TILE_CORNER_CLEARANCE.small}`} title={summary}>
           <span className="shrink-0 luxia-type-body-dense-strong" style={{ color: HT.text }}>{count}</span>
           <span className="min-w-0 truncate luxia-type-caption" style={{ color: HT.muted }}>{readyLine}</span>
+          {viewAll ? <OpenCue label={viewAll.label} ariaLabel={viewAll.ariaLabel} onClick={viewAll.onClick} className="ml-auto self-center" /> : null}
         </p>
         <div ref={areaRef} className="mt-1 min-h-0 flex-1 overflow-hidden">
           <ul ref={listRef} className="-mx-1.5 min-w-0" aria-label={label}>
             {shown.map((galaxy) => <li key={galaxy.id} className="min-w-0"><GalaxyRow galaxy={galaxy} dense /></li>)}
           </ul>
         </div>
+        <MoreRow hidden={galaxies.length - shown.length} className="pt-1" />
       </HomeTileSurface>
     );
   }
 
   const surfaceDensity = wide ? "large" : density;
   const hidden = galaxies.length - shown.length;
-  const header = (
-    <p className={`truncate luxia-type-caption ${HOME_TILE_CORNER_CLEARANCE[surfaceDensity]}`} style={{ color: HT.muted }} title={summary}>
-      {`${summary} · ${readyLine}`}
-    </p>
-  );
+  const header = <TileSummaryRow summary={`${summary} · ${readyLine}`} clearance={HOME_TILE_CORNER_CLEARANCE[surfaceDensity]} action={viewAll} />;
 
   if (wide) {
     const restHidden = Math.max(0, withConstellations.length - shown.length);
@@ -367,7 +371,7 @@ export function GalaxiesCollectionHomeTile({ density, galaxies, label, summary, 
               {shown.map((galaxy) => <li key={galaxy.id} className="min-w-0"><GalaxyCard galaxy={galaxy} /></li>)}
             </ul>
           </div>
-          {restHidden > 0 ? <p className="luxia-type-caption" style={{ color: HT.muted }}>{`+${restHidden} more with Constellations`}</p> : null}
+          <MoreRow hidden={restHidden} text={`+${restHidden} more with Constellations`} className="pt-0" />
         </div>
       </HomeTileSurface>
     );
@@ -389,9 +393,7 @@ export function GalaxiesCollectionHomeTile({ density, galaxies, label, summary, 
           ))}
         </ul>
       </div>
-      {hidden > 0 ? (
-        <p className="mt-auto pt-2 luxia-type-caption" style={{ color: HT.muted }}>{`+${hidden} more`}</p>
-      ) : null}
+      <MoreRow hidden={hidden} className="pt-2" />
     </HomeTileSurface>
   );
 }

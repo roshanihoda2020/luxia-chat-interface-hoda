@@ -391,6 +391,7 @@ import {
 } from "@/app/app-sections/appSectionShared";
 import { PageHeader } from "@/app/app-sections/ChatHeaderSection";
 import { PromptComposer } from "@/app/app-sections/ChatComposerSection";
+import { FIRST_TIME_DEMO_USER_ID, rememberPrototypeUserId, restorePrototypeUserId } from "@/app/features/permissions/currentUser";
 import {
   AICard,
   ChatTabBar,
@@ -1106,7 +1107,8 @@ export default function App() {
   const [projectAssistantSessions, setProjectAssistantSessions] = useState<
     Record<string, ProjectAssistantMessage[]>
   >({});
-  const [prototypeUserId, setPrototypeUserId] = useState(CURRENT_USER_ID);
+  const [prototypeUserId, setPrototypeUserId] = useState(() => restorePrototypeUserId((userId) =>
+    ORGANIZATION_USERS.some((user) => user.id === userId && (user.status === "active" || user.id === FIRST_TIME_DEMO_USER_ID))));
   const [prototypeSignedIn, setPrototypeSignedIn] = useState(bootstrapPrototypeSignedIn);
   const [mfaNudgeEmail, setMfaNudgeEmail] = useState<string | null>(null);
   const [mfaNudgeOpen, setMfaNudgeOpen] = useState(false);
@@ -3463,11 +3465,12 @@ export default function App() {
   }, [activeProjectId, activeChat, chats, projectMembershipsState, prototypeUserId]);
 
   function handlePrototypeUserChange(userId: string) {
-    if (!organizationUsersState.some((user) => user.id === userId && user.status === "active")) {
+    if (!organizationUsersState.some((user) => user.id === userId && (user.status === "active" || user.id === FIRST_TIME_DEMO_USER_ID))) {
       return;
     }
     setPrototypeCurrentUserId(userId);
     setPrototypeUserId(userId);
+    rememberPrototypeUserId(userId);
     setConstellationAccessBlock(null);
     setGalaxyAccessBlock(null);
     setMobileNavOpen(false);
@@ -6137,7 +6140,7 @@ export default function App() {
   const prototypeUsersForDemo = useMemo(() => {
     const inProjectContext = Boolean(activeProjectId);
     return organizationUsersState
-      .filter((user) => user.status === "active")
+      .filter((user) => user.status === "active" || user.id === FIRST_TIME_DEMO_USER_ID)
       .map((user) => {
         const projectRole = activeProjectId
           ? getActiveProjectMembership(
@@ -6151,11 +6154,13 @@ export default function App() {
           name: user.name,
           orgRole: user.orgRole,
           projectRole,
-          contextLabel: formatDemoIdentityContextLabel({
-            orgRole: user.orgRole,
-            projectRole,
-            includeProjectRole: inProjectContext,
-          }),
+          contextLabel: user.id === FIRST_TIME_DEMO_USER_ID
+            ? "First-time Demo User"
+            : formatDemoIdentityContextLabel({
+              orgRole: user.orgRole,
+              projectRole,
+              includeProjectRole: inProjectContext,
+            }),
         };
       });
   }, [activeProjectId, organizationUsersState, projectMembershipsState]);
@@ -6573,6 +6578,7 @@ export default function App() {
               onOpenProjectVidgets={handleOpenProjectVidgets}
               onNewProject={() => setShowNewProjectModal(true)}
               onNavigateProjectDestination={handleNavigateProjectDestination}
+              onOpenProjectDashboards={(projectId) => handleOpenProjectOverview(projectId, "dashboards")}
               homeTileDataSources={dataSourcesState
                 .filter((source) =>
                   canUserAccessDataSource(source.id, accessLevelsState, dataSourcesState, prototypeUserId))

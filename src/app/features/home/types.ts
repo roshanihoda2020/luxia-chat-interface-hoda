@@ -151,5 +151,7 @@ export interface HomePageProps {
   onOpenExplore?: (section?: "whats-new", updateId?: string) => void;
   /** Opens one named Dashboard in its Project (Project › Dashboards › name). */
   onOpenDashboard?: (projectId: string, dashboardId: string) => void;
+  /** Opens a Project's Dashboards page (Project › Dashboards). */
+  onOpenProjectDashboards?: (projectId: string) => void;
   onOpenTool?: (toolId: string) => void;
 }

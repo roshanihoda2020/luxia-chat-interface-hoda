@@ -31,6 +31,8 @@ import {
   plural,
   type HomeKnowledgeKind,
   type MixSegment,
+  MoreRow,
+  type HomeTileViewAll,
 } from "./homeTileVisuals";
 
 /**
@@ -125,6 +127,8 @@ export interface ConstellationsCollectionHomeTileProps {
   items: readonly HomeConstellationTileItem[];
   label: string;
   empty: HomeCollectionEmptyState;
+  /** Where the Constellations not shown live; offered only when some are trimmed. */
+  viewAll?: HomeTileViewAll;
 }
 
 /**
@@ -132,7 +136,7 @@ export interface ConstellationsCollectionHomeTileProps {
  * Medium / Large — the type split, then the Constellations grouped under their Project.
  * Full width — one column per Project: its monogram, name and Constellations.
  */
-export function ConstellationsCollectionHomeTile({ density, items, label, empty }: ConstellationsCollectionHomeTileProps) {
+export function ConstellationsCollectionHomeTile({ density, items, label, empty, viewAll }: ConstellationsCollectionHomeTileProps) {
   const wide = density === "wide";
   const grouped = groupByProject(items);
   const listEntries = density === "small" ? items.map((item) => ({ kind: "item" as const, key: item.id, item })) : grouped;
@@ -151,15 +155,19 @@ export function ConstellationsCollectionHomeTile({ density, items, label, empty 
     const shown = items.slice(0, count);
     return (
       <HomeTileSurface density="small" label={label} corner={CONSTELLATION_CORNER}>
-        <p className={`truncate luxia-type-body-dense-strong ${HOME_TILE_CORNER_CLEARANCE.small}`} style={{ color: HT.text }} title={summary}>
-          {plural(items.length, "Constellation")}
-        </p>
+        <div className={`flex min-w-0 items-center justify-between gap-2 ${HOME_TILE_CORNER_CLEARANCE.small}`}>
+          <p className="truncate luxia-type-body-dense-strong" style={{ color: HT.text }} title={summary}>
+            {plural(items.length, "Constellation")}
+          </p>
+          {viewAll ? <OpenCue label={viewAll.label} ariaLabel={viewAll.ariaLabel} onClick={viewAll.onClick} /> : null}
+        </div>
         <div className="mt-1.5"><TypeMixBar segments={mix} label="Constellations by type" /></div>
         <div ref={areaRef} className="mt-1 min-h-0 flex-1 overflow-hidden">
           <ul ref={listRef} className="-mx-1.5 min-w-0" aria-label={label}>
             {shown.map((item) => <li key={item.id} className="min-w-0"><ConstellationRow item={item} showProject={false} dense /></li>)}
           </ul>
         </div>
+        <MoreRow hidden={items.length - shown.length} className="pt-1" />
       </HomeTileSurface>
     );
   }
@@ -173,6 +181,7 @@ export function ConstellationsCollectionHomeTile({ density, items, label, empty 
         <div className={`flex min-w-0 items-center gap-6 ${HOME_TILE_CORNER_CLEARANCE.large}`}>
           <p className="shrink-0 truncate luxia-type-caption" style={{ color: HT.muted }} title={summary}>{summary}</p>
           <div className="min-w-0 max-w-[420px] flex-1"><TypeMixBar segments={mix} label="Constellations by type" /></div>
+          {viewAll ? <OpenCue label={viewAll.label} ariaLabel={viewAll.ariaLabel} onClick={viewAll.onClick} className="ml-auto" /> : null}
         </div>
         <ul
           className="mt-3 grid min-h-0 min-w-0 flex-1 grid-cols-1 gap-3 overflow-hidden @md:grid-cols-2 @3xl:grid-cols-4"
@@ -199,11 +208,11 @@ export function ConstellationsCollectionHomeTile({ density, items, label, empty 
             );
           })}
         </ul>
-        {moreProjects > 0 ? (
-          <p className="pt-2 luxia-type-caption" style={{ color: HT.muted }}>
-            {`+${plural(items.filter((item) => !columns.some(([id]) => id === item.projectId)).length, "Constellation")} in ${plural(moreProjects, "more Project")}`}
-          </p>
-        ) : null}
+        <MoreRow
+          hidden={moreProjects}
+          text={`+${plural(items.filter((item) => !columns.some(([id]) => id === item.projectId)).length, "Constellation")} in ${plural(moreProjects, "more Project")}`}
+          className="pt-2"
+        />
       </HomeTileSurface>
     );
   }
@@ -215,7 +224,7 @@ export function ConstellationsCollectionHomeTile({ density, items, label, empty 
 
   return (
     <HomeTileSurface density={density} label={label} corner={CONSTELLATION_CORNER} className="@container">
-      <TileSummaryRow summary={summary} clearance={HOME_TILE_CORNER_CLEARANCE[density]} />
+      <TileSummaryRow summary={summary} clearance={HOME_TILE_CORNER_CLEARANCE[density]} action={viewAll} />
       <div className="mt-2.5 rounded-[10px] px-3 py-2.5" style={{ background: HT.panel }}>
         <TypeMixBar segments={mix} label="Constellations by type" />
       </div>
@@ -230,7 +239,7 @@ export function ConstellationsCollectionHomeTile({ density, items, label, empty 
           )))}
         </ul>
       </div>
-      {hidden > 0 ? <p className="pt-1.5 luxia-type-caption" style={{ color: HT.muted }}>{`+${hidden} more`}</p> : null}
+      <MoreRow hidden={hidden} />
     </HomeTileSurface>
   );
 }
@@ -604,7 +613,10 @@ export function DataSourcesCollectionHomeTile({ density, items, label, empty, on
   if (density === "small") {
     return (
       <HomeTileSurface density="small" label={label} corner={DATA_SOURCE_CORNER}>
-        <p className={`truncate luxia-type-body-dense-strong ${HOME_TILE_CORNER_CLEARANCE.small}`} style={{ color: HT.text }}>{total}</p>
+        <div className={`flex min-w-0 items-center justify-between gap-2 ${HOME_TILE_CORNER_CLEARANCE.small}`}>
+          <p className="truncate luxia-type-body-dense-strong" style={{ color: HT.text }}>{total}</p>
+          {viewAll ? <OpenCue label={viewAll.label} ariaLabel={viewAll.ariaLabel} onClick={viewAll.onClick} /> : null}
+        </div>
         <ul
           className="mt-2 grid min-w-0 gap-1"
           style={{ gridTemplateColumns: `repeat(${groups.length}, minmax(0, 1fr))` }}
@@ -624,11 +636,6 @@ export function DataSourcesCollectionHomeTile({ density, items, label, empty, on
             );
           })}
         </ul>
-        {viewAll ? (
-          <div className="mt-auto flex justify-end pt-1">
-            <OpenCue label={viewAll.label} ariaLabel={viewAll.ariaLabel} onClick={viewAll.onClick} />
-          </div>
-        ) : null}
       </HomeTileSurface>
     );
   }

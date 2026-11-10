@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { LuxiaArrowRightIcon } from "@/assets/icons";
+import { MoreRow, OpenCue } from "./homeTileVisuals";
 import {
   HOME_TILE_CORNER_CLEARANCE,
   HT,
@@ -238,9 +239,10 @@ export function CollectionHomeTile({
 
   const summaryText = density === "small" && smallSummary ? smallSummary : summary;
   const summaryLine = (
-    <p className={`truncate luxia-type-caption ${HOME_TILE_CORNER_CLEARANCE[surfaceDensity]}`} style={{ color: HT.muted }} title={summary}>
-      {summaryText}
-    </p>
+    <div className={`flex min-w-0 items-center justify-between gap-2 ${HOME_TILE_CORNER_CLEARANCE[surfaceDensity]}`}>
+      <p className="min-w-0 truncate luxia-type-caption" style={{ color: HT.muted }} title={summary}>{summaryText}</p>
+      {viewAll ? <OpenCue label={viewAll.label} ariaLabel={viewAll.ariaLabel} onClick={viewAll.onClick} /> : null}
+    </div>
   );
 
   if (items.length === 0) {
@@ -251,8 +253,8 @@ export function CollectionHomeTile({
           <p className={`${density === "small" ? "line-clamp-2" : ""} luxia-type-caption`} style={{ color: HT.secondary }}>
             {empty.body}
           </p>
-          {empty.action && density !== "small" ? (
-            <div className="pt-2">
+          {empty.action ? (
+            <div className={density === "small" ? "pt-1" : "pt-2"}>
               <button
                 type="button"
                 onClick={empty.action.onClick}
@@ -309,25 +311,7 @@ export function CollectionHomeTile({
       </ul>
       </div>
 
-      {viewAll || hidden > 0 ? (
-        <div className="mt-auto flex items-center justify-between gap-3 pt-3">
-          <span className="luxia-type-caption" style={{ color: HT.muted }}>
-            {hidden > 0 && !viewAll ? `+${hidden} more` : ""}
-          </span>
-          {viewAll ? (
-            <button
-              type="button"
-              onClick={viewAll.onClick}
-              aria-label={viewAll.ariaLabel}
-              className="inline-flex items-center gap-1 rounded-[6px] px-1 luxia-type-body-dense-strong outline-none hover:underline focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]"
-              style={{ color: HT.link }}
-            >
-              {viewAll.label}
-              <LuxiaArrowRightIcon size={13} color="currentColor" aria-hidden />
-            </button>
-          ) : null}
-        </div>
-      ) : null}
+      <MoreRow hidden={hidden} className="pt-3" />
     </HomeTileSurface>
   );
 }

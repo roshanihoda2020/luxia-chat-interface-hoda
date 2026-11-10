@@ -194,8 +194,9 @@ export function ProjectListHomeTile({
       const project = projects[0];
       return (
         <HomeTileSurface density="small" label={title} corner={corner}>
-          <div className={`flex min-w-0 items-center gap-1.5 ${HOME_TILE_CORNER_CLEARANCE.small}`}>
+          <div className={`flex min-w-0 items-center justify-between gap-1.5 ${HOME_TILE_CORNER_CLEARANCE.small}`}>
             <TileStat value={total} label={countLabel} size="sm" />
+            <OpenCue label="View all" ariaLabel="View all projects" onClick={onViewAll} />
           </div>
           <div className="mt-auto">
             <ProjectRow project={project} onOpen={open(project)} />
@@ -205,8 +206,9 @@ export function ProjectListHomeTile({
     }
     return (
       <HomeTileSurface density="small" label={title} corner={corner}>
-        <div className={HOME_TILE_CORNER_CLEARANCE.small} title={`${total} ${countLabel} · ${copy.orderInline}`}>
+        <div className={`flex min-w-0 items-center justify-between gap-1.5 ${HOME_TILE_CORNER_CLEARANCE.small}`} title={`${total} ${countLabel} · ${copy.orderInline}`}>
           <TileStat value={total} label={countLabel} size="sm" />
+          <OpenCue label="View all" ariaLabel="View all projects" onClick={onViewAll} />
         </div>
         <div ref={areaRef} className="mt-1 min-h-0 flex-1 overflow-hidden">
           <ul ref={listRef} className="-mx-1.5 min-w-0" aria-label={title}>

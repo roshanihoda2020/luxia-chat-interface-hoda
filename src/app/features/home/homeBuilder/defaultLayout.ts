@@ -52,42 +52,60 @@ function defaultTile(
 }
 
 /**
+ * Which Luxia default a user without a saved layout sees, from the same setup
+ * facts Get started checks (data, a Project, a usable Constellation, a Chat).
+ * - guided: setup is not finished, so Home teaches before it lists.
+ * - returning: setup is done, so Home leads with work and keeps discovery close.
+ */
+export type HomeDefaultStage = "guided" | "returning";
+
+const WRITING_ASSISTANT: HomeTileTarget = { scope: "tool", entityId: "writing-assistant" };
+
+/**
  * The Luxia default Home, on the existing 12-column grid and size presets.
- * The fixed header, Start panel and search sit above it and are not tiles.
+ * The fixed header, Hero, search and What's New notice sit above it and are not tiles.
  *
+ * returning
  *   ┌──────────────────────── 12 ─────────────────────────┐
- *   │ Get started · Full width · Soft (dismissible)       │  rows 0–4
- *   ├─────────────────────────────────────────────────────┤
- *   │ Discover · Full width (dismissible)                 │  rows 4–8
+ *   │ Discover · Full width · Featured                    │  rows 0–4
  *   ├────── 4 ───────┬────── 4 ───────┬────── 4 ──────────┤
- *   │ Projects       │ Writing        │ Dashboards        │  rows 8–12
- *   │ Recently upd.  │ Assistant      │ Soft              │
+ *   │ Writing A.     │ Projects       │ Dashboards        │  rows 4–8
+ *   │ Medium · Soft  │ Medium         │ Medium            │
  *   └────────────────┴────────────────┴───────────────────┘
  *
- * Recent Chats sit in the Start panel's Continue list, and What's New in the
- * notice above the grid, so neither is a default tile (both can be added).
+ * guided (setup not finished)
+ *   ┌──────────────────────── 12 ─────────────────────────┐
+ *   │ Discover · Full width · Featured                    │  rows 0–4
+ *   ├─────────────────────────────────────────────────────┤
+ *   │ Get started · Full width · Soft                     │  rows 4–8
+ *   ├────────── 3 ───┬──── 3 ──────┬──── 3 ───┬───────────┤
+ *   │                │ Writing A.  │ Projects │           │  rows 8–10
+ *   │                │ Small · Soft│ Small    │           │
+ *   └────────────────┴─────────────┴──────────┴───────────┘
+ *   No Dashboards until there are some; Projects stays a compact entry point.
+ *
+ * Recent Chats sit in the Hero's Continue list and What's New in the notice above
+ * the grid, so neither is a default tile; Data Sources and Constellations are
+ * added from Add Tile.
  *
  * Only users without a saved layout, and Reset to Luxia default, get this one.
  * Every tile stays optional: removable, movable, resizable and restylable.
  * Returns a fresh copy on every call.
  */
-export function createDefaultHomeLayout(): HomeLayout {
-  return {
-    schemaVersion: HOME_LAYOUT_SCHEMA_VERSION,
-    tiles: [
-      defaultTile(DEFAULT_HOME_TILE_IDS.getStarted, "get-started", 0, 0, "wide", { surface: "soft" }),
-      defaultTile(DEFAULT_HOME_TILE_IDS.tryExample, "try-example", 0, 4, "wide", { surface: "default" }),
-      defaultTile(DEFAULT_HOME_TILE_IDS.projects, "projects-collection", 0, 8, "medium", { view: "updated", surface: "default" }),
-      defaultTile(
-        DEFAULT_HOME_TILE_IDS.writingAssistant,
-        "tool",
-        4,
-        8,
-        "medium",
-        { surface: "default" },
-        { scope: "tool", entityId: "writing-assistant" },
-      ),
-      defaultTile(DEFAULT_HOME_TILE_IDS.dashboards, "dashboards-collection", 8, 8, "medium", { surface: "soft" }),
-    ],
-  };
+export function createDefaultHomeLayout(stage: HomeDefaultStage = "returning"): HomeLayout {
+  const discover = defaultTile(DEFAULT_HOME_TILE_IDS.tryExample, "try-example", 0, 0, "wide", { surface: "featured" });
+  const tiles = stage === "guided"
+    ? [
+      discover,
+      defaultTile(DEFAULT_HOME_TILE_IDS.getStarted, "get-started", 0, 4, "wide", { surface: "soft" }),
+      defaultTile(DEFAULT_HOME_TILE_IDS.writingAssistant, "tool", 3, 8, "small", { surface: "soft" }, WRITING_ASSISTANT),
+      defaultTile(DEFAULT_HOME_TILE_IDS.projects, "projects-collection", 6, 8, "small", { view: "updated", surface: "default" }),
+    ]
+    : [
+      discover,
+      defaultTile(DEFAULT_HOME_TILE_IDS.writingAssistant, "tool", 0, 4, "medium", { surface: "soft" }, WRITING_ASSISTANT),
+      defaultTile(DEFAULT_HOME_TILE_IDS.projects, "projects-collection", 4, 4, "medium", { view: "updated", surface: "default" }),
+      defaultTile(DEFAULT_HOME_TILE_IDS.dashboards, "dashboards-collection", 8, 4, "medium", { surface: "default" }),
+    ];
+  return { schemaVersion: HOME_LAYOUT_SCHEMA_VERSION, tiles };
 }

@@ -48,7 +48,10 @@ export function WhatsNewHomeTile({
     const latest = updates[0];
     return (
       <HomeTileSurface density="small" label={label} corner={CORNER}>
-        <p className={`truncate luxia-type-body-dense-strong ${HOME_TILE_CORNER_CLEARANCE.small}`} style={{ color: HT.text }}>{summary}</p>
+        <div className={`flex min-w-0 items-center justify-between gap-2 ${HOME_TILE_CORNER_CLEARANCE.small}`}>
+          <p className="truncate luxia-type-body-dense-strong" style={{ color: HT.text }}>{summary}</p>
+          <OpenCue label="See all" ariaLabel="See all updates in Explore Luxia" onClick={onOpenAll} />
+        </div>
         {latest ? (
           <button
             type="button"
@@ -65,9 +68,6 @@ export function WhatsNewHomeTile({
             </span>
           </button>
         ) : null}
-        <div className="mt-auto flex justify-end">
-          <OpenCue label="See all" ariaLabel="See all updates in Explore Luxia" onClick={onOpenAll} />
-        </div>
       </HomeTileSurface>
     );
   }

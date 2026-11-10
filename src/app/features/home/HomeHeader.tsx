@@ -1,4 +1,4 @@
-import { LayoutGrid } from "lucide-react";
+import { LayoutGrid, ListChecks } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/app/components/ui/tooltip";
 import {
@@ -17,10 +17,12 @@ interface HomeHeaderProps {
   customizing: boolean;
   /** First time this user opens Home: welcome them and say what Luxia is for. */
   firstVisit?: boolean;
+  /** While setup is unfinished: jumps to the Get started checklist. */
+  getStarted?: { done: number; total: number; onClick: () => void };
 }
 
 /** Home header. Starting a Chat lives in the Start panel below it, so the header keeps New Project and Customize Home. */
-export function HomeHeader({ userName, onNewProject, onCustomize, customizing, firstVisit = false }: HomeHeaderProps) {
+export function HomeHeader({ userName, onNewProject, onCustomize, customizing, firstVisit = false, getStarted }: HomeHeaderProps) {
   const greeting = firstVisit ? "Welcome to Luxia" : "Welcome back";
   return (
     <LuxiaPageHeader
@@ -31,7 +33,7 @@ export function HomeHeader({ userName, onNewProject, onCustomize, customizing, f
       titleStyle={{ color: "var(--luxia-purple-70)", letterSpacing: "-0.025em" }}
       context={
         firstVisit ? (
-          <LuxiaPageContext>Ask questions about your organisation's documents and data.</LuxiaPageContext>
+          <LuxiaPageContext>Ask Luxia AI for guidance, discover what Luxia can do and start building your workspace.</LuxiaPageContext>
         ) : undefined
       }
       secondaryAction={
@@ -42,7 +44,22 @@ export function HomeHeader({ userName, onNewProject, onCustomize, customizing, f
         ) : undefined
       }
       actions={
-        // Between sm and lg the title shares its row with the actions, so this one shows its icon only.
+        <>
+        {getStarted ? (
+          <Button
+            type="button"
+            {...LUXIA_PAGE_HEADER_ACTION.secondary}
+            onClick={getStarted.onClick}
+            aria-label={`Get started: ${getStarted.done} of ${getStarted.total} steps done. Go to the checklist`}
+            data-home-get-started-entry=""
+            className="luxia-home-touch-target"
+          >
+            <ListChecks size={16} strokeWidth={2} aria-hidden />
+            Get started
+            <span className="luxia-type-caption" style={{ color: "var(--luxia-text-muted)" }}>{`${getStarted.done}/${getStarted.total}`}</span>
+          </Button>
+        ) : null}
+        {/* Where the actions share a narrow row, this one shows its icon and a tooltip. */}
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
@@ -55,11 +72,12 @@ export function HomeHeader({ userName, onNewProject, onCustomize, customizing, f
               className="luxia-home-customize-entry luxia-home-touch-target"
             >
               <LayoutGrid size={16} strokeWidth={2} aria-hidden />
-              <span className="sm:max-lg:sr-only">Customize Home</span>
+              <span className={getStarted ? "max-lg:sr-only" : "sm:max-lg:sr-only"}>Customize Home</span>
             </Button>
           </TooltipTrigger>
-          <TooltipContent side="bottom" className="hidden sm:max-lg:block">Customize Home</TooltipContent>
+          <TooltipContent side="bottom" className={getStarted ? "lg:hidden" : "hidden sm:max-lg:block"}>Customize Home</TooltipContent>
         </Tooltip>
+        </>
       }
     />
   );

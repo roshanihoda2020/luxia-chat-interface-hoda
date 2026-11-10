@@ -155,6 +155,35 @@ for (let start = 0; start < tiles.length; start += 48) {
 }
 assert(tiles.length > 48, "every type, size and surface was covered");
 assert(parseHomeLayout(createDefaultHomeLayout()).ok, "default layout is valid");
+for (const stage of ["guided", "returning"]) {
+  const layout = createDefaultHomeLayout(stage);
+  assert(parseHomeLayout(layout).ok, `${stage} default layout is valid`);
+  const cells = new Set();
+  let overlap = false;
+  for (const tile of layout.tiles) {
+    for (let x = tile.x; x < tile.x + tile.w; x += 1) {
+      for (let y = tile.y; y < tile.y + tile.h; y += 1) {
+        if (cells.has(`${x},${y}`)) overlap = true;
+        cells.add(`${x},${y}`);
+      }
+    }
+  }
+  assert(!overlap, `${stage} default tiles do not overlap`);
+  const width = Math.max(...layout.tiles.map((tile) => tile.x + tile.w));
+  assert(width === 12, `${stage} default spans the 12 columns`);
+  assert(layout.tiles[0].type === "try-example" && layout.tiles[0].w === 12 && layout.tiles[0].config.surface === "featured", `${stage} default opens with Discover, Full width, Featured`);
+  assert(!layout.tiles.some((tile) => tile.type === "data-sources-collection" || tile.type === "constellations-collection"), `${stage} default leaves Data Sources and Constellations to Add Tile`);
+  assert(layout.tiles.filter((tile) => tile.config.surface === "featured").length === 1, `${stage} default uses Featured once`);
+}
+assert(createDefaultHomeLayout("guided").tiles[0].type === "try-example", "guided default opens with Discover");
+assert(createDefaultHomeLayout("guided").tiles.some((tile) => tile.type === "get-started"), "guided default includes Get started");
+assert(!createDefaultHomeLayout("returning").tiles.some((tile) => tile.type === "get-started"), "returning default leaves Get started out");
+equal(createDefaultHomeLayout("returning").tiles.map((tile) => tile.type).join(","), "try-example,tool,projects-collection,dashboards-collection", "returning default: Discover, then Writing Assistant, Projects, Dashboards");
+const returningDashboards = createDefaultHomeLayout("returning").tiles.find((tile) => tile.type === "dashboards-collection");
+assert(returningDashboards.w === 4 && returningDashboards.h === 4 && returningDashboards.config.surface === "default", "returning default keeps Dashboards Medium and plain");
+equal(createDefaultHomeLayout("guided").tiles.map((tile) => tile.type).join(","), "try-example,get-started,tool,projects-collection", "guided default: Discover, Get started, Writing Assistant, Projects");
+assert(createDefaultHomeLayout("guided").tiles.filter((tile) => tile.y === 8).every((tile) => tile.w === 3 && tile.h === 2), "guided default keeps Writing Assistant and Projects Small");
+equal(createDefaultHomeLayout("guided").tiles.filter((tile) => tile.y === 8).map((tile) => tile.x).join(","), "3,6", "guided default centres the Small pair");
 
 const v1 = { schemaVersion: 1, tiles: [{ id: "old", type: "pinned-projects", x: 0, y: 0, w: 12, h: 8, config: {} }] };
 const migrated = migrateHomeLayoutData(v1, {});

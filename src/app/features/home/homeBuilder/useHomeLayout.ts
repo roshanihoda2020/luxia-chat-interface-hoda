@@ -1,7 +1,7 @@
 import { createElement, useEffect, useMemo, useRef, useState } from "react";
 import { Undo2 } from "lucide-react";
 import { luxiaToast } from "@/app/features/shared/luxiaToast";
-import { createDefaultHomeLayout } from "./defaultLayout";
+import { createDefaultHomeLayout, type HomeDefaultStage } from "./defaultLayout";
 import { addHomeTile, configureHomeTile, removeHomeTile, setHomeTileConfig } from "./layoutOps";
 import { isHomeGuideTile, isHomeTileCollapsed } from "./registry";
 import {
@@ -22,7 +22,11 @@ import type {
   HomeTileType,
 } from "./types";
 
-const DEFAULT_LAYOUT_JSON = JSON.stringify(createDefaultHomeLayout());
+/** The user's saved Home Layout, or null when they have none (they then follow the Luxia default). */
+function readSavedLayout(userId: string): HomeLayout | null {
+  const result = readHomeLayout(userId);
+  return result.source === "saved" ? result.layout : null;
+}
 
 /** Undo stays on screen long enough to read and reach (Sonner's default is 4s). */
 const UNDO_TOAST_DURATION_MS = 8000;
@@ -45,11 +49,16 @@ function nextUndoToastId(): string {
  * saved immediately for that user only. State remembers its owner, so the
  * first render after a user switch already shows the new user's layout.
  * Only the most recent change can be undone.
+ *
+ * A user with no saved layout follows the Luxia default for their setup stage;
+ * a saved layout is never replaced by it.
  */
-export function useHomeLayout(userId: string) {
-  const [state, setState] = useState(() => ({ userId, layout: readHomeLayout(userId).layout }));
-  const storedLayout = useMemo(() => readHomeLayout(userId).layout, [userId]);
-  const layout = state.userId === userId ? state.layout : storedLayout;
+export function useHomeLayout(userId: string, stage: HomeDefaultStage = "returning") {
+  const [state, setState] = useState(() => ({ userId, layout: readSavedLayout(userId) }));
+  const storedLayout = useMemo(() => readSavedLayout(userId), [userId]);
+  const savedLayout = state.userId === userId ? state.layout : storedLayout;
+  const defaultLayout = useMemo(() => createDefaultHomeLayout(stage), [stage]);
+  const layout = savedLayout ?? defaultLayout;
 
   const [myDefaultState, setMyDefaultState] = useState(() => ({ userId, value: readHomeMyDefault(userId) }));
   const storedMyDefault = useMemo(() => readHomeMyDefault(userId), [userId]);
@@ -201,7 +210,7 @@ export function useHomeLayout(userId: string) {
   function resetToDefault() {
     const previous = layout;
     clearHomeLayout(userId);
-    setState({ userId, layout: createDefaultHomeLayout() });
+    setState({ userId, layout: null });
     offerUndo(
       "Home reset to the Luxia default",
       myDefault ? "Your saved layout is still available." : "You can undo this.",
@@ -273,7 +282,7 @@ export function useHomeLayout(userId: string) {
       const previous = layout;
       if (commit(next) && undo) offerUndo(undo.title, undo.description, previous);
     },
-    isDefaultLayout: layoutJson === DEFAULT_LAYOUT_JSON,
+    isDefaultLayout: layoutJson === JSON.stringify(defaultLayout),
     /** True when the current Home matches the saved layout. */
     isMyDefaultLayout: myDefault !== null && layoutJson === JSON.stringify(myDefault.layout),
   };
