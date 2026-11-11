@@ -7,7 +7,6 @@ export const LUXIA_TOOLS: LuxiaToolDefinition[] = [
     name: "Writing Assistant",
     description:
       "Write, edit, and improve selected parts of a document with AI assistance.",
-    status: "beta",
     href: getWritingAssistantPath(),
   },
 ];

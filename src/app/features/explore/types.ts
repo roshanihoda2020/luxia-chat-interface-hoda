@@ -51,7 +51,9 @@ export type ExploreBlock =
 
 /** Conceptual visual identity (not Margherita's approved artwork). */
 export interface ExploreIdentity {
-  icon: "credit" | "data" | "document" | "gpt" | "humanoid" | "verify" | "writing" | "code" | "registry";
+  icon:
+    | "credit" | "data" | "document" | "gpt" | "humanoid" | "verify" | "writing" | "code" | "registry"
+    | "chat" | "galaxy" | "datasource" | "vidget";
   /** Accent hue for the identity mark. */
   hue: "violet" | "indigo" | "teal" | "blue" | "rose" | "amber" | "slate";
 }
@@ -95,12 +97,25 @@ export interface ExploreProduct extends ExploreEntryBase {
   /** One of Margherita's seven agent concepts (shown in the Agent Gallery). */
   agent?: boolean;
   identity?: ExploreIdentity;
+  benefit?: string;
+  example?: string;
+  /** Where it is used: anywhere in the workspace, or inside a Project. */
+  scope?: "workspace" | "project";
 }
 
 export interface ExploreLearnItem extends ExploreEntryBase {
   section: "learn";
   track: "getting-started" | "guides" | "lia" | "tutorials";
   format: "Guide" | "Article" | "Tutorial";
+  readMinutes?: number;
+}
+
+/** One stage of "How Luxia works" on the Explore Overview. */
+export interface ExploreConceptStep {
+  id: "data-sources" | "projects" | "constellations" | "galaxy" | "chats";
+  title: string;
+  text: string;
+  guide: string;
 }
 
 export type ExploreIdeaCategory =

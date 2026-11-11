@@ -25,15 +25,15 @@ export function findExploreEntry(entries: readonly ExploreEntry[], section: Expl
 
 /**
  * Sections live for customers. A section appears only once it is listed here
- * AND has published entries. Launch: What's New only; add sections here as
- * product approves their content.
+ * AND has published entries. Add sections here as product approves their
+ * content.
  */
-export const EXPLORE_LIVE_SECTIONS: readonly ExploreContentSectionId[] = ["whats-new"];
+export const EXPLORE_LIVE_SECTIONS: readonly ExploreContentSectionId[] = ["learn", "products", "whats-new"];
 
 export const EXPLORE_SECTION_ORDER: readonly ExploreContentSectionId[] = [
-  "whats-new",
-  "products",
   "learn",
+  "products",
+  "whats-new",
   "ideas",
   "stories",
   "services",
@@ -42,7 +42,7 @@ export const EXPLORE_SECTION_ORDER: readonly ExploreContentSectionId[] = [
 export const EXPLORE_SECTION_LABELS: Record<ExploreSectionId, string> = {
   overview: "Overview",
   "whats-new": "What's New",
-  products: "Products & Agents",
+  products: "Tools & Capabilities",
   learn: "Learn",
   ideas: "Ideas",
   stories: "Customer Stories",

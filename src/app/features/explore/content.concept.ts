@@ -303,28 +303,6 @@ export const EXPLORE_CONCEPT_ENTRIES: readonly ExploreEntry[] = [
 
   // ---------- Learn
   {
-    id: "getting-started",
-    section: "learn",
-    publication: "concept",
-    track: "getting-started",
-    format: "Guide",
-    title: "Getting started with Luxia",
-    summary: "Connect a Data Source, create a Project and ask your first question.",
-    action: { label: "Open Data Sources", kind: "route", route: "data-sources" },
-    blocks: [
-      {
-        type: "steps",
-        title: "Your first hour",
-        items: [
-          { title: "Connect a Data Source", text: "A database, a CSV or a set of documents." },
-          { title: "Create a Project", text: "Invite the people you work with." },
-          { title: "Add a Constellation", text: "Choose the knowledge it answers from." },
-          { title: "Ask a question", text: "Start a Chat and check the sources." },
-        ],
-      },
-    ],
-  },
-  {
     id: "home-guide",
     section: "learn",
     publication: "concept",

@@ -8,7 +8,6 @@ import {
 import { LuxiaPageBody, LuxiaPageFrame } from "@/app/components/LuxiaPageFrame";
 import { LuxiaPageHeader } from "@/app/components/LuxiaPageHeader";
 import { LuxiaWritingAssistantIcon } from "@/assets/icons";
-import { Badge } from "@/app/components/ui/badge";
 import { Button } from "@/app/components/ui/button";
 import {
   AlertDialog,
@@ -784,21 +783,6 @@ export function WritingAssistantPage({
             accentColor="var(--luxia-purple-50)"
             aria-hidden
           />
-        }
-        titleMetadata={
-          <Badge
-            variant="outline"
-            className="min-h-0 h-auto px-2 py-0.5 luxia-type-caption font-normal"
-            style={{
-              color: "var(--luxia-text-secondary)",
-              borderColor: "var(--luxia-border-subtle)",
-              background: "var(--luxia-neutral-surface-subtle, transparent)",
-            }}
-            role="status"
-            aria-label="Beta"
-          >
-            Beta
-          </Badge>
         }
         breadcrumb={
           <LuxiaBreadcrumb

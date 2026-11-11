@@ -159,7 +159,7 @@ const TOPICS: readonly Topic[] = [
     id: "writing",
     keywords: ["writing assistant", "write", "writing", "draft", "drafts", "edit text"],
     answer: () =>
-      "The Writing Assistant (Beta) helps you write, edit and improve parts of a document with AI assistance. It's one of the Tools in the sidebar.",
+      "The Writing Assistant helps you write, edit and improve parts of a document with AI assistance. It's one of the Tools in the sidebar.",
     actions: () => ["writing-assistant"],
     followUps: ["What tools are there?", "What can Luxia do?"],
   },
@@ -167,7 +167,7 @@ const TOPICS: readonly Topic[] = [
     id: "tools",
     keywords: ["tool", "tools", "agents", "agent"],
     answer: () =>
-      "Tools are standalone capabilities in the sidebar. Today that's the Writing Assistant (Beta). New tools will appear there and can be added to Home as tiles.",
+      "Tools are standalone capabilities in the sidebar. Today that's the Writing Assistant. New tools will appear there and can be added to Home as tiles.",
     actions: () => ["writing-assistant"],
     followUps: ["How do I customize Home?"],
   },

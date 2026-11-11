@@ -1,6 +1,7 @@
 import { Button } from "@/app/components/ui/button";
 import { LuxiaArrowRightIcon, LuxiaWritingAssistantIcon } from "@/assets/icons";
 import type { LuxiaToolDefinition } from "@/app/features/tools/types";
+import { LuxiaVignette } from "../LuxiaVignette";
 import {
   HOME_TILE_CORNER_CLEARANCE,
   HT,
@@ -55,23 +56,37 @@ export function ToolHomeTile({
     );
   }
 
+  // Writing Assistant's own scene (the Discover "Write with AI" language) fills the space a tall or
+  // wide card leaves; where there's no room, homeTileSurfaces.css shows the glyph instead.
+  const art = tool.id === "writing-assistant" ? <LuxiaVignette kind="write" className="luxia-tool-tile-art" /> : null;
+  const glyph = <GlyphChip size={56} tone="strong"><LuxiaWritingAssistantIcon size={28} color="currentColor" /></GlyphChip>;
+
   return (
     <HomeTileSurface density="medium" label={`Tool ${tool.name}`} corner={corner}>
-      <div className="flex min-h-0 flex-1 flex-col justify-center gap-4">
-        <GlyphChip size={56} tone="strong"><LuxiaWritingAssistantIcon size={28} color="currentColor" /></GlyphChip>
-        <div className="min-w-0 space-y-1.5">
-          <div className={`flex min-w-0 items-center gap-2 ${HOME_TILE_CORNER_CLEARANCE.medium}`}>
-            <HomeTileTitleAction title={tool.name} onOpen={onOpen} ariaLabel={`Open ${tool.name}`} />
-            {status ? <HomeTileStatus>{status}</HomeTileStatus> : null}
+      <div className={`flex min-h-0 flex-1 flex-col ${art ? "luxia-tool-tile-body" : ""}`}>
+        <div className="luxia-tool-tile-layout flex min-h-0 flex-1 flex-col justify-center gap-4">
+          {art ? (
+            <div className="luxia-tool-tile-visual" data-tool-tile-illustration="">
+              <span className="luxia-tool-tile-glyph">{glyph}</span>
+              {art}
+            </div>
+          ) : glyph}
+          <div className="luxia-tool-tile-content flex min-w-0 flex-col justify-center gap-4">
+            <div className="min-w-0 space-y-1.5">
+              <div className={`flex min-w-0 items-center gap-2 ${HOME_TILE_CORNER_CLEARANCE.medium}`}>
+                <HomeTileTitleAction title={tool.name} onOpen={onOpen} ariaLabel={`Open ${tool.name}`} />
+                {status ? <HomeTileStatus>{status}</HomeTileStatus> : null}
+              </div>
+              <HomeTileText lines={3}>{tool.description}</HomeTileText>
+            </div>
+            <div>
+              <Button type="button" variant="primary" size="compact" onClick={onOpen} aria-label={`Open ${tool.name}`}>
+                Open {tool.name}
+                <LuxiaArrowRightIcon size={13} color="currentColor" aria-hidden />
+              </Button>
+            </div>
           </div>
-          <HomeTileText lines={3}>{tool.description}</HomeTileText>
         </div>
-      <div>
-        <Button type="button" variant="primary" size="compact" onClick={onOpen} aria-label={`Open ${tool.name}`}>
-          Open {tool.name}
-          <LuxiaArrowRightIcon size={13} color="currentColor" aria-hidden />
-        </Button>
-      </div>
       </div>
     </HomeTileSurface>
   );

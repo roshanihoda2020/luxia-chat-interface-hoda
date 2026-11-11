@@ -6,6 +6,7 @@ import {
   Bot,
   BookOpen,
   Building2,
+  Clock,
   Code2,
   Compass,
   Copy,
@@ -20,7 +21,6 @@ import {
   Map as MapIcon,
   Megaphone,
   MessageSquareText,
-  PenLine,
   Plus,
   RotateCcw,
   ScrollText,
@@ -31,6 +31,17 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { LuxiaBreadcrumb, type LuxiaBreadcrumbItem } from "@/app/components/LuxiaBreadcrumb";
+import {
+  LuxiaChatIcon,
+  LuxiaConstellationIcon,
+  LuxiaDatasourceIcon,
+  LuxiaGalaxyIcon,
+  LuxiaProjectsIcon,
+  LuxiaToolsGalleryIcon,
+  LuxiaVirtualAssistantIcon,
+  LuxiaWritingAssistantIcon,
+  type LuxiaIconProps,
+} from "@/assets/icons";
 import { LuxiaPageBody, LuxiaPageFrame } from "@/app/components/LuxiaPageFrame";
 import { LuxiaPageHeader } from "@/app/components/LuxiaPageHeader";
 import { Button } from "@/app/components/ui/button";
@@ -39,6 +50,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/app/components/ui/ta
 import { HS } from "@/app/features/home/homeSurfaces";
 import { getExplorePath } from "@/app/features/project/projectPaths";
 import { LUXIA_SETTINGS_TAB_TRIGGER_CLASS, LUXIA_SETTINGS_TABLIST_CLASS } from "@/app/features/shared/luxiaSettingsUx";
+import { EXPLORE_HOW_IT_WORKS } from "./content";
 import { exitExploreConceptDemo, getConceptMap } from "./demoMode";
 import {
   AvailabilityBadge,
@@ -64,6 +76,7 @@ import type {
   ExploreAction,
   ExploreAvailability,
   ExploreBlock,
+  ExploreConceptStep,
   ExploreContentSectionId,
   ExploreEntry,
   ExploreIdea,
@@ -149,7 +162,7 @@ export function ExplorePage({ userId, section, slug, returnTo, onOpenEntry, onSe
         title="Explore Luxia"
         titleStyle={{ color: HS.sectionHeading }}
         breadcrumb={<LuxiaBreadcrumb tone="page" items={breadcrumbItems} handlers={{ onHome: onNavigateHome }} />}
-        guide="Product updates, guides and what's coming to Luxia. Your workspace stays on Home."
+        guide="Learn how Luxia works, see what you can do with it, and keep up with updates. Your workspace stays on Home."
       />
       <LuxiaPageBody>
         {feed.conceptDemo ? <ConceptDemoBanner userId={userId} feed={feed} /> : null}
@@ -323,16 +336,23 @@ function realAction(entry: ExploreEntry): ExploreAction | null {
 
 // Identities (conceptual marks, not Margherita's approved artwork)
 
-const IDENTITY_ICONS: Record<ExploreIdentity["icon"], LucideIcon> = {
-  credit: Wallet,
-  data: Database,
-  document: FileText,
-  gpt: MessageSquareText,
-  humanoid: Bot,
-  verify: BadgeCheck,
-  writing: PenLine,
-  code: Code2,
-  registry: ScrollText,
+type LuxiaIconComponent = (props: LuxiaIconProps) => ReactNode;
+
+/** Real Luxia concepts use the app's own icons; the rest mark Concept Demo agents only. */
+const IDENTITY_ICONS: Record<ExploreIdentity["icon"], { luxia: LuxiaIconComponent } | { lucide: LucideIcon }> = {
+  credit: { lucide: Wallet },
+  data: { lucide: Database },
+  document: { lucide: FileText },
+  gpt: { lucide: MessageSquareText },
+  humanoid: { lucide: Bot },
+  verify: { lucide: BadgeCheck },
+  writing: { luxia: LuxiaWritingAssistantIcon },
+  code: { lucide: Code2 },
+  registry: { lucide: ScrollText },
+  chat: { luxia: LuxiaChatIcon },
+  galaxy: { luxia: LuxiaGalaxyIcon },
+  datasource: { luxia: LuxiaDatasourceIcon },
+  vidget: { luxia: LuxiaVirtualAssistantIcon },
 };
 
 function IdentityMark({ identity, title, size = 56 }: { identity?: ExploreIdentity; title: string; size?: number }) {
@@ -340,10 +360,11 @@ function IdentityMark({ identity, title, size = 56 }: { identity?: ExploreIdenti
     const letters = title.split(/\s+/).filter((word) => /^[A-Za-z0-9]/.test(word)).slice(0, 2).map((word) => word[0]).join("").toUpperCase();
     return <span className="luxia-explore-monogram" style={{ width: size, height: size, borderRadius: size / 3.5 }} aria-hidden>{letters}</span>;
   }
-  const Icon = IDENTITY_ICONS[identity.icon];
+  const icon = IDENTITY_ICONS[identity.icon];
+  const iconSize = Math.round(size * 0.42);
   return (
     <span className={`luxia-explore-identity luxia-explore-identity--${identity.hue}`} style={{ width: size, height: size }} aria-hidden>
-      <Icon size={Math.round(size * 0.42)} strokeWidth={1.8} />
+      {"luxia" in icon ? <icon.luxia size={iconSize} color="currentColor" /> : <icon.lucide size={iconSize} strokeWidth={1.8} />}
     </span>
   );
 }
@@ -521,43 +542,56 @@ function PreferenceSwitch({ id, label, hint, checked, onChange }: { id: string; 
 
 // Overview
 
+const HOW_IT_WORKS_ICONS: Record<ExploreConceptStep["id"], LuxiaIconComponent> = {
+  "data-sources": LuxiaDatasourceIcon,
+  projects: LuxiaProjectsIcon,
+  constellations: LuxiaConstellationIcon,
+  galaxy: LuxiaGalaxyIcon,
+  chats: LuxiaChatIcon,
+};
+
 function OverviewSection({ feed, onSectionChange, onAction, onOpen }: { feed: Feed; onSectionChange: (section: ExploreSectionId) => void; onAction: (action: ExploreAction) => void; onOpen: OpenEntry }) {
   const products = only<ExploreProduct>(feed.entries, "products");
-  const featured = products.find((product) => product.featured);
+  const capabilities = products.filter((product) => !product.agent && product.availability === "available" && product.publication === "published");
   const agents = products.filter((product) => product.agent);
+  const guides = only<ExploreLearnItem>(feed.entries, "learn");
+  const startGuide = guides.find((item) => item.id === "getting-started");
   const has = (id: ExploreSectionId) => feed.sections.includes(id);
-  const seeAll = (id: ExploreSectionId) => (
+  const seeAll = (id: ExploreSectionId, label = `See all ${EXPLORE_SECTION_LABELS[id]}`) => (
     <Button type="button" variant="tertiary" size="compact" onClick={() => onSectionChange(id)} data-explore-see-all={id}>
-      {`See all ${EXPLORE_SECTION_LABELS[id]}`}
+      {label}
       <ArrowRight size={14} aria-hidden />
     </Button>
   );
   const unread = new Set(feed.unread.map((update) => update.id));
   return (
     <div className="space-y-10" data-explore-overview="">
-      <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
-        {featured ? (
-          <EntryLink entry={featured} onOpen={onOpen} className="luxia-explore-featured flex min-w-0 flex-col rounded-[var(--luxia-radius-16)] p-6" label={`Featured: ${featured.title}`}>
-            <span className="flex flex-wrap items-center gap-1.5">
-              <span className="luxia-explore-chip luxia-explore-chip--on-dark"><Sparkles size={11} aria-hidden />Featured</span>
-              <AvailabilityBadge availability={featured.availability} />
-              <ConceptLabel entry={featured} />
-            </span>
-            <span className="mt-5 flex items-center gap-4">
-              <IdentityMark identity={featured.identity} title={featured.title} size={64} />
-              <span className="min-w-0">
-                <span className="block luxia-type-overline-data" style={{ color: "var(--luxia-purple-20)" }}>{featured.category}</span>
-                <span className="block luxia-type-heading-h2" style={{ color: "var(--luxia-text-inverse)" }}>{featured.title}</span>
-              </span>
-            </span>
-            <span className="mt-3 block max-w-[52ch] luxia-type-body" style={{ color: "rgba(255,255,255,0.82)" }}>{featured.summary}</span>
-            <span className="mt-auto flex items-center gap-1.5 pt-6 luxia-type-body-dense-strong" style={{ color: "var(--luxia-purple-20)" }}>
-              View details <ArrowRight size={14} aria-hidden />
-            </span>
-          </EntryLink>
-        ) : null}
+      <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
+        <section aria-labelledby="explore-intro-title" className="luxia-explore-featured flex min-w-0 flex-col rounded-[var(--luxia-radius-16)] p-6" data-explore-intro="">
+          <span className="luxia-explore-chip luxia-explore-chip--on-dark self-start"><Compass size={11} aria-hidden />Discover Luxia</span>
+          <h2 id="explore-intro-title" className="mt-4 luxia-type-heading-h2" style={{ color: "var(--luxia-text-inverse)" }}>
+            Learn what Luxia can do and how it works
+          </h2>
+          <p className="mt-2 max-w-[56ch] luxia-type-body" style={{ color: "rgba(255,255,255,0.82)" }}>
+            Short guides on Data Sources, Projects, Constellations and Chat, the tools available today and the latest updates. Your work stays on Home.
+          </p>
+          <div className="mt-auto flex flex-wrap items-center gap-2 pt-6">
+            {startGuide ? (
+              <EntryLink entry={startGuide} onOpen={onOpen} className="luxia-button luxia-button--primary luxia-button--compact inline-flex items-center gap-1.5" label={`Start here: ${startGuide.title} guide`}>
+                <BookOpen size={14} aria-hidden />
+                Start here: {startGuide.title}
+              </EntryLink>
+            ) : null}
+            {has("learn") ? (
+              <button type="button" className="luxia-explore-on-dark-link" onClick={() => onSectionChange("learn")} data-explore-intro-learn="">
+                Browse all guides
+                <ArrowRight size={14} aria-hidden />
+              </button>
+            ) : null}
+          </div>
+        </section>
         <section aria-label="Latest updates" className="luxia-explore-card min-w-0 rounded-[var(--luxia-radius-16)] border p-5">
-          <SubHeading title="Latest updates" action={seeAll("whats-new")} />
+          <SubHeading title="Latest updates" action={seeAll("whats-new", "All updates")} />
           <ul className="divide-y" style={{ borderColor: "var(--luxia-border-default)" }}>
             {feed.updates.slice(0, 3).map((update) => (
               <li key={update.id} className="py-2.5">
@@ -576,58 +610,96 @@ function OverviewSection({ feed, onSectionChange, onAction, onOpen }: { feed: Fe
         </section>
       </div>
 
-      {has("products") && agents.length > 0 ? (
-        <div>
-          <SectionIntro icon={<Compass size={18} strokeWidth={2} />} title="Agent Gallery" text="Agents and what each one is for. Availability is always shown first." action={seeAll("products")} />
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {agents.slice(0, 4).map((agent) => <AgentCard key={agent.id} agent={agent} onOpen={onOpen} onAction={onAction} />)}
+      <section aria-labelledby="explore-how-it-works" data-explore-how-it-works="">
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <h2 id="explore-how-it-works" className="luxia-type-heading-h3" style={{ color: HS.sectionHeading }}>How Luxia works</h2>
+            <p className="luxia-type-body-dense" style={{ color: "var(--luxia-text-secondary)" }}>From your data to an answer you can check, in five parts.</p>
           </div>
         </div>
-      ) : null}
-
-      {has("ideas") ? (
-        <div>
-          <SectionIntro icon={<Lightbulb size={18} strokeWidth={2} />} title="Ideas for internal flows" text="Examples of what teams could do with Luxia." action={seeAll("ideas")} />
-          <ul className="luxia-explore-scroll-row -mx-1 flex gap-3 overflow-x-auto px-1 pb-2" aria-label="Ideas">
-            {only<ExploreIdea>(feed.entries, "ideas").slice(0, 6).map((idea) => (
-              <li key={idea.id} className="w-[280px] shrink-0">
-                <IdeaCard idea={idea} entries={feed.entries} onOpen={onOpen} compact />
+        <ol className="luxia-explore-flow grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          {EXPLORE_HOW_IT_WORKS.map((step, index) => {
+            const Icon = HOW_IT_WORKS_ICONS[step.id];
+            const guide = guides.find((item) => item.id === step.guide);
+            return (
+              <li key={step.id} className="luxia-explore-flow-step luxia-explore-card relative flex min-w-0 flex-col rounded-[var(--luxia-radius-12)] border p-4" data-explore-step={step.id}>
+                <span className="flex items-center gap-2">
+                  <span className="luxia-explore-icon-chip luxia-explore-icon-chip--sm" aria-hidden><Icon size={16} color="currentColor" /></span>
+                  <span className="luxia-type-overline-data" style={{ color: "var(--luxia-text-muted)" }}>{`Step ${index + 1}`}</span>
+                </span>
+                <h3 className="mt-3 luxia-type-title-component" style={{ color: "var(--luxia-text-primary)" }}>{step.title}</h3>
+                <p className="mt-1 luxia-type-body-dense" style={{ color: "var(--luxia-text-secondary)" }}>{step.text}</p>
+                {guide ? (
+                  <EntryLink entry={guide} onOpen={onOpen} className="luxia-explore-text-link mt-auto inline-flex items-center gap-1 pt-3" label={`Learn: ${guide.title}`}>
+                    <BookOpen size={13} aria-hidden />Learn
+                  </EntryLink>
+                ) : null}
               </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
+            );
+          })}
+        </ol>
+      </section>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        {has("learn") ? (
-          <OverviewColumn icon={<BookOpen size={16} strokeWidth={2} />} title="Learn" action={seeAll("learn")}>
-            {only<ExploreLearnItem>(feed.entries, "learn").slice(0, 2).map((item) => <MiniCard key={item.id} entry={item} eyebrow={item.format} onOpen={onOpen} />)}
-          </OverviewColumn>
-        ) : null}
-        {has("stories") ? (
-          <OverviewColumn icon={<Megaphone size={16} strokeWidth={2} />} title="Customer Stories" action={seeAll("stories")}>
-            {only<ExploreStory>(feed.entries, "stories").slice(0, 2).map((story) => <MiniCard key={story.id} entry={story} eyebrow={story.industry} onOpen={onOpen} />)}
-          </OverviewColumn>
-        ) : null}
-      </div>
-
-      {has("services") ? (
-        <div className="luxia-explore-band flex flex-wrap items-center justify-between gap-4 rounded-[var(--luxia-radius-16)] border px-6 py-5">
-          <div className="flex min-w-0 items-start gap-3">
-            <span className="luxia-explore-icon-chip" aria-hidden><Handshake size={18} strokeWidth={2} /></span>
-            <div className="min-w-0">
-              <p className="flex flex-wrap items-center gap-2 luxia-type-title-component" style={{ color: HS.sectionHeading }}>
-                Work with Luxia's team
-                {only<ExploreService>(feed.entries, "services").some((service) => service.publication === "concept") ? <ConceptDemoChip /> : null}
-              </p>
-              <p className="luxia-type-body-dense" style={{ color: "var(--luxia-text-secondary)" }}>Propose a process you have in mind, or get a guided analysis of where AI could help.</p>
+      {capabilities.length > 0 ? (
+        <section aria-labelledby="explore-capabilities">
+          <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <h2 id="explore-capabilities" className="luxia-type-heading-h3" style={{ color: HS.sectionHeading }}>What you can do with Luxia</h2>
+              <p className="luxia-type-body-dense" style={{ color: "var(--luxia-text-secondary)" }}>Available today. Learn how each one works, or open it.</p>
             </div>
+            {has("products") ? seeAll("products") : null}
           </div>
-          {seeAll("services")}
-        </div>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {capabilities.slice(0, 3).map((product) => <CapabilityCard key={product.id} product={product} onAction={onAction} onOpen={onOpen} compact />)}
+          </div>
+        </section>
       ) : null}
 
-      {feed.conceptDemo ? <ConceptMap /> : null}
+      {feed.conceptDemo ? (
+        <div className="space-y-10" data-explore-overview-concepts="">
+          {has("products") && agents.length > 0 ? (
+            <div>
+              <SectionIntro icon={<Compass size={18} strokeWidth={2} />} title="Agent Gallery" text="Agent concepts for internal review. None are available to customers." action={seeAll("products")} />
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                {agents.slice(0, 4).map((agent) => <AgentCard key={agent.id} agent={agent} onOpen={onOpen} onAction={onAction} />)}
+              </div>
+            </div>
+          ) : null}
+          {has("ideas") ? (
+            <div>
+              <SectionIntro icon={<Lightbulb size={18} strokeWidth={2} />} title="Ideas for internal flows" text="Examples of what teams could do with Luxia." action={seeAll("ideas")} />
+              <ul className="luxia-explore-scroll-row -mx-1 flex gap-3 overflow-x-auto px-1 pb-2" aria-label="Ideas">
+                {only<ExploreIdea>(feed.entries, "ideas").slice(0, 6).map((idea) => (
+                  <li key={idea.id} className="w-[280px] shrink-0">
+                    <IdeaCard idea={idea} entries={feed.entries} onOpen={onOpen} compact />
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {has("stories") ? (
+            <OverviewColumn icon={<Megaphone size={16} strokeWidth={2} />} title="Customer Stories" action={seeAll("stories")}>
+              {only<ExploreStory>(feed.entries, "stories").slice(0, 2).map((story) => <MiniCard key={story.id} entry={story} eyebrow={story.industry} onOpen={onOpen} />)}
+            </OverviewColumn>
+          ) : null}
+          {has("services") ? (
+            <div className="luxia-explore-band flex flex-wrap items-center justify-between gap-4 rounded-[var(--luxia-radius-16)] border px-6 py-5">
+              <div className="flex min-w-0 items-start gap-3">
+                <span className="luxia-explore-icon-chip" aria-hidden><Handshake size={18} strokeWidth={2} /></span>
+                <div className="min-w-0">
+                  <p className="flex flex-wrap items-center gap-2 luxia-type-title-component" style={{ color: HS.sectionHeading }}>
+                    Work with Luxia's team
+                    <ConceptDemoChip />
+                  </p>
+                  <p className="luxia-type-body-dense" style={{ color: "var(--luxia-text-secondary)" }}>Propose a process you have in mind, or get a guided analysis of where AI could help.</p>
+                </div>
+              </div>
+              {seeAll("services")}
+            </div>
+          ) : null}
+          <ConceptMap />
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -691,7 +763,7 @@ function ConceptMap() {
   );
 }
 
-// Products & Agents
+// Tools & Capabilities
 
 const AVAILABILITY_GROUPS: Array<{ availability: ExploreAvailability; title: string; text: string }> = [
   { availability: "available", title: "Available in your workspace", text: "Ready to use today." },
@@ -699,34 +771,53 @@ const AVAILABILITY_GROUPS: Array<{ availability: ExploreAvailability; title: str
   { availability: "coming-soon", title: "Coming soon", text: "Not available yet." },
 ];
 
+const SCOPE_LABELS: Record<NonNullable<ExploreProduct["scope"]>, string> = {
+  workspace: "In your workspace",
+  project: "Inside a Project",
+};
+
 function ProductsSection({ products, conceptDemo, onAction, onOpen }: { products: ExploreProduct[]; conceptDemo: boolean; onAction: (action: ExploreAction) => void; onOpen: OpenEntry }) {
+  const capabilities = products.filter((product) => !product.agent && product.availability === "available" && product.publication === "published");
   const agents = products.filter((product) => product.agent);
-  const others = products.filter((product) => !product.agent);
+  const others = products.filter((product) => !product.agent && !capabilities.includes(product));
+  const tools = capabilities.filter((product) => product.category === "Tool");
+  const core = capabilities.filter((product) => product.category !== "Tool");
   return (
     <div className="space-y-9">
-      <SectionIntro icon={<Compass size={18} strokeWidth={2} />} title="Products & Agents" text="Every entry states its availability first. Only features available in your workspace can be opened." />
-      {agents.length > 0 ? (
+      <SectionIntro icon={<LuxiaToolsGalleryIcon size={18} color="currentColor" />} title="Tools & Capabilities" text="What's available in Luxia today. Learn how each one works, or open it where you have access." />
+      {core.length > 0 ? (
+        <section aria-label="Capabilities" data-explore-capabilities="">
+          <SubHeading title="Capabilities" text="How you ask, find and share knowledge." />
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {core.map((product) => <CapabilityCard key={product.id} product={product} onAction={onAction} onOpen={onOpen} />)}
+          </div>
+        </section>
+      ) : null}
+      {tools.length > 0 ? (
+        <section aria-label="Tools" data-explore-tools="">
+          <SubHeading title="Tools" text="Work on your own content, outside a Project." />
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {tools.map((product) => <CapabilityCard key={product.id} product={product} onAction={onAction} onOpen={onOpen} />)}
+          </div>
+        </section>
+      ) : null}
+      {conceptDemo && agents.length > 0 ? (
         <section aria-label="Agent Gallery" data-explore-agent-gallery="">
-          <SubHeading
-            title="Agent Gallery"
-            text={conceptDemo ? "Seven agent concepts. Identities are conceptual visuals, not final artwork." : undefined}
-          />
+          <SubHeading title="Agent Gallery" text="Agent concepts for internal review. Identities are conceptual visuals, not final artwork." />
           <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {agents.map((agent) => <li key={agent.id} className="min-w-0"><AgentCard agent={agent} onOpen={onOpen} onAction={onAction} /></li>)}
-            {conceptDemo ? (
-              <li className="min-w-0">
-                <div className="luxia-explore-create-card flex h-full min-h-[212px] flex-col rounded-[var(--luxia-radius-16)] border border-dashed p-5" data-explore-create-agent="">
-                  <span className="flex size-14 items-center justify-center rounded-full" style={{ background: "var(--luxia-opacity-brand-secondary-12)", color: "var(--luxia-purple-60)" }} aria-hidden>
-                    <Plus size={22} strokeWidth={2} />
-                  </span>
-                  <p className="mt-4 luxia-type-body-dense-strong" style={{ color: "var(--luxia-text-primary)" }}>Create your own agent</p>
-                  <p className="mt-1 luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
-                    Not available yet: there is no creation flow in Luxia today. Describe what you need and Luxia's team will look at it with you.
-                  </p>
-                  <span className="mt-2"><ConceptDemoChip /></span>
-                </div>
-              </li>
-            ) : null}
+            <li className="min-w-0">
+              <div className="luxia-explore-create-card flex h-full min-h-[212px] flex-col rounded-[var(--luxia-radius-16)] border border-dashed p-5" data-explore-create-agent="">
+                <span className="flex size-14 items-center justify-center rounded-full" style={{ background: "var(--luxia-opacity-brand-secondary-12)", color: "var(--luxia-purple-60)" }} aria-hidden>
+                  <Plus size={22} strokeWidth={2} />
+                </span>
+                <p className="mt-4 luxia-type-body-dense-strong" style={{ color: "var(--luxia-text-primary)" }}>Create your own agent</p>
+                <p className="mt-1 luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
+                  Not available yet: there is no creation flow in Luxia today. Describe what you need and Luxia's team will look at it with you.
+                </p>
+                <span className="mt-2"><ConceptDemoChip /></span>
+              </div>
+            </li>
           </ul>
         </section>
       ) : null}
@@ -734,8 +825,8 @@ function ProductsSection({ products, conceptDemo, onAction, onOpen }: { products
         const entries = others.filter((product) => product.availability === group.availability);
         if (entries.length === 0) return null;
         return (
-          <section key={group.availability} aria-label={group.title}>
-            <SubHeading title={agents.length > 0 ? `${group.title} · platform and tools` : group.title} text={group.text} />
+          <section key={group.availability} aria-label={`${group.title} (concepts)`}>
+            <SubHeading title={`${group.title} · concepts`} text={group.text} />
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {entries.map((product) => <ProductCard key={product.id} product={product} onAction={onAction} onOpen={onOpen} />)}
             </div>
@@ -743,6 +834,49 @@ function ProductsSection({ products, conceptDemo, onAction, onOpen }: { products
         );
       })}
     </div>
+  );
+}
+
+/**
+ * A real, available capability: what it is, why it helps, one example, where it
+ * lives, then two clearly different actions: Learn (its Explore page) and Open
+ * (the real destination in the app).
+ */
+function CapabilityCard({ product, onAction, onOpen, compact = false }: { product: ExploreProduct; onAction: (action: ExploreAction) => void; onOpen: OpenEntry; compact?: boolean }) {
+  const action = realAction(product);
+  return (
+    <article className="luxia-explore-card luxia-explore-capability flex min-w-0 flex-col rounded-[var(--luxia-radius-12)] border p-5" aria-labelledby={`explore-cap-${product.id}`} data-explore-product={product.id}>
+      <div className="flex items-start gap-3">
+        <IdentityMark identity={product.identity} title={product.title} size={44} />
+        <div className="min-w-0 flex-1">
+          <p className="luxia-type-caption" style={{ color: "var(--luxia-text-muted)" }}>{product.category}</p>
+          <h4 id={`explore-cap-${product.id}`} className="luxia-type-title-component" style={{ color: "var(--luxia-text-primary)" }}>{product.title}</h4>
+        </div>
+      </div>
+      {product.scope ? (
+        <p className="mt-3 flex flex-wrap items-center gap-1.5">
+          <span className="luxia-explore-chip" data-explore-scope={product.scope}>{SCOPE_LABELS[product.scope]}</span>
+        </p>
+      ) : null}
+      <p className="mt-2.5 luxia-type-body-dense" style={{ color: "var(--luxia-text-secondary)" }}>{product.summary}</p>
+      {!compact && product.benefit ? (
+        <p className="mt-2 luxia-type-body-dense" style={{ color: "var(--luxia-text-primary)" }}>
+          <span className="font-semibold">Why it helps: </span>{product.benefit}
+        </p>
+      ) : null}
+      {product.example ? (
+        <p className="luxia-explore-example mt-3 rounded-[10px] px-3 py-2 luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
+          <span className="block luxia-type-overline-data" style={{ color: "var(--luxia-text-muted)" }}>Example</span>
+          {product.example}
+        </p>
+      ) : null}
+      <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-2 pt-4">
+        {action ? <ActionButton action={action} onAction={onAction} /> : null}
+        <EntryLink entry={product} onOpen={onOpen} className="luxia-explore-text-link inline-flex items-center gap-1" label={`Learn more about ${product.title}`}>
+          <BookOpen size={13} aria-hidden />Learn more
+        </EntryLink>
+      </div>
+    </article>
   );
 }
 
@@ -802,32 +936,81 @@ function ProductCard({ product, onAction, onOpen }: { product: ExploreProduct; o
 
 // Learn
 
-const LEARN_TRACKS: Array<{ track: ExploreLearnItem["track"]; title: string }> = [
-  { track: "getting-started", title: "Getting started" },
-  { track: "guides", title: "Product guides" },
-  { track: "lia", title: "LIA / HIS training" },
-  { track: "tutorials", title: "Tutorials" },
+const LEARN_TRACKS: Array<{ track: ExploreLearnItem["track"]; title: string; text: string }> = [
+  { track: "guides", title: "Guides", text: "One idea per guide, a couple of minutes each." },
+  { track: "lia", title: "LIA / HIS training", text: "" },
+  { track: "tutorials", title: "Tutorials", text: "" },
 ];
 
 function LearnSection({ items, onOpen }: { items: ExploreLearnItem[]; onOpen: OpenEntry }) {
+  const start = items.filter((item) => item.track === "getting-started");
+  const [first, ...moreStart] = start;
   return (
-    <div>
-      <SectionIntro icon={<BookOpen size={18} strokeWidth={2} />} title="Learn" text="Guides and tutorials for getting more from Luxia." />
-      <div className="grid gap-4 md:grid-cols-2">
-        {LEARN_TRACKS.map(({ track, title }) => {
-          const entries = items.filter((item) => item.track === track);
-          if (entries.length === 0) return null;
-          return (
-            <section key={track} aria-label={title} className="luxia-explore-card rounded-[var(--luxia-radius-12)] border p-4">
-              <h3 className="mb-2 luxia-type-title-component" style={{ color: HS.sectionHeading }}>{title}</h3>
-              <div className="space-y-2.5">
-                {entries.map((item) => <MiniCard key={item.id} entry={item} eyebrow={item.format} onOpen={onOpen} />)}
-              </div>
-            </section>
-          );
-        })}
-      </div>
+    <div className="space-y-9">
+      <SectionIntro icon={<BookOpen size={18} strokeWidth={2} />} title="Learn" text="Short guides to how Luxia works. Reading a guide never changes anything in your workspace." />
+      {first ? (
+        <section aria-label="Start here" data-explore-start-here="">
+          <EntryLink entry={first} onOpen={onOpen} className="luxia-explore-start group flex min-w-0 flex-col gap-4 rounded-[var(--luxia-radius-16)] border p-6 sm:flex-row sm:items-center" label={`Start here: ${first.title}, ${first.readMinutes ?? 2} minute read`}>
+            <span className="luxia-explore-icon-chip shrink-0" aria-hidden><Compass size={18} strokeWidth={2} /></span>
+            <span className="min-w-0 flex-1">
+              <span className="flex flex-wrap items-center gap-1.5">
+                <span className="luxia-explore-chip">Start here</span>
+                <ConceptLabel entry={first} />
+              </span>
+              <span className="mt-2 block luxia-type-heading-h3" style={{ color: HS.sectionHeading }}>{first.title}</span>
+              <span className="mt-1 block luxia-type-body-dense" style={{ color: "var(--luxia-text-secondary)" }}>{first.summary}</span>
+            </span>
+            <span className="flex shrink-0 items-center gap-3 luxia-type-caption" style={{ color: "var(--luxia-text-muted)" }}>
+              <ReadTime item={first} />
+              <span className="inline-flex items-center gap-1 luxia-type-body-dense-strong" style={{ color: "var(--luxia-purple-70)" }}>Read guide <ArrowRight size={14} aria-hidden /></span>
+            </span>
+          </EntryLink>
+          {moreStart.length > 0 ? (
+            <div className="mt-3 grid gap-3 md:grid-cols-2">
+              {moreStart.map((item) => <GuideCard key={item.id} item={item} onOpen={onOpen} />)}
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+      {LEARN_TRACKS.map(({ track, title, text }) => {
+        const entries = items.filter((item) => item.track === track);
+        if (entries.length === 0) return null;
+        return (
+          <section key={track} aria-label={title} data-explore-learn-track={track}>
+            <SubHeading title={title} text={text || undefined} />
+            <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              {entries.map((item) => <li key={item.id} className="min-w-0"><GuideCard item={item} onOpen={onOpen} /></li>)}
+            </ul>
+          </section>
+        );
+      })}
     </div>
+  );
+}
+
+function ReadTime({ item }: { item: ExploreLearnItem }) {
+  if (!item.readMinutes) return null;
+  return (
+    <span className="inline-flex items-center gap-1" data-explore-read-time="">
+      <Clock size={12} aria-hidden />{`${item.readMinutes} min read`}
+    </span>
+  );
+}
+
+function GuideCard({ item, onOpen }: { item: ExploreLearnItem; onOpen: OpenEntry }) {
+  return (
+    <EntryLink entry={item} onOpen={onOpen} className="luxia-explore-card luxia-explore-guide flex h-full min-w-0 flex-col rounded-[var(--luxia-radius-12)] border p-4" label={`${item.title}${item.readMinutes ? `, ${item.readMinutes} minute read` : ""}`}>
+      <span className="flex flex-wrap items-center gap-1.5 luxia-type-caption" style={{ color: "var(--luxia-text-muted)" }}>
+        {item.format}
+        <ConceptLabel entry={item} />
+      </span>
+      <span className="mt-1 block luxia-type-title-component" style={{ color: "var(--luxia-text-primary)" }}>{item.title}</span>
+      <span className="mt-1 block luxia-type-body-dense" style={{ color: "var(--luxia-text-secondary)" }}>{item.summary}</span>
+      <span className="mt-auto flex items-center justify-between gap-2 pt-3 luxia-type-caption" style={{ color: "var(--luxia-text-muted)" }}>
+        <ReadTime item={item} />
+        <span className="ml-auto inline-flex items-center gap-1 font-semibold" style={{ color: "var(--luxia-purple-70)" }}>Read guide <ArrowRight size={12} aria-hidden /></span>
+      </span>
+    </EntryLink>
   );
 }
 
@@ -940,9 +1123,9 @@ function ServicesSection({ services, onOpen }: { services: ExploreService[]; onO
 
 // Full-page entry (shared template for every section)
 
-const SECTION_ICONS: Record<ExploreContentSectionId, LucideIcon> = {
+const SECTION_ICONS: Record<ExploreContentSectionId, LucideIcon | LuxiaIconComponent> = {
   "whats-new": Megaphone,
-  products: Compass,
+  products: LuxiaToolsGalleryIcon,
   learn: BookOpen,
   ideas: Lightbulb,
   stories: Megaphone,
@@ -1013,7 +1196,7 @@ function EntryPage({
         <article className="min-w-0 max-w-[760px]" aria-labelledby="explore-entry-title">
           <header className="flex min-w-0 items-start gap-4">
             {entry.section === "products" ? <IdentityMark identity={entry.identity} title={entry.title} size={64} /> : (
-              <span className="luxia-explore-icon-chip mt-1" aria-hidden><Icon size={18} strokeWidth={2} /></span>
+              <span className="luxia-explore-icon-chip mt-1" aria-hidden><Icon size={18} color="currentColor" /></span>
             )}
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-1.5">
@@ -1152,6 +1335,7 @@ function FactsCard({ entry, action, onAction, onOpen, feed }: { entry: ExploreEn
     facts.push({ label: "Industry", value: entry.industry });
   } else if (entry.section === "learn") {
     facts.push({ label: "Format", value: entry.format });
+    if (entry.readMinutes) facts.push({ label: "Reading time", value: `${entry.readMinutes} min` });
   }
   const isService = entry.section === "services";
   const isOnRequest = entry.section === "products" && entry.availability === "on-request";

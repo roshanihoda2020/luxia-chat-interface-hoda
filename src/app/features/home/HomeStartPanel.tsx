@@ -356,7 +356,7 @@ export function HomeStartPanel({
     if (!input) return;
     input.style.height = "auto";
     input.style.height = `${Math.min(input.scrollHeight, 168)}px`;
-  }, [question, showStarters]);
+  }, [question, showStarters, aiMode]);
 
   function ask() {
     if (aiMode) {
@@ -430,20 +430,20 @@ export function HomeStartPanel({
             {aiMode ? `Your question for ${LUXIA_ASSISTANT_CONFIG.displayName}` : project ? `Your question for ${project.name}` : "Your question"}
           </label>
           <div
-            className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-x-2 [grid-template-areas:'input_send'_'starters_starters'_'context_context'_'status_status'] @[520px]:[grid-template-areas:'input_input'_'starters_starters'_'context_send'_'status_status']"
+            className={`grid grid-cols-[minmax(0,1fr)_auto] items-end gap-x-2 [grid-template-areas:'input_send'_'starters_starters'_'context_context'_'status_status'] ${aiMode && messages.length > 0 ? "" : "@[520px]:[grid-template-areas:'input_input'_'starters_starters'_'context_send'_'status_status']"}`}
             data-home-ask-layout=""
           >
             <textarea
               id="home-ask-input"
               ref={inputRef}
-              rows={showStarters ? 1 : 2}
+              rows={aiMode ? 1 : 2}
               value={question}
               onChange={(event) => setQuestion(event.target.value)}
               onKeyDown={onKeyDown}
               disabled={!aiMode && !project}
               placeholder={placeholder}
               data-home-ask-input=""
-              className={`block w-full resize-none ${showStarters ? "min-h-[38px]" : "min-h-[52px]"} bg-transparent px-1.5 pb-2 pt-1 text-[17px] leading-[26px] outline-none [grid-area:input] placeholder:text-[var(--luxia-text-muted)] disabled:cursor-not-allowed`}
+              className={`block w-full resize-none ${aiMode ? "min-h-[38px]" : "min-h-[52px]"} bg-transparent px-1.5 pb-2 pt-1 text-[17px] leading-[26px] outline-none [grid-area:input] placeholder:text-[var(--luxia-text-muted)] disabled:cursor-not-allowed`}
               style={{ color: "var(--luxia-text-primary)" }}
             />
             {showStarters ? (
