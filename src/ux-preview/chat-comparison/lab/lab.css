@@ -1,0 +1,6 @@
+/* Prototype only: the real Constellation inspector's own heading stays in place
+   (keeping its height) but is covered by the lab heading (options A/B/C).
+   The real component and its sections are untouched. */
+.ux-lab-panel [data-luxia-inspector="capsule"] > aside > div:nth-child(2) {
+  visibility: hidden;
+}
