@@ -32,9 +32,6 @@ export {
   CONSTELLATION_SOURCE_COUNTS,
   getProjectActivity,
   getProjectDashboardOutputs,
-  getProjectDashboards,
-  getProjectVirtualAssistants,
-  getProjectWidgets,
 } from "./data";
 export {
   canCreateDashboard,

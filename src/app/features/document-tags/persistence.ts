@@ -103,9 +103,6 @@ const DEMO_FILE_CATALOG: Record<string, readonly string[]> = {
   "ds-pdf-03": ["runbook.pdf"],
 };
 
-/** Move stale demo File keys onto the real catalog file, then drop orphans. */
-const DEMO_FILE_ORPHAN_REMAP: Record<string, Record<string, string>> = {};
-
 /**
  * CSV imported-table Tags. Keys are csvTableIdentity values.
  * Reporting and Analytics are Table-only on their parent sources.
@@ -696,22 +693,12 @@ function applyDemoAssignments(library: OrganizationTagLibrary): void {
 
 /**
  * Drop File assignment keys that are not catalog files on demo File sources.
- * Remap known stale keys onto the real file so demo Tags are not lost.
  * Does not rewrite assignments on files that actually exist.
  */
 function alignDemoFileAssignments(library: OrganizationTagLibrary): void {
   for (const [sourceId, allowedNames] of Object.entries(DEMO_FILE_CATALOG)) {
     const allowed = new Set(allowedNames.map((name) => fileIdentity(name)));
     const files = { ...(library.fileAssignments[sourceId] ?? {}) };
-    const remaps = DEMO_FILE_ORPHAN_REMAP[sourceId] ?? {};
-    for (const [orphanName, targetName] of Object.entries(remaps)) {
-      const orphanId = fileIdentity(orphanName);
-      const targetId = fileIdentity(targetName);
-      const orphanTags = files[orphanId];
-      if (!orphanTags?.length) continue;
-      files[targetId] = mergeTagIdLists(files[targetId], orphanTags, library.definitions);
-      delete files[orphanId];
-    }
     for (const key of Object.keys(files)) {
       if (!allowed.has(key)) delete files[key];
     }

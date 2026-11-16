@@ -68,38 +68,6 @@ export const GALAXY_EMPTY_PROMPTS = [
   "Where can I find information about supplier risk?",
 ] as const;
 
-export const GALAXY_MOCK_MATCHED: GalaxyMatchedConstellation = {
-  id: "con2",
-  label: "Financial Documents",
-  type: "PDF",
-};
-
-export const GALAXY_MOCK_CANDIDATES: GalaxyCandidate[] = [
-  { id: "con2", label: "Financial Documents", type: "PDF", relevance: "High relevance" },
-  { id: "con1", label: "Customer Records", type: "DB", relevance: "Medium relevance" },
-  { id: "con3", label: "Operations Database", type: "DB", relevance: "Low relevance" },
-];
-
-export const GALAXY_MOCK_SOURCES: GalaxySource[] = [
-  {
-    id: "g-s1",
-    label: "FY2026 Credit Policy.pdf",
-    description: "Approval thresholds",
-    pages: "Pages 8–13",
-  },
-  {
-    id: "g-s2",
-    label: "Risk Assessment Guidelines.pdf",
-    description: "Executive Summary",
-    pages: "Page 2",
-  },
-];
-
-export const GALAXY_MOCK_ANSWER =
-  "Based on the matched constellation, the latest financial policy guidance lives in Financial Documents.\n\nFY2026 Credit Policy.pdf defines approval thresholds, escalation paths, and documentation requirements. Risk Assessment Guidelines.pdf complements it with supplier and credit-risk controls used during review.\n\nFor policy questions across this project, Galaxy routes to Financial Documents because those PDFs are the strongest match for financial policy content.";
-
-export const GALAXY_MOCK_CONSTELLATIONS_CHECKED = 24;
-
 export const GALAXY_ROUTE_RESULT_LIMIT = 50;
 export const GALAXY_MOCK_ROUTE_OPTION_COUNT = 1000;
 
@@ -145,17 +113,6 @@ export function buildGalaxyRouteCatalog(
   }
   return out;
 }
-
-export const GALAXY_MATCH_REASONS = [
-  "Financial policies detected",
-  "Credit approval workflow identified",
-  "Historical reports available",
-] as const;
-
-export const GALAXY_CONFIDENCE = {
-  label: "Very High",
-  percent: 96,
-} as const;
 
 export function createIdleGalaxySession(projectName: string): GalaxySessionState {
   return {

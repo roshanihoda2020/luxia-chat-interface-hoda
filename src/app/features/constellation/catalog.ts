@@ -22,7 +22,7 @@ export interface CanonicalConstellationRecord {
 
 /**
  * Stable sample Data Source IDs — reuse the small canonical Data Source catalog
- * (ds-db-01, ds-db-02, ds-pdf-01, ds-pdf-02, ds-csv-01).
+ * (ds-db-01, ds-db-02, ds-pdf-01, ds-csv-01).
  */
 export const SAMPLE_DATA_SOURCE_IDS = {
   ds01: "ds-db-01",
@@ -30,20 +30,8 @@ export const SAMPLE_DATA_SOURCE_IDS = {
   ds03: "ds-pdf-01",
   ds04: "ds-csv-01",
   ds05: "ds-db-01",
-  ds06: "ds-pdf-02",
   ds07: "ds-pdf-01",
   ds08: "ds-csv-01",
-  ds09: "ds-db-02",
-  ds10: "ds-pdf-02",
-  ds11: "ds-db-01",
-  ds12: "ds-db-02",
-  ds13: "ds-csv-01",
-  ds14: "ds-pdf-01",
-  ds15: "ds-csv-01",
-  ds16: "ds-pdf-02",
-  ds17: "ds-db-02",
-  ds18: "ds-csv-01",
-  ds19: "ds-pdf-01",
 } as const;
 
 /**

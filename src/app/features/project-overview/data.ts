@@ -1,12 +1,7 @@
 import { HOME_PROJECTS } from "@/app/features/project/data";
 import { buildConstellationSourceCountMap, getProjectConstellations } from "@/app/features/constellation/catalog";
 import { listUserDashboardOutputs } from "./dashboardOutputStore";
-import type {
-  ProjectActivityItem,
-  ProjectDashboardItem,
-  ProjectDashboardOutput,
-  ProjectWidgetItem,
-} from "./types";
+import type { ProjectActivityItem, ProjectDashboardOutput } from "./types";
 
 const HOUR_MS = 3_600_000;
 const DAY_MS = 86_400_000;
@@ -195,11 +190,6 @@ function dashboardDemoCreator(projectId: string, index: number): string {
   return roster[index % roster.length] ?? "user-01";
 }
 
-function projectIndex(projectId: string): number {
-  const index = PROJECT_IDS.indexOf(projectId);
-  return index >= 0 ? index : 0;
-}
-
 export const PROJECT_DASHBOARD_OUTPUTS: ProjectDashboardOutput[] = PROJECT_IDS.flatMap(
   (projectId) => {
     const homeProject = HOME_PROJECTS.find((project) => project.id === projectId);
@@ -279,51 +269,6 @@ export const PROJECT_DASHBOARD_OUTPUTS: ProjectDashboardOutput[] = PROJECT_IDS.f
   },
 );
 
-export const PROJECT_DASHBOARDS: ProjectDashboardItem[] = PROJECT_IDS.flatMap((projectId) => {
-  const index = projectIndex(projectId);
-  const homeProject = HOME_PROJECTS.find((project) => project.id === projectId);
-  if (homeProject?.isEmpty) return [];
-  const n = index + 1;
-  const items: ProjectDashboardItem[] = [
-    {
-      id: `${projectId}-dashboard-01`,
-      projectId,
-      name: `Dashboard name ${pad(n)}`,
-      kind: "dashboard",
-      updatedAt: "2h ago",
-      updatedAtTimestamp: NOW - HOUR_MS * 2,
-      createdByUserId: dashboardDemoCreator(projectId, 0),
-    },
-    {
-      id: `${projectId}-dashboard-02`,
-      projectId,
-      name: `Dashboard name ${pad(Math.min(n + 1, 10))}`,
-      kind: "dashboard",
-      updatedAt: "1 day ago",
-      updatedAtTimestamp: NOW - DAY_MS,
-      createdByUserId: dashboardDemoCreator(projectId, 1),
-    },
-  ];
-  if (index % 2 === 0) {
-    items.push({
-      id: `${projectId}-dashboard-group-01`,
-      projectId,
-      name: `Dashboard group name ${pad(n)}`,
-      kind: "group",
-      updatedAt: "3 days ago",
-      updatedAtTimestamp: NOW - DAY_MS * 3,
-      createdByUserId: dashboardDemoCreator(projectId, 2),
-    });
-  }
-  return items;
-});
-
-/** @deprecated Use canonical Vidget state — kept empty to avoid a second dataset. */
-export const PROJECT_WIDGETS: ProjectWidgetItem[] = [];
-
-/** @deprecated Alias — empty; use canonical Vidget state. */
-export const PROJECT_VIRTUAL_ASSISTANTS = PROJECT_WIDGETS;
-
 export const CONSTELLATION_SOURCE_COUNTS: Record<string, number> =
   buildConstellationSourceCountMap();
 
@@ -341,19 +286,4 @@ export function getProjectDashboardOutputs(projectId: string): ProjectDashboardO
   return [...userCreated.filter((item) => !seededIds.has(item.id)), ...seeded].sort(
     (a, b) => b.updatedAtTimestamp - a.updatedAtTimestamp,
   );
-}
-
-export function getProjectDashboards(projectId: string): ProjectDashboardItem[] {
-  return PROJECT_DASHBOARDS
-    .filter((item) => item.projectId === projectId)
-    .slice()
-    .sort((a, b) => b.updatedAtTimestamp - a.updatedAtTimestamp);
-}
-
-export function getProjectWidgets(projectId: string): ProjectWidgetItem[] {
-  return PROJECT_WIDGETS.filter((item) => item.projectId === projectId);
-}
-
-export function getProjectVirtualAssistants(projectId: string): ProjectWidgetItem[] {
-  return getProjectWidgets(projectId);
 }
