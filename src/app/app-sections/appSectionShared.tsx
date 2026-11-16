@@ -87,6 +87,8 @@ export interface Message {
   id: string; role: "user" | "ai"; content: string; timestamp: string;
   sources?: Source[]; insights?: ResponseInsights;
   galaxy?: GalaxyRoutingMeta;
+  /** VerifAI review response; the review itself lives in the VerifAI session store. */
+  verifai?: { reviewId: string };
   responsePresentation?: {
     state: LuxiaResponsePresentation;
     notice?: string;

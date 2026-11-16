@@ -402,7 +402,23 @@ import { ChatFinderOverlay } from "@/app/features/chat-finder/ChatFinderOverlay"
 import type { FinderChat } from "@/app/features/chat-finder/chatQuery";
 import { LUXIA_PAGE_HEADER_ACTION } from "@/app/components/LuxiaPageHeader";
 import { PanelLeftOpen, Search as SearchIcon } from "lucide-react";
-import { PromptComposer } from "@/app/app-sections/ChatComposerSection";
+import { PromptComposer, type ComposerTool } from "@/app/app-sections/ChatComposerSection";
+import {
+  VERIFAI_COMMAND,
+  VerifaiChatActionsContext,
+  VerifaiComposerIndicator,
+  VerifyReviewModal,
+  useVerifaiFollowUp,
+  answerReviewFollowUp,
+  getVerifaiFollowUp,
+  getVerifaiReview,
+  setVerifaiFollowUp,
+  startVerifaiReview,
+  type VerifaiChatActions,
+  type VerifaiLaunchContext,
+  type VerifaiStartInput,
+} from "@/app/features/verifai";
+import { ShieldCheck } from "lucide-react";
 import { resolveNewChatKnowledge } from "@/app/features/chat/newChatKnowledge";
 import { ComposerContextRow, type KnowledgeContextOption, type ProjectContextOption } from "@/app/features/chat-context/ComposerContextRow";
 import { FIRST_TIME_DEMO_USER_ID, rememberPrototypeUserId, restorePrototypeUserId } from "@/app/features/permissions/currentUser";
@@ -1019,6 +1035,10 @@ export default function App() {
   const [draftsByChatId, setDraftsByChatId] = useState<Record<string, string>>({});
   const [language, setLanguage] = useState("EN");
   const [assistantMode, setAssistantMode] = useState("Luxia");
+  /** VerifAI: the Chat the Verify Review modal was opened from (null = closed). */
+  const [verifaiLaunch, setVerifaiLaunch] = useState<VerifaiLaunchContext | null>(null);
+  /** Bumped to move focus to the composer (e.g. after "Ask Luxia" on a finding). */
+  const [composerFocusNonce, setComposerFocusNonce] = useState(0);
   const [showNewChatModal, setShowNewChatModal] = useState(false);
   /**
    * Pending new Chat: the Project (when known) and the unsent question only.
@@ -5870,14 +5890,84 @@ export default function App() {
   }
 
   function handleSend(text?: string) {
-    sendToChat(activeChat, text);
+    const content = (text ?? draftsByChatId[activeChat] ?? "").trim();
+    if (/^@verifai\b/i.test(content)) {
+      setChatDraft(activeChat, content.replace(/^@verifai\b\s*/i, ""));
+      openVerifai(activeChat);
+      return;
+    }
+    sendToChat(activeChat, text, undefined, { reviewContext: true });
   }
+
+  /** VerifAI: open Verify Review for a Chat, scoped to its Project and knowledge. */
+  function openVerifai(chatId: string) {
+    const chat = chats.find((c) => c.id === chatId);
+    if (!chat?.projectId) return;
+    let constellations: Array<{ id: string; label: string }>;
+    if (chat.chatType === "constellation") {
+      if (!chat.constellationId || !assertConstellationUseAccess(chat.projectId, chat.constellationId)) return;
+      const constellation = allConstellations.find((c) => c.id === chat.constellationId);
+      constellations = [{ id: chat.constellationId, label: constellation?.label ?? chat.label }];
+    } else {
+      constellations = workingAccessibleOverviewConstellations
+        .filter((item) => item.projectId === chat.projectId)
+        .map((item) => ({ id: item.id, label: item.label }));
+    }
+    setVerifaiLaunch({
+      chatId,
+      projectId: chat.projectId,
+      projectName: getProjectNameById(chat.projectId, homeProjects),
+      chatType: chat.chatType,
+      constellations,
+    });
+  }
+
+  function handleStartVerifai(input: VerifaiStartInput) {
+    setVerifaiLaunch(null);
+    const now = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+    const uid = `u${counterRef.current++}`, aid = `a${counterRef.current++}`;
+    const reviewId = startVerifaiReview(input);
+    noteChatActivity(input.chatId);
+    setChatMessages((p) => ({
+      ...p,
+      [input.chatId]: [
+        ...(p[input.chatId] ?? []),
+        { id: uid, role: "user", content: `Verify ${input.document.name} against ${input.checklist.name}`, timestamp: now },
+        { id: aid, role: "ai", content: "", timestamp: now, verifai: { reviewId } },
+      ],
+    }));
+  }
+
+  // Review context is only turned on by these explicit actions, and unsent text is never replaced.
+  const verifaiChatActions: VerifaiChatActions = {
+    askAboutFinding: (review, finding) => {
+      setVerifaiFollowUp(review.chatId, { reviewId: review.id, findingId: finding.id });
+      if (!(draftsByChatId[review.chatId] ?? "").trim()) {
+        setChatDraft(review.chatId, `Why is ${finding.requirementId} a problem and how do I fix it?`);
+      }
+      setComposerFocusNonce((n) => n + 1);
+    },
+    askAboutReview: (review) => {
+      setVerifaiFollowUp(review.chatId, { reviewId: review.id });
+      setComposerFocusNonce((n) => n + 1);
+    },
+    askFollowUp: (review, question) => {
+      const draft = draftsByChatId[review.chatId] ?? "";
+      setVerifaiFollowUp(review.chatId, { reviewId: review.id });
+      sendToChat(review.chatId, question, undefined, { reviewContext: true });
+      if (draft) setChatDraft(review.chatId, draft);
+    },
+    startNewReview: (review) => openVerifai(review.chatId),
+  };
+  const activeVerifaiFollowUp = useVerifaiFollowUp(activeChat);
+
+  const composerTools: ComposerTool[] = [{ ...VERIFAI_COMMAND, icon: <ShieldCheck size={16} /> }];
 
   /**
    * The ONE send pipeline (full Chat and Home inline Chat). `chatRecord` is passed when the
    * chat was created in this same event (not yet in state).
    */
-  function sendToChat(chatId: string, text?: string, chatRecord?: Chat) {
+  function sendToChat(chatId: string, text?: string, chatRecord?: Chat, options?: { reviewContext?: boolean }) {
     const content = (text ?? draftsByChatId[chatId] ?? "").trim();
     if (!content) return;
     setChatDraft(chatId, "");
@@ -5894,6 +5984,32 @@ export default function App() {
     const active = chatRecord ?? chats.find((c) => c.id === chatId);
     const isGalaxy = active?.chatType === "galaxy";
     const projectName = getProjectNameById(active?.projectId, homeProjects);
+
+    // Follow-up about a VerifAI review, only from the full Chat where its indicator is visible
+    // (Home's inline chat never applies review context silently).
+    const verifaiContext = options?.reviewContext ? getVerifaiFollowUp(chatId) : undefined;
+    const verifaiReview = verifaiContext ? getVerifaiReview(verifaiContext.reviewId) : undefined;
+    if (verifaiContext && verifaiReview) {
+      setChatMessages((p) => ({
+        ...p,
+        [chatId]: [
+          ...(p[chatId] ?? []),
+          { id: uid, role: "user", content, timestamp: now },
+          {
+            id: aid,
+            role: "ai",
+            timestamp: now,
+            content: answerReviewFollowUp(verifaiReview, content, verifaiContext.findingId),
+            sources: [
+              { id: `${aid}-doc`, label: verifaiReview.document.name },
+              { id: `${aid}-checklist`, label: verifaiReview.checklist.name },
+            ],
+          },
+        ],
+      }));
+      if (verifaiContext.findingId) setVerifaiFollowUp(chatId, { reviewId: verifaiReview.id });
+      return;
+    }
 
     if (!isGalaxy) {
       if (
@@ -8893,7 +9009,7 @@ export default function App() {
                     />
                   )
                   : <EmptyState onPrompt={handleSend} />)
-                : <>
+                : <VerifaiChatActionsContext.Provider value={verifaiChatActions}>
                   <DateSeparator label="Today" />
                   {messages.map(msg =>
                     msg.role === "user"
@@ -8917,9 +9033,13 @@ export default function App() {
                   )}
                   {knowledgeNotice?.chatId === activeChat ? <KnowledgeChangeNotice notice={knowledgeNotice} /> : null}
                   <div ref={messagesEndRef} className="h-2 flex-shrink-0" aria-hidden="true" />
-                </>}
+                </VerifaiChatActionsContext.Provider>}
             </div>
             <PromptComposer value={draftsByChatId[activeChat] ?? ""} onChange={(value) => setChatDraft(activeChat, value)} onSend={() => handleSend()}
+              fieldContext={<VerifaiComposerIndicator chatId={activeChat} />}
+              placeholder={activeVerifaiFollowUp ? "Ask a follow-up question…" : "Ask something"}
+              tools={activeData?.projectId ? composerTools : undefined}
+              onSelectTool={(id) => { if (id === VERIFAI_COMMAND.id) openVerifai(activeChat); }}
               contextControls={activeData?.projectId ? (
                 <ComposerContextRow
                   projects={composerProjectOptions}
@@ -8936,7 +9056,9 @@ export default function App() {
               constellationType={activeConstellation.type}
               assistantMode={assistantMode} onModeChange={setAssistantMode}
               chatType={activeData?.chatType ?? "constellation"}
-              focusKey={activeData?.chatType === "galaxy" ? activeChat : undefined}
+              focusKey={composerFocusNonce > 0
+                ? `${activeChat}:${composerFocusNonce}`
+                : activeData?.chatType === "galaxy" ? activeChat : undefined}
               galaxyRoute={activeGalaxySession ? {
                 routeMode: activeGalaxySession.routeMode,
                 pendingManual,
@@ -8984,6 +9106,12 @@ export default function App() {
                   pendingManualId: null,
                 }),
               } : undefined}
+            />
+            <VerifyReviewModal
+              open={Boolean(verifaiLaunch)}
+              context={verifaiLaunch}
+              onOpenChange={(open) => { if (!open) setVerifaiLaunch(null); }}
+              onStart={handleStartVerifai}
             />
             </div>
 

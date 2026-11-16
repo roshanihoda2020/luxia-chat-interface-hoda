@@ -7,6 +7,7 @@ import { LuxiaStarLogo } from "@/app/components/LuxiaStarLogo";
 import { LuxiaGalaxyIcon } from "@/assets/icons";
 import { ResponseActionsFooter } from "@/app/features/chat/ResponseActionsFooter";
 import { LuxiaResponseCard } from "@/app/features/chat/LuxiaResponseCard";
+import { VerifaiReviewMessage } from "@/app/features/verifai";
 import { hydrateMessageResponsePresentation } from "@/app/features/constellation-settings/responseConfidence";
 import { getProjectNameById } from "@/app/features/project";
 import type { HomeProjectCard } from "@/app/features/home";
@@ -188,6 +189,33 @@ export function DateSeparator({ label }: { label: string }) {
 }
 
 export function AICard({
+  message,
+  constellationId,
+  onOpenGalaxyConstellation,
+  onViewGalaxyActivity,
+  onOpenInWritingAssistant,
+}: {
+  message: Message;
+  constellationId?: string;
+  onOpenGalaxyConstellation?: () => void;
+  onViewGalaxyActivity?: () => void;
+  onOpenInWritingAssistant?: (content: string) => void;
+}) {
+  if (message.verifai) {
+    return <VerifaiReviewMessage reviewId={message.verifai.reviewId} timestamp={message.timestamp} />;
+  }
+  return (
+    <StandardAICard
+      message={message}
+      constellationId={constellationId}
+      onOpenGalaxyConstellation={onOpenGalaxyConstellation}
+      onViewGalaxyActivity={onViewGalaxyActivity}
+      onOpenInWritingAssistant={onOpenInWritingAssistant}
+    />
+  );
+}
+
+function StandardAICard({
   message,
   constellationId,
   onOpenGalaxyConstellation,

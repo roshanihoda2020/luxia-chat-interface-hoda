@@ -290,6 +290,25 @@ function ResponseTypeDropdown({ constellationType }: { constellationType: Conste
 const COMPOSER_INPUT_MIN_HEIGHT = 20;
 const COMPOSER_INPUT_MAX_HEIGHT = 40;
 
+export type ComposerTool = {
+  id: string;
+  /** Typed form, e.g. "@verifai". */
+  trigger: string;
+  label: string;
+  description: string;
+  icon: React.ReactNode;
+};
+
+const TOOL_TOKEN = /(^|\s)(@[\w-]*)$/;
+
+/** Tools matching an "@" token at the end of the draft. */
+function matchTools(value: string, tools: ComposerTool[]) {
+  const token = TOOL_TOKEN.exec(value)?.[2];
+  if (!token) return { token: null, matches: [] as ComposerTool[] };
+  const query = token.toLowerCase();
+  return { token, matches: tools.filter((tool) => tool.trigger.toLowerCase().startsWith(query)) };
+}
+
 export function PromptComposer({
   value,
   onChange,
@@ -303,6 +322,10 @@ export function PromptComposer({
   chatType,
   galaxyRoute,
   contextControls,
+  tools,
+  onSelectTool,
+  fieldContext,
+  placeholder = "Ask something",
 }: {
   value: string; onChange: (v: string) => void; onSend: () => void;
   language: string; onLanguageChange: (c: string) => void;
@@ -325,9 +348,47 @@ export function PromptComposer({
    * keep their own state and handlers). When omitted, the composer renders exactly as before.
    */
   contextControls?: React.ReactNode;
+  /** Tools offered when the user types "@" (e.g. VerifAI). Omitted: no menu. */
+  tools?: ComposerTool[];
+  onSelectTool?: (id: string) => void;
+  /** Compact context shown inside the typing field, before the text (e.g. a VerifAI review). */
+  fieldContext?: React.ReactNode;
+  placeholder?: string;
 }) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const hasText = value.trim().length > 0;
+  const [toolIndex, setToolIndex] = useState(0);
+  const [dismissedToken, setDismissedToken] = useState<string | null>(null);
+  const [toolPos, setToolPos] = useState<{ bottom: number; left: number } | null>(null);
+  const toolMatch = tools?.length && onSelectTool ? matchTools(value, tools) : { token: null, matches: [] as ComposerTool[] };
+  const toolMenuOpen = Boolean(toolMatch.token && toolMatch.matches.length && dismissedToken !== value);
+
+  useEffect(() => { setToolIndex(0); }, [toolMatch.token]);
+  useEffect(() => {
+    if (!toolMenuOpen || !ref.current) { setToolPos(null); return; }
+    const r = ref.current.getBoundingClientRect();
+    setToolPos({ bottom: window.innerHeight - r.top + 14, left: Math.max(8, Math.min(r.left - 8, window.innerWidth - 368)) });
+  }, [toolMenuOpen]);
+
+  function selectTool(tool: ComposerTool) {
+    onChange(value.replace(TOOL_TOKEN, "$1").trimEnd());
+    onSelectTool?.(tool.id);
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (toolMenuOpen) {
+      const count = toolMatch.matches.length;
+      if (e.key === "ArrowDown") { e.preventDefault(); setToolIndex((i) => (i + 1) % count); return; }
+      if (e.key === "ArrowUp") { e.preventDefault(); setToolIndex((i) => (i - 1 + count) % count); return; }
+      if (e.key === "Escape") { e.preventDefault(); setDismissedToken(value); return; }
+      if ((e.key === "Enter" && !e.shiftKey) || e.key === "Tab") {
+        e.preventDefault();
+        selectTool(toolMatch.matches[Math.min(toolIndex, count - 1)]);
+        return;
+      }
+    }
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(); }
+  }
   const isConstellationChat = chatType === "constellation";
   const isGalaxyChat = chatType === "galaxy";
 
@@ -368,17 +429,47 @@ export function PromptComposer({
           } : undefined}
         >
           <div className="luxia-chat-composer__text-safe">
+            {fieldContext}
             <textarea
               ref={ref}
               rows={1}
               value={value}
               onChange={(e) => onChange(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(); } }}
-              placeholder="Ask something"
+              onKeyDown={handleKeyDown}
+              placeholder={placeholder}
               className="luxia-chat-composer__input"
               aria-label="Message"
+              aria-autocomplete={tools?.length ? "list" : undefined}
+              aria-controls={toolMenuOpen ? "luxia-composer-tools" : undefined}
+              aria-activedescendant={toolMenuOpen ? `luxia-composer-tool-${toolMatch.matches[Math.min(toolIndex, toolMatch.matches.length - 1)]?.id}` : undefined}
             />
           </div>
+          {toolMenuOpen && toolPos ? ReactDOM.createPortal(
+            <div id="luxia-composer-tools" role="listbox" aria-label="Tools" className="lx-composer-tools" style={{ bottom: toolPos.bottom, left: toolPos.left }}>
+              <p className="lx-composer-tools__label" aria-hidden>Tools</p>
+              {toolMatch.matches.map((tool, index) => (
+                <button
+                  key={tool.id}
+                  id={`luxia-composer-tool-${tool.id}`}
+                  type="button"
+                  role="option"
+                  aria-selected={index === toolIndex}
+                  data-active={index === toolIndex || undefined}
+                  className="lx-composer-tools__item"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onMouseEnter={() => setToolIndex(index)}
+                  onClick={() => selectTool(tool)}
+                >
+                  <span className="lx-composer-tools__icon" aria-hidden>{tool.icon}</span>
+                  <span className="min-w-0">
+                    <span className="lx-composer-tools__name">{tool.label}</span>
+                    <span className="lx-composer-tools__desc">{tool.description}</span>
+                  </span>
+                </button>
+              ))}
+            </div>,
+            document.body,
+          ) : null}
           {isConstellationChat ? (
             <div className="luxia-chat-composer__mode" data-luxia-composer-mode={contextControls ? "response" : "assistant"}>
               {contextControls

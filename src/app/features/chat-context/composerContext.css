@@ -238,3 +238,20 @@
 @media (max-width: 640px) {
   .luxia-composer { padding-inline: 12px; padding-bottom: 12px; }
 }
+
+/* "@" tools menu in the Chat composer (e.g. @verifai). */
+.lx-composer-tools {
+  position: fixed; z-index: 9999; min-width: 280px; max-width: min(360px, calc(100vw - 32px));
+  padding: 6px; border-radius: 12px; background: var(--luxia-surface); border: 1px solid var(--luxia-border-default); box-shadow: var(--luxia-shadow-md);
+}
+.lx-composer-tools__label { margin: 2px 8px 4px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--luxia-text-muted); }
+.lx-composer-tools__item {
+  display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px; border: 0; border-radius: 8px; text-align: left; cursor: pointer; background: transparent;
+}
+.lx-composer-tools__item[data-active], .lx-composer-tools__item:hover { background: var(--luxia-surface-selected); }
+.lx-composer-tools__icon {
+  display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
+  color: var(--luxia-purple-60); background: var(--luxia-surface-selected);
+}
+.lx-composer-tools__name { display: block; font-size: 13px; line-height: 18px; font-weight: 700; color: var(--luxia-purple-70); }
+.lx-composer-tools__desc { display: block; font-size: 12px; line-height: 17px; color: var(--luxia-text-muted); }
