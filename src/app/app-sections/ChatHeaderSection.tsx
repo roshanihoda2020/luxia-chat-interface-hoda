@@ -32,6 +32,8 @@ export function PageHeader({
   onOpenGalaxySettings,
   onOpenConstellationSettings,
   tabs,
+  leadingAction,
+  leadingMenuItems = [],
 }: {
   chatLabel: string;
   chat: Chat;
@@ -41,11 +43,16 @@ export function PageHeader({
   onNavigateHome: () => void;
   onOpenProject: (projectId: string) => void;
   onOpenConstellation?: (projectId: string, constellationId: string) => void;
-  onRenameChat: (name: string) => void;
+  /** Returns an error message to show inline (invalid or duplicate name), else null. */
+  onRenameChat: (name: string) => string | null | void;
   onDeleteChat: () => void;
   onOpenGalaxySettings?: () => void;
   onOpenConstellationSettings?: () => void;
   tabs?: React.ReactNode;
+  /** Optional first header action (before Settings and ⋯), e.g. "Find chats". */
+  leadingAction?: React.ReactNode;
+  /** Optional extra first items in the ⋯ menu (used when the leading action moves there). */
+  leadingMenuItems?: Array<{ id: string; label: string; icon: React.ReactNode; onSelect: () => void }>;
 }) {
   const isGalaxy = chat.chatType === "galaxy";
   const isConstellation = chat.chatType === "constellation";
@@ -74,11 +81,13 @@ export function PageHeader({
   const [dialog, setDialog] = useState<"share" | "shareList" | "report" | "delete" | null>(null);
 
   const chatOptionsItems = [
+    ...leadingMenuItems,
     {
       id: "share",
       label: "Share",
       icon: <Share2 size={15} strokeWidth={1.8} aria-hidden />,
       onSelect: () => setDialog("share"),
+      separatorBefore: leadingMenuItems.length > 0,
     },
     {
       id: "share-list",
@@ -118,6 +127,7 @@ export function PageHeader({
         titleStyle={{ color: LX.primary }}
         onRename={onRenameChat}
         renameLabel={`Rename ${headerTitle}`}
+        primaryAction={leadingAction}
         breadcrumb={
           <LuxiaBreadcrumb
             items={crumbItems}

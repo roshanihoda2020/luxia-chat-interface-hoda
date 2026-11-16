@@ -732,7 +732,9 @@ export function GalaxyActivityPanel({
                   onClick={onCollapse}
                   aria-label="Collapse sidebar"
                   aria-expanded={true}
-                  className="mt-px flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-[7px] outline-none focus-visible:outline-none"
+                  // Same centre as the collapsed rail's chevron (rail centre, 1 + 16 + 16px from its top):
+                  // 32 × 32, pulled 11px into the header's right padding.
+                  className="-mt-px -mr-[11px] flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[8px] outline-none focus-visible:outline-none"
                   style={{
                     background: "rgba(255, 255, 255, 0.05)",
                     color: GC.chevron,

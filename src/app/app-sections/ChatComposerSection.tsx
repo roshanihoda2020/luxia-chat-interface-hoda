@@ -8,7 +8,7 @@ import flagDe from "@/assets/flags/de.svg";
 import flagEs from "@/assets/flags/es.svg";
 import flagCn from "@/assets/flags/cn.svg";
 import {
-  ChevronDown, Mic, Check, AlignLeft, Layers, BarChart3,
+  ChevronDown, ChevronRight, Mic, Check, AlignLeft, Layers, BarChart3,
 } from "lucide-react";
 import { GalaxyRouteSelector, type GalaxyMatchedConstellation } from "@/app/features/galaxy";
 import { LX } from "@/app/features/active-data-tables/tokens";
@@ -42,7 +42,11 @@ function FlagCircle({ flagUrl, label, size = 24 }: { flagUrl: string; label: str
 
 const ASSISTANT_MODES = ["Luxia", "Knowledge Base", "Luxia / AI"];
 
-function AssistantModeDropdown({ mode, onChange }: { mode: string; onChange: (m: string) => void }) {
+function AssistantModeDropdown({ mode, onChange, variant = "field" }: {
+  mode: string; onChange: (m: string) => void;
+  /** "field": inside the typing field. "context": inline value in the context row. */
+  variant?: "field" | "context";
+}) {
   const [open, setOpen] = useState(false);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -55,29 +59,40 @@ function AssistantModeDropdown({ mode, onChange }: { mode: string; onChange: (m:
       if (menuRef.current?.contains(e.target as Node)) return;
       setOpen(false);
     }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") { setOpen(false); triggerRef.current?.focus(); }
+    }
     document.addEventListener("mousedown", onOutside);
-    return () => document.removeEventListener("mousedown", onOutside);
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("mousedown", onOutside); document.removeEventListener("keydown", onKey); };
   }, [open]);
 
   function openMenu() {
     if (!triggerRef.current) return;
     const r = triggerRef.current.getBoundingClientRect();
-    setMenuPos({ top: r.top - 8, left: r.right - 160 });
+    const preferred = variant === "context" ? r.left : r.right - 160;
+    setMenuPos({ top: r.top - 8, left: Math.max(8, Math.min(preferred, window.innerWidth - 168)) });
     setOpen(true);
   }
 
+  const context = variant === "context";
   return (
-    <div className="relative z-[1] flex-shrink-0 min-w-0">
-      <button ref={triggerRef} onClick={() => open ? setOpen(false) : openMenu()}
-        className="flex items-center gap-1 px-2 h-full rounded-lg transition-colors outline-none"
-        style={{ color: "#64748B" }}
-        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = LX.primary; }}
-        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "#64748B"; }}>
-        <span className="luxia-type-body-dense-strong truncate max-w-[140px]">{mode}</span>
-        <ChevronDown size={14} strokeWidth={2} style={{ transition: "transform 160ms ease", transform: open ? "rotate(180deg)" : "none" }} />
+    <div className={context ? "relative min-w-0" : "relative z-[1] flex-shrink-0 min-w-0"}>
+      <button ref={triggerRef} type="button" onClick={() => open ? setOpen(false) : openMenu()}
+        aria-label={`Assistant: ${mode}`}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        data-state={open ? "open" : "closed"}
+        data-luxia-assistant-trigger=""
+        className={context ? "luxia-ctx-value" : "flex items-center gap-1 px-2 h-full rounded-lg transition-colors outline-none"}
+        style={context ? undefined : { color: "#64748B" }}
+        onMouseEnter={context ? undefined : (e) => { (e.currentTarget as HTMLElement).style.color = LX.primary; }}
+        onMouseLeave={context ? undefined : (e) => { (e.currentTarget as HTMLElement).style.color = "#64748B"; }}>
+        <span className={context ? "luxia-ctx-name" : "luxia-type-body-dense-strong truncate max-w-[140px]"}>{mode}</span>
+        <ChevronDown size={context ? 12 : 14} strokeWidth={2} aria-hidden className={context ? "luxia-ctx-chevron" : undefined} style={context ? undefined : { transition: "transform 160ms ease", transform: open ? "rotate(180deg)" : "none" }} />
       </button>
       {open && menuPos && ReactDOM.createPortal(
-        <div ref={menuRef} className="fixed z-[9999] rounded-[12px] overflow-hidden py-1.5"
+        <div ref={menuRef} role="menu" aria-label="Assistant" className="fixed z-[9999] rounded-[12px] overflow-hidden py-1.5"
           style={{
             background: "white",
             boxShadow: LX.shadow.md,
@@ -87,7 +102,7 @@ function AssistantModeDropdown({ mode, onChange }: { mode: string; onChange: (m:
             left: menuPos.left,
           }}>
           {ASSISTANT_MODES.map(m => (
-            <button key={m} onClick={() => { onChange(m); setOpen(false); triggerRef.current?.focus(); }}
+            <button key={m} type="button" role="menuitemradio" aria-checked={m === mode} onClick={() => { onChange(m); setOpen(false); triggerRef.current?.focus(); }}
               className="w-full flex items-center gap-2.5 px-3.5 py-2 luxia-type-body-dense text-left transition-colors hover:bg-[#F8FAFC]"
               style={{ color: LX.primary, fontWeight: m === mode ? 700 : 600 }}>
               {m === mode && <Check size={12} style={{ color: LX.secondary }} />}
@@ -217,7 +232,7 @@ function ResponseTypeDropdown({ constellationType }: { constellationType: Conste
   function openMenu() {
     if (!triggerRef.current) return;
     const r = triggerRef.current.getBoundingClientRect();
-    setMenuPos({ top: r.top - 8, left: r.left });
+    setMenuPos({ top: r.top - 8, left: Math.max(8, Math.min(r.left, window.innerWidth - 168)) });
     focusRef.current = options.findIndex(o => o.id === selected);
     setOpen(true);
   }
@@ -227,17 +242,21 @@ function ResponseTypeDropdown({ constellationType }: { constellationType: Conste
 
   return (
     <>
-      <button ref={triggerRef} onClick={() => open ? setOpen(false) : openMenu()}
-        className="flex items-center gap-1.5 h-[30px] px-1 rounded-lg transition-colors outline-none"
+      <button ref={triggerRef} type="button" onClick={() => open ? setOpen(false) : openMenu()}
+        aria-label={`Response mode: ${current.label}`}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        data-luxia-response-trigger=""
+        className="luxia-response-trigger flex items-center gap-1.5 h-[30px] px-1 rounded-lg transition-colors outline-none"
         style={{ color: "#64748B" }}
         onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = LX.primary; }}
         onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "#64748B"; }}>
         <Icon size={14} strokeWidth={1.8} />
-        <span className="luxia-type-body-small-strong">{current.label}</span>
+        <span className="luxia-type-body-small-strong luxia-response-trigger__label">{current.label}</span>
         <ChevronDown size={14} strokeWidth={2} style={{ transition: "transform 160ms ease", transform: open ? "rotate(180deg)" : "none" }} />
       </button>
       {open && menuPos && ReactDOM.createPortal(
-        <div ref={menuRef} className="fixed z-[9999] rounded-[12px] overflow-hidden py-1.5"
+        <div ref={menuRef} role="menu" aria-label="Response mode" className="fixed z-[9999] rounded-[12px] overflow-hidden py-1.5"
           style={{
             background: "white",
             boxShadow: "0 4px 16px rgba(15,23,42,0.10)",
@@ -249,7 +268,7 @@ function ResponseTypeDropdown({ constellationType }: { constellationType: Conste
           {options.map(opt => {
             const OptIcon = opt.icon;
             return (
-              <button key={opt.id}
+              <button key={opt.id} type="button" role="menuitemradio" aria-checked={opt.id === selected}
                 onClick={() => { setSelected(opt.id); setOpen(false); triggerRef.current?.focus(); }}
                 className="w-full flex items-center gap-2.5 px-3.5 py-2 luxia-type-body-dense text-left transition-colors outline-none"
                 style={{ color: LX.primary, fontWeight: opt.id === selected ? 700 : 600 }}
@@ -283,6 +302,7 @@ export function PromptComposer({
   focusKey,
   chatType,
   galaxyRoute,
+  contextControls,
 }: {
   value: string; onChange: (v: string) => void; onSend: () => void;
   language: string; onLanguageChange: (c: string) => void;
@@ -298,6 +318,13 @@ export function PromptComposer({
     onSelectManual: (option: { id: string; label: string; type: "PDF" | "CSV" | "DB" }) => void;
     onClearManual: () => void;
   };
+  /**
+   * Optional context controls (Project / Constellation) shown under the typing field. When
+   * given, the row reads Project → Constellation (or Galaxy) → Assistant, and the existing
+   * response-mode control takes the assistant's place inside the typing field (both controls
+   * keep their own state and handlers). When omitted, the composer renders exactly as before.
+   */
+  contextControls?: React.ReactNode;
 }) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const hasText = value.trim().length > 0;
@@ -325,12 +352,12 @@ export function PromptComposer({
 
   return (
     <div
-      className="flex-shrink-0 min-w-0 max-w-full w-full px-8 pb-5 pt-2"
+      className={`luxia-composer flex-shrink-0 min-w-0 max-w-full w-full px-8 pb-5 pt-2${contextControls ? " luxia-composer--with-context" : ""}`}
       style={isGalaxyChat ? {
         background: "linear-gradient(180deg, transparent 0%, rgba(15,23,42,0.02) 100%)",
       } : undefined}
     >
-      <div className="flex items-center gap-5 min-w-0 max-w-full">
+      <div className="luxia-composer__main flex items-center gap-5 min-w-0 max-w-full">
         <LanguageSelector lang={language} onChange={onLanguageChange} />
 
         <div
@@ -353,15 +380,17 @@ export function PromptComposer({
             />
           </div>
           {isConstellationChat ? (
-            <div className="luxia-chat-composer__mode">
-              <AssistantModeDropdown mode={assistantMode} onChange={onModeChange} />
+            <div className="luxia-chat-composer__mode" data-luxia-composer-mode={contextControls ? "response" : "assistant"}>
+              {contextControls
+                ? <ResponseTypeDropdown constellationType={constellationType} />
+                : <AssistantModeDropdown mode={assistantMode} onChange={onModeChange} />}
             </div>
           ) : null}
         </div>
 
         <button
           type="button"
-          className="flex-shrink-0 w-[46px] h-[46px] flex items-center justify-center rounded-full transition-all hover:opacity-85 outline-none"
+          className="luxia-composer__voice flex-shrink-0 w-[46px] h-[46px] flex items-center justify-center rounded-full transition-all hover:opacity-85 outline-none"
           style={{
             background: LX.gradient.button,
             boxShadow: "0 4px 12px rgba(48,33,78,0.18)",
@@ -378,13 +407,36 @@ export function PromptComposer({
         />
       </div>
 
-      {isConstellationChat ? (
+      {contextControls ? (
+        <div className="luxia-composer-context" data-luxia-composer-context="">
+          {contextControls}
+          {isGalaxyChat && galaxyRoute ? (
+            <>
+              <ChevronRight size={12} aria-hidden className="luxia-ctx-sep" />
+              <GalaxyRouteSelector
+                variant="context"
+                routeMode={galaxyRoute.routeMode}
+                pendingManual={galaxyRoute.pendingManual}
+                options={galaxyRoute.options}
+                onSelectAuto={galaxyRoute.onSelectAuto}
+                onSelectManual={galaxyRoute.onSelectManual}
+                onClearManual={galaxyRoute.onClearManual}
+              />
+            </>
+          ) : null}
+          <span className="luxia-ctx-group luxia-ctx-group--assistant" data-luxia-ctx-group="assistant">
+            <span className="luxia-ctx-divider" aria-hidden />
+            <span className="luxia-ctx-label">Assistant:</span>
+            <AssistantModeDropdown mode={assistantMode} onChange={onModeChange} variant="context" />
+          </span>
+        </div>
+      ) : isConstellationChat ? (
         <div className="mt-2 min-w-0 max-w-full" style={{ paddingLeft: "calc(2.25rem + 20px + 28px)" }}>
           <ResponseTypeDropdown constellationType={constellationType} />
         </div>
       ) : null}
 
-      {isGalaxyChat && galaxyRoute ? (
+      {isGalaxyChat && galaxyRoute && !contextControls ? (
         <GalaxyRouteSelector
           routeMode={galaxyRoute.routeMode}
           pendingManual={galaxyRoute.pendingManual}

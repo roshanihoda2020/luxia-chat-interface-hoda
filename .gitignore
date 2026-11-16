@@ -5,3 +5,6 @@ dist/
 .env
 .env.*
 *.log
+.DS_Store
+tests/.output/
+!.env.example

@@ -10,10 +10,9 @@ import { LuxiaPageHeader } from "@/app/components/LuxiaPageHeader";
 import { ChangePrimaryDialog } from "./ChangePrimaryDialog";
 import {
   BROWSER_PAGE_SIZE,
-  BrowserFilterSelect,
+  BrowserFilterDropdown,
   BrowserPagination,
   BrowserShell,
-  BrowserSortSelect,
   CollectionFilterBar,
   FilterChip,
   FilteredEmptyState,
@@ -42,6 +41,12 @@ import { getHomeCardStyle, getSourceAccentColor, HS } from "./homeSurfaces";
 import type { HomeEntityKey } from "./homeEntityKeys";
 import { workItemEntityKey } from "./homeEntityKeys";
 import { PinButton } from "./PinButton";
+import {
+  CollectorViewToggle,
+  readCollectorViewMode,
+  writeCollectorViewMode,
+  type CollectorViewMode,
+} from "@/app/features/shared";
 import type { HomeProjectCard, HomeRecentWorkItem } from "./types";
 
 const PAGE_TITLE = "Chats & Galaxies";
@@ -242,6 +247,83 @@ function WorkItemCard({
   );
 }
 
+/**
+ * List View row — same visual system as the Projects List View (bordered list, one row per item,
+ * title + one-line metadata, actions on the right). Uses the SAME item, menu and handlers as the card.
+ */
+function WorkItemRow({
+  item,
+  projects,
+  isHidden,
+  isHomeFocus,
+  onContinue,
+  onTogglePin,
+  onRestore,
+  onDismiss,
+  onOpenChangeFocus,
+  onSetAsFocus,
+}: Parameters<typeof WorkItemCard>[0]) {
+  const isGalaxy = item.kind === "galaxySession";
+  const entityType = isGalaxy ? "galaxy-conversation" : "chat";
+  const entityColor = isGalaxy
+    ? HS.accentGalaxy
+    : (getSourceAccentColor(item.constellationSource, "soft") ?? HS.accentChat);
+  const projectName = getProjectNameById(item.projectId, projects);
+  const menuItems = buildContinueFocusMenuItems({
+    title: item.title,
+    focusAction: isHomeFocus ? "change" : "set",
+    visibilityAction: isHidden ? "show" : "hide",
+    onChangePrimary: onOpenChangeFocus,
+    onSetAsFocus: isHomeFocus ? undefined : onSetAsFocus,
+    onShow: isHidden ? onRestore : undefined,
+    onHide: !isHidden ? onDismiss : undefined,
+  });
+  return (
+    <div
+      role="listitem"
+      className="flex min-w-0 flex-wrap items-center gap-3 border-b px-4 py-3 last:border-b-0"
+      style={{ borderColor: "var(--luxia-border-default)" }}
+      data-work-row={item.id}
+    >
+      <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 items-center gap-2">
+          <EntityIdentityRow entityType={entityType} iconColor={entityColor} size="compact" />
+          {isHomeFocus ? (
+            <span className="inline-flex shrink-0 rounded-[6px] px-1.5 py-0.5 luxia-type-overline-data" style={{ color: HS.accentGalaxy, background: "var(--luxia-opacity-brand-primary-08)", letterSpacing: "0.04em" }}>HOME FOCUS</span>
+          ) : null}
+          {isHidden ? (
+            <span className="inline-flex shrink-0 rounded-[6px] px-1.5 py-0.5 luxia-type-overline-data" style={{ color: "var(--luxia-text-muted)", background: "var(--luxia-surface-subtle)", letterSpacing: "0.04em" }}>HIDDEN FROM HOME</span>
+          ) : null}
+        </div>
+        <p className="mt-1 truncate luxia-type-body-dense-strong" style={{ color: HS.workCardTitle }} title={item.title}>
+          {item.title}
+        </p>
+        <p className="mt-0.5 flex min-w-0 items-center gap-1.5 luxia-type-caption" style={{ color: "var(--luxia-text-muted)" }}>
+          <span className="min-w-0 truncate" aria-label={`Project: ${projectName}`}>{projectName}</span>
+          <span aria-hidden>·</span>
+          {isGalaxy ? (
+            <span className="shrink-0">Galaxy</span>
+          ) : item.constellationName ? (
+            <span className="flex min-w-0 items-center gap-1.5" aria-label={`Constellation: ${item.constellationName}`}>
+              <span className="min-w-0 truncate">{item.constellationName}</span>
+              {item.constellationSource ? <SourceTag source={item.constellationSource} /> : null}
+            </span>
+          ) : null}
+          <span className="hidden shrink-0 md:inline" aria-hidden>·</span>
+          <span className="hidden shrink-0 md:inline">{formatWorkLastOpened(item)}</span>
+        </p>
+      </div>
+      <div className="flex shrink-0 items-center justify-end gap-2">
+        <PinButton pinned={Boolean(item.isPinned)} label={item.title} controlSize="project" onToggle={onTogglePin} />
+        {menuItems.length > 0 ? <HomeContinueMenu label={item.title} controlSize="default" items={menuItems} /> : null}
+        <Button type="button" variant="primary" size="compact" onClick={onContinue} aria-label={`Continue ${item.title}`}>
+          Continue
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function PageHeaderStack({
   onBack,
   children,
@@ -253,6 +335,7 @@ function PageHeaderStack({
     <div className="min-w-0 w-full">
       <LuxiaPageHeader
         contentGap="page"
+        className="luxia-home-browser-header"
         pageTypeLabel="CHATS & GALAXIES"
         title={PAGE_TITLE}
         titleStyle={{ color: HS.sectionHeading }}
@@ -295,6 +378,11 @@ export function ContinueWorkingBrowser({
   const [visibilityFilter, setVisibilityFilter] = useState<ContinueVisibilityFilter>("all");
   const [sortMode, setSortMode] = useState<ContinueSortMode>("opened");
   const [page, setPage] = useState(1);
+  const [viewMode, setViewMode] = useState<CollectorViewMode>(() => readCollectorViewMode("chats-galaxies"));
+  const handleViewModeChange = (mode: CollectorViewMode) => {
+    setViewMode(mode);
+    writeCollectorViewMode("chats-galaxies", mode);
+  };
   const [changePrimaryOpen, setChangePrimaryOpen] = useState(false);
 
   const collection = useMemo(() => listContinueWorkingCollection(items), [items]);
@@ -461,6 +549,7 @@ export function ContinueWorkingBrowser({
                     Clear filters
                   </Button>
                 ) : null}
+                <CollectorViewToggle value={viewMode} onChange={handleViewModeChange} />
                 <ResultsCount>
                   {filteredItems.length} {filteredItems.length === 1 ? "result" : "results"}
                 </ResultsCount>
@@ -481,40 +570,47 @@ export function ContinueWorkingBrowser({
               </SegmentedFilterGroup>
             </FilterField>
 
-            <BrowserFilterSelect
+            <BrowserFilterDropdown
               label="Source"
+              ariaLabel="Filter by source"
               value={sourceFilter}
-              aria-label="Filter by source"
-              onChange={(event) => setSourceFilter(event.target.value as ContinueSourceFilter)}
-            >
-              <option value="all">All sources</option>
-              <option value="database">Database</option>
-              <option value="csv">CSV</option>
-              <option value="pdf">PDF</option>
-            </BrowserFilterSelect>
+              onValueChange={(value) => setSourceFilter(value as ContinueSourceFilter)}
+              dataAttr="source"
+              options={[
+                { value: "all", label: "All sources" },
+                { value: "database", label: "Database" },
+                { value: "csv", label: "CSV" },
+                { value: "pdf", label: "PDF" },
+              ]}
+            />
 
-            <BrowserFilterSelect
+            <BrowserFilterDropdown
               label="Visibility"
+              ariaLabel="Filter by visibility"
               value={visibilityFilter}
-              aria-label="Filter by visibility"
-              onChange={(event) => setVisibilityFilter(event.target.value as ContinueVisibilityFilter)}
-            >
-              <option value="all">All visibility</option>
-              <option value="visible">Visible on Home</option>
-              <option value="hidden">Hidden from Home</option>
-            </BrowserFilterSelect>
+              onValueChange={(value) => setVisibilityFilter(value as ContinueVisibilityFilter)}
+              dataAttr="visibility"
+              options={[
+                { value: "all", label: "All visibility" },
+                { value: "visible", label: "Visible on Home" },
+                { value: "hidden", label: "Hidden from Home" },
+              ]}
+            />
 
-            <BrowserSortSelect
+            <BrowserFilterDropdown
+              label="Sort"
+              ariaLabel="Sort Chats and Galaxies"
               value={sortMode}
-              aria-label="Sort Chats and Galaxies"
-              onChange={(event) => setSortMode(event.target.value as ContinueSortMode)}
-            >
-              <option value="opened">Recently opened</option>
-              <option value="opened-oldest">Oldest opened</option>
-              <option value="name-asc">Name A–Z</option>
-              <option value="name-desc">Name Z–A</option>
-              <option value="pinned">Pinned first</option>
-            </BrowserSortSelect>
+              onValueChange={(value) => setSortMode(value as ContinueSortMode)}
+              dataAttr="sort"
+              options={[
+                { value: "opened", label: "Recently opened" },
+                { value: "opened-oldest", label: "Oldest opened" },
+                { value: "name-asc", label: "Name A–Z" },
+                { value: "name-desc", label: "Name Z–A" },
+                { value: "pinned", label: "Pinned first" },
+              ]}
+            />
           </CollectionFilterBar>
         )}
         footer={(
@@ -531,14 +627,21 @@ export function ContinueWorkingBrowser({
             onClear={hasActiveFilters ? clearFilters : undefined}
           />
         ) : (
-          <div className={WORK_ARCHIVE_GRID}>
+          <div
+            className={viewMode === "grid" ? WORK_ARCHIVE_GRID : "overflow-hidden rounded-[var(--luxia-radius-12)] border bg-white"}
+            style={viewMode === "grid" ? undefined : { borderColor: "var(--luxia-border-default)" }}
+            role={viewMode === "grid" ? undefined : "list"}
+            aria-label={viewMode === "grid" ? undefined : "Chats and Galaxies"}
+            data-work-view={viewMode}
+          >
             {pageItems.map((item) => {
               const entityKey = workItemEntityKey(item);
               const isHidden = dismissedSet.has(entityKey);
               const isHomeFocus = heroEntityKey === entityKey && !isHidden;
+              const View = viewMode === "grid" ? WorkItemCard : WorkItemRow;
 
               return (
-                <WorkItemCard
+                <View
                   key={item.id}
                   item={item}
                   projects={projects}

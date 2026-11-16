@@ -15,6 +15,12 @@ import {
   X,
 } from "lucide-react";
 import { LUXIA_PAGE_LAYOUT } from "@/app/components/luxiaPageLayout";
+import { BackControl, useLuxiaCanGoBack } from "@/app/components/BackControl";
+import {
+  consumeLuxiaHeadingFocusRequest,
+  getLuxiaCurrentEntryKey,
+  isLuxiaHistorySettled,
+} from "@/app/features/navigation/navigationHistory";
 import {
   Tooltip,
   TooltipContent,
@@ -71,7 +77,8 @@ export interface LuxiaPageHeaderProps {
   metadata?: ReactNode;
   guide?: ReactNode;
   description?: ReactNode;
-  onRename?: (name: string) => void;
+  /** Return an error message to keep editing and show it inline (e.g. a duplicate name). */
+  onRename?: (name: string) => void | string | null;
   renameLabel?: string;
   titleMetadata?: ReactNode;
   primaryAction?: ReactNode;
@@ -88,6 +95,11 @@ export interface LuxiaPageHeaderProps {
   titleLeading?: ReactNode;
   titleLeadingAccessible?: boolean;
   reserveTitleLeading?: boolean;
+  /**
+   * Global Back. "auto" (default) shows the icon-only Back control at the start of the
+   * overline row whenever a verified previous in-app page exists; false never shows it.
+   */
+  back?: "auto" | false;
 }
 
 export const LUXIA_PAGE_TITLE_LEADING_SLOT =
@@ -364,8 +376,12 @@ export function LuxiaPageHeader({
   titleLeading,
   titleLeadingAccessible = false,
   reserveTitleLeading: _reserveTitleLeading = false,
+  back = "auto",
 }: LuxiaPageHeaderProps) {
   const typeLabel = pageTypeLabel?.trim() || null;
+  const headerRef = useRef<HTMLElement>(null);
+  const canGoBack = useLuxiaCanGoBack();
+  const showBack = back === "auto" && canGoBack;
 
   const entityWord = entityWordFromPageType(typeLabel);
 
@@ -388,6 +404,24 @@ export function LuxiaPageHeader({
 
   const canRename = Boolean(onRename && stringTitle);
 
+  // Global Back: after a visible-Back navigation, move focus to the new page's heading (no scroll
+  // jump) once the app shows the entry the browser is on.
+  const entryKey = getLuxiaCurrentEntryKey();
+  const entrySettled = isLuxiaHistorySettled();
+  useEffect(() => {
+    if (!entryKey || !entrySettled) return;
+    if (consumeLuxiaHeadingFocusRequest()) {
+      const heading = headerRef.current?.querySelector<HTMLElement>("h1");
+      if (heading) {
+        if (!heading.hasAttribute("tabindex")) {
+          heading.setAttribute("tabindex", "-1");
+          heading.style.outline = "none";
+        }
+        heading.focus({ preventScroll: true });
+      }
+    }
+  }, [entryKey, entrySettled]);
+
   const resolvedRenameLabel =
     renameLabel ??
     (stringTitle ? `Rename ${stringTitle}` : "Rename");
@@ -397,6 +431,7 @@ export function LuxiaPageHeader({
   const [draftName, setDraftName] = useState("");
 
   const [showEmptyError, setShowEmptyError] = useState(false);
+  const [renameError, setRenameError] = useState<string | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -471,6 +506,7 @@ export function LuxiaPageHeader({
     setIsEditing(false);
     setDraftName("");
     setShowEmptyError(false);
+    setRenameError(null);
 
     window.setTimeout(() => pencilRef.current?.focus(), 0);
   }
@@ -491,9 +527,15 @@ export function LuxiaPageHeader({
       return;
     }
 
-    skipOutsideCancelRef.current = true;
+    const error = onRename?.(trimmedDraft);
+    if (typeof error === "string" && error) {
+      setRenameError(error);
+      setShowEmptyError(true);
+      inputRef.current?.focus();
+      return;
+    }
 
-    onRename?.(trimmedDraft);
+    skipOutsideCancelRef.current = true;
 
     setIsEditing(false);
     setShowEmptyError(false);
@@ -568,6 +610,7 @@ export function LuxiaPageHeader({
               if (showEmptyError && event.target.value.trim()) {
                 setShowEmptyError(false);
               }
+              setRenameError(null);
             }}
             onKeyDown={(event) => {
               if (event.key === "Enter") {
@@ -634,7 +677,7 @@ export function LuxiaPageHeader({
             }}
             role="alert"
           >
-            Name cannot be empty.
+            {renameError ?? "Name cannot be empty."}
           </p>
         ) : null}
       </div>
@@ -723,12 +766,24 @@ export function LuxiaPageHeader({
 
   return (
     <header
+      ref={headerRef}
       className={`luxia-page-header w-full min-w-0 ${GAP[contentGap]} ${className}`.trim()}
       style={style}
     >
       <div className="flex w-full min-w-0 flex-wrap items-start justify-between gap-x-6 gap-y-3">
         <div className="min-w-0 flex-1">
-          {labelNode ? (
+          {showBack ? (
+            // [←] PAGE TYPE — Back first, then the page type (spacing only, no divider); the row
+            // keeps its 16px height, and the arrow lines up with the title's left edge.
+            <div
+              className={`flex min-w-0 items-center gap-1.5 ${LUXIA_PAGE_INTRO.eyebrowGapClass}`}
+              data-luxia-header-overline=""
+            >
+              <BackControl />
+              {/* Clipped to its column: never runs under the header actions on very narrow screens. */}
+              {labelNode ? <div className="min-w-0 flex-1 overflow-hidden [&>p]:truncate">{labelNode}</div> : null}
+            </div>
+          ) : labelNode ? (
             <div className={LUXIA_PAGE_INTRO.eyebrowGapClass}>
               {labelNode}
             </div>

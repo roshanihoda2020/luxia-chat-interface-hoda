@@ -1,6 +1,6 @@
 export type CollectorViewMode = "grid" | "list";
 
-export type CollectorViewKey = "projects" | "dashboard" | "home-projects";
+export type CollectorViewKey = "projects" | "dashboard" | "home-projects" | "chats-galaxies";
 
 const STORAGE_PREFIX = "luxia-collector-view-";
 

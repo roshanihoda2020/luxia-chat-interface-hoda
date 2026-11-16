@@ -29,6 +29,9 @@ export function HomeHeader({ userName, onNewProject, onCustomize, customizing, f
       contentGap="page"
       className="luxia-home-header"
       pageTypeLabel="HOME"
+      // Normal Home: no in-app Back (native browser Back still works). Its browse views
+      // (Chats & Galaxies, Projects) keep Back.
+      back={false}
       title={userName ? `${greeting}, ${userName}` : greeting}
       titleStyle={{ color: "var(--luxia-purple-70)", letterSpacing: "-0.025em" }}
       context={

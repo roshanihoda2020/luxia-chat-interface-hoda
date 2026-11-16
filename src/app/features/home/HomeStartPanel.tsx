@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Check, ChevronDown, ChevronRight, CircleAlert, Info } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
+import { toast } from "sonner";
+import { LuxiaDialog } from "@/app/app-sections/ChatDialogs";
 import { Popover, PopoverContent, PopoverTrigger } from "@/app/components/ui/popover";
 import {
   Command,
@@ -25,6 +27,7 @@ import {
   type LuxiaAssistantMessage,
 } from "./luxiaAssistant";
 import type { HomeProjectCard } from "./types";
+import { HomeKnowledgeSelect, HomeProjectConversation, OpenFullChatButton, type HomeProjectChatController } from "./HomeProjectChat";
 
 export interface HomeContinueItem {
   id: string;
@@ -46,6 +49,12 @@ interface HomeStartPanelProps {
   recentProjectIds?: string[];
   /** Opens the existing New Chat flow scoped to the Project, carrying the typed question. */
   onAsk: (projectId: string, question: string) => void;
+  /**
+   * Inline Project Chat on Home (real chat state from App). When given, Project mode chats right
+   * here — Project + Constellation/Galaxy selectors, real messages, "Open full chat" — and `onAsk`
+   * is no longer used for sending.
+   */
+  projectChat?: (projectId: string) => HomeProjectChatController | null;
   onOpenConstellations?: (projectId: string) => void;
   continueItems: HomeContinueItem[];
   onViewAllWork: () => void;
@@ -192,8 +201,8 @@ function ProjectContext({
       <PopoverTrigger asChild>
         <button
           type="button"
-          aria-label={active ? `Project Chat in ${project.name}. Change Project` : "Chat in a Project: choose a Project. Opens a separate Project Chat"}
-          title={active ? `Answers come from ${project.name}` : "Ask about a Project's documents and data in a Project Chat"}
+          aria-label={active ? `Project Chat in ${project.name}. Change Project` : "Chat in a Project: choose a Project"}
+          title={active ? `Project: ${project.name}` : "Ask about a Project's documents and data in a Project Chat"}
           data-home-ask-context=""
           data-context-kind="project"
           data-context-id={project.id}
@@ -208,7 +217,15 @@ function ProjectContext({
           >
             {noKnowledge ? <CircleAlert size={15} strokeWidth={2.25} /> : <LuxiaProjectsIcon size={15} color="currentColor" />}
           </span>
-          <span className="min-w-0 flex-1 truncate luxia-type-body-dense-strong">{active ? project.name : "Chat in a Project"}</span>
+          {active ? (
+            <>
+              {/* Same label treatment as "Constellation:" / "Galaxy:"; only the name truncates. */}
+              <span className="shrink-0 luxia-type-caption" style={{ color: "var(--luxia-text-muted)" }} data-home-ask-project-label="">Project:</span>
+              <span className="min-w-0 flex-1 truncate luxia-type-body-dense-strong">{project.name}</span>
+            </>
+          ) : (
+            <span className="min-w-0 flex-1 truncate luxia-type-body-dense-strong">Chat in a Project</span>
+          )}
           <ChevronDown size={14} aria-hidden className="shrink-0" style={{ color: "var(--luxia-purple-60)" }} />
         </button>
       </PopoverTrigger>
@@ -276,6 +293,7 @@ export function HomeStartPanel({
   onSelectProject,
   recentProjectIds,
   onAsk,
+  projectChat,
   onOpenConstellations,
   continueItems,
   onViewAllWork,
@@ -293,11 +311,16 @@ export function HomeStartPanel({
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const aiMode = mode === "luxia-ai";
   const showStarters = aiMode && messages.length === 0 && !pending;
-  const hasKnowledge = Boolean(project && project.constellationCount > 0);
-  const canAsk = aiMode ? Boolean(question.trim()) && !pending : Boolean(project && hasKnowledge);
+  const pc = !aiMode && project && projectChat ? projectChat(project.id) : null;
+  const hasKnowledge = pc ? pc.options.length > 0 : Boolean(project && project.constellationCount > 0);
+  const canAsk = aiMode
+    ? Boolean(question.trim()) && !pending
+    : pc ? Boolean(pc.knowledge && pc.draft.trim()) : Boolean(project && hasKnowledge);
+  const inlineConversation = (aiMode && messages.length > 0) || Boolean(pc && pc.messageCount > 0);
   const canAddKnowledge = Boolean(project && onOpenConstellations && canCreateConstellation(project.viewerProjectRole));
   const sendLabel = aiMode
     ? `Ask ${LUXIA_ASSISTANT_CONFIG.displayName}`
+    : pc && project ? `Send to ${project.name}`
     : !project ? "Ask" : question.trim() ? `Ask in ${project.name}` : `Start a Chat in ${project.name}`;
 
   useEffect(() => {
@@ -322,6 +345,27 @@ export function HomeStartPanel({
       setPending(false);
     }, DEMO_ANSWER_DELAY_MS);
     inputRef.current?.focus();
+  }
+
+  /**
+   * Luxia AI "Start a new conversation" clears THIS conversation (it is not a saved chat), so it
+   * asks first when there is something to lose, then offers a short Undo from memory.
+   */
+  const [confirmNewConversation, setConfirmNewConversation] = useState(false);
+  function requestNewConversation() {
+    if (messages.length === 0 && !pending) { clearConversation(); return; }
+    setConfirmNewConversation(true);
+  }
+  function confirmNewLuxiaConversation() {
+    const snapshot = messages;
+    setConfirmNewConversation(false);
+    clearConversation();
+    if (snapshot.length === 0) return;
+    toast("Conversation cleared", {
+      id: "luxia-ai-new-conversation",
+      duration: 6000,
+      action: { label: "Undo", onClick: () => { setMessages(snapshot); setView("open"); } },
+    });
   }
 
   function clearConversation() {
@@ -364,6 +408,11 @@ export function HomeStartPanel({
       return;
     }
     if (!project || !canAsk) return;
+    if (pc) {
+      pc.onSend();
+      inputRef.current?.focus();
+      return;
+    }
     onAsk(project.id, question.trim());
   }
 
@@ -378,7 +427,9 @@ export function HomeStartPanel({
     ? `Ask ${LUXIA_ASSISTANT_CONFIG.displayName} about using Luxia…`
     : !project
       ? "Projects hold the documents and data Luxia answers from."
-      : hasKnowledge
+      : pc && hasKnowledge && !pc.knowledge
+        ? "Choose a Constellation or Galaxy, then ask your question"
+        : hasKnowledge
         ? `Ask a question about ${project.name}…`
         : "Type your question";
 
@@ -400,7 +451,8 @@ export function HomeStartPanel({
     >
       <HeroBackdrop />
       <HeroMark />
-      <div className="@container relative mx-auto min-w-0" style={{ width: "min(100%, clamp(860px, calc(66% + 42px), 1200px))" }} data-home-hero-column="">
+      {/* Chat column: 1000–1320px on desktop, never wider than its container. */}
+      <div className="@container relative mx-auto min-w-0" style={{ width: "min(100%, clamp(1000px, calc(76% + 48px), 1320px))" }} data-home-hero-column="">
         <h2
           id="home-start-title"
           className="mb-3 luxia-type-heading-h4 sm:text-center"
@@ -414,13 +466,14 @@ export function HomeStartPanel({
           style={{ background: "var(--luxia-surface)", borderColor: SOFT_BORDER, boxShadow: "var(--luxia-shadow-md)" }}
           data-home-ask-composer=""
         >
+          {pc && (pc.messageCount > 0 || pc.notice) ? <HomeProjectConversation chat={pc} /> : null}
           {aiMode && messages.length > 0 ? (
             <HomeAssistantConversation
               messages={messages}
               pending={pending}
               view={view}
               onViewChange={setView}
-              onClear={clearConversation}
+              onClear={requestNewConversation}
               onFollowUp={askAssistant}
               canRun={canRun}
               onRun={run}
@@ -430,15 +483,15 @@ export function HomeStartPanel({
             {aiMode ? `Your question for ${LUXIA_ASSISTANT_CONFIG.displayName}` : project ? `Your question for ${project.name}` : "Your question"}
           </label>
           <div
-            className={`grid grid-cols-[minmax(0,1fr)_auto] items-end gap-x-2 [grid-template-areas:'input_send'_'starters_starters'_'context_context'_'status_status'] ${aiMode && messages.length > 0 ? "" : "@[520px]:[grid-template-areas:'input_input'_'starters_starters'_'context_send'_'status_status']"}`}
+            className={`grid grid-cols-[minmax(0,1fr)_auto] items-end gap-x-2 [grid-template-areas:'input_send'_'starters_starters'_'context_context'_'status_status'] ${inlineConversation ? "" : "@[520px]:[grid-template-areas:'input_input'_'starters_starters'_'context_send'_'status_status']"}`}
             data-home-ask-layout=""
           >
             <textarea
               id="home-ask-input"
               ref={inputRef}
               rows={aiMode ? 1 : 2}
-              value={question}
-              onChange={(event) => setQuestion(event.target.value)}
+              value={pc ? pc.draft : question}
+              onChange={(event) => (pc ? pc.onDraftChange(event.target.value) : setQuestion(event.target.value))}
               onKeyDown={onKeyDown}
               disabled={!aiMode && !project}
               placeholder={placeholder}
@@ -465,13 +518,21 @@ export function HomeStartPanel({
             <div
               role="group"
               aria-label="Conversation context"
-              className="mt-1 flex min-w-0 items-center gap-2 justify-self-stretch [grid-area:context] @[520px]:justify-self-start"
+              className={`mt-1 flex min-w-0 items-center gap-2 justify-self-stretch [grid-area:context] @[520px]:justify-self-start${pc ? " flex-wrap" : ""}`}
               data-home-ask-contexts=""
             >
               <LuxiaAiContext active={aiMode} onSelect={() => setMode("luxia-ai")} />
               {project ? (
                 <ProjectContext projects={projects} project={project} active={!aiMode} recentProjectIds={recentProjectIds} onSelect={chooseProject} />
-              ) : (
+              ) : null}
+              {pc && hasKnowledge ? (
+                <HomeKnowledgeSelect
+                  chat={pc}
+                  segmentClass={`${SEGMENT} flex-1 @max-[519px]:basis-full @[520px]:flex-none ${pc.knowledge ? "" : OPTIONAL_HOVER} ${FOCUS_RING}`}
+                  style={pc.knowledge ? SELECTED_CONTEXT : { ...OPTIONAL_CONTEXT, borderStyle: "dashed" }}
+                />
+              ) : null}
+              {project ? null : (
                 <button
                   type="button"
                   onClick={() => setMode("project")}
@@ -498,7 +559,22 @@ export function HomeStartPanel({
                 style={{ borderColor: "var(--luxia-border-default)", color: "var(--luxia-text-secondary)" }}
               >
                 <Info size={14} strokeWidth={2.25} aria-hidden className="shrink-0" style={{ color: "var(--luxia-purple-60)" }} />
-                <span>Opens a separate Project Chat. Answers come only from this Project's knowledge.</span>
+                {pc ? (
+                  pc.knowledge ? (
+                    <>
+                      <span className="min-w-0 flex-1">
+                        {pc.knowledge.kind === "galaxy"
+                          ? <>Answers come from this Project&rsquo;s Constellations, chosen per question.</>
+                          : <>Answers come only from <span className="font-semibold">{pc.knowledge.label}</span>.</>}
+                      </span>
+                      {pc.messageCount === 0 ? <OpenFullChatButton chat={pc} /> : null}
+                    </>
+                  ) : (
+                    <span data-home-ask-choose="">Choose a Constellation or Galaxy to start.</span>
+                  )
+                ) : (
+                  <span>Opens a separate Project Chat. Answers come only from this Project's knowledge.</span>
+                )}
               </p>
             ) : null}
 
@@ -597,6 +673,21 @@ export function HomeStartPanel({
           </nav>
         ) : null}
       </div>
+      <LuxiaDialog
+        open={confirmNewConversation}
+        onClose={() => setConfirmNewConversation(false)}
+        size="compact"
+        role="alertdialog"
+        title="Start a new conversation?"
+        footer={<>
+          <Button type="button" variant="secondary" onClick={() => setConfirmNewConversation(false)} data-home-ai-new-cancel="">Cancel</Button>
+          <Button type="button" variant="primary" onClick={confirmNewLuxiaConversation} data-home-ai-new-confirm="">Start new</Button>
+        </>}
+      >
+        <p className="py-4 luxia-type-body-small" style={{ color: "var(--luxia-text-secondary)" }}>
+          Your current Luxia AI conversation will be cleared from this page.
+        </p>
+      </LuxiaDialog>
     </section>
   );
 }

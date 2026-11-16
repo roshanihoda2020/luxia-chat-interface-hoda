@@ -368,15 +368,13 @@ import {
   X,
 } from "lucide-react";
 import {
-  LuxiaHomeIcon,
-} from "@/assets/icons";
-import {
   LeftNav,
   SIDEBAR_WIDTH_EXPANDED,
   SIDEBAR_WIDTH_COLLAPSED,
   SIDEBAR_SECONDARY_WIDTH,
   LEFT_NAV_COLLAPSED_STORAGE_KEY,
   LEFT_NAV_MOBILE_BREAKPOINT,
+  SIDEBAR_ID,
 } from "@/app/features/navigation/LeftNav";
 
 import {
@@ -390,7 +388,23 @@ import {
   type Project,
 } from "@/app/app-sections/appSectionShared";
 import { PageHeader } from "@/app/app-sections/ChatHeaderSection";
+import { DeleteChatDialog } from "@/app/app-sections/ChatDialogs";
+import { KnowledgeChangeNotice, type KnowledgeNotice } from "@/app/features/chat-context/KnowledgeChangeNotice";
+import type { HomeProjectChatController } from "@/app/features/home/HomeProjectChat";
+import { NEW_CHAT_TITLE, titleFromQuestion, uniqueTitle, validateChatTitle } from "@/app/features/chat/chatTitles";
+import {
+  luxiaHistory,
+  luxiaHistoryDeltaFromSettled,
+  markLuxiaHistorySettled,
+  readLuxiaHistoryMeta,
+} from "@/app/features/navigation/navigationHistory";
+import { ChatFinderOverlay } from "@/app/features/chat-finder/ChatFinderOverlay";
+import type { FinderChat } from "@/app/features/chat-finder/chatQuery";
+import { LUXIA_PAGE_HEADER_ACTION } from "@/app/components/LuxiaPageHeader";
+import { PanelLeftOpen, Search as SearchIcon } from "lucide-react";
 import { PromptComposer } from "@/app/app-sections/ChatComposerSection";
+import { resolveNewChatKnowledge } from "@/app/features/chat/newChatKnowledge";
+import { ComposerContextRow, type KnowledgeContextOption, type ProjectContextOption } from "@/app/features/chat-context/ComposerContextRow";
 import { FIRST_TIME_DEMO_USER_ID, rememberPrototypeUserId, restorePrototypeUserId } from "@/app/features/permissions/currentUser";
 import {
   AICard,
@@ -487,6 +501,16 @@ const CONSTELLATIONS: Constellation[] = CANONICAL_CONSTELLATIONS.map((item) => (
   description: item.description,
 }));
 
+/** Home inline Project Chat pointer (see `homeSessions`). */
+type HomeProjectSession = {
+  chatId: string | null;
+  knowledge: { kind: "constellation" | "galaxy"; id: string } | null;
+  /** Unsent question before a chat exists (afterwards the chat's own draft is used). */
+  draft: string;
+  /** "New conversation": the next message starts a NEW chat in this scope (also for Galaxy). */
+  fresh?: boolean;
+};
+
 const INITIAL_CHATS: Chat[] = [
   { id: "chat-01", label: "Chat name 01", chatType: "constellation", projectId: "project-01", constellationId: "con1", pinned: true },
   { id: "chat-02", label: "Chat name 02", chatType: "constellation", projectId: "project-01", constellationId: "con2" },
@@ -576,6 +600,18 @@ type LuxiaAppView =
   | "explore"
   | "shared-review";
 
+/**
+ * Home's browse views (normal Home, Chats & Galaxies history, Projects) are separate history
+ * entries at "/": the view lives in `history.state.browse`, so Back/Forward and refresh restore it.
+ */
+function readHomeBrowseFromState(state: unknown): HomeBrowseMode {
+  const browse = state && typeof state === "object" ? (state as { browse?: unknown }).browse : undefined;
+  return browse === "your-work" || browse === "projects" ? browse : "overview";
+}
+function homeHistoryState(browse: HomeBrowseMode) {
+  return browse === "overview" ? { luxiaView: "home" } : { luxiaView: "home", browse };
+}
+
 function readInitialShellFromLocation(): {
   appView: LuxiaAppView;
   activeProjectId: string | null;
@@ -590,6 +626,8 @@ function readInitialShellFromLocation(): {
   sharedReviewShareId: string | null;
   exploreSection: ExplorePathSection | null;
   exploreSlug: string | null;
+  /** Refresh / direct URL to restore with `applyPath` once signed in (null = Home). */
+  restorePath?: string | null;
 } {
   const defaults = {
     appView: "home" as LuxiaAppView,
@@ -614,7 +652,7 @@ function readInitialShellFromLocation(): {
   // External shared review must survive refresh so recipients can open the link.
   const sharedReviewShareId = parseSharedReviewShareIdFromPath(window.location.pathname);
   if (sharedReviewShareId) {
-    window.history.replaceState(
+    luxiaHistory.replace(
       { luxiaView: "shared-review", shareId: sharedReviewShareId },
       "",
       getSharedReviewPath(sharedReviewShareId),
@@ -633,18 +671,26 @@ function readInitialShellFromLocation(): {
     return { ...defaults, appView: "explore", exploreSection: explore.section, exploreSlug: explore.slug };
   }
 
-  // Prototype rule: full page load / refresh / fresh session always start at Home.
-  // In-session navigation (pushState / popstate) is unchanged and still resolves deep URLs.
-  // Auth-entry query params (invite / account / session / reset / workspace) must survive
-  // until LoginPage and bootstrapPrototypeSignedIn can consume them; clearAuthSearchParams
-  // removes them after the auth flow exits that state.
+  // Refresh / direct URL: the URL is kept and restored once the user is
+  // signed in (`applyPath` + its access guards run then, against the signed-in user). The entry
+  // is only re-stamped in place with history metadata — no new entry, nothing invented.
+  // Auth-entry query params (invite / account / session / reset / workspace) keep their own
+  // handling: they live on "/" and must survive until LoginPage / bootstrapPrototypeSignedIn
+  // consume them; clearAuthSearchParams removes them afterwards.
   const authEntry = readAuthLocationEntry();
   if (authEntry.kind === "signin") {
-    window.history.replaceState({ luxiaView: "home" }, "", "/");
-  } else {
-    const search = window.location.search;
-    window.history.replaceState({ luxiaView: "home" }, "", `/${search}`);
+    const { pathname, search } = window.location;
+    const keep = window.history.state && typeof window.history.state === "object" ? window.history.state : {};
+    // "/home" aliases normalise to "/" as before; every other path stays as requested.
+    const url = isHomePath(pathname) ? `/${search}` : `${pathname}${search}${window.location.hash}`;
+    // A refresh keeps the SAME entry (tab, index and key travel with it); only an unstamped
+    // entry (direct URL, new tab, external arrival) or a normalised URL is rewritten.
+    const sameUrl = url === `${pathname}${search}${window.location.hash}`;
+    if (!(sameUrl && readLuxiaHistoryMeta(window.history.state))) luxiaHistory.replace(keep, "", url);
+    return isHomePath(pathname) ? defaults : { ...defaults, restorePath: `${pathname}${search}` };
   }
+  const search = window.location.search;
+  luxiaHistory.replace({ luxiaView: "home" }, "", `/${search}`);
   return defaults;
 }
 
@@ -969,12 +1015,48 @@ export default function App() {
   const [chats, setChats] = useState<Chat[]>(INITIAL_CHATS);
   const [activeChat, setActiveChat] = useState(INITIAL_SHELL.activeChat);
   const [chatMessages, setChatMessages] = useState<Record<string, Message[]>>(INITIAL_MESSAGES);
-  const [inputValue, setInputValue] = useState("");
+  /** Unsent composer text, one per Chat — never shared across Chats or Projects. */
+  const [draftsByChatId, setDraftsByChatId] = useState<Record<string, string>>({});
   const [language, setLanguage] = useState("EN");
   const [assistantMode, setAssistantMode] = useState("Luxia");
   const [showNewChatModal, setShowNewChatModal] = useState(false);
-  const [newChatLockedProjectId, setNewChatLockedProjectId] = useState<string | null>(null);
-  const [newChatQuestion, setNewChatQuestion] = useState("");
+  /**
+   * Pending new Chat: the Project (when known) and the unsent question only.
+   * No Chat record exists until knowledge is chosen and passes the access guards.
+   */
+  const [pendingNewChat, setPendingNewChat] = useState<{ projectId: string | null; draft: string } | null>(null);
+  /** Transient in-conversation notice after a knowledge change (UI only; never a message). */
+  const [knowledgeNotice, setKnowledgeNotice] = useState<KnowledgeNotice | null>(null);
+  /**
+   * Home inline Project Chat: per Project, WHICH real chat Home shows (or the chosen knowledge
+   * and an unsent question before the first message creates it). Chats, messages and drafts
+   * themselves stay in the shared chat state above.
+   */
+  const [homeSessions, setHomeSessions] = useState<Record<string, HomeProjectSession>>({});
+  const [homeNotice, setHomeNotice] = useState<{ projectId: string; notice: KnowledgeNotice } | null>(null);
+  /** Chats still called "New chat": their first question becomes the title (never after a rename). */
+  // A ref (not state): a chat can be created and sent to in the same event (Home first message).
+  const autoTitleChatIdsRef = useRef<Set<string>>(new Set());
+  /** Real activity in this session (opened or a message sent), used for Home recency. */
+  const [chatActivityAt, setChatActivityAt] = useState<Record<string, number>>({});
+  /**
+   * Chats created in this browser session by the current demo identity. NOT ownership data:
+   * chats have no owner field yet; this only gates the NEW Home rename entry point.
+   */
+  const createdThisSessionRef = useRef<Record<string, Set<string>>>({});
+  const newChatLockedProjectId = pendingNewChat?.projectId ?? null;
+  const newChatQuestion = pendingNewChat?.draft ?? "";
+  /** Overlay Chat Finder (Find chats) open state; focus returns to the opener on close. */
+  const [chatFinderOpen, setChatFinderOpen] = useState(false);
+  const chatFinderOpenerRef = useRef<HTMLElement | null>(null);
+  /** When each Chat was last opened in this session (Finder "Recent" order). */
+  const lastOpenedAtRef = useRef<Record<string, number>>({});
+  /** Chat awaiting delete confirmation (sidebar Chats actions). */
+  const [pendingDeleteChatId, setPendingDeleteChatId] = useState<string | null>(null);
+  /** Closed tabs: hidden from the open capsules but kept (messages, knowledge) and reopenable. */
+  const [closedChatIds, setClosedChatIds] = useState<ReadonlySet<string>>(() => new Set());
+  /** Deleted Chats, including seeded ones, never reappear during this session. */
+  const [deletedChatIds, setDeletedChatIds] = useState<ReadonlySet<string>>(() => new Set());
   const [showNewProjectModal, setShowNewProjectModal] = useState(false);
   const [projectManageMode, setProjectManageMode] = useState<ProjectManageMode | null>(null);
   const [projectManageId, setProjectManageId] = useState<string | null>(null);
@@ -1163,7 +1245,11 @@ export default function App() {
       }),
     );
   }, [capabilityBundlesById, allConstellations]);
-  const [homeBrowseMode, setHomeBrowseMode] = useState<HomeBrowseMode>("overview");
+  const [homeBrowseMode, setHomeBrowseMode] = useState<HomeBrowseMode>(() => (
+    typeof window !== "undefined" && isHomePath(window.location.pathname)
+      ? readHomeBrowseFromState(window.history.state)
+      : "overview"
+  ));
   const [homeScrollRequest, setHomeScrollRequest] = useState(0);
   const [homeProjects, setHomeProjects] = useState<HomeProjectCard[]>(HOME_PROJECTS);
   const dataSourceConstellationHandoff = useMemo(() => {
@@ -1224,6 +1310,15 @@ export default function App() {
   const [leftNavCollapsedPreference, setLeftNavCollapsedPreference] = useState(readLeftNavCollapsedPreference);
   const [leftNavSecondaryOpen, setLeftNavSecondaryOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  // When the mobile drawer closes, focus returns to the "Open navigation" control.
+  const mobileNavWasOpenRef = useRef(false);
+  useEffect(() => {
+    if (mobileNavOpen) { mobileNavWasOpenRef.current = true; return; }
+    if (!mobileNavWasOpenRef.current) return;
+    mobileNavWasOpenRef.current = false;
+    const frame = window.requestAnimationFrame(() => document.querySelector<HTMLElement>("[data-luxia-nav-opener]")?.focus());
+    return () => window.cancelAnimationFrame(frame);
+  }, [mobileNavOpen]);
   const [inspectorExpandedDespiteNarrow, setInspectorExpandedDespiteNarrow] = useState(false);
   const [viewportWidth, setViewportWidth] = useState(() =>
     typeof window !== "undefined" ? window.innerWidth : 1920
@@ -1232,6 +1327,14 @@ export default function App() {
   const counterRef = useRef(200);
   const chatsRef = useRef(chats);
   chatsRef.current = chats;
+  /** Last active Chat per Project — restored when switching Project from the composer. */
+  const lastActiveChatByProjectRef = useRef<Record<string, string>>({});
+  /** Last Constellation chosen per Project (for "+" defaults); never an arbitrary pick. */
+  const rememberedConstellationRef = useRef<Record<string, string>>({});
+  const deletedChatIdsRef = useRef(deletedChatIds);
+  deletedChatIdsRef.current = deletedChatIds;
+  /** Latest focusChat, for listeners registered once (browser Back/Forward). */
+  const focusChatRef = useRef<(chat: Pick<Chat, "id" | "chatType" | "projectId" | "constellationId">, options?: { syncUrl?: boolean; replaceUrl?: boolean }) => void>(() => undefined);
   const homeProjectsRef = useRef(homeProjects);
   homeProjectsRef.current = homeProjects;
   const appViewRef = useRef(appView);
@@ -1243,6 +1346,20 @@ export default function App() {
   const prototypeUserIdRef = useRef(prototypeUserId);
   prototypeUserIdRef.current = prototypeUserId;
   const constellationCreateGuardRef = useRef<ConstellationCreateNavigationGuard | null>(null);
+  /** `applyPath` from the routing effect, for the one-time refresh / deep-link restore. */
+  const applyPathRef = useRef<((pathname: string, search?: string) => void) | null>(null);
+  const pendingRestorePathRef = useRef<string | null>(INITIAL_SHELL.restorePath ?? null);
+  /** True until a refresh / deep link has been restored (avoids a one-frame flash of Home). */
+  const [routeRestoring, setRouteRestoring] = useState(Boolean(INITIAL_SHELL.restorePath));
+  /** A fallback notice raised while restoring waits until the shell (and its Toaster) is mounted. */
+  const restoringNowRef = useRef(false);
+  const deferredRouteNoticeRef = useRef<string | null>(null);
+  const notifyRouteUnavailable = (message: string) => {
+    if (restoringNowRef.current) deferredRouteNoticeRef.current = message;
+    else toast.message(message);
+  };
+  /** Unsaved-change guard in progress: the next popstate restores ("restore") or leaves ("leave"). */
+  const guardHistoryModeRef = useRef<"restore" | "leave" | null>(null);
   const capabilityManageGuardRef = useRef<UnsavedNavigationGuard | null>(null);
   /** Data Source Settings → Tag & Extract review with unsaved Markdown edits. */
   const documentReviewGuardRef = useRef<UnsavedNavigationGuard | null>(null);
@@ -1339,11 +1456,11 @@ export default function App() {
     function goHome(replace: boolean) {
       if (typeof window !== "undefined") {
         const onRoot = window.location.pathname === "/" || window.location.pathname === "";
-        if (!onRoot) {
+        if (!onRoot || readHomeBrowseFromState(window.history.state) !== "overview") {
           if (replace) {
-            window.history.replaceState({ luxiaView: "home" }, "", "/");
+            luxiaHistory.replace({ luxiaView: "home" }, "", "/");
           } else {
-            window.history.pushState({ luxiaView: "home" }, "", "/");
+            luxiaHistory.push({ luxiaView: "home" }, "", "/");
           }
         }
       }
@@ -1354,16 +1471,46 @@ export default function App() {
       clearSettingsRouteState();
     }
 
+    /**
+     * Nearest accessible page when a requested chat cannot be restored (deleted, session-only
+     * after a refresh, or not matching its URL): that Project's Chats page if the user can access
+     * the Project, otherwise Home. Replace only — no extra Back step — and a neutral message.
+     */
+    function fallbackFromUnavailableChat(projectId: string | null | undefined) {
+      if (projectId && canAccessProject(projectId, projectMembershipsStateRef.current, prototypeUserIdRef.current)) {
+        clearSettingsRouteState();
+        luxiaHistory.replace({ luxiaView: "project", projectId, browse: "chats" }, "", getProjectChatsPath(projectId));
+        setActiveProjectId(projectId);
+        setProjectBrowseMode("chats");
+        setAppView("project");
+      } else {
+        goHome(true);
+      }
+      notifyRouteUnavailable("This chat isn't available.");
+    }
+
     function applyPath(pathname: string, search = typeof window !== "undefined" ? window.location.search : "") {
       const resolved = resolveLuxiaPathname(pathname);
 
+      // Any Project-scoped route the user cannot access (or that does not exist) never renders:
+      // Home, with a neutral message that does not reveal whether the Project exists.
+      const routeProjectId = "projectId" in resolved ? (resolved as { projectId?: string }).projectId : undefined;
+      if (
+        routeProjectId
+        && !canAccessProject(routeProjectId, projectMembershipsStateRef.current, prototypeUserIdRef.current)
+      ) {
+        goHome(true);
+        notifyRouteUnavailable("That page isn't available.");
+        return;
+      }
+
       if (resolved.kind === "home") {
         if (resolved.normalizeToRoot && typeof window !== "undefined") {
-          window.history.replaceState({ luxiaView: "home" }, "", "/");
+          luxiaHistory.replace({ luxiaView: "home" }, "", "/");
         }
         setSharedReviewShareId(null);
         setAppView("home");
-        setHomeBrowseMode("overview");
+        setHomeBrowseMode(readHomeBrowseFromState(typeof window !== "undefined" ? window.history.state : null));
         setActiveProjectId(null);
         setProjectBrowseMode("overview");
         clearSettingsRouteState();
@@ -1504,7 +1651,7 @@ export default function App() {
           if (typeof window !== "undefined") {
             const next = getProjectPath(resolved.projectId);
             if (window.location.pathname !== next) {
-              window.history.replaceState(
+              luxiaHistory.replace(
                 { luxiaView: "project", projectId: resolved.projectId },
                 "",
                 next,
@@ -1534,7 +1681,7 @@ export default function App() {
           if (typeof window !== "undefined") {
             const next = getProjectPath(resolved.projectId);
             if (window.location.pathname !== next) {
-              window.history.replaceState(
+              luxiaHistory.replace(
                 { luxiaView: "project", projectId: resolved.projectId },
                 "",
                 next,
@@ -1566,7 +1713,7 @@ export default function App() {
           if (typeof window !== "undefined") {
             const next = getProjectPath(resolved.projectId);
             if (window.location.pathname !== next) {
-              window.history.replaceState(
+              luxiaHistory.replace(
                 { luxiaView: "project", projectId: resolved.projectId },
                 "",
                 next,
@@ -1611,7 +1758,7 @@ export default function App() {
           const canonical = getVidgetInboxPath(resolved.projectId, { search: nextSearch });
           const current = `${window.location.pathname}${window.location.search}`;
           if (current !== canonical) {
-            window.history.replaceState(
+            luxiaHistory.replace(
               {
                 luxiaView: "vidget-inbox",
                 projectId: resolved.projectId,
@@ -1709,7 +1856,7 @@ export default function App() {
         if (typeof window !== "undefined") {
           const next = getWritingAssistantPath();
           if (window.location.pathname !== next) {
-            window.history.replaceState({ luxiaView: "writing-assistant" }, "", next);
+            luxiaHistory.replace({ luxiaView: "writing-assistant" }, "", next);
           }
         }
         return;
@@ -1754,7 +1901,7 @@ export default function App() {
       if (resolved.kind === "organization-settings") {
         const requested = parseOrganizationSettingsTabFromSearch(search);
         setAccountSettingsSection(
-          requested === "analytics" && !canViewOrganizationAnalytics(prototypeUserId)
+          requested === "analytics" && !canViewOrganizationAnalytics(prototypeUserIdRef.current)
             ? "general"
             : organizationSettingsSectionToAccountSection(requested),
         );
@@ -1780,7 +1927,7 @@ export default function App() {
           if (typeof window !== "undefined") {
             const listPath = getAccessLevelsPath();
             if (window.location.pathname !== listPath) {
-              window.history.replaceState({ luxiaView: "access-levels" }, "", listPath);
+              luxiaHistory.replace({ luxiaView: "access-levels" }, "", listPath);
             }
           }
           return;
@@ -1819,7 +1966,7 @@ export default function App() {
           if (typeof window !== "undefined") {
             const overviewPath = getProjectPath(resolved.projectId);
             if (window.location.pathname !== overviewPath) {
-              window.history.replaceState(
+              luxiaHistory.replace(
                 { luxiaView: "project", projectId: resolved.projectId },
                 "",
                 overviewPath,
@@ -1828,17 +1975,16 @@ export default function App() {
           }
           return;
         }
-        setActiveProjectId(resolved.projectId);
-        setActiveChat(galaxyChat.id);
-        setAppView("chat");
+        focusChatRef.current(galaxyChat, { syncUrl: false });
         return;
       }
 
       if (resolved.kind === "chat") {
         clearSettingsRouteState();
         const chat = findChatById(resolved.chatId, chatsRef.current);
-        if (!chat) {
-          goHome(true);
+        // Deleted, session-only (gone after a refresh) or not matching its URL: never recreated.
+        if (!chat || deletedChatIdsRef.current.has(chat.id)) {
+          fallbackFromUnavailableChat(resolved.projectId);
           return;
         }
         if (
@@ -1846,7 +1992,7 @@ export default function App() {
           && chat.projectId
           && resolved.projectId !== chat.projectId
         ) {
-          goHome(true);
+          fallbackFromUnavailableChat(resolved.projectId);
           return;
         }
         if (
@@ -1855,16 +2001,49 @@ export default function App() {
           && chat.constellationId
           && resolved.constellationId !== chat.constellationId
         ) {
-          goHome(true);
+          fallbackFromUnavailableChat(resolved.projectId);
           return;
         }
-        if (chat.projectId) setActiveProjectId(chat.projectId);
-        setActiveChat(chat.id);
-        setAppView("chat");
+        focusChatRef.current(chat, { syncUrl: false });
         return;
       }
 
+      // Unknown route: Home (replace, no extra Back step) with a neutral message.
       goHome(true);
+      if (typeof window !== "undefined" && !isHomePath(pathname)) notifyRouteUnavailable("That page isn't available.");
+    }
+
+    /**
+     * A popstate tried to leave a page with unsaved changes. The browser has ALREADY moved, so:
+     *  - Cancel: return to the guarded page's own history entry with `history.go(-delta)` —
+     *    no new entry, edits kept, Forward history intact.
+     *  - Leave (Discard): move to the intended entry with `history.go(delta)`; that popstate
+     *    is applied normally, so URL, page, Project, sidebar and breadcrumbs come from the
+     *    real entry.
+     * Without trusted history metadata (delta unknown) the old re-push is used as a fallback,
+     * but leaving then REPLACES the entry with the destination URL so URL and page agree.
+     */
+    function holdForUnsavedChanges(
+      guard: { requestLeaveConfirmation: (onConfirmed: () => void) => void },
+      fallbackRestore: () => void,
+      pathname: string,
+      search: string,
+    ) {
+      const delta = luxiaHistoryDeltaFromSettled();
+      if (delta !== null) {
+        guardHistoryModeRef.current = "restore";
+        window.history.go(-delta);
+        guard.requestLeaveConfirmation(() => {
+          guardHistoryModeRef.current = "leave";
+          window.history.go(delta);
+        });
+        return;
+      }
+      fallbackRestore();
+      guard.requestLeaveConfirmation(() => {
+        luxiaHistory.replace(null, "", `${pathname}${search}`);
+        applyPath(pathname, search);
+      });
     }
 
     function onPopState() {
@@ -1872,26 +2051,37 @@ export default function App() {
       const search = window.location.search;
       const resolved = resolveLuxiaPathname(pathname);
 
-      if (appViewRef.current === "constellation-create") {
+      // Guard bookkeeping: a "restore" popstate just returned to the guarded page (its view never
+      // changed); a "leave" popstate is the confirmed exit and skips the guards once.
+      const guardMode = guardHistoryModeRef.current;
+      guardHistoryModeRef.current = null;
+      if (guardMode === "restore") {
+        markLuxiaHistorySettled();
+        return;
+      }
+      const skipGuards = guardMode === "leave";
+
+      if (!skipGuards && appViewRef.current === "constellation-create") {
         const guard = constellationCreateGuardRef.current;
         if (guard?.isDirty() && resolved.kind !== "constellation-create") {
-          const projectId = activeProjectIdRef.current;
-          if (projectId) {
-            const createPath = getConstellationCreatePath(projectId);
-            window.history.pushState(
-              { luxiaView: "constellation-create", projectId },
-              "",
-              createPath,
-            );
-          }
-          guard.requestLeaveConfirmation(() => applyPath(pathname, search));
+          holdForUnsavedChanges(guard, () => {
+            const projectId = activeProjectIdRef.current;
+            if (projectId) {
+              luxiaHistory.push(
+                { luxiaView: "constellation-create", projectId },
+                "",
+                getConstellationCreatePath(projectId),
+              );
+            }
+          }, pathname, search);
           return;
         }
       }
 
       const manageCapabilityPath = settingsCapabilityPathRef.current;
       if (
-        appViewRef.current === "constellation-settings"
+        !skipGuards
+        && appViewRef.current === "constellation-settings"
         && manageCapabilityPath
       ) {
         const guard = capabilityManageGuardRef.current;
@@ -1901,26 +2091,27 @@ export default function App() {
           && resolved.constellationId === settingsConstellationIdRef.current
           && resolved.projectId === activeProjectIdRef.current;
         if (guard?.isDirty() && !stillOnSameCapability) {
-          const projectId = activeProjectIdRef.current;
-          const constellationId = settingsConstellationIdRef.current;
-          if (projectId && constellationId) {
-            window.history.pushState(
-              {
-                luxiaView: "constellation-settings",
-                projectId,
-                constellationId,
-                capabilityPath: manageCapabilityPath,
-                section: "configuration",
-              },
-              "",
-              getConstellationSettingsCapabilityPath(
-                projectId,
-                constellationId,
-                manageCapabilityPath,
-              ),
-            );
-          }
-          guard.requestLeaveConfirmation(() => applyPath(pathname, search));
+          holdForUnsavedChanges(guard, () => {
+            const projectId = activeProjectIdRef.current;
+            const constellationId = settingsConstellationIdRef.current;
+            if (projectId && constellationId) {
+              luxiaHistory.push(
+                {
+                  luxiaView: "constellation-settings",
+                  projectId,
+                  constellationId,
+                  capabilityPath: manageCapabilityPath,
+                  section: "configuration",
+                },
+                "",
+                getConstellationSettingsCapabilityPath(
+                  projectId,
+                  constellationId,
+                  manageCapabilityPath,
+                ),
+              );
+            }
+          }, pathname, search);
           return;
         }
       }
@@ -1928,30 +2119,63 @@ export default function App() {
       // Tag & Extract Review with unsaved edits. Moving between Review and the
       // Documents list on the same page is handled by the Documents panel.
       const reviewSourceId = dataSourceSettingsIdRef.current;
-      if (appViewRef.current === "data-source-settings" && reviewSourceId) {
+      if (!skipGuards && appViewRef.current === "data-source-settings" && reviewSourceId) {
         const guard = documentReviewGuardRef.current;
         const stillOnSameSource =
           resolved.kind === "data-source-settings" && resolved.dataSourceId === reviewSourceId;
         if (guard?.isDirty() && !stillOnSameSource) {
-          window.history.pushState(
-            // The marker tells the Documents panel this entry is a restore, not a Review exit.
-            { luxiaView: "data-source-settings", dataSourceId: reviewSourceId, luxiaReviewRestore: true },
-            "",
-            getDataSourceSettingsPath(reviewSourceId),
-          );
-          guard.requestLeaveConfirmation(() => {
-            window.history.replaceState(null, "", `${pathname}${search}`);
-            applyPath(pathname, search);
-          });
+          // Native path returns to the Review entry itself (the Documents panel sees its own
+          // Review state and does nothing); fallback keeps the restore marker for the panel.
+          holdForUnsavedChanges(guard, () => {
+            luxiaHistory.push(
+              // The marker tells the Documents panel this entry is a restore, not a Review exit.
+              { luxiaView: "data-source-settings", dataSourceId: reviewSourceId, luxiaReviewRestore: true },
+              "",
+              getDataSourceSettingsPath(reviewSourceId),
+            );
+          }, pathname, search);
           return;
         }
       }
 
       applyPath(pathname, search);
+      // The app now shows the entry the browser is on (redirects inside applyPath re-mark it).
+      markLuxiaHistorySettled();
     }
+    applyPathRef.current = applyPath;
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
+
+  // Refresh / direct URL: once signed in, restore the requested page with
+  // the SAME `applyPath` + access guards as Back/Forward (deleted, session-only or inaccessible
+  // targets fall back safely). Runs once; a signed-out deep link is restored right after sign-in.
+  useEffect(() => {
+    if (!prototypeSignedIn) return;
+    const target = pendingRestorePathRef.current;
+    if (!target) return;
+    pendingRestorePathRef.current = null;
+    const url = new URL(target, window.location.origin);
+    // Only if the user is still on that URL (an auth flow may have moved them meanwhile).
+    if (window.location.pathname === url.pathname) {
+      restoringNowRef.current = true;
+      try {
+        applyPathRef.current?.(url.pathname, url.search);
+      } finally {
+        restoringNowRef.current = false;
+      }
+    }
+    markLuxiaHistorySettled();
+    setRouteRestoring(false);
+  }, [prototypeSignedIn]);
+
+  useEffect(() => {
+    if (routeRestoring || !deferredRouteNoticeRef.current) return;
+    const message = deferredRouteNoticeRef.current;
+    deferredRouteNoticeRef.current = null;
+    // Next frame: the Toaster mounts in the same commit that ends the restore gate.
+    window.requestAnimationFrame(() => toast.message(message));
+  }, [routeRestoring]);
 
   useEffect(() => {
     if (!isMobileNav) setMobileNavOpen(false);
@@ -2064,7 +2288,11 @@ export default function App() {
   }, [chats, galaxySettingsById]);
 
   const overviewChats: ProjectOverviewChat[] = useMemo(() => {
-    const source = [...INITIAL_CHATS, ...chats.filter((c) => !INITIAL_CHATS.some((i) => i.id === c.id))];
+    // Seeded Chats use their LIVE version (e.g. after a rename); then Chats created this session.
+    const source = [
+      ...INITIAL_CHATS.map((seed) => chats.find((c) => c.id === seed.id) ?? seed),
+      ...chats.filter((c) => !INITIAL_CHATS.some((i) => i.id === c.id)),
+    ].filter((c) => !deletedChatIds.has(c.id));
     const byProject = new Map<string, number>();
     return source.map((chat) => {
       const constellation = allConstellations.find((c) => c.id === chat.constellationId);
@@ -2095,7 +2323,7 @@ export default function App() {
         lastOpenedTimestamp: Date.now() - hoursAgo * 3_600_000,
       };
     });
-  }, [chats, allConstellations]);
+  }, [chats, allConstellations, deletedChatIds]);
 
   const overviewConstellations: ProjectOverviewConstellation[] = useMemo(
     () => allConstellations
@@ -2214,22 +2442,188 @@ export default function App() {
   }
 
   function handleNewChat() {
-    setNewChatLockedProjectId(null);
-    setNewChatQuestion("");
+    setPendingNewChat({ projectId: null, draft: "" });
     setAppView("chat");
     setShowNewChatModal(true);
   }
 
-  function handleNewChatFromProject(projectId: string, question?: string) {
-    setNewChatLockedProjectId(projectId);
-    setNewChatQuestion(typeof question === "string" ? question.trim() : "");
-    setActiveProjectId(projectId);
+  /**
+   * "+" in the capsule row: a new Chat in the CURRENT Project. Knowledge resolves to the
+   * remembered Constellation, else the Project's only accessible one; with several options
+   * (or none) the existing Create Chat dialog asks, locked to this Project. Never arbitrary.
+   */
+  function handleNewChatInProject() {
+    const projectId = activeData?.projectId ?? activeProjectId;
+    if (!projectId) {
+      handleNewChat();
+      return;
+    }
+    const eligible = workingAccessibleOverviewConstellations.filter((item) => item.projectId === projectId);
+    const knowledge = resolveNewChatKnowledge(eligible, rememberedConstellationRef.current[projectId]);
+    if (knowledge.kind === "use") {
+      handleNewChatCreate({ chatType: "constellation", projectId, constellationId: knowledge.constellation.id });
+      return;
+    }
+    setPendingNewChat({ projectId, draft: "" });
+    setAppView("chat");
     setShowNewChatModal(true);
   }
 
+  /**
+   * Composer "Project:" selector. Uses the app's own Project state: validates access, then
+   * shows that Project's last active accessible Chat (else an open one). With no Chat yet it
+   * follows the safe new-chat rule. Never moves a Chat between Projects.
+   */
+  function handleComposerSelectProject(projectId: string) {
+    if (projectId === activeData?.projectId) return;
+    if (!canAccessProject(projectId, projectMembershipsState, prototypeUserId)) {
+      toast.error(PROJECT_ACTION_DENIED_MESSAGE);
+      return;
+    }
+    const inProject = workingAccessibleChats.filter((c) => c.projectId === projectId);
+    const remembered = lastActiveChatByProjectRef.current[projectId];
+    const target = (remembered ? inProject.find((c) => c.id === remembered) : undefined)
+      ?? inProject.find((c) => !closedChatIds.has(c.id) && c.chatType === "constellation")
+      ?? inProject.find((c) => !closedChatIds.has(c.id))
+      ?? inProject[0];
+    if (target) {
+      activateChat(target.id);
+      return;
+    }
+    const eligible = workingAccessibleOverviewConstellations.filter((item) => item.projectId === projectId);
+    const knowledge = resolveNewChatKnowledge(eligible, rememberedConstellationRef.current[projectId]);
+    if (knowledge.kind === "use") {
+      handleNewChatCreate({ chatType: "constellation", projectId, constellationId: knowledge.constellation.id });
+      return;
+    }
+    if (knowledge.reason === "several-options") {
+      setPendingNewChat({ projectId, draft: "" });
+      setActiveProjectId(projectId);
+      setShowNewChatModal(true);
+      return;
+    }
+    const projectName = getProjectNameById(projectId, homeProjects) || "This Project";
+    toast.message(`${projectName} has no knowledge you can use yet.`);
+    handleOpenProjectOverview(projectId, "overview");
+  }
+
+  /**
+   * Composer "Answers from:" selector. Constellation → empty Chat: changed in place;
+   * Chat with messages: new Chat in the same Project. Galaxy → the Project's Galaxy Chat.
+   * From Galaxy to a Constellation → a new Chat in the same Project. The unsent draft moves.
+   */
+  function handleComposerSelectKnowledge(option: KnowledgeContextOption) {
+    const active = activeData;
+    if (!active || !active.projectId) return;
+    const draft = draftsByChatId[active.id] ?? "";
+    const moveDraftTo = (targetId: string) => {
+      if (!draft) return;
+      setDraftsByChatId((p) => {
+        const next = { ...p };
+        delete next[active.id];
+        if (!next[targetId]) next[targetId] = draft;
+        return next;
+      });
+    };
+    if (option.kind === "galaxy") {
+      if (active.chatType === "galaxy" || option.id === active.id) return;
+      if (activateChat(option.id)) {
+        moveDraftTo(option.id);
+        setKnowledgeNotice({ chatId: option.id, kind: "to-galaxy", label: "Galaxy" });
+      }
+      return;
+    }
+    if (active.chatType === "constellation") {
+      handleConstellationChange(option.id);
+      return;
+    }
+    if (!assertConstellationUseAccess(active.projectId, option.id)) return;
+    rememberedConstellationRef.current[active.projectId] = option.id;
+    const id = `c${Date.now()}`;
+    const created: Chat = {
+      id,
+      label: newChatTitle(),
+      chatType: "constellation",
+      projectId: active.projectId,
+      constellationId: option.id,
+    };
+    setChats((p) => [...p, created]);
+    setChatMessages((p) => ({ ...p, [id]: [] }));
+    markNewChat(id);
+    moveDraftTo(id);
+    focusChat(created);
+    setKnowledgeNotice({ chatId: id, kind: "from-galaxy", label: option.label });
+  }
+
+  function openChatFinder() {
+    chatFinderOpenerRef.current = (typeof document !== "undefined" ? document.activeElement : null) as HTMLElement | null;
+    setChatFinderOpen(true);
+  }
+
+  function closeChatFinder() {
+    setChatFinderOpen(false);
+    const opener = chatFinderOpenerRef.current;
+    window.setTimeout(() => {
+      if (opener && document.contains(opener)) opener.focus();
+      else document.querySelector<HTMLElement>("[data-luxia-find-chats]")?.focus();
+    }, 0);
+  }
+
+  /**
+   * Home → Project Chat. Validates Project access, then resolves knowledge with the
+   * shared safe rule (remembered → only option → ask). The typed question becomes the target
+   * Chat's UNSENT draft (never sent, never written over another Chat's draft). An existing empty
+   * Chat with the same knowledge is reused instead of creating a duplicate. With several options
+   * the existing Create Chat dialog asks (draft kept); with none, Home stays as it is.
+   */
+  function handleNewChatFromProject(projectId: string, question?: string) {
+    const draft = typeof question === "string" ? question.trim() : "";
+    if (!canAccessProject(projectId, projectMembershipsState, prototypeUserId)) {
+      toast.error(PROJECT_ACTION_DENIED_MESSAGE);
+      return;
+    }
+    const eligible = workingAccessibleOverviewConstellations.filter((item) => item.projectId === projectId);
+    const knowledge = resolveNewChatKnowledge(eligible, rememberedConstellationRef.current[projectId]);
+    if (knowledge.kind === "use") {
+      const constellationId = knowledge.constellation.id;
+      const reusable = workingAccessibleChats.find((chat) =>
+        chat.projectId === projectId
+        && chat.chatType === "constellation"
+        && chat.constellationId === constellationId
+        && (chatMessages[chat.id]?.length ?? 0) === 0
+        && !(draftsByChatId[chat.id] ?? "").trim());
+      if (reusable) {
+        if (!activateChat(reusable.id)) return;
+        rememberedConstellationRef.current[projectId] = constellationId;
+        if (draft) setChatDraft(reusable.id, draft);
+        return;
+      }
+      handleNewChatCreate({ chatType: "constellation", projectId, constellationId }, draft);
+      return;
+    }
+    if (knowledge.reason === "several-options") {
+      setPendingNewChat({ projectId, draft });
+      setActiveProjectId(projectId);
+      setShowNewChatModal(true);
+      return;
+    }
+    const projectName = getProjectNameById(projectId, homeProjects) || "This Project";
+    toast.message(`${projectName} has no Constellation you can chat with yet.`, {
+      description: draft ? "Your question is still here on Home." : undefined,
+    });
+  }
+
   function handleNavigateHome() {
+    navigateHomeView("overview");
+  }
+
+  /**
+   * Opens Home in one of its views. Each view is its own history entry at "/" (push), so Back
+   * returns to the view the user actually came from; nothing is written when already there.
+   */
+  function navigateHomeView(browse: HomeBrowseMode) {
     setAppView("home");
-    setHomeBrowseMode("overview");
+    setHomeBrowseMode(browse);
     setActiveProjectId(null);
     setProjectBrowseMode("overview");
     setSettingsConstellationId(null);
@@ -2238,15 +2632,16 @@ export default function App() {
     setAccessLevelId(null);
     setDataSourceSettingsId(null);
     setShowNewChatModal(false);
-    setNewChatLockedProjectId(null);
-    setNewChatQuestion("");
+    setPendingNewChat(null);
     setShowNewProjectModal(false);
     setHomeScrollRequest((value) => value + 1);
     if (typeof window !== "undefined") {
       if (window.location.pathname === "/home" || window.location.pathname === "/home/") {
-        window.history.replaceState({ luxiaView: "home" }, "", "/");
+        luxiaHistory.replace(homeHistoryState(browse), "", "/");
       } else if (!isHomePath(window.location.pathname)) {
-        window.history.pushState({ luxiaView: "home" }, "", "/");
+        luxiaHistory.push(homeHistoryState(browse), "", "/");
+      } else if (readHomeBrowseFromState(window.history.state) !== browse) {
+        luxiaHistory.push(homeHistoryState(browse), "", "/");
       }
     }
   }
@@ -2289,9 +2684,9 @@ export default function App() {
       section: options?.section ?? "general",
     };
     if (options?.replace) {
-      window.history.replaceState(state, "", next);
+      luxiaHistory.replace(state, "", next);
     } else {
-      window.history.pushState(state, "", next);
+      luxiaHistory.push(state, "", next);
     }
   }
 
@@ -2352,7 +2747,7 @@ export default function App() {
     if (typeof window !== "undefined") {
       const next = getConstellationsPath(projectId);
       if (window.location.pathname !== next) {
-        window.history.pushState(
+        luxiaHistory.push(
           { luxiaView: "project", projectId, browse: "constellations" },
           "",
           next,
@@ -2370,7 +2765,7 @@ export default function App() {
     if (typeof window !== "undefined") {
       const next = getProjectChatsPath(projectId);
       if (window.location.pathname !== next) {
-        window.history.pushState(
+        luxiaHistory.push(
           { luxiaView: "project", projectId, browse: "chats" },
           "",
           next,
@@ -2388,7 +2783,7 @@ export default function App() {
     if (typeof window !== "undefined") {
       const next = getProjectActivityPath(projectId);
       if (window.location.pathname !== next) {
-        window.history.pushState(
+        luxiaHistory.push(
           { luxiaView: "project", projectId, browse: "activity" },
           "",
           next,
@@ -2406,7 +2801,7 @@ export default function App() {
     if (typeof window !== "undefined") {
       const next = getProjectMembersPath(projectId);
       if (window.location.pathname !== next) {
-        window.history.pushState({ luxiaView: "project-members", projectId }, "", next);
+        luxiaHistory.push({ luxiaView: "project-members", projectId }, "", next);
       }
     }
   }
@@ -2421,7 +2816,7 @@ export default function App() {
     if (typeof window !== "undefined") {
       const next = getProjectVidgetsPath(projectId);
       if (window.location.pathname !== next) {
-        window.history.pushState({ luxiaView: "project-vidgets", projectId }, "", next);
+        luxiaHistory.push({ luxiaView: "project-vidgets", projectId }, "", next);
       }
     }
   }
@@ -2439,7 +2834,7 @@ export default function App() {
     if (typeof window !== "undefined") {
       const next = getProjectPipelinesPath(projectId);
       if (window.location.pathname !== next) {
-        window.history.pushState({ luxiaView: "project-pipelines", projectId }, "", next);
+        luxiaHistory.push({ luxiaView: "project-pipelines", projectId }, "", next);
       }
     }
   }
@@ -2459,7 +2854,7 @@ export default function App() {
     if (typeof window !== "undefined") {
       const next = getPipelinePath(projectId, nextPipelineId);
       if (window.location.pathname !== next) {
-        window.history.pushState(
+        luxiaHistory.push(
           { luxiaView: "pipeline-detail", projectId, pipelineId: nextPipelineId },
           "",
           next,
@@ -2497,7 +2892,7 @@ export default function App() {
     if (typeof window !== "undefined") {
       const next = getPipelineRunPath(projectId, nextPipelineId, nextRunId);
       if (window.location.pathname !== next) {
-        window.history.pushState(
+        luxiaHistory.push(
           {
             luxiaView: "pipeline-run-detail",
             projectId,
@@ -2624,7 +3019,7 @@ export default function App() {
     if (typeof window !== "undefined") {
       const next = getSharedReviewPath(id);
       if (window.location.pathname !== next) {
-        window.history.pushState({ luxiaView: "shared-review", shareId: id }, "", next);
+        luxiaHistory.push({ luxiaView: "shared-review", shareId: id }, "", next);
       }
     }
   }
@@ -2666,9 +3061,9 @@ export default function App() {
       if (current === next) return;
       const state = { luxiaView: "vidget-inbox", projectId, sessionId };
       if (options?.history === "replace") {
-        window.history.replaceState(state, "", next);
+        luxiaHistory.replace(state, "", next);
       } else {
-        window.history.pushState(state, "", next);
+        luxiaHistory.push(state, "", next);
       }
     }
   }
@@ -2691,7 +3086,7 @@ export default function App() {
       });
       const current = `${window.location.pathname}${window.location.search}`;
       if (current !== next) {
-        window.history.pushState(
+        luxiaHistory.push(
           { luxiaView: "vidget-settings", projectId, vidgetId: nextVidgetId, section: resolvedSection },
           "",
           next,
@@ -2771,7 +3166,7 @@ export default function App() {
     if (typeof window !== "undefined") {
       const next = getAccessLevelsPath();
       if (window.location.pathname !== next) {
-        window.history.pushState({ luxiaView: "access-levels" }, "", next);
+        luxiaHistory.push({ luxiaView: "access-levels" }, "", next);
       }
     }
   }
@@ -2787,7 +3182,7 @@ export default function App() {
     if (typeof window !== "undefined") {
       const next = getOrganizationUsersPath();
       if (window.location.pathname !== next) {
-        window.history.pushState({ luxiaView: "organization-users" }, "", next);
+        luxiaHistory.push({ luxiaView: "organization-users" }, "", next);
       }
     }
   }
@@ -2803,7 +3198,7 @@ export default function App() {
     if (typeof window !== "undefined") {
       const next = getOrganizationUserPath(userId);
       if (window.location.pathname !== next) {
-        window.history.pushState(
+        luxiaHistory.push(
           { luxiaView: "organization-user", userId },
           "",
           next,
@@ -2897,7 +3292,7 @@ export default function App() {
     if (typeof window !== "undefined") {
       const next = getDataSourcesPath();
       if (window.location.pathname !== next) {
-        window.history.pushState({ luxiaView: "data-sources" }, "", next);
+        luxiaHistory.push({ luxiaView: "data-sources" }, "", next);
       }
     }
   }
@@ -2917,7 +3312,7 @@ export default function App() {
     if (typeof window !== "undefined") {
       const next = getAdminPipelinesPath();
       if (window.location.pathname !== next) {
-        window.history.pushState({ luxiaView: "admin-pipelines" }, "", next);
+        luxiaHistory.push({ luxiaView: "admin-pipelines" }, "", next);
       }
     }
   }
@@ -2933,7 +3328,7 @@ export default function App() {
     if (typeof window !== "undefined") {
       const next = getWritingAssistantPath();
       if (window.location.pathname !== next) {
-        window.history.pushState({ luxiaView: "writing-assistant" }, "", next);
+        luxiaHistory.push({ luxiaView: "writing-assistant" }, "", next);
       }
     }
   }
@@ -2967,7 +3362,7 @@ export default function App() {
     if (typeof window !== "undefined") {
       const next = getExplorePath(section, slug);
       if (window.location.pathname !== next) {
-        window.history.pushState({ luxiaView: "explore", exploreFrom: slug ? options.from ?? null : null }, "", next);
+        luxiaHistory.push({ luxiaView: "explore", exploreFrom: slug ? options.from ?? null : null }, "", next);
       }
     }
   }
@@ -2984,11 +3379,7 @@ export default function App() {
       case "tools": handleOpenTools(); break;
       case "home": handleNavigateHome(); break;
       case "projects":
-        handleNavigateHome();
-        setHomeBrowseMode("projects");
-        if (typeof window !== "undefined") {
-          window.history.replaceState({ luxiaView: "home", browse: "projects" }, "", "/");
-        }
+        navigateHomeView("projects");
         break;
     }
   }
@@ -3004,7 +3395,7 @@ export default function App() {
     if (typeof window !== "undefined") {
       const next = getToolsPath();
       if (window.location.pathname !== next) {
-        window.history.pushState({ luxiaView: "tools" }, "", next);
+        luxiaHistory.push({ luxiaView: "tools" }, "", next);
       }
     }
   }
@@ -3096,7 +3487,7 @@ export default function App() {
     if (typeof window !== "undefined") {
       const next = getAccessLevelPath(id);
       if (window.location.pathname !== next) {
-        window.history.pushState({ luxiaView: "access-level", accessLevelId: id }, "", next);
+        luxiaHistory.push({ luxiaView: "access-level", accessLevelId: id }, "", next);
       }
     }
   }
@@ -3154,7 +3545,7 @@ export default function App() {
     if (typeof window !== "undefined") {
       const next = getDataSourceSettingsPath(dataSourceId);
       if (window.location.pathname !== next) {
-        window.history.pushState(
+        luxiaHistory.push(
           { luxiaView: "data-source-settings", dataSourceId },
           "",
           next,
@@ -3442,7 +3833,27 @@ export default function App() {
 
   useEffect(() => {
     setPrototypeCurrentUserId(prototypeUserId);
+    // Remembered Chat preferences belong to one user; a demo identity switch starts clean.
+    rememberedConstellationRef.current = {};
+    lastActiveChatByProjectRef.current = {};
+    setKnowledgeNotice(null);
+    // Home conversations belong to one user: a demo identity switch starts clean.
+    setHomeSessions({});
+    setHomeNotice(null);
+    setChatActivityAt({});
   }, [prototypeUserId]);
+
+  // Bring a fresh notice into view (it follows the last message in a populated chat).
+  useEffect(() => {
+    if (!knowledgeNotice) return;
+    const frame = window.requestAnimationFrame(() => messagesEndRef.current?.scrollIntoView({ block: "end" }));
+    return () => window.cancelAnimationFrame(frame);
+  }, [knowledgeNotice]);
+
+  // The notice belongs to one chat: opening any other chat (or Project) retires it.
+  useEffect(() => {
+    setKnowledgeNotice((notice) => (notice && notice.chatId !== activeChat ? null : notice));
+  }, [activeChat]);
 
   const prototypeUser = useMemo(
     () =>
@@ -3500,7 +3911,7 @@ export default function App() {
       if (typeof window !== "undefined") {
         const listPath = getAccessLevelsPath();
         if (window.location.pathname !== listPath) {
-          window.history.replaceState({ luxiaView: "access-levels" }, "", listPath);
+          luxiaHistory.replace({ luxiaView: "access-levels" }, "", listPath);
         }
       }
       return;
@@ -3521,7 +3932,7 @@ export default function App() {
       setDataSourceSettingsId(null);
       setMobileNavOpen(false);
       if (typeof window !== "undefined") {
-        window.history.replaceState({ luxiaView: "home" }, "", "/");
+        luxiaHistory.replace({ luxiaView: "home" }, "", "/");
       }
       return;
     }
@@ -4074,7 +4485,7 @@ export default function App() {
     if (typeof window === "undefined") return;
     const next = getProjectPath(projectId);
     if (window.location.pathname !== next) {
-      window.history.pushState({ luxiaView: "project", projectId }, "", next);
+      luxiaHistory.push({ luxiaView: "project", projectId }, "", next);
     }
   }
 
@@ -4082,7 +4493,7 @@ export default function App() {
     if (typeof window === "undefined") return;
     const next = getDashboardPath(projectId, dashboardId);
     if (window.location.pathname !== next) {
-      window.history.pushState({ luxiaView: "dashboard", projectId, dashboardId }, "", next);
+      luxiaHistory.push({ luxiaView: "dashboard", projectId, dashboardId }, "", next);
     }
   }
 
@@ -4090,12 +4501,13 @@ export default function App() {
     if (typeof window === "undefined") return;
     const next = getProjectOutputsPath(projectId);
     if (window.location.pathname !== next) {
-      window.history.pushState({ luxiaView: "project", projectId, browse: "outputs" }, "", next);
+      luxiaHistory.push({ luxiaView: "project", projectId, browse: "outputs" }, "", next);
     }
   }
 
   function syncWorkspacePathForChat(
     chat: Pick<Chat, "id" | "chatType" | "projectId" | "constellationId">,
+    options?: { replace?: boolean },
   ) {
     if (typeof window === "undefined") return;
     const next = chat.chatType === "galaxy"
@@ -4104,17 +4516,78 @@ export default function App() {
         ? getConstellationChatPath(chat.projectId, chat.constellationId, chat.id)
         : getChatPath(chat.id);
     if (window.location.pathname === next) return;
-    window.history.pushState(
-      {
-        luxiaView: "chat",
-        chatId: chat.id,
-        projectId: chat.projectId,
-        chatType: chat.chatType,
-        constellationId: chat.constellationId,
-      },
-      "",
-      next,
-    );
+    const state = {
+      luxiaView: "chat",
+      chatId: chat.id,
+      projectId: chat.projectId,
+      chatType: chat.chatType,
+      constellationId: chat.constellationId,
+    };
+    if (options?.replace) luxiaHistory.replace(state, "", next);
+    else luxiaHistory.push(state, "", next);
+  }
+
+  /**
+   * The one way to show a Chat. Keeps Project, active Chat, view and URL in agreement,
+   * and reopens the Chat if it was closed. Callers must already have validated access.
+   */
+  function focusChat(
+    chat: Pick<Chat, "id" | "chatType" | "projectId" | "constellationId">,
+    options?: { syncUrl?: boolean; replaceUrl?: boolean },
+  ) {
+    setClosedChatIds((prev) => {
+      if (!prev.has(chat.id)) return prev;
+      const next = new Set(prev);
+      next.delete(chat.id);
+      return next;
+    });
+    if (chat.projectId) {
+      setActiveProjectId(chat.projectId);
+      lastActiveChatByProjectRef.current[chat.projectId] = chat.id;
+    }
+    lastOpenedAtRef.current[chat.id] = Date.now();
+    noteChatActivity(chat.id);
+    setActiveChat(chat.id);
+    setAppView("chat");
+    if (options?.syncUrl !== false) syncWorkspacePathForChat(chat, { replace: options?.replaceUrl });
+  }
+  focusChatRef.current = focusChat;
+
+  /**
+   * Activate an existing (or seeded) Chat by id from any entry point: checks it was not
+   * deleted, checks Project membership / Constellation use access, loads a seeded Chat if
+   * needed, then focuses it. Returns false when blocked (nothing changes).
+   */
+  function activateChat(chatId: string, options?: { syncUrl?: boolean; replaceUrl?: boolean }): boolean {
+    if (deletedChatIds.has(chatId)) {
+      toast.message("This chat was deleted.");
+      return false;
+    }
+    const chat = findChatById(chatId, chatsRef.current);
+    if (!chat) {
+      console.warn(`[Luxia] Chat "${chatId}" not found. Navigation aborted.`);
+      toast.message("This chat is no longer available.");
+      return false;
+    }
+    if (
+      chat.chatType === "constellation"
+      && chat.projectId
+      && chat.constellationId
+      && !assertConstellationUseAccess(chat.projectId, chat.constellationId)
+    ) {
+      return false;
+    }
+    if (chat.chatType === "galaxy" && chat.projectId && !canAccessProject(chat.projectId, projectMembershipsState, prototypeUserId)) {
+      toast.error(PROJECT_ACTION_DENIED_MESSAGE);
+      return false;
+    }
+    if (!ensureChatOpen(chatId)) return false;
+    focusChat(chat, options);
+    return true;
+  }
+
+  function setChatDraft(chatId: string, value: string) {
+    setDraftsByChatId((prev) => ((prev[chatId] ?? "") === value ? prev : { ...prev, [chatId]: value }));
   }
 
   function handleOpenProjectOverview(
@@ -4150,7 +4623,7 @@ export default function App() {
         if (typeof window !== "undefined") {
           const next = getConstellationsPath(projectId);
           if (window.location.pathname !== next) {
-            window.history.pushState(
+            luxiaHistory.push(
               { luxiaView: "project", projectId, browse: "constellations" },
               "",
               next,
@@ -4181,7 +4654,7 @@ export default function App() {
       if (typeof window !== "undefined") {
         const next = getConstellationsPath(projectId);
         if (window.location.pathname !== next) {
-          window.history.pushState(
+          luxiaHistory.push(
             { luxiaView: "project", projectId, browse: "constellations" },
             "",
             next,
@@ -4233,7 +4706,27 @@ export default function App() {
   }
 
   const recentWork = useMemo<HomeRecentWorkItem[]>(() => (
-    HOME_RECENT_WORK
+    [
+      // Live chats with real activity this session (created on Home or anywhere) that are not
+      // part of the seeded demo list; their recency is the real open/send time.
+      ...chats
+        .filter((c) => chatActivityAt[c.id] && !HOME_RECENT_WORK.some((item) => item.chatId === c.id))
+        .map((c): HomeRecentWorkItem => ({
+          id: `work-live-${c.id}`,
+          title: c.label,
+          kind: c.chatType === "galaxy" ? "galaxySession" : "chat",
+          projectId: c.projectId,
+          chatId: c.id,
+          conversationId: c.id,
+          constellationId: c.constellationId,
+          updatedAt: "",
+          lastOpenedAt: chatActivityAt[c.id],
+        })),
+      // Seeded demo items; when really used this session, their recency becomes the real time.
+      ...HOME_RECENT_WORK.map((item) => (chatActivityAt[item.chatId]
+        ? { ...item, lastOpenedAt: chatActivityAt[item.chatId], updatedAt: "" }
+        : item)),
+    ]
       .filter((item) =>
         Boolean(
           getActiveProjectMembership(
@@ -4243,6 +4736,7 @@ export default function App() {
           ),
         ),
       )
+      .filter((item) => !deletedChatIds.has(item.chatId))
       .filter((item) => {
         const chat = chats.find((c) => c.id === item.chatId)
           ?? INITIAL_CHATS.find((c) => c.id === item.chatId);
@@ -4267,7 +4761,7 @@ export default function App() {
           projectDescription: projectCard?.description,
         };
       })
-  ), [allConstellations, chats, homeProjects, pinnedEntityOrder, projectMembershipsState, prototypeUserId, accessLevelsState, dataSourcesState, constellationSettingsById]);
+  ), [allConstellations, chats, chatActivityAt, deletedChatIds, homeProjects, pinnedEntityOrder, projectMembershipsState, prototypeUserId, accessLevelsState, dataSourcesState, constellationSettingsById]);
 
   useEffect(() => {
     const normalized = normalizeHomePrimaryPreference(
@@ -4502,22 +4996,9 @@ export default function App() {
   }
 
   function handleContinueWork(item: HomeRecentWorkItem) {
-    if (item.projectId) setActiveProjectId(item.projectId);
-    const targetChat = findChatById(item.chatId, chatsRef.current)
-      ?? INITIAL_CHATS.find((entry) => entry.id === item.chatId);
-    if (
-      targetChat?.chatType === "constellation"
-      && targetChat.projectId
-      && targetChat.constellationId
-      && !assertConstellationUseAccess(targetChat.projectId, targetChat.constellationId)
-    ) {
-      return;
-    }
-    if (!ensureChatOpen(item.chatId)) return;
-    const chat = findChatById(item.chatId, chatsRef.current);
-    if (chat) syncWorkspacePathForChat(chat);
-    setAppView("chat");
+    activateChat(item.chatId);
   }
+
 
   function handleOpenProjectFromHome(projectId: string) {
     handleOpenProjectOverview(projectId, "overview");
@@ -4539,10 +5020,7 @@ export default function App() {
       return;
     }
 
-    setActiveProjectId(projectId);
-    if (!ensureChatOpen(galaxyChat.id)) return;
-    syncWorkspacePathForChat(galaxyChat);
-    setAppView("chat");
+    activateChat(galaxyChat.id);
   }
 
   function handleOpenGalaxySettingsFromOverview(
@@ -4597,9 +5075,9 @@ export default function App() {
       section: options?.section ?? "general",
     };
     if (options?.replace) {
-      window.history.replaceState(state, "", next);
+      luxiaHistory.replace(state, "", next);
     } else {
-      window.history.pushState(state, "", next);
+      luxiaHistory.push(state, "", next);
     }
   }
 
@@ -4761,21 +5239,9 @@ export default function App() {
   }
 
   function handleOpenChatFromHome(chatId: string) {
-    const chat = chats.find((entry) => entry.id === chatId)
-      ?? INITIAL_CHATS.find((entry) => entry.id === chatId);
-    if (
-      chat?.chatType === "constellation"
-      && chat.projectId
-      && chat.constellationId
-      && !assertConstellationUseAccess(chat.projectId, chat.constellationId)
-    ) {
-      return;
-    }
-    if (chat?.projectId) setActiveProjectId(chat.projectId);
-    if (!ensureChatOpen(chatId)) return;
-    if (chat) syncWorkspacePathForChat(chat);
-    setAppView("chat");
+    activateChat(chatId);
   }
+
 
   function handleOpenConstellationFromProject(projectId: string, constellationId: string) {
     const constellation = allConstellations.find(
@@ -4800,26 +5266,10 @@ export default function App() {
       );
       return;
     }
-    if (!assertConstellationUseAccess(projectId, constellationId)) return;
-    const existingCount = chats.filter(
-      (chat) => chat.chatType === "constellation"
-        && chat.projectId === projectId
-        && chat.constellationId === constellationId,
-    ).length;
-    const id = `c${Date.now()}`;
-    const created: Chat = {
-      id,
-      label: `Chat name ${String(existingCount + 1).padStart(2, "0")}`,
-      chatType: "constellation",
-      projectId,
-      constellationId,
-    };
-    setChats((prev) => [...prev, created]);
-    setChatMessages((prev) => ({ ...prev, [id]: [] }));
-    setActiveProjectId(projectId);
-    setActiveChat(id);
-    syncWorkspacePathForChat(created);
-    setAppView("chat");
+    // Same naming as every other create path ("New chat" → first question).
+    const created = createChatRecord({ chatType: "constellation", projectId, constellationId });
+    if (!created) return;
+    focusChat(created);
   }
 
   function handleOpenConstellationCreate(
@@ -4836,7 +5286,7 @@ export default function App() {
     if (typeof window !== "undefined") {
       const next = getConstellationCreatePath(projectId);
       if (window.location.pathname !== next) {
-        window.history.pushState(
+        luxiaHistory.push(
           { luxiaView: "constellation-create", projectId },
           "",
           next,
@@ -5103,39 +5553,86 @@ export default function App() {
     });
   }
 
-  function handleNewChatCreate(payload: NewChatPayload) {
+  /**
+   * Titles a new name must not repeat (case-insensitive). The backend rule is "unique per user
+   * across Projects"; chats carry no owner yet, so ALL chats in this session are used (stricter).
+   * Deleted chats are removed here, so their names become free (backend soft-delete: unverified).
+   */
+  function takenChatTitles(exceptId?: string): string[] {
+    return chats.filter((c) => c.id !== exceptId).map((c) => c.label);
+  }
+
+  /** The single default name for every new chat until its first question. */
+  function newChatTitle(): string {
+    return uniqueTitle(NEW_CHAT_TITLE, takenChatTitles());
+  }
+
+  function markNewChat(id: string) {
+    autoTitleChatIdsRef.current.add(id);
+    const mine = (createdThisSessionRef.current[prototypeUserId] ??= new Set());
+    mine.add(id);
+  }
+
+  /**
+   * The ONE rename path (Chat heading, capsule menu, Home). Validates (trimmed, 1–80 chars,
+   * unique) and returns an error message, or null after renaming. Chat id stays the identity.
+   */
+  function renameChat(chatId: string, value: string): string | null {
+    const chat = chats.find((c) => c.id === chatId);
+    if (!chat) return "This chat is no longer available.";
+    const title = value.trim();
+    if (title === chat.label) return null;
+    const error = validateChatTitle(title, takenChatTitles(chatId));
+    if (error) return error;
+    setChats((p) => p.map((c) => (c.id === chatId ? { ...c, label: title } : c)));
+    autoTitleChatIdsRef.current.delete(chatId);
+    return null;
+  }
+
+  function noteChatActivity(chatId: string) {
+    setChatActivityAt((p) => ({ ...p, [chatId]: Date.now() }));
+  }
+
+  /** Creates a chat record (access-checked) WITHOUT navigating. Shared by every create path. */
+  function createChatRecord(payload: NewChatPayload): Chat | null {
     if (
       payload.chatType === "constellation"
       && payload.constellationId
       && !assertConstellationUseAccess(payload.projectId, payload.constellationId)
     ) {
-      return;
+      return null;
+    }
+    if (payload.chatType === "constellation" && payload.constellationId) {
+      rememberedConstellationRef.current[payload.projectId] = payload.constellationId;
     }
     const id = `c${Date.now()}`;
-    const n = chats.length + 1;
-    const galaxyCount = chats.filter((c) => c.chatType === "galaxy").length;
     const projectName = getProjectNameById(payload.projectId, homeProjects);
-    setChats((p) => [...p, {
+    const created: Chat = {
       id,
-      label: payload.chatType === "galaxy"
-        ? (galaxyCount === 0 ? "Galaxy Chat" : `Galaxy Chat ${galaxyCount + 1}`)
-        : `Chat ${n}`,
+      label: newChatTitle(),
       chatType: payload.chatType,
       projectId: payload.projectId,
       constellationId: payload.constellationId,
-    }]);
+    };
+    setChats((p) => [...p, created]);
     setChatMessages((p) => ({ ...p, [id]: [] }));
+    markNewChat(id);
     if (payload.chatType === "galaxy") {
       setGalaxySessions((p) => ({ ...p, [id]: createIdleGalaxySession(projectName) }));
     }
-    setActiveProjectId(payload.projectId);
-    setActiveChat(id);
+    return created;
+  }
+
+  function handleNewChatCreate(payload: NewChatPayload, draftOverride?: string) {
+    const created = createChatRecord(payload);
+    if (!created) return;
+    const id = created.id;
     setShowNewChatModal(false);
-    setNewChatLockedProjectId(null);
-    if (newChatQuestion) setInputValue(newChatQuestion);
-    setNewChatQuestion("");
-    setAppView("chat");
-    syncWorkspacePathForChat({
+    // The pending question becomes this Chat's own unsent draft (never sent automatically).
+    const handoffDraft = draftOverride ?? newChatQuestion;
+    if (handoffDraft) setChatDraft(id, handoffDraft);
+    setPendingNewChat(null);
+    focusChat({
       id,
       chatType: payload.chatType,
       projectId: payload.projectId,
@@ -5148,11 +5645,12 @@ export default function App() {
       return;
     }
     const id = `c${Date.now()}`;
-    const n = chats.length + 1;
     const now = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+    createdThisSessionRef.current[prototypeUserId] ??= new Set();
+    createdThisSessionRef.current[prototypeUserId].add(id);
     setChats((prev) => [...prev, {
       id,
-      label: `Chat ${n}`,
+      label: payload.question.trim() ? uniqueTitle(titleFromQuestion(payload.question), takenChatTitles()) : newChatTitle(),
       chatType: "constellation",
       projectId: payload.projectId,
       constellationId: payload.constellationId,
@@ -5180,11 +5678,8 @@ export default function App() {
       });
     }
     setChatMessages((prev) => ({ ...prev, [id]: seeded }));
-    setInputValue(payload.question);
-    setActiveProjectId(payload.projectId);
-    setActiveChat(id);
-    setAppView("chat");
-    syncWorkspacePathForChat({
+    setChatDraft(id, payload.question);
+    focusChat({
       id,
       chatType: "constellation",
       projectId: payload.projectId,
@@ -5192,48 +5687,152 @@ export default function App() {
     });
   }
 
+  /**
+   * Chat to show after the current one leaves the open tabs: the nearest open tab in the
+   * SAME Project, else any open tab. Never moves a conversation between Projects.
+   */
+  function nextOpenChatAfter(id: string, projectId: string | undefined, pool: readonly Chat[]) {
+    const order = pool.map((c) => c.id);
+    const index = order.indexOf(id);
+    const others = pool.filter((c) => c.id !== id);
+    const sameProject = others.filter((c) => c.projectId === projectId);
+    const candidates = sameProject.length > 0 ? sameProject : others;
+    if (candidates.length === 0) return null;
+    const after = candidates.find((c) => order.indexOf(c.id) > index);
+    return after ?? candidates[candidates.length - 1];
+  }
+
+  /** Close tab: hides the Chat from the open tabs; messages, knowledge and Galaxy state are kept. */
   function handleCloseChat(id: string) {
-    if (chats.length <= 1) return;
-    setChats(p => p.filter(c => c.id !== id));
+    const closing = chats.find((c) => c.id === id);
+    if (!closing) return;
+    // Close only hides the tab: the Chat, its messages, knowledge and draft are kept.
+    // Capsules are Project-scoped, so the next tab comes from the same Project (never another
+    // Project). Closing the Project's LAST open tab shows that Project's Chats page instead of
+    // an empty Chat view. A small toast offers Undo (reopens the same Chat).
+    const sameProjectOpen = openAccessibleChats.filter((c) => c.projectId === closing.projectId);
+    const isLastOpen = sameProjectOpen.filter((c) => c.id !== id).length === 0;
+    if (activeChat === id && !isLastOpen) {
+      const nextChat = nextOpenChatAfter(id, closing.projectId, sameProjectOpen);
+      if (nextChat) focusChat(nextChat);
+    }
+    setClosedChatIds((prev) => new Set(prev).add(id));
+    if (isLastOpen && closing.projectId) handleOpenChatsList(closing.projectId);
+    toast("Chat closed", {
+      id: "luxia-chat-closed",
+      duration: 4000,
+      action: { label: "Undo", onClick: () => { activateChat(id); } },
+    });
+  }
+
+  /**
+   * Who may delete a Chat — the app's EXISTING rule (same as the Chat header's "Delete Chat"):
+   * the user can access the Chat and it is a Constellation Chat (Galaxy Chats have no delete).
+   * Chats do not record a creator, so creator-only deletion is not enforceable yet.
+   */
+  function canDeleteChat(chatId: string): boolean {
+    const chat = chats.find((c) => c.id === chatId);
+    if (!chat || deletedChatIds.has(chatId)) return false;
+    return chat.chatType === "constellation" && isChatWorkingAccessible(chat);
+  }
+
+  /** Delete Chat (after the existing confirmation dialog): removes it for this session. */
+  function handleDeleteChat(id: string) {
+    const target = chats.find((c) => c.id === id);
+    if (!target) return;
+    if (!canDeleteChat(id)) {
+      toast.error("You can't delete this chat.");
+      return;
+    }
+    if (workingAccessibleChats.filter((c) => c.id !== id).length === 0) return;
+    if (activeChat === id) {
+      const sameProjectOpen = openAccessibleChats.filter((c) => c.projectId === target.projectId);
+      const nextChat = nextOpenChatAfter(id, target.projectId, sameProjectOpen)
+        ?? workingAccessibleChats.find((c) => c.id !== id && c.projectId === target.projectId);
+      if (nextChat) focusChat(nextChat);
+      else if (target.projectId) handleOpenProjectOverview(target.projectId, "chats");
+    }
+    setChats((p) => p.filter((c) => c.id !== id));
+    setChatMessages((p) => {
+      const next = { ...p };
+      delete next[id];
+      return next;
+    });
     setGalaxySessions((p) => {
       const next = { ...p };
       delete next[id];
       return next;
     });
-    if (activeChat === id) {
-      const remaining = chats.filter(c => c.id !== id);
-      const nextChat = remaining[remaining.length - 1]!;
-      setActiveChat(nextChat.id);
-      syncWorkspacePathForChat(nextChat);
+    setDraftsByChatId((p) => {
+      if (!(id in p)) return p;
+      const next = { ...p };
+      delete next[id];
+      return next;
+    });
+    setClosedChatIds((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+    setDeletedChatIds((prev) => new Set(prev).add(id));
+    if (target.pinned) {
+      const key = target.chatType === "galaxy" ? getGalaxyEntityKey(id) : getChatEntityKey(id);
+      setPinnedEntityOrder((order) => {
+        const next = order.filter((entry) => entry !== key);
+        writePinnedEntityOrder(next);
+        return next;
+      });
     }
   }
 
   function handleSelectChat(chatId: string) {
-    const chat = findChatById(chatId, chats);
-    if (
-      chat?.chatType === "constellation"
-      && chat.projectId
-      && chat.constellationId
-      && !assertConstellationUseAccess(chat.projectId, chat.constellationId)
-    ) {
-      return;
-    }
-    setActiveChat(chatId);
-    if (chat) {
-      if (chat.projectId) setActiveProjectId(chat.projectId);
-      syncWorkspacePathForChat(chat);
-    }
+    activateChat(chatId);
   }
 
+  /**
+   * Change the primary Constellation of the active Chat.
+   * Empty Chat: updated in place. Chat with messages: a NEW Chat in the same Project is
+   * started with the chosen Constellation (the original keeps its Project, Constellation,
+   * title, messages and history); the unsent draft moves to the new Chat.
+   */
   function handleConstellationChange(conId: string) {
     const active = chats.find((c) => c.id === activeChat);
     if (!active || active.chatType !== "constellation" || !active.projectId) return;
+    if (active.constellationId === conId) return;
     if (!assertConstellationUseAccess(active.projectId, conId)) return;
-    setChats((p) => p.map((c) => c.id === activeChat ? { ...c, constellationId: conId } : c));
-    syncWorkspacePathForChat({
-      ...active,
+    rememberedConstellationRef.current[active.projectId] = conId;
+    const hasMessages = (chatMessages[active.id] ?? []).length > 0;
+    const newLabel = allConstellations.find((c) => c.id === conId)?.label ?? "the chosen Constellation";
+    if (!hasMessages) {
+      setChats((p) => p.map((c) => c.id === activeChat ? { ...c, constellationId: conId } : c));
+      syncWorkspacePathForChat({
+        ...active,
+        constellationId: conId,
+      });
+      setKnowledgeNotice({ chatId: active.id, kind: "in-place", label: newLabel });
+      return;
+    }
+    const id = `c${Date.now()}`;
+    const created: Chat = {
+      id,
+      label: newChatTitle(),
+      chatType: "constellation",
+      projectId: active.projectId,
       constellationId: conId,
+    };
+    const draft = draftsByChatId[active.id] ?? "";
+    setChats((p) => [...p, created]);
+    setChatMessages((p) => ({ ...p, [id]: [] }));
+    markNewChat(id);
+    setDraftsByChatId((p) => {
+      const next = { ...p };
+      delete next[active.id];
+      if (draft) next[id] = draft;
+      return next;
     });
+    focusChat(created);
+    setKnowledgeNotice({ chatId: id, kind: "new-chat", label: newLabel, previousLabel: active.label });
   }
 
   function updateGalaxySession(chatId: string, patch: Partial<GalaxySessionState>) {
@@ -5271,13 +5870,28 @@ export default function App() {
   }
 
   function handleSend(text?: string) {
-    const content = (text ?? inputValue).trim();
+    sendToChat(activeChat, text);
+  }
+
+  /**
+   * The ONE send pipeline (full Chat and Home inline Chat). `chatRecord` is passed when the
+   * chat was created in this same event (not yet in state).
+   */
+  function sendToChat(chatId: string, text?: string, chatRecord?: Chat) {
+    const content = (text ?? draftsByChatId[chatId] ?? "").trim();
     if (!content) return;
-    setInputValue("");
+    setChatDraft(chatId, "");
+    noteChatActivity(chatId);
+    // First question of a "New chat" becomes its title (manual renames are never overwritten).
+    if (autoTitleChatIdsRef.current.has(chatId) && !(chatMessages[chatId] ?? []).some((m) => m.role === "user")) {
+      const title = uniqueTitle(titleFromQuestion(content), takenChatTitles(chatId));
+      setChats((p) => p.map((c) => (c.id === chatId ? { ...c, label: title } : c)));
+      autoTitleChatIdsRef.current.delete(chatId);
+    }
+    setKnowledgeNotice((notice) => (notice?.chatId === chatId ? null : notice));
     const now = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
     const uid = `u${counterRef.current++}`, aid = `a${counterRef.current++}`;
-    const chatId = activeChat;
-    const active = chats.find((c) => c.id === chatId);
+    const active = chatRecord ?? chats.find((c) => c.id === chatId);
     const isGalaxy = active?.chatType === "galaxy";
     const projectName = getProjectNameById(active?.projectId, homeProjects);
 
@@ -5565,8 +6179,7 @@ export default function App() {
       (c) => c.chatType === "constellation" && c.constellationId === match.id,
     );
     if (existing) {
-      setActiveChat(existing.id);
-      syncWorkspacePathForChat(existing);
+      activateChat(existing.id);
       return;
     }
     const id = `c${Date.now()}`;
@@ -5579,8 +6192,7 @@ export default function App() {
     };
     setChats((p) => [...p, created]);
     setChatMessages((p) => ({ ...p, [id]: [] }));
-    setActiveChat(id);
-    syncWorkspacePathForChat(created);
+    focusChat(created);
   }
 
   function handleViewGalaxyActivity() {
@@ -5793,7 +6405,7 @@ export default function App() {
       if (typeof window !== "undefined") {
         const listPath = getAccessLevelsPath();
         if (window.location.pathname !== listPath) {
-          window.history.replaceState({ luxiaView: "access-levels" }, "", listPath);
+          luxiaHistory.replace({ luxiaView: "access-levels" }, "", listPath);
         }
       }
     }
@@ -5814,7 +6426,7 @@ export default function App() {
     setDataSourceSettingsId(null);
     setMobileNavOpen(false);
     if (typeof window !== "undefined") {
-      window.history.replaceState({ luxiaView: "home" }, "", "/");
+      luxiaHistory.replace({ luxiaView: "home" }, "", "/");
     }
   }, [appView, prototypeUserId]);
 
@@ -5962,6 +6574,27 @@ export default function App() {
     chats,
   ]);
 
+  /**
+   * Chat Finder data: the SAME accessible collection as the sidebar's Chats (all of the
+   * Project's chats, closed ones included, deleted ones excluded) — so counts always agree.
+   */
+  const finderChats: FinderChat[] = sidebarProjectChats.map((chat) => {
+    const overview = overviewChats.find((item) => item.id === chat.id);
+    return {
+      id: chat.id,
+      label: chat.label,
+      chatType: chat.chatSource,
+      constellationId: chat.constellationId,
+      constellationLabel: overview?.constellationName,
+      source: overview?.constellationSource,
+      pinned: Boolean(chat.pinned),
+      closed: closedChatIds.has(chat.id),
+      lastOpenedTimestamp: lastOpenedAtRef.current[chat.id] ?? chat.lastOpenedTimestamp,
+    };
+  });
+  /** Header narrower than the Find chats button comfortably fits → it moves into ⋯ (or icon-only for Galaxy). */
+  const chatHeaderCompact = viewportWidth - leftNavWidth < 640;
+
   const sidebarProjectConstellations = useMemo(() => {
     if (!contextProjectId || !contextProjectMembership) return [];
     return overviewConstellations
@@ -6050,6 +6683,19 @@ export default function App() {
       constellationSettingsById,
     ],
   );
+
+  /** The open tabs: accessible Chats that are not closed. */
+  const openAccessibleChats = useMemo(
+    () => workingAccessibleChats.filter((chat) => !closedChatIds.has(chat.id)),
+    [workingAccessibleChats, closedChatIds],
+  );
+  /** Capsules show only the CURRENT Project's open Chats; other Projects' Chats are kept, not shown. */
+  const capsuleProjectId = activeData?.projectId ?? activeProjectId;
+  const projectOpenChats = useMemo(
+    () => openAccessibleChats.filter((chat) => chat.projectId === capsuleProjectId),
+    [openAccessibleChats, capsuleProjectId],
+  );
+
 
   const workingAccessibleOverviewChats = useMemo(
     () => overviewChats.filter((chat) => isChatWorkingAccessible({
@@ -6232,6 +6878,243 @@ export default function App() {
     dataSourcesState,
   ]);
 
+  /** Composer context: Projects the user is a member of, with their usable knowledge count. */
+  const composerProjectOptions: ProjectContextOption[] = useMemo(
+    () => sidebarSwitchableProjects.map((project) => ({
+      id: project.id,
+      label: project.label,
+      role: project.projectRole,
+      knowledgeCount: workingAccessibleOverviewConstellations.filter((item) => item.projectId === project.id).length,
+    })),
+    [sidebarSwitchableProjects, workingAccessibleOverviewConstellations],
+  );
+  /** Composer context: knowledge of the ACTIVE Chat's Project that the user can use. */
+  const composerKnowledgeOptions: KnowledgeContextOption[] = useMemo(
+    () => knowledgeOptionsFor(activeData?.projectId),
+    [activeData?.projectId, chats, homeProjects, deletedChatIds, workingAccessibleOverviewConstellations], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+
+  // ---------------------------------------------------------------------------------------------
+  // Home inline Project Chat (uses the shared chat records, messages, drafts and send pipeline)
+  // ---------------------------------------------------------------------------------------------
+
+  /** What Home shows for a Project: a valid real chat and/or the chosen knowledge (never stale). */
+  function resolveHomeSession(projectId: string) {
+    const stored = homeSessions[projectId];
+    const options = knowledgeOptionsFor(projectId);
+    let chat = stored?.chatId ? chats.find((c) => c.id === stored.chatId) : undefined;
+    if (chat && (deletedChatIds.has(chat.id) || chat.projectId !== projectId || !isChatWorkingAccessible(chat))) chat = undefined;
+    let knowledge: KnowledgeContextOption | null = null;
+    if (chat) {
+      const current = chat;
+      // Any Galaxy chat of this Project shows as "Galaxy" (a Project may have several).
+      knowledge = options.find((o) => (current.chatType === "galaxy"
+        ? o.kind === "galaxy"
+        : o.kind === "constellation" && o.id === current.constellationId)) ?? null;
+      if (!knowledge) chat = undefined;
+    }
+    if (!knowledge && stored?.knowledge) {
+      const wanted = stored.knowledge;
+      knowledge = options.find((o) => o.kind === wanted.kind && o.id === wanted.id) ?? null;
+    }
+    if (!knowledge) {
+      // Same safe rule as the full Chat: remembered → only option → ask (never arbitrary).
+      const resolved = resolveNewChatKnowledge(options.filter((o) => o.kind === "constellation"), rememberedConstellationRef.current[projectId]);
+      if (resolved.kind === "use") knowledge = resolved.constellation;
+    }
+    if (!chat && knowledge?.kind === "galaxy" && !stored?.fresh) {
+      const galaxyId = knowledge.id;
+      chat = chats.find((c) => c.id === galaxyId);
+    }
+    const draft = chat ? (draftsByChatId[chat.id] ?? "") : (stored?.draft ?? "");
+    return { chat: chat ?? null, knowledge, options, draft };
+  }
+
+  function setHomeDraft(projectId: string, value: string) {
+    const current = resolveHomeSession(projectId);
+    if (current.chat) { setChatDraft(current.chat.id, value); return; }
+    setHomeSessions((p) => ({
+      ...p,
+      [projectId]: { chatId: null, knowledge: current.knowledge ? { kind: current.knowledge.kind, id: current.knowledge.id } : null, draft: value, fresh: p[projectId]?.fresh },
+    }));
+  }
+
+  /**
+   * Knowledge change on Home: the full Chat's rules. Galaxy → the Project's Galaxy chat.
+   * Empty Constellation chat → changed in place. Populated chat → kept; the next message starts a
+   * new chat. The unsent question moves along (never overwriting another chat's draft).
+   */
+  function selectHomeKnowledge(projectId: string, option: KnowledgeContextOption) {
+    const current = resolveHomeSession(projectId);
+    if (current.knowledge && current.knowledge.kind === option.kind && current.knowledge.id === option.id) return;
+    const previous = current.chat;
+    const previousHasMessages = previous ? (chatMessages[previous.id]?.length ?? 0) > 0 : false;
+    const draft = current.draft;
+    const releaseDraft = () => {
+      if (!previous || !(draftsByChatId[previous.id] ?? "")) return;
+      setDraftsByChatId((p) => { const next = { ...p }; delete next[previous.id]; return next; });
+    };
+    if (option.kind === "galaxy") {
+      const galaxy = chats.find((c) => c.id === option.id);
+      if (!galaxy || !isChatWorkingAccessible(galaxy)) { toast.error(PROJECT_ACTION_DENIED_MESSAGE); return; }
+      if (draft && !(draftsByChatId[galaxy.id] ?? "").trim()) { releaseDraft(); setChatDraft(galaxy.id, draft); }
+      setHomeSessions((p) => ({ ...p, [projectId]: { chatId: galaxy.id, knowledge: { kind: "galaxy", id: galaxy.id }, draft: "" } }));
+      setHomeNotice(previous ? { projectId, notice: { chatId: galaxy.id, kind: "to-galaxy", label: "Galaxy" } } : null);
+      return;
+    }
+    if (!assertConstellationUseAccess(projectId, option.id)) return;
+    rememberedConstellationRef.current[projectId] = option.id;
+    if (previous && previous.chatType === "constellation" && !previousHasMessages) {
+      setChats((p) => p.map((c) => (c.id === previous.id ? { ...c, constellationId: option.id } : c)));
+      setHomeSessions((p) => ({ ...p, [projectId]: { chatId: previous.id, knowledge: { kind: "constellation", id: option.id }, draft: "" } }));
+      setHomeNotice({ projectId, notice: { chatId: previous.id, kind: "in-place", label: option.label } });
+      return;
+    }
+    releaseDraft();
+    setHomeSessions((p) => ({ ...p, [projectId]: { chatId: null, knowledge: { kind: "constellation", id: option.id }, draft } }));
+    setHomeNotice(previous ? {
+      projectId,
+      notice: previous.chatType === "galaxy"
+        ? { chatId: `home:${projectId}`, kind: "from-galaxy", label: option.label, pending: true }
+        : { chatId: `home:${projectId}`, kind: "new-chat", label: option.label, previousLabel: previous.label, pending: true },
+    } : null);
+  }
+
+  /** The real chat for Home's current scope; created on first need (an unused empty one is reused). */
+  function ensureHomeChat(projectId: string): Chat | null {
+    const current = resolveHomeSession(projectId);
+    if (current.chat) return current.chat;
+    const knowledge = current.knowledge;
+    if (!knowledge) return null;
+    if (knowledge.kind === "galaxy") {
+      // Only after "New conversation" (otherwise the Project's Galaxy chat is resolved above).
+      const galaxy = createChatRecord({ chatType: "galaxy", projectId });
+      if (!galaxy) return null;
+      setHomeSessions((p) => ({ ...p, [projectId]: { chatId: galaxy.id, knowledge: { kind: "galaxy", id: knowledge.id }, draft: "" } }));
+      return galaxy;
+    }
+    const reusable = workingAccessibleChats.find((c) =>
+      c.projectId === projectId
+      && c.chatType === "constellation"
+      && c.constellationId === knowledge.id
+      && (chatMessages[c.id]?.length ?? 0) === 0
+      && !(draftsByChatId[c.id] ?? "").trim());
+    const chat = reusable ?? createChatRecord({ chatType: "constellation", projectId, constellationId: knowledge.id });
+    if (!chat) return null;
+    setHomeSessions((p) => ({ ...p, [projectId]: { chatId: chat.id, knowledge: { kind: "constellation", id: knowledge.id }, draft: "" } }));
+    return chat;
+  }
+
+  function sendHomeProjectChat(projectId: string) {
+    const current = resolveHomeSession(projectId);
+    const text = current.draft.trim();
+    if (!text || !current.knowledge) return;
+    const chat = ensureHomeChat(projectId);
+    if (!chat) return;
+    setHomeNotice((n) => (n?.projectId === projectId ? null : n));
+    sendToChat(chat.id, text, chat);
+  }
+
+  /**
+   * Home "New conversation": never deletes anything. The current chat (messages AND unsent draft)
+   * stays as it is; Home prepares a fresh conversation in the same Project and knowledge, and the
+   * new chat is only created by its first message. Undo returns to the previous chat.
+   */
+  function startNewHomeConversation(projectId: string) {
+    const current = resolveHomeSession(projectId);
+    const previous = current.chat;
+    if (!previous || !current.knowledge || (chatMessages[previous.id]?.length ?? 0) === 0) return;
+    const knowledge = { kind: current.knowledge.kind, id: current.knowledge.id };
+    const keptDraft = Boolean((draftsByChatId[previous.id] ?? "").trim());
+    setHomeSessions((p) => ({ ...p, [projectId]: { chatId: null, knowledge, draft: "", fresh: true } }));
+    setHomeNotice((n) => (n?.projectId === projectId ? null : n));
+    toast("New conversation", {
+      id: "luxia-home-new-conversation",
+      description: `"${previous.label}" keeps its messages${keptDraft ? " and unsent text" : ""}.`,
+      duration: 5000,
+      action: {
+        label: "Undo",
+        onClick: () => setHomeSessions((p) => ({ ...p, [projectId]: { chatId: previous.id, knowledge, draft: "" } })),
+      },
+    });
+  }
+
+  /** Open the SAME chat in the full Chat (no duplicate, nothing sent; the draft goes along). */
+  function openHomeChatInFullChat(projectId: string) {
+    const current = resolveHomeSession(projectId);
+    const chat = ensureHomeChat(projectId);
+    if (!chat) return;
+    if (!current.chat && current.draft) setChatDraft(chat.id, current.draft);
+    setHomeNotice(null);
+    if (chatsRef.current.some((c) => c.id === chat.id)) activateChat(chat.id);
+    else focusChat(chat);
+  }
+
+  function homeProjectChatFor(projectId: string): HomeProjectChatController | null {
+    if (!canAccessProject(projectId, projectMembershipsState, prototypeUserId)) return null;
+    const current = resolveHomeSession(projectId);
+    const chat = current.chat;
+    const msgs = chat ? chatMessages[chat.id] ?? [] : [];
+    return {
+      projectId,
+      projectName: getProjectNameById(projectId, homeProjects) || "Project",
+      options: current.options,
+      knowledge: current.knowledge,
+      onSelectKnowledge: (option) => selectHomeKnowledge(projectId, option),
+      chatId: chat?.id ?? null,
+      chatLabel: chat?.label ?? null,
+      // New entry point, gated: only chats this demo identity created in this session (no owner
+      // field exists yet — real owner-only Rename needs the backend).
+      canRename: Boolean(chat && createdThisSessionRef.current[prototypeUserId]?.has(chat.id)),
+      onRename: (value) => (chat ? renameChat(chat.id, value) : "This chat is no longer available."),
+      messageCount: msgs.length,
+      renderMessages: () => msgs.map((msg) => (msg.role === "user"
+        ? <UserBubble key={msg.id} message={msg} />
+        : (
+          <AICard
+            key={msg.id}
+            message={msg}
+            constellationId={chat?.chatType === "constellation" ? chat.constellationId : msg.galaxy?.matched.id}
+            onOpenInWritingAssistant={(content) => {
+              if (queueWritingAssistantHandoff(content, { projectId })) handleOpenWritingAssistant();
+            }}
+          />
+        ))),
+      draft: current.draft,
+      onDraftChange: (value) => setHomeDraft(projectId, value),
+      onSend: () => sendHomeProjectChat(projectId),
+      canOpenFullChat: Boolean(chat || current.knowledge),
+      canStartNew: Boolean(chat && msgs.length > 0),
+      lastMessagePreview: msgs.length
+        ? `${msgs[msgs.length - 1].role === "user" ? "You" : "Luxia"}: ${String(msgs[msgs.length - 1].content ?? "").replace(/\s+/g, " ").slice(0, 120)}`
+        : undefined,
+      onStartNew: () => startNewHomeConversation(projectId),
+      onOpenFullChat: () => whenUnsavedNavigationAllows(() => openHomeChatInFullChat(projectId)),
+      notice: homeNotice?.projectId === projectId ? homeNotice.notice : null,
+    };
+  }
+
+  /** Accessible knowledge for a Project: its Galaxy chat (if accessible) + usable Constellations. */
+  function knowledgeOptionsFor(projectId: string | null | undefined): KnowledgeContextOption[] {
+    if (!projectId) return [];
+    const options: KnowledgeContextOption[] = [];
+    const galaxyChat = findGalaxyChatForProject(projectId, chats, homeProjects);
+    if (galaxyChat && galaxyChat.projectId === projectId && !deletedChatIds.has(galaxyChat.id) && isChatWorkingAccessible(galaxyChat)) {
+      options.push({ kind: "galaxy", id: galaxyChat.id, label: "Galaxy" });
+    }
+    for (const item of workingAccessibleOverviewConstellations) {
+      if (item.projectId !== projectId) continue;
+      options.push({
+        kind: "constellation",
+        id: item.id,
+        label: item.label,
+        source: item.type === "pdf" ? "PDF" : item.type === "csv" ? "CSV" : "DB",
+        description: item.description,
+      });
+    }
+    return options;
+  }
+
   /**
    * Per Data Source: how many Constellations this user can access connect it.
    * Only visible Constellations count, so Home never reveals relationships the
@@ -6310,9 +7193,12 @@ export default function App() {
     const chat = chats.find((item) => item.id === activeChat);
     if (!chat) return;
     if (isChatWorkingAccessible(chat)) return;
-    const fallback = workingAccessibleChats[0];
+    // Prefer an open Chat in the same Project; keep Project, Chat, URL and view consistent.
+    const fallback = openAccessibleChats.find((item) => item.projectId === chat.projectId)
+      ?? openAccessibleChats[0]
+      ?? workingAccessibleChats[0];
     if (fallback) {
-      setActiveChat(fallback.id);
+      focusChat(fallback, { replaceUrl: true });
       return;
     }
     const projectId = chat.projectId;
@@ -6326,6 +7212,7 @@ export default function App() {
     activeChat,
     chats,
     workingAccessibleChats,
+    openAccessibleChats,
     projectMembershipsState,
     prototypeUserId,
     accessLevelsState,
@@ -6364,6 +7251,11 @@ export default function App() {
         <Toaster richColors closeButton position="top-right" />
       </>
     );
+  }
+
+  // One frame while a refresh / deep link is restored (signed in), so Home never flashes first.
+  if (routeRestoring) {
+    return <div className="h-dvh w-full" style={{ background: "var(--luxia-surface-background)" }} aria-busy="true" />;
   }
 
   if (inAppMfaSetupEmail) {
@@ -6406,17 +7298,20 @@ export default function App() {
       {isMobileNav && !mobileNavOpen ? (
         <button
           type="button"
-          className="fixed left-3 top-3 z-[45] flex h-10 w-10 items-center justify-center rounded-full"
+          // Navigation opener (not "Home", not "Back"): the sidebar's own dark surface + PanelLeftOpen.
+          className="fixed left-3 top-3 z-[45] flex h-11 w-11 items-center justify-center rounded-[12px] text-white outline-none focus-visible:ring-2 focus-visible:ring-[rgba(150,219,251,0.7)] focus-visible:ring-offset-2"
           style={{
-            background: "var(--luxia-surface, #fff)",
-            border: "1px solid rgba(28, 19, 54, 0.12)",
-            boxShadow: "0 4px 14px rgba(8, 5, 18, 0.16)",
-            color: "var(--luxia-brand-primary, #5B3FA6)",
+            background: LX.gradient.nav,
+            border: "1px solid rgba(255, 255, 255, 0.10)",
+            boxShadow: "0 4px 14px rgba(8, 5, 18, 0.22)",
           }}
           aria-label="Open navigation"
+          aria-expanded={false}
+          aria-controls={SIDEBAR_ID}
+          data-luxia-nav-opener=""
           onClick={() => setMobileNavOpen(true)}
         >
-          <LuxiaHomeIcon size={16} color="currentColor" />
+          <PanelLeftOpen size={18} strokeWidth={1.9} aria-hidden />
         </button>
       ) : null}
       <LeftNav
@@ -6489,6 +7384,8 @@ export default function App() {
           });
         }}
         onOpenChat={(chatId) => whenUnsavedNavigationAllows(() => handleSelectChat(chatId))}
+        canDeleteChat={canDeleteChat}
+        onRequestDeleteChat={(chatId) => setPendingDeleteChatId(chatId)}
         onOpenConstellation={(projectId, constellationId) => {
           whenUnsavedNavigationAllows(() => {
             handleOpenConstellationSettings(projectId, constellationId, "general");
@@ -6540,7 +7437,7 @@ export default function App() {
               primaryPreference={primaryPreference}
               dismissedContinueKeys={dismissedContinueKeys}
               browseMode={homeBrowseMode}
-              onBrowseModeChange={setHomeBrowseMode}
+              onBrowseModeChange={navigateHomeView}
               onPrimaryPreferenceChange={(preference) => {
                 setPrimaryPreference(preference);
                 writeHomePrimaryPreference(prototypeUserId, preference);
@@ -6574,6 +7471,7 @@ export default function App() {
               }))}
               onNewChat={handleNewChat}
               onNewChatInProject={handleNewChatFromProject}
+              projectChat={homeProjectChatFor}
               homeVidgets={vidgetsState}
               onOpenProjectVidgets={handleOpenProjectVidgets}
               onNewProject={() => setShowNewProjectModal(true)}
@@ -6618,16 +7516,7 @@ export default function App() {
                 focusOutputId={dashboardFocusOutputId}
                 viewResetKey={dashboardViewResetKey}
                 onNavigateHome={handleNavigateHome}
-                onViewProjects={() => {
-                  setAppView("home");
-                  setHomeBrowseMode("projects");
-                  setActiveProjectId(null);
-                  setProjectBrowseMode("overview");
-                  setHomeScrollRequest((value) => value + 1);
-                  if (typeof window !== "undefined" && !isHomePath(window.location.pathname)) {
-                    window.history.pushState({ luxiaView: "home", browse: "projects" }, "", "/");
-                  }
-                }}
+                onViewProjects={() => navigateHomeView("projects")}
                 onOpenProjectOverview={(projectId) => {
                   handleOpenProjectOverview(projectId, "overview");
                 }}
@@ -6698,15 +7587,7 @@ export default function App() {
                 initialBrowseMode="overview"
                 onBrowseModeChange={setProjectBrowseMode}
                 onNavigateHome={handleNavigateHome}
-                onViewProjects={() => {
-                  setAppView("home");
-                  setHomeBrowseMode("projects");
-                  setActiveProjectId(null);
-                  setHomeScrollRequest((value) => value + 1);
-                  if (typeof window !== "undefined" && !isHomePath(window.location.pathname)) {
-                    window.history.pushState({ luxiaView: "home", browse: "projects" }, "", "/");
-                  }
-                }}
+                onViewProjects={() => navigateHomeView("projects")}
                 onOpenGalaxy={handleOpenGalaxyFromHome}
                 onOpenGalaxySettings={handleOpenGalaxySettingsFromOverview}
                 onOpenChat={handleOpenChatFromHome}
@@ -7453,7 +8334,7 @@ export default function App() {
                     });
                     const current = `${window.location.pathname}${window.location.search}`;
                     if (current === next) return;
-                    window.history.pushState(
+                    luxiaHistory.push(
                       {
                         luxiaView: "vidget-settings",
                         projectId,
@@ -7776,7 +8657,7 @@ export default function App() {
                 setExploreSlug(null);
                 setExploreReturnTo(null);
                 const next = getExplorePath(section);
-                if (window.location.pathname !== next) window.history.pushState({ luxiaView: "explore" }, "", next);
+                if (window.location.pathname !== next) luxiaHistory.push({ luxiaView: "explore" }, "", next);
               }}
               onNavigateHome={handleNavigateHome}
               onAction={handleExploreAction}
@@ -7943,8 +8824,27 @@ export default function App() {
             onNavigateHome={handleNavigateHome}
             onOpenProject={handleOpenProjectFromHome}
             onOpenConstellation={handleOpenConstellationFromProject}
-            onRenameChat={(name) => setChats((p) => p.map((c) => c.id === activeChat ? { ...c, label: name } : c))}
-            onDeleteChat={handleCloseChat.bind(null, activeChat)}
+            onRenameChat={(name) => renameChat(activeChat, name)}
+            onDeleteChat={() => handleDeleteChat(activeChat)}
+            leadingAction={
+              chatHeaderCompact && activeData?.chatType !== "galaxy" ? undefined : (
+                <Button
+                  type="button"
+                  {...LUXIA_PAGE_HEADER_ACTION.settings}
+                  onClick={openChatFinder}
+                  aria-label="Find chats: search and filter chats in this Project"
+                  title="Find chats"
+                  className={chatHeaderCompact ? "px-2.5" : undefined}
+                  data-luxia-find-chats=""
+                >
+                  <SearchIcon size={16} aria-hidden />
+                  {chatHeaderCompact ? null : "Find chats"}
+                </Button>
+              )
+            }
+            leadingMenuItems={chatHeaderCompact && activeData?.chatType !== "galaxy"
+              ? [{ id: "find-chats", label: "Find chats", icon: <SearchIcon size={15} strokeWidth={1.8} aria-hidden />, onSelect: () => window.setTimeout(openChatFinder, 0) }]
+              : []}
             onOpenGalaxySettings={
               activeData?.chatType === "galaxy" && activeData.projectId
                 ? () => handleOpenGalaxySettingsFromOverview(activeData.projectId)
@@ -7962,11 +8862,12 @@ export default function App() {
             }
             tabs={(
               <ChatTabBar
-                chats={workingAccessibleChats} activeId={activeChat}
-                onSelect={handleSelectChat} onNew={handleNewChat}
+                chats={projectOpenChats} activeId={activeChat}
+                galaxyTabLabel="galaxy"
+                onSelect={handleSelectChat} onNew={handleNewChatInProject}
                 onClose={handleCloseChat}
                 onPin={handleChatPin}
-                onRename={(id, label) => setChats(p => p.map(c => c.id === id ? { ...c, label } : c))}
+                onRename={(id, label) => renameChat(id, label)}
                 projects={homeProjects}
                 constellations={allConstellations}
               />
@@ -7982,6 +8883,7 @@ export default function App() {
               className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical luxia-scrollbar-messages pt-6 pb-5"
               style={{ paddingInline: LUXIA_PAGE_INTRO.padInline }}
             >
+              {messages.length === 0 && knowledgeNotice?.chatId === activeChat ? <KnowledgeChangeNotice notice={knowledgeNotice} /> : null}
               {messages.length === 0
                 ? (activeData?.chatType === "galaxy"
                   ? (
@@ -8013,10 +8915,23 @@ export default function App() {
                           onOpenInWritingAssistant={handleOpenChatInWritingAssistant}
                         />
                   )}
+                  {knowledgeNotice?.chatId === activeChat ? <KnowledgeChangeNotice notice={knowledgeNotice} /> : null}
                   <div ref={messagesEndRef} className="h-2 flex-shrink-0" aria-hidden="true" />
                 </>}
             </div>
-            <PromptComposer value={inputValue} onChange={setInputValue} onSend={() => handleSend()}
+            <PromptComposer value={draftsByChatId[activeChat] ?? ""} onChange={(value) => setChatDraft(activeChat, value)} onSend={() => handleSend()}
+              contextControls={activeData?.projectId ? (
+                <ComposerContextRow
+                  projects={composerProjectOptions}
+                  projectId={activeData.projectId}
+                  onSelectProject={(projectId) => whenUnsavedNavigationAllows(() => handleComposerSelectProject(projectId))}
+                  knowledge={composerKnowledgeOptions}
+                  knowledgeId={activeData.chatType === "galaxy" ? activeData.id : activeData.constellationId ?? null}
+                  onSelectKnowledge={handleComposerSelectKnowledge}
+                  hasMessages={messages.length > 0}
+                  chatLabel={activeData.chatType === "galaxy" ? "Galaxy" : activeData.label}
+                />
+              ) : undefined}
               language={language} onLanguageChange={setLanguage}
               constellationType={activeConstellation.type}
               assistantMode={assistantMode} onModeChange={setAssistantMode}
@@ -8167,6 +9082,11 @@ export default function App() {
                 || item.id === activeConstellation.id,
               )}
               onConstellationChange={handleConstellationChange}
+              knowledgeOptions={activeData?.projectId ? composerKnowledgeOptions : undefined}
+              onSelectKnowledge={handleComposerSelectKnowledge}
+              knowledgeHasMessages={messages.length > 0}
+              knowledgeChatLabel={activeData?.label}
+              knowledgeProjectName={getProjectNameById(activeData?.projectId, homeProjects) || undefined}
               onOpenConstellationSettings={(projectId, constellationId) =>
                 handleOpenConstellationSettings(projectId, constellationId, "general")
               }
@@ -8224,13 +9144,40 @@ export default function App() {
         )}
       </div>
 
+      <ChatFinderOverlay
+        open={chatFinderOpen && appView === "chat" && Boolean(activeData)}
+        onClose={closeChatFinder}
+        chats={finderChats}
+        activeChatId={activeChat}
+        projectName={getProjectNameById(activeData?.projectId, homeProjects) || "this Project"}
+        onOpenChat={(chatId) => {
+          setChatFinderOpen(false);
+          whenUnsavedNavigationAllows(() => activateChat(chatId));
+        }}
+        onOpenAllChats={() => {
+          setChatFinderOpen(false);
+          const projectId = activeData?.projectId;
+          if (projectId) whenUnsavedNavigationAllows(() => handleOpenChatsList(projectId));
+        }}
+      />
+      {pendingDeleteChatId ? (() => {
+        const target = chats.find((c) => c.id === pendingDeleteChatId);
+        const name = target?.label ?? "this chat";
+        return (
+          <DeleteChatDialog
+            open
+            entityName={name}
+            onClose={() => setPendingDeleteChatId(null)}
+            onDelete={() => handleDeleteChat(pendingDeleteChatId)}
+          />
+        );
+      })() : null}
       {showNewChatModal && (
         <NewChatModal
           onCreate={handleNewChatCreate}
           onClose={() => {
             setShowNewChatModal(false);
-            setNewChatLockedProjectId(null);
-            setNewChatQuestion("");
+            setPendingNewChat(null);
           }}
           lockedProjectId={newChatLockedProjectId}
           question={newChatQuestion}
@@ -8429,7 +9376,9 @@ export default function App() {
         projectId={contextProjectId}
         projectName={contextProjectLabel ?? "Project"}
         constellations={projectAssistantConstellations}
-        visible={showProjectContext}
+        // Ask Navigator helps navigate a Project (Project Overview and other Project pages);
+        // it is not offered inside the Chat environment (Constellation or Galaxy Chat).
+        visible={showProjectContext && appView !== "chat"}
         open={projectAssistantOpen}
         onOpenChange={setProjectAssistantOpen}
         messages={projectAssistantMessages}

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import {
-  Plus, X, Pin, Copy, Edit3, Trash2,
+  Plus, X, Pin, Copy, Edit3,
 } from "lucide-react";
 import { LuxiaStarLogo } from "@/app/components/LuxiaStarLogo";
 import { LuxiaGalaxyIcon } from "@/assets/icons";
@@ -25,17 +26,37 @@ const EMPTY_PROMPTS = [
   "Walk me through the structure",
 ];
 
-export function ChatTabBar({ chats, activeId, onSelect, onNew, onClose, onPin, onRename, projects, constellations }: {
+export function ChatTabBar({ chats, activeId, onSelect, onNew, onClose, onPin, onRename, projects, constellations, galaxyTabLabel = "project" }: {
   chats: Chat[]; activeId: string;
   onSelect: (id: string) => void; onNew: () => void;
   onClose: (id: string) => void; onPin: (id: string) => void;
-  onRename: (id: string, v: string) => void;
+  /** Shared rename handler: returns an error message (shown inline) or null. */
+  onRename: (id: string, v: string) => string | null | void;
   projects: readonly HomeProjectCard[];
   constellations: Constellation[];
+  /** Galaxy capsule text: the Project name (default) or "Galaxy" when capsules are Project-scoped. */
+  galaxyTabLabel?: "project" | "galaxy";
 }) {
   const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
   const [renameVal, setRenameVal] = useState("");
+  const [renameError, setRenameError] = useState<string | null>(null);
+  const [renameErrorPos, setRenameErrorPos] = useState<{ top: number; left: number } | null>(null);
+  const commitRename = (id: string, onFail: "keep" | "cancel") => {
+    const error = renameVal.trim() ? onRename(id, renameVal.trim()) : "Enter a chat name.";
+    if (typeof error === "string" && error) {
+      if (onFail === "keep") {
+        // Fixed position: the capsule row scrolls horizontally and would clip an absolute message.
+        const r = renameRef.current?.getBoundingClientRect();
+        setRenameErrorPos(r ? { top: r.bottom + 12, left: Math.max(8, Math.min(r.left - 8, window.innerWidth - 268)) } : null);
+        setRenameError(error);
+        return;
+      }
+      toast.error(error);
+    }
+    setRenameError(null);
+    setRenaming(null);
+  };
   const renameRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { if (renaming) renameRef.current?.focus(); }, [renaming]);
@@ -59,7 +80,7 @@ export function ChatTabBar({ chats, activeId, onSelect, onNew, onClose, onPin, o
         const galaxyProject = isGalaxyTab
           ? getProjectNameById(chat.projectId, projects)
           : null;
-        const tabLabel = isGalaxyTab ? galaxyProject! : chat.label;
+        const tabLabel = isGalaxyTab ? (galaxyTabLabel === "galaxy" ? "Galaxy" : galaxyProject!) : chat.label;
 
         return (
           <div key={chat.id} className="relative flex-shrink-0 group"
@@ -82,22 +103,33 @@ export function ChatTabBar({ chats, activeId, onSelect, onNew, onClose, onPin, o
               {chat.pinned && <Pin size={10} style={{ color: isGalaxyTab ? LX.secondary : (style?.color ?? LX.accent) }} />}
               {isGalaxyTab && <LuxiaGalaxyIcon size={11} style={{ color: LX.secondary, flexShrink: 0 }} />}
               {renaming === chat.id ? (
-                <input ref={renameRef} value={renameVal}
-                  onChange={(e) => setRenameVal(e.target.value)}
-                  onBlur={() => { if (renameVal.trim()) onRename(chat.id, renameVal.trim()); setRenaming(null); }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") { if (renameVal.trim()) onRename(chat.id, renameVal.trim()); setRenaming(null); }
-                    if (e.key === "Escape") setRenaming(null);
-                  }}
-                  className="bg-transparent border-none outline-none w-[90px] luxia-type-body-dense-strong"
-                  style={{ color: LX.primary }} onClick={(e) => e.stopPropagation()} />
+                <span className="relative inline-flex">
+                  <input ref={renameRef} value={renameVal}
+                    onChange={(e) => { setRenameVal(e.target.value); setRenameError(null); }}
+                    onBlur={() => commitRename(chat.id, "cancel")}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") commitRename(chat.id, "keep");
+                      if (e.key === "Escape") { setRenameError(null); setRenaming(null); }
+                    }}
+                    aria-label="Chat name"
+                    aria-invalid={renameError ? true : undefined}
+                    aria-describedby={renameError ? `rename-error-${chat.id}` : undefined}
+                    maxLength={80}
+                    className="bg-transparent border-none outline-none w-[90px] luxia-type-body-dense-strong"
+                    style={{ color: LX.primary, boxShadow: renameError ? "inset 0 -2px 0 var(--luxia-error)" : undefined }} onClick={(e) => e.stopPropagation()} />
+                  {renameError ? (
+                    <span id={`rename-error-${chat.id}`} role="alert" className="pointer-events-none fixed z-[60] w-max max-w-[260px] whitespace-normal rounded-[6px] px-2 py-1 text-[11.5px] font-medium leading-4 shadow-md" style={{ top: renameErrorPos?.top ?? 0, left: renameErrorPos?.left ?? 0, background: "#fff", color: "var(--luxia-error)", border: "1px solid var(--luxia-border-default)" }}>
+                      {renameError}
+                    </span>
+                  ) : null}
+                </span>
               ) : (
                 <span className="flex items-center gap-[6px] min-w-0 items-baseline">
                   <span className="truncate select-none" style={{ maxWidth: 140 }} title={tabLabel}>{tabLabel}</span>
                   {con ? (
                     <span
                       className="luxia-type-overline-data shrink-0"
-                      style={{ color: con.type === "database" ? "var(--luxia-purple-50)" : "var(--luxia-blue-60)" }}
+                      style={{ color: con.type === "database" ? "var(--luxia-purple-50)" : con.type === "csv" ? "var(--luxia-neutral-600)" : "var(--luxia-blue-60)" }}
                     >
                       {getConstellationSourceLabel(con.type)}
                     </span>
@@ -106,6 +138,7 @@ export function ChatTabBar({ chats, activeId, onSelect, onNew, onClose, onPin, o
               )}
               {chats.length > 1 && (
                 <span onClick={(e) => { e.stopPropagation(); onClose(chat.id); }}
+                  title="Close tab (the chat is kept)" aria-hidden="true"
                   className="opacity-0 group-hover:opacity-100 w-4 h-4 flex items-center justify-center rounded-full transition-all hover:bg-black/10 ml-0.5 flex-shrink-0">
                   <X size={9} style={{ color: LX.muted }} />
                 </span>
@@ -130,7 +163,7 @@ export function ChatTabBar({ chats, activeId, onSelect, onNew, onClose, onPin, o
             { icon: Edit3, label: "Rename", action: () => { const c = chats.find(x => x.id === menu.id); if (c) { setRenaming(menu.id); setRenameVal(c.label); setMenu(null); } } },
             { icon: Pin, label: "Toggle pin", action: () => { onPin(menu.id); setMenu(null); } },
             { icon: Copy, label: "Duplicate", action: () => setMenu(null) },
-            { icon: Trash2, label: "Close tab", action: () => { onClose(menu.id); setMenu(null); }, danger: true },
+            { icon: X, label: "Close tab", action: () => { onClose(menu.id); setMenu(null); }, danger: false },
           ].map(({ icon: Icon, label, action, danger }) => (
             <button key={label} onClick={action}
               className="w-full flex items-center gap-2.5 px-4 py-2 luxia-type-body-dense-strong hover:bg-[#FAFDFF] transition-colors text-left"

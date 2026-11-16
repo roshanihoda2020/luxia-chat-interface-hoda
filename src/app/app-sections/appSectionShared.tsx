@@ -26,11 +26,11 @@ export const CONSTELLATION_STYLE: Record<string, {
     activeBorder: "rgba(43,141,196,0.35)",
   },
   csv: {
-    color: "#2B8DC4",
-    bg: "rgba(43,141,196,0.05)",
-    activeBg: "rgba(43,141,196,0.10)",
-    border: "rgba(43,141,196,0.18)",
-    activeBorder: "rgba(43,141,196,0.35)",
+    color: "var(--luxia-neutral-600)",
+    bg: "var(--luxia-neutral-100)",
+    activeBg: "var(--luxia-neutral-200)",
+    border: "var(--luxia-neutral-300)",
+    activeBorder: "var(--luxia-neutral-400)",
   },
 };
 

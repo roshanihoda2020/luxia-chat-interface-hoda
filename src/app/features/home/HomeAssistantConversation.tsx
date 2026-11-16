@@ -12,7 +12,8 @@ import {
 export type HomeAssistantView = "open" | "expanded" | "collapsed";
 
 const FOCUS_RING = "outline-none focus-visible:ring-2 focus-visible:ring-[var(--luxia-border-focus)]";
-const ICON_BUTTON = `inline-flex size-8 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-[var(--luxia-opacity-brand-secondary-08)] ${FOCUS_RING}`;
+/** Shared with the Home Project Chat header so both conversations use identical controls. */
+export const ICON_BUTTON = `inline-flex size-8 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-[var(--luxia-opacity-brand-secondary-08)] ${FOCUS_RING}`;
 
 interface HomeAssistantConversationProps {
   messages: readonly LuxiaAssistantMessage[];
@@ -48,6 +49,12 @@ export function HomeAssistantConversation({
 
   useEffect(() => {
     stickToBottom.current = true;
+    if (view !== "expanded") return;
+    // Expanded: keep the input reachable so the user can continue chatting right away.
+    const frame = window.requestAnimationFrame(() => {
+      logRef.current?.closest<HTMLElement>("[data-home-ask-composer]")?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, [view]);
 
   const last = messages[messages.length - 1];
@@ -72,8 +79,8 @@ export function HomeAssistantConversation({
             <button
               type="button"
               onClick={() => onViewChange(view === "expanded" ? "open" : "expanded")}
-              aria-label={view === "expanded" ? "Show less of the conversation" : "Expand the conversation"}
-              title={view === "expanded" ? "Show less" : "Expand"}
+              aria-label={view === "expanded" ? "Restore the conversation to its normal size" : "Expand the conversation"}
+              title={view === "expanded" ? "Restore size" : "Expand chat"}
               className={ICON_BUTTON}
               style={{ color: "var(--luxia-purple-60)" }}
               data-home-ai-expand=""
@@ -85,7 +92,7 @@ export function HomeAssistantConversation({
             type="button"
             onClick={onClear}
             aria-label="Start a new Luxia AI conversation"
-            title="New conversation"
+            title="Start a new conversation"
             className={ICON_BUTTON}
             style={{ color: "var(--luxia-purple-60)" }}
             data-home-ai-clear=""
@@ -97,8 +104,8 @@ export function HomeAssistantConversation({
             onClick={() => onViewChange(view === "collapsed" ? "open" : "collapsed")}
             aria-expanded={view !== "collapsed"}
             aria-controls="home-ai-log"
-            aria-label={view === "collapsed" ? "Show the conversation" : "Hide the conversation"}
-            title={view === "collapsed" ? "Show conversation" : "Hide conversation"}
+            aria-label={view === "collapsed" ? "Show the conversation" : "Collapse the conversation"}
+            title={view === "collapsed" ? "Show chat" : "Collapse chat"}
             className={ICON_BUTTON}
             style={{ color: "var(--luxia-purple-60)" }}
             data-home-ai-collapse=""

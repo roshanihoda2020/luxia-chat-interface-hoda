@@ -42,6 +42,7 @@ import type {
 import { parseAdminPipelinesTab } from "./types";
 import { VariableDialog } from "./VariableDialog";
 import { VariablesTab } from "./VariablesTab";
+import { luxiaHistory } from "@/app/features/navigation/navigationHistory";
 
 const PAGE_GUIDANCE =
   "Map Airflow DAGs and declare variables for tenant projects.";
@@ -65,10 +66,15 @@ function writeTabToLocation(tab: AdminPipelinesTabId) {
   const url = new URL(window.location.href);
   if (tab === "dags") url.searchParams.delete("tab");
   else url.searchParams.set("tab", tab);
-  window.history.replaceState(
+  const state = window.history.state as { luxiaView?: unknown; tab?: unknown } | null;
+  const nextPath = `${url.pathname}${url.search}`;
+  // Nothing changed (e.g. first render after a refresh): keep the entry exactly as it is.
+  if (state?.luxiaView === "admin-pipelines" && state.tab === tab
+    && nextPath === `${window.location.pathname}${window.location.search}`) return;
+  luxiaHistory.replace(
     { ...(window.history.state ?? {}), luxiaView: "admin-pipelines", tab },
     "",
-    `${url.pathname}${url.search}`,
+    nextPath,
   );
 }
 

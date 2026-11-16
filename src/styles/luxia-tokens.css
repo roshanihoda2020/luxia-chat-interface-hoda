@@ -797,3 +797,17 @@
   box-shadow: none !important;
 }
 
+/* Mobile (< 768px, LEFT_NAV_MOBILE_BREAKPOINT): the fixed 44px "Open navigation" control sits at
+   top-left (12px inset), so page headers start below it instead of underneath it. */
+@media (max-width: 767.98px) {
+  .luxia-page-header-shell {
+    padding-top: 4rem !important;
+  }
+  /* Home's header — and its browse views (Chats & Galaxies, Projects), which render in the same
+     Home shell — sit inside the page's own 2rem padding: add the same 2rem clearance. */
+  .luxia-home-header,
+  .luxia-home-browser-header {
+    padding-top: 2rem;
+  }
+}
+

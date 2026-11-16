@@ -190,6 +190,7 @@ export function HomePage({
   onOpenConstellation,
   onNewChat,
   onNewChatInProject,
+  projectChat,
   onNewProject,
   homeVidgets = [],
   onOpenProjectVidgets,
@@ -1489,6 +1490,7 @@ export function HomePage({
         }}
         recentProjectIds={recentAskProjectIds}
         onAsk={startChatInProject}
+        projectChat={projectChat}
         onOpenConstellations={openConstellations}
         continueItems={continueItems}
         onViewAllWork={() => onBrowseModeChange("your-work")}

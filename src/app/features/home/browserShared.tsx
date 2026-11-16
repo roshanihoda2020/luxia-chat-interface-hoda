@@ -2,6 +2,7 @@ import type { CSSProperties, ReactNode, SelectHTMLAttributes } from "react";
 import { useId } from "react";
 import { Search } from "lucide-react";
 import { Input } from "@/app/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/components/ui/select";
 import {
   LuxiaBreadcrumb,
   buildHomeArchiveBreadcrumbItems,
@@ -78,6 +79,7 @@ export function BrowserShell({
     <div className="min-w-0 w-full">
       <LuxiaPageHeader
         contentGap="page"
+        className="luxia-home-browser-header"
         pageTypeLabel={pageTypeLabel}
         title={title}
         titleStyle={{ color: HS.sectionHeading }}
@@ -381,6 +383,56 @@ interface BrowserSortSelectProps extends Omit<SelectHTMLAttributes<HTMLSelectEle
   "aria-label": string;
   labelVisible?: boolean;
   label?: string;
+}
+
+export interface BrowserDropdownOption { value: string; label: string }
+
+/**
+ * Luxia dropdown version of the filter/sort controls (shared Radix `Select`: light surface,
+ * check on the selected option, keyboard support). Same label layout and 32px height as the
+ * native `BrowserFilterSelect`, which other pages keep for now.
+ */
+export function BrowserFilterDropdown({
+  label,
+  labelVisible = true,
+  ariaLabel,
+  value,
+  options,
+  onValueChange,
+  dataAttr,
+}: {
+  label: string;
+  labelVisible?: boolean;
+  ariaLabel?: string;
+  value: string;
+  options: readonly BrowserDropdownOption[];
+  onValueChange: (value: string) => void;
+  /** Test/automation hook rendered as data-browser-filter="…". */
+  dataAttr?: string;
+}) {
+  const labelId = useId();
+  return (
+    <div className="flex min-w-0 flex-col gap-1.5">
+      <span id={labelId} className={labelVisible ? FILTER_LABEL_CLASS : "sr-only"} style={labelVisible ? FILTER_LABEL_STYLE : undefined}>
+        {label}
+      </span>
+      <Select value={value} onValueChange={onValueChange}>
+        <SelectTrigger
+          size="sm"
+          aria-label={ariaLabel ?? label}
+          className="h-8 min-h-8 w-full min-w-[9.5rem] max-w-full rounded-[8px] bg-[var(--luxia-surface)] px-2 luxia-type-body-dense"
+          data-browser-filter={dataAttr}
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent position="popper" align="start" sideOffset={4} className="min-w-[var(--radix-select-trigger-width)]">
+          {options.map((option) => (
+            <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
 }
 
 export function BrowserSortSelect({

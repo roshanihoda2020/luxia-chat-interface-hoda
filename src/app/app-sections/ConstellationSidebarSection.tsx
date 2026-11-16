@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactDOM from "react-dom";
 import {
-  ChevronDown, ChevronRight, ChevronLeft, Plus, X, Search, MoreHorizontal,
+  ChevronDown, Plus, X, Search, MoreHorizontal, PanelRightClose, PanelRightOpen,
   Eye, Upload, GripVertical, Trash2, Check, Table2,
   FileText, Database,
 } from "lucide-react";
@@ -32,6 +32,9 @@ import {
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/app/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/app/components/ui/popover";
+import { LuxiaConstellationIcon } from "@/assets/icons";
+import { KnowledgeOptionsMenu, type KnowledgeContextOption } from "@/app/features/chat-context/ComposerContextRow";
 import {
   LUXIA_DIALOG_CLOSE_ON_DARK_CLASS,
   STRUCTURED_MODAL_DARK_CHROME_STYLE,
@@ -51,6 +54,13 @@ import {
 
 /** Matches App.tsx layout constant — sidebar chrome width when collapsed. */
 const CONSTELLATION_COLLAPSED_WIDTH = 56;
+/**
+ * Inspector toggle anchor (32 × 32 hit area in both states). Collapsed: centred in the 56px rail,
+ * TOGGLE_TOP below the rail's inner top. Expanded: same top, and the same right-edge distance
+ * (rail centre = 28px from the outer right edge → 28 − 16 − 1px border = 11px from the inner edge).
+ */
+const TOGGLE_TOP = 11;
+const TOGGLE_RIGHT_EXPANDED = CONSTELLATION_COLLAPSED_WIDTH / 2 - 16 - 1;
 
 function ConfirmRemoveDialog({ label, onConfirm, onCancel }: {
   label: string; onConfirm: () => void; onCancel: () => void;
@@ -673,6 +683,113 @@ export function ConstellationSelector({
   );
 }
 
+/**
+ * Inspector heading: "ANSWERS FROM" + one selector (icon, name, type badge, chevron).
+ * Shows the same choices and wording as the composer's "Answers from:" control.
+ */
+const OVERLINE_STYLE = { color: IC.textMuted, fontSize: 10.5, lineHeight: "14px", letterSpacing: "0.1em" } as const;
+
+function AnswersFromHeading({ projectName, constellation, options, onSelect, disabled, hasMessages, chatLabel }: {
+  /** The active Chat's own Project (informational; never a second Project selector). */
+  projectName?: string;
+  constellation: Constellation;
+  options: KnowledgeContextOption[];
+  onSelect: (option: KnowledgeContextOption) => void;
+  disabled: boolean;
+  hasMessages: boolean;
+  chatLabel: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [hover, setHover] = useState(false);
+  const [menuWidth, setMenuWidth] = useState<number | undefined>(undefined);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const active = (hover || open) && !disabled;
+  // Menu spans the inspector's inner content width (trigger's left edge → panel's right padding).
+  const openChange = (next: boolean) => {
+    if (disabled) { setOpen(false); return; }
+    if (next) {
+      const trigger = triggerRef.current;
+      const card = trigger?.closest("aside");
+      if (trigger && card) {
+        const padRight = parseFloat(getComputedStyle(card.querySelector(":scope > div") ?? card).paddingRight) || 20;
+        setMenuWidth(Math.round(card.getBoundingClientRect().right - padRight - trigger.getBoundingClientRect().left));
+      }
+    }
+    setOpen(next);
+  };
+  return (
+    <div className="w-full min-w-0" data-luxia-inspector-heading="answers-from">
+      {projectName ? (
+        // pr-10: the collapse toggle sits beside this row (32px + 8px gap), not beside the selector.
+        <div className="mb-2 min-w-0 pr-10" data-luxia-inspector-project="">
+          <p className="luxia-type-overline-data" style={OVERLINE_STYLE}>Project</p>
+          <p
+            className="mt-0.5 truncate"
+            style={{ fontSize: 14, lineHeight: "20px", fontWeight: 600, letterSpacing: "-0.005em", color: IC.textPrimary }}
+            title={projectName}
+            data-luxia-inspector-project-name=""
+          >
+            {projectName}
+          </p>
+        </div>
+      ) : null}
+      <p className="luxia-type-overline-data" style={OVERLINE_STYLE} id="luxia-inspector-constellation-label">{projectName ? "Constellation" : "Answers from"}</p>
+      <Popover open={open} onOpenChange={openChange}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <PopoverTrigger asChild>
+              <button
+                ref={triggerRef}
+                type="button"
+                disabled={disabled}
+                onMouseEnter={() => setHover(true)}
+                onMouseLeave={() => setHover(false)}
+                className="mt-1.5 flex h-[38px] w-full min-w-0 items-center gap-1.5 rounded-[10px] border pl-2.5 pr-2 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[var(--luxia-purple-50)] disabled:cursor-default"
+                style={{ borderColor: active ? IC.inputBorderHover : IC.border, background: active ? IC.hover : IC.controlBg, color: IC.textPrimary }}
+                aria-label={`Constellation: ${constellation.label} (${constellation.type === "database" ? "DB" : constellation.type.toUpperCase()}). Change knowledge for this chat`}
+                aria-haspopup="listbox"
+                aria-expanded={open}
+                data-luxia-inspector-knowledge=""
+              >
+                <LuxiaConstellationIcon size={15} color="currentColor" className="shrink-0" />
+                <span className="min-w-0 flex-1 truncate" style={{ fontSize: 14, lineHeight: "20px", fontWeight: 600, letterSpacing: "-0.005em" }} title={constellation.label}>{constellation.label}</span>
+                <ConstellationSourceBadge type={constellation.type} className="shrink-0" />
+                <ChevronDown size={14} strokeWidth={2} aria-hidden className="shrink-0" style={{ color: active ? IC.textPrimary : IC.textMuted, transition: "color 140ms ease, transform 140ms ease", transform: open ? "rotate(180deg)" : undefined }} />
+              </button>
+            </PopoverTrigger>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" sideOffset={6}>Change knowledge for this chat</TooltipContent>
+        </Tooltip>
+        <PopoverContent
+          align="start"
+          side="bottom"
+          sideOffset={4}
+          collisionPadding={12}
+          className="luxia-knowledge-menu w-[var(--radix-popover-trigger-width)] p-1"
+          style={menuWidth ? { width: menuWidth, maxWidth: menuWidth } : undefined}
+          onOpenAutoFocus={(event) => {
+            // Focus the search field; the current selection is highlighted and scrolled into view.
+            event.preventDefault();
+            const menu = event.currentTarget as HTMLElement | null;
+            window.requestAnimationFrame(() => menu?.querySelector<HTMLInputElement>("[data-luxia-knowledge-search]")?.focus());
+          }}
+          data-luxia-inspector-knowledge-menu=""
+        >
+          <KnowledgeOptionsMenu
+            variant="compact"
+            options={options}
+            value={constellation.id}
+            onSelect={(option) => { setOpen(false); onSelect(option); }}
+            onDismiss={() => setOpen(false)}
+            hasMessages={hasMessages}
+            chatLabel={chatLabel}
+          />
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+}
+
 export function ConstellationSidebar({
   width,
   onResizeStart,
@@ -704,6 +821,11 @@ export function ConstellationSidebar({
   pdfFileTagSourceIds = [],
   crawler,
   onCommitCrawler,
+  knowledgeOptions,
+  onSelectKnowledge,
+  knowledgeHasMessages = false,
+  knowledgeChatLabel,
+  knowledgeProjectName,
 }: {
   width: number;
   onResizeStart: (e: React.MouseEvent) => void;
@@ -738,6 +860,18 @@ export function ConstellationSidebar({
   pdfFileTagSourceIds?: readonly string[];
   crawler: CrawlerState;
   onCommitCrawler: (next: CrawlerState) => void;
+  /**
+   * Shared knowledge choices of the Chat's Project (Galaxy + accessible Constellations).
+   * When given, the heading becomes "ANSWERS FROM" + one selector that reports through
+   * `onSelectKnowledge` — the same handler as the composer — after the unsaved Knowledge
+   * Base guard. When omitted, the original Constellation title selector is shown.
+   */
+  knowledgeOptions?: KnowledgeContextOption[];
+  onSelectKnowledge?: (option: KnowledgeContextOption) => void;
+  knowledgeHasMessages?: boolean;
+  knowledgeChatLabel?: string;
+  /** The active Chat's Project name, shown as context above the Constellation selector. */
+  knowledgeProjectName?: string;
 }) {
   const sectionIds = CONSTELLATION_SECTIONS[constellation.type];
 
@@ -784,6 +918,26 @@ export function ConstellationSidebar({
     const action = kbLeaveActionRef.current;
     kbLeaveActionRef.current = closeKbWorkspace;
     action();
+  }
+
+  /** The refined "ANSWERS FROM" heading is shown (shared knowledge selector given, Constellation chat). */
+  const answersFromMode = Boolean(knowledgeOptions && onSelectKnowledge) && !isGalaxyChat;
+
+  /** Same unsaved-Knowledge-Base guard as requestConstellationChange, for the shared knowledge selector. */
+  function requestKnowledgeChange(option: KnowledgeContextOption) {
+    if (!onSelectKnowledge) return;
+    if (option.kind === "constellation" && option.id === constellation.id) return;
+    const proceed = () => onSelectKnowledge(option);
+    if (kbWorkspaceOpen && kbCloseRef.current) {
+      kbLeaveActionRef.current = () => {
+        closeKbWorkspace();
+        proceed();
+      };
+      kbCloseRef.current();
+      return;
+    }
+    closeKbWorkspace();
+    proceed();
   }
 
   /** Intercept constellation switch while Chat KB manager is dirty — reuse manager DiscardChangesDialog. */
@@ -855,7 +1009,7 @@ export function ConstellationSidebar({
   const railHit =
     "flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[10px] outline-none focus-visible:outline-none transition-colors";
   const expandHit =
-    "mt-px flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-[7px] outline-none focus-visible:outline-none";
+    "flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[8px] outline-none focus-visible:outline-none";
 
   if (collapsed) {
     return (
@@ -883,7 +1037,7 @@ export function ConstellationSidebar({
             boxShadow: IC.shellShadow,
           }}
         >
-          <div className="flex w-full flex-shrink-0 items-start justify-center px-1.5 pt-3 pb-2">
+          <div className="flex w-full flex-shrink-0 items-start justify-center px-1.5 pb-1.5" style={{ paddingTop: TOGGLE_TOP }}>
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
@@ -911,7 +1065,7 @@ export function ConstellationSidebar({
                     (e.currentTarget as HTMLElement).style.boxShadow = "none";
                   }}
                 >
-                  <ChevronLeft size={15} strokeWidth={2.2} aria-hidden />
+                  <PanelRightOpen size={15} aria-hidden />
                 </button>
               </TooltipTrigger>
               <TooltipContent side="left" sideOffset={8}>Expand inspector</TooltipContent>
@@ -988,10 +1142,10 @@ export function ConstellationSidebar({
       </div>
 
       <div
-        className="relative flex-shrink-0 overflow-hidden px-5 pt-3 pb-2.5"
+        className={`relative flex-shrink-0 overflow-hidden px-5 ${answersFromMode ? "pt-3 pb-2" : "pt-3 pb-2.5"}`}
         style={{ background: IC.header, borderBottom: `1px solid ${IC.headerDivider}` }}
       >
-        <div className="flex min-w-0 items-start gap-3 overflow-hidden">
+        <div className={`flex min-w-0 items-start overflow-hidden ${answersFromMode ? "gap-2" : "gap-3"}`}>
           <div className="relative min-w-0 flex-1 overflow-hidden text-left">
             {isGalaxyChat ? (
               <div className="min-w-0 overflow-hidden text-left">
@@ -1005,6 +1159,16 @@ export function ConstellationSidebar({
                   Uses all constellations in this project
                 </p>
               </div>
+            ) : knowledgeOptions && onSelectKnowledge ? (
+              <AnswersFromHeading
+                projectName={knowledgeProjectName}
+                constellation={constellation}
+                options={knowledgeOptions}
+                onSelect={requestKnowledgeChange}
+                disabled={!allowConstellationChange}
+                hasMessages={knowledgeHasMessages}
+                chatLabel={knowledgeChatLabel ?? ""}
+              />
             ) : (
               <ConstellationSelector
                 constellation={constellation}
@@ -1023,8 +1187,13 @@ export function ConstellationSidebar({
                 onClick={onCollapse}
                 aria-label="Collapse Constellation inspector"
                 aria-expanded={true}
-                className="mt-px flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-[7px] outline-none focus-visible:outline-none"
+                className={answersFromMode
+                  // Anchored to the SAME screen position as the collapsed rail's Expand toggle
+                  // (see TOGGLE_* below), so Collapse → Expand works without moving the pointer.
+                  ? "absolute z-[1] flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[8px] outline-none focus-visible:outline-none"
+                  : "mt-px flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-[7px] outline-none focus-visible:outline-none"}
                 style={{
+                  ...(answersFromMode ? { top: TOGGLE_TOP, right: TOGGLE_RIGHT_EXPANDED } : null),
                   background: "transparent",
                   color: IC.textMuted,
                   transition: "background-color 140ms ease, box-shadow 140ms ease",
@@ -1045,30 +1214,38 @@ export function ConstellationSidebar({
                   (e.currentTarget as HTMLElement).style.boxShadow = "none";
                 }}
               >
-                <ChevronRight size={15} strokeWidth={2.2} aria-hidden />
+                <PanelRightClose size={answersFromMode ? 16 : 15} aria-hidden />
               </button>
             </TooltipTrigger>
             <TooltipContent side="left">Collapse inspector</TooltipContent>
           </Tooltip>
+          {/* Answers-from mode: the toggle is anchored absolutely beside the Project row (which keeps
+              its own right clearance), so the selector below can use the full width. */}
         </div>
 
-        <div className="mt-4">
-          <p
-            className="luxia-type-caption"
-            style={{
-              color: isGalaxyChat ? IC.textPrimary : icInspectorDescriptionColor(constellation.type),
-              overflow: "hidden",
-              display: "-webkit-box",
-              WebkitLineClamp: descExpanded ? "unset" : 2,
-              WebkitBoxOrient: "vertical",
-              lineHeight: 1.45,
-            } as React.CSSProperties}
-          >
-            {constellation.description}
-          </p>
+        {/* Constellation chats: the description is not repeated under the selector (Project,
+            name and type are already shown). "Read more" reveals it on demand, below the links. */}
+        <div className={!isGalaxyChat ? (answersFromMode ? "mt-1" : "mt-1.5") : answersFromMode ? "mt-3" : "mt-4"}>
+          {isGalaxyChat ? (
+            <p
+              className="luxia-type-caption"
+              style={{
+                color: IC.textPrimary,
+                overflow: "hidden",
+                display: "-webkit-box",
+                WebkitLineClamp: descExpanded ? "unset" : 2,
+                WebkitBoxOrient: "vertical",
+                lineHeight: 1.45,
+                ...(answersFromMode ? { fontSize: 12.5, lineHeight: "18px" } : null),
+              } as React.CSSProperties}
+            >
+              {constellation.description}
+            </p>
+          ) : null}
           <div
-            className="mt-2 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1"
+            className={!isGalaxyChat ? "flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1" : answersFromMode ? "mt-1.5 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1" : "mt-2 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1"}
             style={{ color: isGalaxyChat ? IC.textPrimary : IC.iconSemantic }}
+            data-luxia-inspector-links={answersFromMode ? "" : undefined}
           >
             <button
               type="button"
@@ -1076,6 +1253,7 @@ export function ConstellationSidebar({
               className="luxia-type-caption min-h-7 hover:opacity-80 transition-opacity outline-none focus-visible:underline"
               style={{ color: "inherit" }}
               aria-expanded={descExpanded}
+              aria-controls={!isGalaxyChat ? "luxia-inspector-description" : undefined}
               aria-label={descExpanded ? "Read less Constellation description" : "Read more Constellation description"}
             >
               {descExpanded ? "Read less" : "Read more"}
@@ -1105,6 +1283,20 @@ export function ConstellationSidebar({
               </>
             ) : null}
           </div>
+          {!isGalaxyChat && descExpanded ? (
+            <p
+              id="luxia-inspector-description"
+              className="mt-1 luxia-type-caption"
+              style={{
+                color: icInspectorDescriptionColor(constellation.type),
+                lineHeight: 1.45,
+                ...(answersFromMode ? { fontSize: 12.5, lineHeight: "18px" } : null),
+              }}
+              data-luxia-inspector-description=""
+            >
+              {constellation.description}
+            </p>
+          ) : null}
         </div>
       </div>
 

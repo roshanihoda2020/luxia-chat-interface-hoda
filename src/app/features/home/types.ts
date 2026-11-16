@@ -1,3 +1,4 @@
+import type { HomeProjectChatController } from "./HomeProjectChat";
 export type HomeHeroKind = "galaxySession" | "chat" | "project" | "empty";
 export type HomeConstellationSource = "database" | "csv" | "pdf";
 
@@ -111,6 +112,8 @@ export interface HomePageProps {
   /** New Chat flow with the Project already chosen (Constellation or Galaxy is picked there). */
   /** Opens New Chat scoped to the Project; a question typed on Home is carried into the new Chat. */
   onNewChatInProject?: (projectId: string, question?: string) => void;
+  /** Home inline Project Chat for a Project (real chat state; null without access). */
+  projectChat?: (projectId: string) => HomeProjectChatController | null;
   onNewProject: () => void;
   /** Every Vidget in the prototype; Home lists only those in Projects the user manages or reviews. */
   homeVidgets?: readonly VidgetRecord[];

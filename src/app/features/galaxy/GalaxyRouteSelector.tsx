@@ -1,4 +1,4 @@
-import { Check, X } from "lucide-react";
+import { Check, ChevronDown, X } from "lucide-react";
 import { LuxiaGalaxyIcon } from "@/assets/icons";
 import { useEffect, useMemo, useRef, useState } from "react";
 import ReactDOM from "react-dom";
@@ -18,7 +18,10 @@ export function GalaxyRouteSelector({
   onSelectAuto,
   onSelectManual,
   onClearManual,
+  variant = "row",
 }: {
+  /** "row": standalone row. "context": inline "Route:" value in the composer context row. */
+  variant?: "row" | "context";
   routeMode: GalaxyRouteMode;
   pendingManual: GalaxyMatchedConstellation | null;
   options: GalaxyRouteOption[];
@@ -74,7 +77,7 @@ export function GalaxyRouteSelector({
   function openMenu() {
     if (!triggerRef.current) return;
     const r = triggerRef.current.getBoundingClientRect();
-    setMenuPos({ top: r.top - 8, left: r.left });
+    setMenuPos({ top: r.top - 8, left: Math.max(8, Math.min(r.left, window.innerWidth - 268)) });
     setMenuOpen(true);
     setPickerOpen(false);
     setQuery("");
@@ -83,7 +86,7 @@ export function GalaxyRouteSelector({
   function openPicker() {
     if (!triggerRef.current) return;
     const r = triggerRef.current.getBoundingClientRect();
-    setMenuPos({ top: r.top - 8, left: r.left });
+    setMenuPos({ top: r.top - 8, left: Math.max(8, Math.min(r.left, window.innerWidth - 268)) });
     setMenuOpen(false);
     setPickerOpen(true);
     setFocusIndex(0);
@@ -93,8 +96,47 @@ export function GalaxyRouteSelector({
     ? `Route: ${pendingManual.label}`
     : "Route: Auto";
 
+  const context = variant === "context";
+  const toggle = () => (menuOpen || pickerOpen ? (setMenuOpen(false), setPickerOpen(false)) : openMenu());
+  const trigger = context ? (
+    <>
+      <span className="luxia-ctx-label">Route:</span>
+      <button
+        ref={triggerRef}
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={menuOpen || pickerOpen}
+        aria-label={routeMode === "manual" && pendingManual ? `Route: specific Constellation, ${pendingManual.label}` : "Route: Auto"}
+        data-state={menuOpen || pickerOpen ? "open" : "closed"}
+        data-luxia-route-trigger=""
+        onClick={toggle}
+        className="luxia-ctx-value"
+        title={routeMode === "manual" && pendingManual ? `${pendingManual.label} · ${pendingManual.type}` : undefined}
+      >
+        <span className="luxia-ctx-name">{routeMode === "manual" && pendingManual ? pendingManual.label : "Auto"}</span>
+        {routeMode === "manual" && pendingManual ? <span className="luxia-ctx-tag">{pendingManual.type}</span> : null}
+        <ChevronDown size={12} strokeWidth={2} aria-hidden className="luxia-ctx-chevron" />
+      </button>
+      {pendingManual ? (
+        <button
+          type="button"
+          aria-label="Clear constellation selection"
+          onClick={onClearManual}
+          className="-ml-0.5 flex h-[18px] w-[18px] flex-shrink-0 items-center justify-center rounded-full outline-none hover:bg-[var(--luxia-opacity-brand-secondary-08)] focus-visible:shadow-[0_0_0_2px_var(--luxia-border-focus)]"
+        >
+          <X size={10} style={{ color: LX.textMuted }} />
+        </button>
+      ) : null}
+    </>
+  ) : null;
+
   return (
-    <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2" style={{ paddingLeft: "calc(2.25rem + 20px + 28px)" }}>
+    <div
+      className={context ? "luxia-ctx-group luxia-ctx-group--route" : "mt-2 flex min-w-0 flex-wrap items-center gap-2"}
+      style={context ? undefined : { paddingLeft: "calc(2.25rem + 20px + 28px)" }}
+      data-luxia-ctx-group={context ? "route" : undefined}
+    >
+      {context ? trigger : (<>
       <button
         ref={triggerRef}
         type="button"
@@ -128,6 +170,7 @@ export function GalaxyRouteSelector({
           </button>
         </span>
       ) : null}
+      </>)}
 
       {(menuOpen || pickerOpen) && menuPos && ReactDOM.createPortal(
         <div
@@ -238,3 +281,4 @@ export function GalaxyRouteSelector({
     </div>
   );
 }
+

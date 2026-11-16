@@ -4,6 +4,7 @@
  * enroll real MFA, send email, or replace production auth.
  */
 import { clearPrototypeSignedIn, readPrototypeSignedIn } from "./prototypeSignedIn";
+import { luxiaHistory } from "@/app/features/navigation/navigationHistory";
 
 export const PASSWORD_MIN_LENGTH = 8;
 export const PASSWORD_MAX_LENGTH = 128;
@@ -542,7 +543,7 @@ export function clearAuthSearchParams(): void {
   url.searchParams.delete("account");
   url.searchParams.delete("auth");
   const search = url.searchParams.toString();
-  window.history.replaceState({}, "", `${url.pathname}${search ? `?${search}` : ""}${url.hash}`);
+  luxiaHistory.replace({}, "", `${url.pathname}${search ? `?${search}` : ""}${url.hash}`);
 }
 
 /** SessionStorage key for optional in-app MFA nudge after sign-in. */

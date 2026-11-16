@@ -11,7 +11,13 @@ import {
   type ReactNode,
   type Ref,
 } from "react";
-import { Check, ChevronDown, ChevronLeft, ChevronRight, Compass, Users, X } from "lucide-react";
+import { Check, ChevronDown, Compass, MoreHorizontal, PanelLeftClose, PanelLeftOpen, Trash2, Users, X } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/app/components/ui/dropdown-menu";
 import luxiaWordmarkUrl from "@/assets/brand/Luxia-Star.svg";
 import sidebarStarLogoUrl from "@/assets/brand/Star.svg";
 import { LuxiaStarLogo } from "@/app/components/LuxiaStarLogo";
@@ -70,11 +76,15 @@ export const SIDEBAR_SECONDARY_WIDTH = 280;
 export const LEFT_NAV_COLLAPSED_STORAGE_KEY = "luxia-left-nav-collapsed";
 export const LEFT_NAV_MOBILE_BREAKPOINT = 768;
 
-const SIDEBAR_TOGGLE_SIZE = 42;
-const SIDEBAR_TOGGLE_INSET = SIDEBAR_TOGGLE_SIZE / 2;
+/** Visible size of the main sidebar toggle (see SidebarCollapseToggle). */
+const SIDEBAR_TOGGLE_SIZE = 32;
+/** Secondary panel header: left clearance so the edge-mounted toggle never overlaps its title. */
+const SECONDARY_HEADER_TOGGLE_CLEARANCE = 30;
 const SIDEBAR_LOGO_WIDTH = 119.66;
 const SIDEBAR_LOGO_HEIGHT = 46.64;
 const SIDEBAR_BRAND_LEFT = 24;
+/** The <aside> the sidebar toggle controls (aria-controls). */
+export const SIDEBAR_ID = "luxia-main-sidebar";
 const SIDEBAR_BRAND_TOP = 16;
 const SIDEBAR_BRAND_BOTTOM = 12;
 const SIDEBAR_STAR_WIDTH = 538.11;
@@ -220,6 +230,10 @@ export type LeftNavProps = {
   onProjectSectionClick?: (section: ProjectNavSection) => void;
   onSwitchProject?: (projectId: string) => void;
   onOpenChat?: (chatId: string) => void;
+  /** Whether the current user may delete this Chat (the app's existing rule). Omit to hide row actions. */
+  canDeleteChat?: (chatId: string) => boolean;
+  /** Ask the app to confirm and delete this Chat (the app shows the confirmation dialog). */
+  onRequestDeleteChat?: (chatId: string) => void;
   onOpenConstellation?: (projectId: string, constellationId: string) => void;
   onOpenDashboard?: (projectId: string, dashboardId: string) => void;
   onOpenVidget?: (projectId: string, vidgetId: string) => void;
@@ -304,6 +318,12 @@ function pickQuickFlyoutItems<T extends { id: string; pinned?: boolean }>(
     });
   if (active) return [active, ...rest.slice(0, limit - 1)];
   return rest.slice(0, limit);
+}
+
+/** Chats A–Z by displayed name: case-insensitive, natural numbers ("Chat 2" < "Chat 10"), stable. */
+const CHAT_NAME_COLLATOR = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
+function sortChatsByName<T extends { id: string; label: string }>(items: T[]): T[] {
+  return [...items].sort((a, b) => CHAT_NAME_COLLATOR.compare(a.label.trim(), b.label.trim()) || a.id.localeCompare(b.id));
 }
 
 function filterFlyoutSearch<T extends { label: string }>(
@@ -495,34 +515,79 @@ function SidebarStarDecoration() {
   );
 }
 
+/**
+ * Main sidebar toggle. Desktop: a dark rounded square (the sidebar's own surface, never a
+ * white circle or a chevron, so it cannot read as "Back"), centred on the MAIN sidebar's right edge
+ * at logo height. It is mounted in the main <aside>, so it follows that edge when the width changes
+ * and never moves when a secondary panel opens. Mobile drawer: the same control closes the drawer.
+ */
 function SidebarCollapseToggle({
   collapsed,
   onToggle,
+  variant = "desktop",
+  className = "",
+  style,
 }: {
   collapsed: boolean;
   onToggle: () => void;
+  variant?: "desktop" | "drawer";
+  className?: string;
+  style?: React.CSSProperties;
 }) {
-  const logoCenterY = SIDEBAR_BRAND_TOP + SIDEBAR_LOGO_HEIGHT / 2 - SIDEBAR_TOGGLE_SIZE / 2;
+  const drawer = variant === "drawer";
+  const label = drawer ? "Close navigation" : collapsed ? "Expand sidebar" : "Collapse sidebar";
+  const Icon = !drawer && collapsed ? PanelLeftOpen : PanelLeftClose;
+  if (drawer) {
+    return (
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-label={label}
+        aria-expanded
+        aria-controls={SIDEBAR_ID}
+        data-luxia-sidebar-toggle="drawer"
+        className={`flex size-11 shrink-0 items-center justify-center rounded-[8px] text-[rgba(255,255,255,0.72)] transition-colors duration-150 hover:bg-[rgba(255,255,255,0.08)] hover:text-white focus-visible:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(150,219,251,0.7)] motion-reduce:transition-none ${className}`.trim()}
+        style={style}
+      >
+        <Icon size={18} strokeWidth={1.9} aria-hidden />
+      </button>
+    );
+  }
   return (
-    <button
-      type="button"
-      onClick={onToggle}
-      aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-      aria-expanded={!collapsed}
-      className="absolute z-[5] flex items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(150,219,251,0.55)]"
-      style={{
-        width: SIDEBAR_TOGGLE_SIZE,
-        height: SIDEBAR_TOGGLE_SIZE,
-        top: logoCenterY,
-        right: -SIDEBAR_TOGGLE_INSET,
-        background: "var(--luxia-surface, #fff)",
-        border: "1px solid rgba(28, 19, 54, 0.12)",
-        boxShadow: "0 4px 14px rgba(8, 5, 18, 0.18)",
-        color: "var(--luxia-brand-primary, #5B3FA6)",
-      }}
-    >
-      {collapsed ? <ChevronRight size={18} strokeWidth={2} /> : <ChevronLeft size={18} strokeWidth={2} />}
-    </button>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-label={label}
+          aria-expanded={!collapsed}
+          aria-controls={SIDEBAR_ID}
+          data-luxia-sidebar-toggle={collapsed ? "collapsed" : "expanded"}
+          // Transparent hit area (40px; 44px on touch screens) centred on the edge by transform, so
+          // the size can change without moving the centre. The visible 32px square is the inner span.
+          className={`group absolute z-[6] flex size-10 items-center justify-center rounded-[12px] outline-none [@media(pointer:coarse)]:size-11 ${className}`.trim()}
+          style={{ transform: "translate(50%, -50%)", ...style }}
+        >
+          <span
+            aria-hidden
+            // Rest: icon white/72%. Hover: white icon + 8% white overlay (layered over the sidebar
+            // gradient). Focus: two-tone ring — dark 2px offset (visible on the white page) + light
+            // 2px ring (visible on the dark sidebar), ≥3:1 on both surfaces.
+            // The drop shadow is a class (not inline) so Tailwind's focus ring can combine with it.
+            className="flex items-center justify-center rounded-[8px] text-[rgba(255,255,255,0.72)] shadow-[0_2px_8px_rgba(8,5,18,0.28)] transition-[color,background-color] duration-150 [--luxia-toggle-overlay:transparent] group-hover:text-white group-hover:[--luxia-toggle-overlay:rgba(255,255,255,0.08)] group-focus-visible:text-white group-focus-visible:ring-2 group-focus-visible:ring-[rgb(150,219,251)] group-focus-visible:ring-offset-2 group-focus-visible:ring-offset-[#110B24] motion-reduce:transition-none"
+            style={{
+              width: SIDEBAR_TOGGLE_SIZE,
+              height: SIDEBAR_TOGGLE_SIZE,
+              background: `linear-gradient(var(--luxia-toggle-overlay), var(--luxia-toggle-overlay)), ${LX.gradient.nav}`,
+              border: "1px solid rgba(255,255,255,0.12)",
+            }}
+          >
+            <Icon size={16} strokeWidth={1.75} />
+          </span>
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="right" sideOffset={6}>{label}</TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -850,9 +915,8 @@ function SidebarSecondaryRail({
         className="flex-shrink-0 px-3.5 pb-2.5 pt-3"
         style={{
           borderBottom: "1px solid rgba(255,255,255,0.07)",
-          ...(mode === "desktop"
-            ? { paddingRight: SIDEBAR_TOGGLE_SIZE }
-            : null),
+          // Desktop: clear the main sidebar toggle that straddles this panel's left edge.
+          ...(mode === "desktop" ? { paddingLeft: SECONDARY_HEADER_TOGGLE_CLEARANCE } : null),
         }}
       >
         <div className="flex min-w-0 items-center gap-2">
@@ -956,6 +1020,8 @@ export function LeftNav({
   onProjectSectionClick,
   onSwitchProject,
   onOpenChat,
+  canDeleteChat,
+  onRequestDeleteChat,
   onOpenConstellation,
   onOpenDashboard,
   onOpenVidget,
@@ -1036,16 +1102,8 @@ export function LeftNav({
     && canAccessProjectSettingsForUser(prototypeUser?.id, prototypeProjectRole);
   const showPipelines = canViewProjectPipelines();
 
-  const quickChats = useMemo(
-    () =>
-      pickQuickFlyoutItems(
-        projectChats,
-        activeChatId,
-        SECONDARY_QUICK_LIMIT,
-        (item) => (item.pinned ? 1_000_000_000_000 : 0) + item.lastOpenedTimestamp,
-      ),
-    [projectChats, activeChatId],
-  );
+  // Chats are listed A–Z (all of the Project's accessible Chats; the panel scrolls).
+  const quickChats = useMemo(() => sortChatsByName(projectChats), [projectChats]);
 
   const quickConstellations = useMemo(
     () =>
@@ -1097,7 +1155,7 @@ export function LeftNav({
   );
 
   const chatSearchRows = useMemo(
-    () => filterFlyoutSearch(projectChats, chatQuery, SECONDARY_SEARCH_RESULT_LIMIT),
+    () => (chatQuery.trim() ? sortChatsByName(filterFlyoutSearch(projectChats, chatQuery, Number.MAX_SAFE_INTEGER)) : []),
     [projectChats, chatQuery],
   );
 
@@ -1336,7 +1394,7 @@ export function LeftNav({
   }
 
   function renderChatRow(item: LeftNavChatPreview) {
-    return (
+    const row = (
       <FlyoutNavRow
         key={item.id}
         icon={item.chatSource === "galaxy" ? LuxiaGalaxyIcon : LuxiaChatIcon}
@@ -1355,6 +1413,38 @@ export function LeftNav({
           });
         }}
       />
+    );
+    const deletable = Boolean(onRequestDeleteChat && canDeleteChat?.(item.id));
+    if (!deletable) return row;
+    return (
+      <div key={item.id} className="group/chatrow relative" data-luxia-chat-row={item.id}>
+        {row}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              aria-label={`Actions for ${item.label}`}
+              className="absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-[8px] opacity-0 outline-none transition-opacity focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-[rgba(150,219,251,0.45)] group-hover/chatrow:opacity-100 group-focus-within/chatrow:opacity-100 data-[state=open]:opacity-100 [@media(hover:none)]:opacity-100"
+              style={{ color: "rgba(255,255,255,0.7)", background: "rgba(20,14,40,0.65)" }}
+              onClick={(event) => event.stopPropagation()}
+              data-luxia-chat-row-actions=""
+            >
+              <MoreHorizontal size={15} aria-hidden />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" side="right" className="z-[80] min-w-[10rem]">
+            <DropdownMenuItem
+              variant="destructive"
+              className="gap-2"
+              onSelect={() => onRequestDeleteChat?.(item.id)}
+              data-luxia-chat-row-delete=""
+            >
+              <Trash2 aria-hidden />
+              Delete chat
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     );
   }
 
@@ -1566,18 +1656,28 @@ export function LeftNav({
   const aside = (
     <aside
       ref={asideRef}
-      className="relative h-full min-h-0 flex-shrink-0"
+      id={SIDEBAR_ID}
+      // Width animation in CSS so the OS reduced-motion setting applies live (motion-reduce).
+      className="relative h-full min-h-0 flex-shrink-0 transition-[width] duration-200 ease-[ease] motion-reduce:transition-none"
       aria-label="Luxia sidebar"
       style={{
         width: widthStyle,
-        transition: "width 200ms ease",
         overflow: "visible",
-        ...(typeof window !== "undefined"
-          && window.matchMedia("(prefers-reduced-motion: reduce)").matches
-          ? { transition: "none" }
-          : null),
       }}
     >
+      {!isMobileDrawer ? (
+        // Desktop: mounted on the MAIN <aside> (outside its clipped content), centred on its right
+        // edge at logo height — it follows the edge and is unaffected by secondary panels.
+        <SidebarCollapseToggle
+          collapsed={railCollapsed}
+          onToggle={handlePrimaryCollapseToggle}
+          // right:0 + translate(50%,-50%) centres the button on the edge at the logo's centre line.
+          style={{
+            right: 0,
+            top: SIDEBAR_BRAND_TOP + SIDEBAR_LOGO_HEIGHT / 2,
+          }}
+        />
+      ) : null}
       <div
         className="relative flex h-full min-h-0 flex-col overflow-hidden"
         style={{ background: LX.gradient.nav, width: "100%" }}
@@ -1717,6 +1817,16 @@ export function LeftNav({
               }}
             >
               {railCollapsed ? <CollapsedStarLogo /> : <LuxiaLogo />}
+              {isMobileDrawer ? (
+                // Mobile drawer only: close control at the right end of the wordmark row.
+                <SidebarCollapseToggle
+                  collapsed={false}
+                  variant="drawer"
+                  onToggle={() => onMobileClose?.()}
+                  className="absolute"
+                  style={{ right: 12, top: SIDEBAR_BRAND_TOP + SIDEBAR_LOGO_HEIGHT / 2 - 22 }}
+                />
+              ) : null}
             </div>
 
             <div
@@ -2207,7 +2317,6 @@ export function LeftNav({
     <div className="relative flex h-dvh min-h-0 flex-shrink-0">
       {aside}
       {desktopSecondaryRail}
-      <SidebarCollapseToggle collapsed={collapsed} onToggle={handlePrimaryCollapseToggle} />
     </div>
   );
 

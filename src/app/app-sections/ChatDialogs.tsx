@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import ReactDOM from "react-dom";
 import { X, Search, Check } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
@@ -9,28 +9,81 @@ import {
 } from "@/app/features/shared/structuredModalChrome";
 import { LX } from "@/app/features/active-data-tables/tokens";
 
-export function LuxiaDialog({ open, onClose, title, children, footer }: {
+const FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/**
+ * Shared Luxia dialog. Modal semantics (role="dialog", aria-modal, labelled by its title),
+ * focus moves into the dialog on open (first field, else the first footer action — e.g.
+ * Cancel), Tab stays inside, Escape closes, and focus returns to where it was.
+ * `size="compact"` is a smaller variant for short confirmations.
+ */
+export function LuxiaDialog({ open, onClose, title, children, footer, size = "default", role = "dialog" }: {
   open: boolean; onClose: () => void;
   title: string; children: React.ReactNode; footer: React.ReactNode;
+  size?: "default" | "compact";
+  role?: "dialog" | "alertdialog";
 }) {
+  const titleId = useId();
+  const bodyId = useId();
+  const panelRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   useEffect(() => {
     if (!open) return;
-    function onKey(e: KeyboardEvent) { if (e.key === "Escape") onClose(); }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+    // Opened from a menu item (which unmounts): return focus to that menu's trigger instead.
+    const active = document.activeElement as HTMLElement | null;
+    const menu = active?.closest<HTMLElement>('[role="menu"]');
+    const opener = menu?.id
+      ? document.querySelector<HTMLElement>(`[aria-controls="${CSS.escape(menu.id)}"]`) ?? active
+      : active;
+    const frame = window.requestAnimationFrame(() => {
+      const panel = panelRef.current;
+      if (!panel || panel.contains(document.activeElement)) return;
+      const body = panel.querySelector<HTMLElement>("[data-luxia-dialog-body]");
+      const footerEl = panel.querySelector<HTMLElement>("[data-luxia-dialog-footer]");
+      (body?.querySelector<HTMLElement>("input, select, textarea") ?? footerEl?.querySelector<HTMLElement>(FOCUSABLE) ?? panel).focus();
+    });
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") { e.stopPropagation(); onCloseRef.current(); return; }
+      if (e.key !== "Tab" || !panelRef.current) return;
+      const items = Array.from(panelRef.current.querySelectorAll<HTMLElement>(FOCUSABLE)).filter((el) => el.offsetParent !== null);
+      if (items.length === 0) return;
+      const first = items[0], last = items[items.length - 1];
+      if (e.shiftKey && (document.activeElement === first || !panelRef.current.contains(document.activeElement))) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && (document.activeElement === last || !panelRef.current.contains(document.activeElement))) { e.preventDefault(); first.focus(); }
+    }
+    document.addEventListener("keydown", onKey, true);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      document.removeEventListener("keydown", onKey, true);
+      // Return focus to the control that opened the dialog when it still exists and is usable.
+      window.setTimeout(() => {
+        if (opener && document.contains(opener) && !opener.closest('[role="menu"]')) opener.focus();
+      }, 0);
+    };
+  }, [open]);
   if (!open) return null;
+  const compact = size === "compact";
   return ReactDOM.createPortal(
     <div className="fixed inset-0 z-[9990] flex items-center justify-center p-4"
       style={{ background: "rgba(15,23,42,0.40)" }}
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="flex w-full max-w-md max-h-[85vh] flex-col overflow-hidden"
-        style={{ background: "white", borderRadius: 16, boxShadow: "0 12px 32px rgba(15,23,42,0.14)" }}>
+      <div
+        ref={panelRef}
+        role={role}
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={compact ? bodyId : undefined}
+        tabIndex={-1}
+        data-luxia-dialog={size}
+        className={cn("flex w-full max-h-[85vh] flex-col overflow-hidden outline-none", compact ? "max-w-[400px]" : "max-w-md")}
+        style={{ background: "white", borderRadius: compact ? 14 : 16, boxShadow: "0 12px 32px rgba(15,23,42,0.14)" }}>
         <div
-          className="flex flex-shrink-0 items-center justify-between px-7 pt-5 pb-4"
+          className={cn("flex flex-shrink-0 items-center justify-between", compact ? "gap-3 px-5 pt-4 pb-3" : "px-7 pt-5 pb-4")}
           style={STRUCTURED_MODAL_DARK_CHROME_STYLE}
         >
-          <h2 className="luxia-type-title-modal text-[var(--luxia-text-inverse)]">{title}</h2>
+          <h2 id={titleId} className="luxia-type-title-modal min-w-0 text-[var(--luxia-text-inverse)]">{title}</h2>
           <button
             type="button"
             onClick={onClose}
@@ -43,8 +96,8 @@ export function LuxiaDialog({ open, onClose, title, children, footer }: {
             <X size={16} />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical px-7 pb-2">{children}</div>
-        <div className="flex flex-shrink-0 items-center justify-end gap-3 px-7 py-5" style={{ borderTop: `1px solid ${LX.border}` }}>
+        <div id={bodyId} data-luxia-dialog-body="" className={cn("flex-1 overflow-y-auto luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical", compact ? "px-5" : "px-7 pb-2")}>{children}</div>
+        <div data-luxia-dialog-footer="" className={cn("flex flex-shrink-0 items-center justify-end", compact ? "gap-2 px-5 py-3.5" : "gap-3 px-7 py-5")} style={{ borderTop: `1px solid ${LX.border}` }}>
           {footer}
         </div>
       </div>
@@ -210,22 +263,38 @@ export function GenerateReportDialog({ open, onClose }: { open: boolean; onClose
   );
 }
 
-export function DeleteChatDialog({ open, onClose, onDelete, entityName, entityType = "Chat" }: {
+/**
+ * Delete chat confirmation (compact). Deleting always requires this confirmation; the copy names
+ * the actual chat and long names wrap. Used by the Chat header and the sidebar Chats list.
+ */
+export function DeleteChatDialog({ open, onClose, onDelete, entityName, entityType = "chat", title, description, confirmLabel }: {
   open: boolean; onClose: () => void; onDelete: () => void;
   entityName: string;
   entityType?: string;
+  /** Optional copy overrides. */
+  title?: string;
+  description?: React.ReactNode;
+  confirmLabel?: string;
 }) {
+  const label = confirmLabel ?? `Delete ${entityType.toLowerCase()}`;
   return (
-    <LuxiaDialog open={open} onClose={onClose} title={`Delete ${entityName}?`}
+    <LuxiaDialog open={open} onClose={onClose} size="compact" role="alertdialog"
+      title={title ?? `Delete ${entityType.toLowerCase()}?`}
       footer={<>
-        <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
-        <Button type="button" variant="destructive" onClick={() => { onDelete(); onClose(); }}>
-          {`Delete ${entityType}`}
+        <Button type="button" variant="secondary" onClick={onClose} data-luxia-delete-cancel="">Cancel</Button>
+        <Button type="button" variant="destructive" onClick={() => { onDelete(); onClose(); }}
+          aria-label={`${label}: ${entityName}`} data-luxia-delete-confirm="">
+          {label}
         </Button>
       </>}>
-      <p className="py-4 luxia-type-body-small" style={{ color: LX.textSecondary }}>
-        This will permanently remove {entityName} and all its messages. This action cannot be undone.
-      </p>
+      <div className="py-4 luxia-type-body-small" style={{ color: LX.textSecondary, overflowWrap: "anywhere" }} data-luxia-delete-copy="">
+        {description ?? (
+          <>
+            <p>Delete <span className="font-semibold" style={{ color: LX.primary }}>&ldquo;{entityName}&rdquo;</span> and its messages?</p>
+            <p className="mt-1">This can&rsquo;t be undone.</p>
+          </>
+        )}
+      </div>
     </LuxiaDialog>
   );
 }

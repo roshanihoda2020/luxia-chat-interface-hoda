@@ -73,6 +73,7 @@ import type { UnsavedNavigationGuard } from "@/app/features/shared/unsavedNaviga
 import { BrowserFilterSelect } from "@/app/features/home/browserShared";
 import type { DocumentTagColorId, DocumentTagDefinition } from "./types";
 import { useDataSourceTags } from "./useDataSourceTags";
+import { luxiaHistory } from "@/app/features/navigation/navigationHistory";
 
 const TABLE_HEADER_CELL =
   "px-4 py-2.5 align-middle whitespace-nowrap luxia-type-label-small";
@@ -95,8 +96,8 @@ function writeReviewHistory(documentId: string, mode: "push" | "replace") {
   if (typeof window === "undefined") return;
   const current: unknown = window.history.state;
   const state = { ...(current && typeof current === "object" ? current : {}), [REVIEW_HISTORY_KEY]: documentId };
-  if (mode === "push") window.history.pushState(state, "", window.location.href);
-  else window.history.replaceState(state, "", window.location.href);
+  if (mode === "push") luxiaHistory.push(state, "", window.location.href);
+  else luxiaHistory.replace(state, "", window.location.href);
 }
 
 const STATUS_SUMMARY_ORDER: readonly DocumentExtractionStatus[] = [
