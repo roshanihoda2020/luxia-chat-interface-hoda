@@ -7,6 +7,7 @@ import {
   PROTOTYPE_PASSWORD,
   type PrototypeAuthAccount,
 } from "@/app/features/login/prototypeAuth";
+import { PROTOTYPE_DEMO_ACCESS } from "@/app/features/login/prototypeDemoAccess";
 
 type TestAccountRow = {
   label: string;
@@ -50,9 +51,7 @@ function navigateScenario(href: string) {
   window.location.assign(href);
 }
 
-/**
- * Vite replaces `import.meta.env.DEV` with `false` in production builds.
- */
+/** Shown only where prototype demo access is on (see prototypeDemoAccess.ts). */
 export function DevTestAccountsPanel({
   onLaunchAccount,
 }: {
@@ -65,7 +64,7 @@ export function DevTestAccountsPanel({
   const [open, setOpen] = useState(false);
   const [resetNotice, setResetNotice] = useState<string | null>(null);
 
-  if (!import.meta.env.DEV) return null;
+  if (!PROTOTYPE_DEMO_ACCESS) return null;
 
   function handleScenarioSelect(event: ChangeEvent<HTMLSelectElement>) {
     const href = event.target.value;

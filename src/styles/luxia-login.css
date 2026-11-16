@@ -1110,14 +1110,17 @@ body:has(.luxia-login-shell),
 
 @media (max-width: 859px) {
   .luxia-login-shell {
-    justify-content: center;
-    padding-inline: max(16px, env(safe-area-inset-left)) max(16px, env(safe-area-inset-right));
-    --luxia-login-lockup-base: min(140vw, 72vw);
+    --luxia-login-lockup-base: min(72vw, 26rem, calc(22vh * 120 / 47));
     --luxia-login-lockup-left: calc(50% - var(--luxia-login-lockup-width) / 2);
-    --luxia-login-lockup-top: calc(
-      100% + 12% - var(--luxia-login-lockup-height)
-    );
+    --luxia-login-lockup-top: max(24px, calc(env(safe-area-inset-top) + 16px));
+    --luxia-login-brand-stack: calc(var(--luxia-login-lockup-height) + 0.85rem + 18px);
     --luxia-login-auth-nudge: 0px;
+
+    justify-content: center;
+    align-items: flex-start;
+    overflow-y: auto;
+    padding-top: calc(var(--luxia-login-lockup-top) + var(--luxia-login-brand-stack) + 24px);
+    padding-inline: max(16px, env(safe-area-inset-left)) max(16px, env(safe-area-inset-right));
   }
 
   .luxia-login-auth {
@@ -1125,12 +1128,14 @@ body:has(.luxia-login-shell),
     margin-left: auto;
     width: min(100%, 26.5rem);
     max-width: 26.5rem;
+    max-height: none;
+    overflow-y: visible;
     transform: none;
   }
 
   .luxia-login-dotmark {
     width: 100%;
-    opacity: 0.38;
+    opacity: 0.9;
   }
 
   .luxia-login-panel {

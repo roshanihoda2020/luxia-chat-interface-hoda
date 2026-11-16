@@ -9,6 +9,7 @@ import {
   resolveAuthError,
   type AuthErrorCode,
 } from "@/app/features/login/authErrors";
+import { PROTOTYPE_DEMO_ACCESS } from "@/app/features/login/prototypeDemoAccess";
 import {
   AuthBackToSignIn,
   AuthBusyLabel,
@@ -473,7 +474,7 @@ export function ForgotPasswordPanel({ onBack }: { onBack: () => void }) {
               </>
             )}
           </p>
-          {import.meta.env.DEV ? (
+          {PROTOTYPE_DEMO_ACCESS ? (
             <p className="luxia-login-help luxia-type-caption">
               <button
                 type="button"

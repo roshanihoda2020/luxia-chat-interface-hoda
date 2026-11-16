@@ -4,6 +4,7 @@ import {
   formatCountdownClock,
   resolveAuthError,
 } from "@/app/features/login/authErrors";
+import { PROTOTYPE_DEMO_ACCESS } from "@/app/features/login/prototypeDemoAccess";
 import {
   AuthBackToSignIn,
   AuthBusyLabel,
@@ -187,7 +188,7 @@ export function InviteExpiredPanel({
           Request a new invitation
         </Button>
       )}
-      {import.meta.env.DEV ? (
+      {PROTOTYPE_DEMO_ACCESS ? (
         <div className="luxia-login-actions">
           <p className="luxia-login-help luxia-type-caption">
             <button
