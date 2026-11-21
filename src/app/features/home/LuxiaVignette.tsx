@@ -1,4 +1,4 @@
-export type LuxiaVignetteKind = "ask" | "write" | "data" | "vidget" | "tag";
+export type LuxiaVignetteKind = "ask" | "write" | "data" | "vidget" | "tag" | "verify";
 
 const INK = "var(--luxia-purple-70)";
 const ACCENT = "var(--luxia-purple-50)";
@@ -7,6 +7,11 @@ const HIGHLIGHT = "var(--luxia-purple-20)";
 const SKY = "var(--luxia-brand-tertiary)";
 const PAPER = "var(--luxia-surface)";
 const MUTED = "var(--luxia-border-default)";
+// Review outcomes, in the severity colours the VerifAI results use.
+const MET = "var(--luxia-success)";
+const NOT_MET = "var(--luxia-error)";
+const REVIEW = "var(--luxia-warning-50)";
+const REVIEW_SOFT = "var(--luxia-warning-10)";
 
 function Spark({ x, y, color = ACCENT }: { x: number; y: number; color?: string }) {
   return <path transform={`translate(${x} ${y})`} d="M0 -7C1 -2 2 -1 7 0C2 1 1 2 0 7C-1 2-2 1-7 0C-2-1-1-2 0-7Z" fill={color} />;
@@ -100,6 +105,41 @@ function Scene({ kind }: { kind: LuxiaVignetteKind }) {
           <rect x="58" y="70" width="40" height="13" rx="6.5" fill={SKY} />
           <rect x="65" y="74.5" width="18" height="4" rx="2" fill={INK} />
           <Spark x={104} y={18} color={SKY} />
+        </>
+      );
+    case "verify":
+      // VerifAI: highlighted passages of a document linked to checklist requirements, each with its
+      // outcome (met, not met, needs review), sealed by the VerifAI shield.
+      return (
+        <>
+          <path d="M8 10H46L58 22V84H8Z" fill={PAPER} stroke={LINE} strokeWidth="2" strokeLinejoin="round" />
+          <path d="M46 10V22H58" fill={LINE} stroke={LINE} strokeWidth="2" strokeLinejoin="round" />
+          <rect x="16" y="28" width="28" height="5" rx="2.5" fill={MUTED} />
+          <rect x="13" y="38" width="40" height="13" rx="4" fill={HIGHLIGHT} opacity="0.6" />
+          <rect x="16" y="42" width="32" height="5" rx="2.5" fill={ACCENT} />
+          <rect x="13" y="56" width="40" height="13" rx="4" fill={REVIEW_SOFT} />
+          <rect x="16" y="60" width="26" height="5" rx="2.5" fill={REVIEW} />
+          <rect x="16" y="74" width="22" height="5" rx="2.5" fill={MUTED} />
+          <path d="M54 44.5C62 44.5 62 38 70 38" fill="none" stroke={ACCENT} strokeWidth="2" strokeDasharray="2 3" strokeLinecap="round" />
+          <path d="M54 62.5C62 62.5 62 66 70 66" fill="none" stroke={REVIEW} strokeWidth="2" strokeDasharray="2 3" strokeLinecap="round" />
+          <rect x="68" y="10" width="46" height="66" rx="8" fill={PAPER} stroke={LINE} strokeWidth="2" />
+          <path d="M68 18A8 8 0 0 1 76 10H106A8 8 0 0 1 114 18V22H68Z" fill={INK} />
+          <rect x="74" y="14" width="22" height="4" rx="2" fill={PAPER} opacity="0.85" />
+          <circle cx="78" cy="31" r="5" fill={MET} />
+          <path d="M75.6 31L77.3 32.8L80.6 29.3" fill="none" stroke={PAPER} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          <rect x="87" y="29" width="21" height="4" rx="2" fill={MUTED} />
+          <circle cx="78" cy="45" r="5" fill={NOT_MET} />
+          <path d="M75.8 42.8L80.2 47.2M80.2 42.8L75.8 47.2" stroke={PAPER} strokeWidth="1.8" strokeLinecap="round" />
+          <rect x="87" y="43" width="17" height="4" rx="2" fill={MUTED} />
+          <circle cx="78" cy="59" r="5" fill={REVIEW} />
+          <path d="M78 56.2V59.6" stroke={PAPER} strokeWidth="1.8" strokeLinecap="round" />
+          <circle cx="78" cy="62" r="1" fill={PAPER} />
+          <rect x="87" y="57" width="19" height="4" rx="2" fill={MUTED} />
+          <g transform="translate(98 74)">
+            <path d="M0 -12L10 -8V-1C10 6 5 10 0 13C-5 10 -10 6 -10 -1V-8Z" fill={INK} stroke={PAPER} strokeWidth="2" strokeLinejoin="round" />
+            <path d="M-4.2 0.2L-1 3.4L4.6 -2.6" fill="none" stroke={SKY} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+          </g>
+          <Spark x={62} y={8} />
         </>
       );
     default:

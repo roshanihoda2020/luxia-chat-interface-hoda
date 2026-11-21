@@ -11,7 +11,7 @@ import { ToolCard } from "./ToolCard";
 import type { LuxiaToolDefinition } from "./types";
 
 const PAGE_GUIDANCE =
-  "Open Luxia tools and workspaces for document writing, review, and related work.";
+  "Explore specialized AI workspaces to create, review, and work with documents.";
 
 type ToolsPageProps = {
   onNavigateHome: () => void;
@@ -47,10 +47,13 @@ export function ToolsPage({ onNavigateHome, onOpenTool }: ToolsPageProps) {
           />
         }
         guide={PAGE_GUIDANCE}
+        guideIcon={false}
       />
 
       <LuxiaPageBody>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {/* Showcase cards: two per row from tablet width, one per row below. */}
+        <div className="grid max-w-[68rem] grid-cols-1 gap-5 md:grid-cols-2" data-tools-grid="">
+
           {LUXIA_TOOLS.map((tool) => (
             <ToolCard key={tool.id} tool={tool} onOpen={onOpenTool} />
           ))}

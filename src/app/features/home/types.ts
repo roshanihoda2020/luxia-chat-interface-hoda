@@ -156,5 +156,6 @@ export interface HomePageProps {
   onOpenDashboard?: (projectId: string, dashboardId: string) => void;
   /** Opens a Project's Dashboards page (Project › Dashboards). */
   onOpenProjectDashboards?: (projectId: string) => void;
+  /** Opens a Tool's own workspace ("tools" opens the Tools page). */
   onOpenTool?: (toolId: string) => void;
 }

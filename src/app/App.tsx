@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import {
   LoginPage,
   MfaInAppNudge,
@@ -418,6 +418,8 @@ import {
   type VerifaiLaunchContext,
   type VerifaiStartInput,
 } from "@/app/features/verifai";
+import { VerifaiToolPage, type VerifaiToolConstellation, type VerifaiToolProject } from "@/app/features/verifai/tool/VerifaiToolPage";
+import { getVerifaiHistoryPath, getVerifaiReviewPath, getVerifaiToolPath, type VerifaiToolView } from "@/app/features/project/projectPaths";
 import { ShieldCheck } from "lucide-react";
 import { resolveNewChatKnowledge } from "@/app/features/chat/newChatKnowledge";
 import { ComposerContextRow, type KnowledgeContextOption, type ProjectContextOption } from "@/app/features/chat-context/ComposerContextRow";
@@ -613,6 +615,7 @@ type LuxiaAppView =
   | "admin-pipelines"
   | "writing-assistant"
   | "tools"
+  | "verifai-tool"
   | "explore"
   | "shared-review";
 
@@ -1083,6 +1086,9 @@ export default function App() {
   const [appView, setAppView] = useState<LuxiaAppView>(INITIAL_SHELL.appView);
   /** Explore Luxia section from the URL (null: the first visible section). */
   const [exploreSection, setExploreSection] = useState<ExplorePathSection | null>(INITIAL_SHELL.exploreSection);
+  /** VerifAI Tool: workspace (new review, or the review shown) or Review History. */
+  const [verifaiToolView, setVerifaiToolView] = useState<VerifaiToolView>("workspace");
+  const [verifaiToolReviewId, setVerifaiToolReviewId] = useState<string | null>(null);
   /** One entry's full page (its slug) in the current section, or null. */
   const [exploreSlug, setExploreSlug] = useState<string | null>(INITIAL_SHELL.exploreSlug);
   /** Where an entry page was opened from, for its Back link (null: its own section). */
@@ -1893,6 +1899,20 @@ export default function App() {
         return;
       }
 
+      if (resolved.kind === "verifai-tool") {
+        setActiveProjectId(null);
+        setSettingsConstellationId(null);
+        setSettingsCapabilityPath(null);
+        setAccessLevelId(null);
+        setOrganizationUserId(null);
+        setDataSourceSettingsId(null);
+        // Access to the review itself is checked by the page against the signed-in user.
+        setVerifaiToolView(resolved.view);
+        setVerifaiToolReviewId(resolved.reviewId);
+        setAppView("verifai-tool");
+        return;
+      }
+
       if (resolved.kind === "explore") {
         setActiveProjectId(null);
         setSettingsConstellationId(null);
@@ -2242,6 +2262,7 @@ export default function App() {
     || appView === "admin-pipelines"
     || appView === "writing-assistant"
     || appView === "tools"
+    || appView === "verifai-tool"
     || appView === "explore"
     ? null
     : appView === "project" || appView === "constellation-create" || appView === "constellation-settings" || appView === "galaxy-settings" || appView === "project-members" || appView === "project-vidgets" || appView === "project-pipelines" || appView === "pipeline-detail" || appView === "pipeline-run-detail" || appView === "vidget-inbox" || appView === "vidget-settings"
@@ -3420,6 +3441,32 @@ export default function App() {
     }
   }
 
+  /** VerifAI Tool: the workspace (new review, or one review — same id as in Chat) or Review History. */
+  function handleOpenVerifaiTool(reviewId: string | null = null, view: VerifaiToolView = "workspace") {
+    setActiveProjectId(null);
+    setSettingsConstellationId(null);
+    setSettingsCapabilityPath(null);
+    setAccessLevelId(null);
+    setOrganizationUserId(null);
+    setDataSourceSettingsId(null);
+    setVerifaiToolView(view);
+    setVerifaiToolReviewId(view === "history" ? null : reviewId);
+    setAppView("verifai-tool");
+    if (typeof window !== "undefined") {
+      const next = view === "history" ? getVerifaiHistoryPath() : reviewId ? getVerifaiReviewPath(reviewId) : getVerifaiToolPath();
+      if (window.location.pathname !== next) {
+        luxiaHistory.push({ luxiaView: "verifai-tool" }, "", next);
+      }
+    }
+  }
+
+  /** Opens a Tool from any Tools surface (Tools page, Home tiles, Luxia AI); "tools" opens the Tools page. */
+  function handleOpenTool(toolId: string) {
+    if (toolId === "writing-assistant") handleOpenWritingAssistant();
+    else if (toolId === "verifai") handleOpenVerifaiTool();
+    else if (toolId === "tools") handleOpenTools();
+  }
+
   function handleOpenAccountSettings(section: AccountSettingsSectionId = accountSettingsSection) {
     const next =
       section === "analytics" && !canViewOrganizationAnalytics(prototypeUserId)
@@ -3968,6 +4015,7 @@ export default function App() {
         || appView === "admin-pipelines"
         || appView === "writing-assistant"
         || appView === "tools"
+        || appView === "verifai-tool"
         || appView === "explore"
         ? null
         : (activeProjectId
@@ -5914,24 +5962,26 @@ export default function App() {
         .map((item) => ({ id: item.id, label: item.label }));
     }
     setVerifaiLaunch({
-      chatId,
+      origin: { kind: "chat", chatId, chatType: chat.chatType },
+      userId: prototypeUserId,
       projectId: chat.projectId,
       projectName: getProjectNameById(chat.projectId, homeProjects),
-      chatType: chat.chatType,
       constellations,
     });
   }
 
   function handleStartVerifai(input: VerifaiStartInput) {
     setVerifaiLaunch(null);
+    const reviewId = startVerifaiReview(input);
+    if (input.origin.kind !== "chat") return;
+    const chatId = input.origin.chatId;
     const now = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
     const uid = `u${counterRef.current++}`, aid = `a${counterRef.current++}`;
-    const reviewId = startVerifaiReview(input);
-    noteChatActivity(input.chatId);
+    noteChatActivity(chatId);
     setChatMessages((p) => ({
       ...p,
-      [input.chatId]: [
-        ...(p[input.chatId] ?? []),
+      [chatId]: [
+        ...(p[chatId] ?? []),
         { id: uid, role: "user", content: `Verify ${input.document.name} against ${input.checklist.name}`, timestamp: now },
         { id: aid, role: "ai", content: "", timestamp: now, verifai: { reviewId } },
       ],
@@ -5939,25 +5989,31 @@ export default function App() {
   }
 
   // Review context is only turned on by these explicit actions, and unsent text is never replaced.
+  // Chat cards only show reviews that belong to that Chat, so `review.chatId` is set here.
   const verifaiChatActions: VerifaiChatActions = {
     askAboutFinding: (review, finding) => {
-      setVerifaiFollowUp(review.chatId, { reviewId: review.id, findingId: finding.id });
-      if (!(draftsByChatId[review.chatId] ?? "").trim()) {
-        setChatDraft(review.chatId, `Why is ${finding.requirementId} a problem and how do I fix it?`);
+      const chatId = review.chatId;
+      if (!chatId) return;
+      setVerifaiFollowUp(chatId, { reviewId: review.id, findingId: finding.id });
+      if (!(draftsByChatId[chatId] ?? "").trim()) {
+        setChatDraft(chatId, `Why is ${finding.requirementId} a problem and how do I fix it?`);
       }
       setComposerFocusNonce((n) => n + 1);
     },
     askAboutReview: (review) => {
+      if (!review.chatId) return;
       setVerifaiFollowUp(review.chatId, { reviewId: review.id });
       setComposerFocusNonce((n) => n + 1);
     },
     askFollowUp: (review, question) => {
-      const draft = draftsByChatId[review.chatId] ?? "";
-      setVerifaiFollowUp(review.chatId, { reviewId: review.id });
-      sendToChat(review.chatId, question, undefined, { reviewContext: true });
-      if (draft) setChatDraft(review.chatId, draft);
+      const chatId = review.chatId;
+      if (!chatId) return;
+      const draft = draftsByChatId[chatId] ?? "";
+      setVerifaiFollowUp(chatId, { reviewId: review.id });
+      sendToChat(chatId, question, undefined, { reviewContext: true });
+      if (draft) setChatDraft(chatId, draft);
     },
-    startNewReview: (review) => openVerifai(review.chatId),
+    startNewReview: (review) => openVerifai(review.chatId ?? activeChat),
   };
   const activeVerifaiFollowUp = useVerifaiFollowUp(activeChat);
 
@@ -7010,6 +7066,35 @@ export default function App() {
     [activeData?.projectId, chats, homeProjects, deletedChatIds, workingAccessibleOverviewConstellations], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
+  // VerifAI Tool scope: Projects with an active membership (their real role, never implied by Org
+  // Admin) and only the Constellations this user can Use.
+  const verifaiToolProjects: VerifaiToolProject[] = useMemo(
+    () => accessibleHomeProjects.map((project) => ({
+      id: project.id,
+      name: project.name,
+      role: getActiveProjectMembership(project.id, projectMembershipsState, prototypeUserId)?.projectRole ?? null,
+    })),
+    [accessibleHomeProjects, projectMembershipsState, prototypeUserId],
+  );
+  const verifaiToolConstellations: VerifaiToolConstellation[] = useMemo(
+    () => workingAccessibleOverviewConstellations.map((item) => ({ id: item.id, label: item.label, projectId: item.projectId })),
+    [workingAccessibleOverviewConstellations],
+  );
+  const verifaiChatLabel = useCallback(
+    (chatId: string) => chats.find((chat) => chat.id === chatId)?.label ?? null,
+    [chats],
+  );
+  const handleVerifaiReviewUnavailable = useCallback(() => {
+    setVerifaiToolReviewId(null);
+    if (typeof window !== "undefined" && window.location.pathname !== getVerifaiToolPath()) {
+      luxiaHistory.replace({ luxiaView: "verifai-tool" }, "", getVerifaiToolPath());
+    }
+    // Next frame: on a direct URL this runs in the same commit that mounts the Toaster.
+    window.requestAnimationFrame(() => notifyRouteUnavailable("This review isn't available."));
+    // notifyRouteUnavailable only reads refs and the toast API.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // ---------------------------------------------------------------------------------------------
   // Home inline Project Chat (uses the shared chat records, messages, drafts and send pipeline)
   // ---------------------------------------------------------------------------------------------
@@ -7443,7 +7528,7 @@ export default function App() {
         accessLevelsActive={appView === "access-levels" || appView === "access-level"}
         dataSourcesActive={appView === "data-sources" || appView === "data-source-settings"}
         adminPipelinesActive={appView === "admin-pipelines"}
-        toolsActive={appView === "tools" || appView === "writing-assistant"}
+        toolsActive={appView === "tools" || appView === "writing-assistant" || appView === "verifai-tool"}
         canAdministerPipelines={canAdministerAccessLevels(prototypeUserId)}
         collapsePipelinesCollector={
           viewportWidth < 1280
@@ -7611,9 +7696,7 @@ export default function App() {
               onOpenDataSources={handleOpenDataSources}
               onOpenExplore={(section, slug) => handleOpenExplore(section ?? null, { slug, from: "home" })}
               onOpenDashboard={(projectId, dashboardId) => handleOpenProjectDashboard(projectId, dashboardId ?? null)}
-              onOpenTool={(toolId) => {
-                if (toolId === "writing-assistant") handleOpenWritingAssistant();
-              }}
+              onOpenTool={handleOpenTool}
             />
           </HomePageShell>
         ) : appView === "project" ? (
@@ -8783,11 +8866,25 @@ export default function App() {
           <HomePageShell scrollRequest={homeScrollRequest} framed={false}>
             <ToolsPage
               onNavigateHome={handleNavigateHome}
-              onOpenTool={(tool) => {
-                if (tool.id === "writing-assistant") {
-                  handleOpenWritingAssistant();
-                }
-              }}
+              onOpenTool={(tool) => handleOpenTool(tool.id)}
+            />
+          </HomePageShell>
+        ) : appView === "verifai-tool" ? (
+          <HomePageShell scrollRequest={homeScrollRequest} framed={false}>
+            <VerifaiToolPage
+              key={prototypeUserId}
+              userId={prototypeUserId}
+              projects={verifaiToolProjects}
+              constellations={verifaiToolConstellations}
+              chatLabel={verifaiChatLabel}
+              view={verifaiToolView}
+              reviewId={verifaiToolReviewId}
+              onOpenReview={(id) => handleOpenVerifaiTool(id)}
+              onOpenWorkspace={() => handleOpenVerifaiTool(null)}
+              onOpenHistory={() => handleOpenVerifaiTool(null, "history")}
+              onNavigateHome={handleNavigateHome}
+              onNavigateTools={handleOpenTools}
+              onReviewUnavailable={handleVerifaiReviewUnavailable}
             />
           </HomePageShell>
         ) : appView === "writing-assistant" ? (

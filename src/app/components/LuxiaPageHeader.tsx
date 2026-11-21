@@ -76,6 +76,8 @@ export interface LuxiaPageHeaderProps {
   context?: ReactNode;
   metadata?: ReactNode;
   guide?: ReactNode;
+  /** false: the guide is plain explanatory text, without the leading guidance icon. */
+  guideIcon?: boolean;
   description?: ReactNode;
   /** Return an error message to keep editing and show it inline (e.g. a duplicate name). */
   onRename?: (name: string) => void | string | null;
@@ -210,33 +212,38 @@ export function LuxiaPageEntityUpdatedMeta({
 export function LuxiaPageGuide({
   children,
   className = "",
+  icon = true,
 }: {
   children: ReactNode;
   className?: string;
+  /** false: plain explanatory text, without the guidance icon. */
+  icon?: boolean;
 }) {
   return (
     <div
       className={`flex min-w-0 items-start gap-1.5 ${className}`.trim()}
       style={{ color: LUXIA_PAGE_INTRO.guideColor }}
     >
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span
-            className="mt-0.5 inline-flex shrink-0"
-            style={{ color: LUXIA_PAGE_INTRO.guideColor }}
-          >
-            <CircleAlert
-              size={14}
-              strokeWidth={1.75}
-              aria-hidden
-            />
-          </span>
-        </TooltipTrigger>
+      {icon ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span
+              className="mt-0.5 inline-flex shrink-0"
+              style={{ color: LUXIA_PAGE_INTRO.guideColor }}
+            >
+              <CircleAlert
+                size={14}
+                strokeWidth={1.75}
+                aria-hidden
+              />
+            </span>
+          </TooltipTrigger>
 
-        <TooltipContent side="top" sideOffset={6}>
-          Guidance
-        </TooltipContent>
-      </Tooltip>
+          <TooltipContent side="top" sideOffset={6}>
+            Guidance
+          </TooltipContent>
+        </Tooltip>
+      ) : null}
 
       <div
         className="min-w-0 luxia-type-body-small"
@@ -248,14 +255,14 @@ export function LuxiaPageGuide({
   );
 }
 
-function wrapGuideContent(guide: ReactNode): ReactNode {
+function wrapGuideContent(guide: ReactNode, icon = true): ReactNode {
   if (guide == null || guide === false) return null;
 
   if (typeof guide === "string" || typeof guide === "number") {
-    return <LuxiaPageGuide>{String(guide)}</LuxiaPageGuide>;
+    return <LuxiaPageGuide icon={icon}>{String(guide)}</LuxiaPageGuide>;
   }
 
-  return <LuxiaPageGuide>{guide}</LuxiaPageGuide>;
+  return <LuxiaPageGuide icon={icon}>{guide}</LuxiaPageGuide>;
 }
 
 function TitleUtilityButton({
@@ -356,6 +363,7 @@ export function LuxiaPageHeader({
   eyebrow,
   breadcrumb,
   description,
+  guideIcon = true,
   metadata,
   context,
   guide,
@@ -395,6 +403,7 @@ export function LuxiaPageHeader({
 
   const guideNode = wrapGuideContent(
     guide ?? description ?? null,
+    guideIcon,
   );
 
   const stringTitle =
