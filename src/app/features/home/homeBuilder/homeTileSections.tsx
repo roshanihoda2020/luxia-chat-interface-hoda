@@ -11,6 +11,7 @@ import {
   LuxiaWritingAssistantIcon,
 } from "@/assets/icons";
 import { LUXIA_TOOLS } from "@/app/features/tools/data";
+import { LuxiaToolIcon } from "@/app/features/tools/ToolIcon";
 import { HS } from "../homeSurfaces";
 import type { HomeTileSection } from "./HomeTileSectionHeader";
 import { HOME_PROJECTS_VIEW_COPY, getHomeProjectsView } from "./collections";
@@ -154,6 +155,11 @@ const TOOL_SECTIONS: Record<string, Omit<HomeTileSection, "title">> = {
     subtitle: "Write and edit documents with AI.",
     shortSubtitle: "Write with AI.",
     icon: <LuxiaWritingAssistantIcon size={ICON_SIZE} color="currentColor" />,
+  },
+  verifai: {
+    subtitle: "Verify documents against a checklist.",
+    shortSubtitle: "Verify documents.",
+    icon: <LuxiaToolIcon toolId="verifai" size={ICON_SIZE} />,
   },
 };
 

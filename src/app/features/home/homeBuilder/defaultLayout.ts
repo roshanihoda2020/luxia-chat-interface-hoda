@@ -22,6 +22,7 @@ export const DEFAULT_HOME_TILE_IDS = {
   projects: "default-projects",
   dashboards: "default-dashboards",
   writingAssistant: "default-writing-assistant",
+  verifai: "default-verifai",
   chats: "default-chats",
   constellations: "default-constellations",
   dataSources: "default-data-sources",
@@ -60,52 +61,92 @@ function defaultTile(
 export type HomeDefaultStage = "guided" | "returning";
 
 const WRITING_ASSISTANT: HomeTileTarget = { scope: "tool", entityId: "writing-assistant" };
+const VERIFAI: HomeTileTarget = { scope: "tool", entityId: "verifai" };
+
+/** Facts that shape a default beyond its stage. Each is independent of the others. */
+export interface HomeDefaultFacts {
+  /** The user can see at least one active Project. */
+  hasProjects?: boolean;
+  /**
+   * The user can run a VerifAI review (a Project role and a Constellation they can use), from
+   * the same access data as the VerifAI workspace. Without it, VerifAI stays on the Tools page
+   * and in Add Tile, but the default Home doesn't show a tool the user can't use yet.
+   */
+  canRunVerifai?: boolean;
+}
 
 /**
  * The Luxia default Home, on the existing 12-column grid and size presets.
- * The fixed header, Hero, search and What's New notice sit above it and are not tiles.
+ * The fixed header, Hero (Ask Luxia + Continue), search and What's New notice sit
+ * above it and are not tiles.
  *
- * returning
+ * returning: discovery, then tools, then work
  *   ┌──────────────────────── 12 ─────────────────────────┐
  *   │ Discover · Full width · Featured                    │  rows 0–4
- *   ├────── 4 ───────┬────── 4 ───────┬────── 4 ──────────┤
- *   │ Writing A.     │ Projects       │ Dashboards        │  rows 4–8
- *   │ Medium · Soft  │ Medium         │ Medium            │
- *   └────────────────┴────────────────┴───────────────────┘
+ *   ├────────────── 6 ───────────┬────────── 6 ───────────┤
+ *   │ Writing Assistant · Large  │ VerifAI · Large        │  rows 4–8
+ *   │ Soft                       │ Soft (with access)     │
+ *   ├────────────────────────────┼────────────────────────┤
+ *   │ Projects (updated) · Large │ Dashboards · Large     │  rows 8–12
+ *   └────────────────────────────┴────────────────────────┘
  *
- * guided (setup not finished)
+ * guided (setup not finished): onboarding first
  *   ┌──────────────────────── 12 ─────────────────────────┐
- *   │ Discover · Full width · Featured                    │  rows 0–4
+ *   │ Get started · Full width · Soft                     │  rows 0–4
  *   ├─────────────────────────────────────────────────────┤
- *   │ Get started · Full width · Soft                     │  rows 4–8
- *   ├────────── 3 ───┬──── 3 ──────┬──── 3 ───┬───────────┤
- *   │                │ Writing A.  │ Projects │           │  rows 8–10
- *   │                │ Small · Soft│ Small    │           │
- *   └────────────────┴─────────────┴──────────┴───────────┘
- *   No Dashboards until there are some; Projects stays a compact entry point.
+ *   │ Discover · Full width · Featured                    │  rows 4–8
+ *   ├────────────── 6 ───────────┬────────── 6 ───────────┤
+ *   │ Projects · Large           │ Dashboards · Large     │  only with a Project
+ *   ├────────────────────────────┼────────────────────────┤
+ *   │ Writing Assistant · Large  │ VerifAI · Large        │  VerifAI with access
+ *   └────────────────────────────┴────────────────────────┘
+ *   Without a Project there is no empty Projects card (Projects and Dashboards
+ *   stay in Add Tile).
  *
+ * Without VerifAI access, Writing Assistant keeps its Large size on its own.
  * Recent Chats sit in the Hero's Continue list and What's New in the notice above
  * the grid, so neither is a default tile; Data Sources and Constellations are
- * added from Add Tile.
+ * added from Add Tile. Each tool appears once.
  *
  * Only users without a saved layout, and Reset to Luxia default, get this one.
  * Every tile stays optional: removable, movable, resizable and restylable.
  * Returns a fresh copy on every call.
  */
-export function createDefaultHomeLayout(stage: HomeDefaultStage = "returning"): HomeLayout {
-  const discover = defaultTile(DEFAULT_HOME_TILE_IDS.tryExample, "try-example", 0, 0, "wide", { surface: "featured" });
-  const tiles = stage === "guided"
-    ? [
-      discover,
-      defaultTile(DEFAULT_HOME_TILE_IDS.getStarted, "get-started", 0, 4, "wide", { surface: "soft" }),
-      defaultTile(DEFAULT_HOME_TILE_IDS.writingAssistant, "tool", 3, 8, "small", { surface: "soft" }, WRITING_ASSISTANT),
-      defaultTile(DEFAULT_HOME_TILE_IDS.projects, "projects-collection", 6, 8, "small", { view: "updated", surface: "default" }),
-    ]
-    : [
-      discover,
-      defaultTile(DEFAULT_HOME_TILE_IDS.writingAssistant, "tool", 0, 4, "medium", { surface: "soft" }, WRITING_ASSISTANT),
-      defaultTile(DEFAULT_HOME_TILE_IDS.projects, "projects-collection", 4, 4, "medium", { view: "updated", surface: "default" }),
-      defaultTile(DEFAULT_HOME_TILE_IDS.dashboards, "dashboards-collection", 8, 4, "medium", { surface: "default" }),
-    ];
+export function createDefaultHomeLayout(
+  stage: HomeDefaultStage = "returning",
+  facts: HomeDefaultFacts = {},
+): HomeLayout {
+  const tiles: HomeTile[] = [];
+  let y = 0;
+  const discover = () => {
+    tiles.push(defaultTile(DEFAULT_HOME_TILE_IDS.tryExample, "try-example", 0, y, "wide", { surface: "featured" }));
+    y += 4;
+  };
+  const work = () => {
+    tiles.push(
+      defaultTile(DEFAULT_HOME_TILE_IDS.projects, "projects-collection", 0, y, "large", { view: "updated", surface: "default" }),
+      defaultTile(DEFAULT_HOME_TILE_IDS.dashboards, "dashboards-collection", 6, y, "large", { surface: "default" }),
+    );
+    y += 4;
+  };
+  const tools = () => {
+    tiles.push(defaultTile(DEFAULT_HOME_TILE_IDS.writingAssistant, "tool", 0, y, "large", { surface: "soft" }, WRITING_ASSISTANT));
+    if (facts.canRunVerifai) {
+      tiles.push(defaultTile(DEFAULT_HOME_TILE_IDS.verifai, "tool", 6, y, "large", { surface: "soft" }, VERIFAI));
+    }
+    y += 4;
+  };
+
+  if (stage === "guided") {
+    tiles.push(defaultTile(DEFAULT_HOME_TILE_IDS.getStarted, "get-started", 0, y, "wide", { surface: "soft" }));
+    y += 4;
+    discover();
+    if (facts.hasProjects) work();
+    tools();
+  } else {
+    discover();
+    tools();
+    work();
+  }
   return { schemaVersion: HOME_LAYOUT_SCHEMA_VERSION, tiles };
 }

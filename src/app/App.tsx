@@ -408,6 +408,7 @@ import {
   VerifaiChatActionsContext,
   VerifaiComposerIndicator,
   VerifyReviewModal,
+  canRunVerifaiReview,
   useVerifaiFollowUp,
   answerReviewFollowUp,
   getVerifaiFollowUp,
@@ -7080,6 +7081,13 @@ export default function App() {
     () => workingAccessibleOverviewConstellations.map((item) => ({ id: item.id, label: item.label, projectId: item.projectId })),
     [workingAccessibleOverviewConstellations],
   );
+  /** Same rule and data as the VerifAI workspace: a Project role and a Constellation the user can use. */
+  const homeCanRunVerifaiReview = useMemo(
+    () => verifaiToolProjects.some((project) =>
+      verifaiToolConstellations.some((constellation) => constellation.projectId === project.id)
+      && canRunVerifaiReview(project.role, true)),
+    [verifaiToolProjects, verifaiToolConstellations],
+  );
   const verifaiChatLabel = useCallback(
     (chatId: string) => chats.find((chat) => chat.id === chatId)?.label ?? null,
     [chats],
@@ -7631,6 +7639,7 @@ export default function App() {
           <HomePageShell scrollRequest={homeScrollRequest} variant="standard">
             <HomePage
               homeLayoutUserId={prototypeUserId}
+              canRunVerifaiReview={homeCanRunVerifaiReview}
               projects={accessibleHomeProjects}
               recentWork={recentWork}
               pinnedProjectIds={pinnedProjectIds}

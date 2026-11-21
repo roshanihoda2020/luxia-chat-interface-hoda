@@ -54,6 +54,18 @@ export interface HomeTileDefinition {
    */
   contentHeightSizes?: readonly HomeTileSize[];
   /**
+   * Sizes at which the card follows its own content height (never shorter than a Small tile) and
+   * stretches only to match a taller tile in the same row. The saved size and position are
+   * unchanged; only the empty space below short content goes away.
+   */
+  compactHeightSizes?: readonly HomeTileSize[];
+  /**
+   * The card shows its own title and description, so the Home section heading above it would only
+   * repeat them: the heading stays for assistive tech (visually hidden) and its height goes to the card,
+   * so rows, resizing and the Builder controls line up exactly as with a visible heading.
+   */
+  cardOwnsHeading?: boolean;
+  /**
    * Sizes at which the rendered component already ends with its own Home
    * section margin, so the grid must not add its row gap below it.
    */
@@ -234,14 +246,21 @@ export const HOME_TILE_DEFINITIONS: Record<HomeTileType, HomeTileDefinition> = {
     "updates",
     { allowedSizes: ["small", "medium", "large"], maxInstances: 1 },
   ),
-  tool: itemTile(
-    "tool",
-    "Tool",
-    "Open a Luxia tool such as Writing Assistant.",
-    "tools",
-    "tool",
-    "small",
-  ),
+  tool: {
+    ...itemTile(
+      "tool",
+      "Tool",
+      "Open a Luxia tool such as Writing Assistant or VerifAI.",
+      "tools",
+      "tool",
+      "small",
+      // Large: the tool's illustration beside its text (container-aware layout in ToolHomeTile).
+      ["small", "medium", "large"],
+    ),
+    // A Large tool card is a compact product card, not a 4-row block.
+    compactHeightSizes: ["large"],
+    cardOwnsHeading: true,
+  },
   "get-started": {
     type: "get-started",
     model: "guide",
@@ -331,6 +350,17 @@ export function homeTileUsesContentHeight(
   if (isHomeTileCollapsed(tile)) return true;
   const size = getHomeTileSizeId(tile);
   return Boolean(size && getHomeTileDefinition(tile.type).contentHeightSizes?.includes(size));
+}
+
+/** True when the tile's Home section heading is visually hidden (see cardOwnsHeading). */
+export function homeTileHidesSectionHeading(tile: Pick<HomeTile, "type">): boolean {
+  return Boolean(getHomeTileDefinition(tile.type).cardOwnsHeading);
+}
+
+/** True when the card follows its content height at its current size (see compactHeightSizes). */
+export function homeTileUsesCompactHeight(tile: Pick<HomeTile, "type" | "w" | "h">): boolean {
+  const size = getHomeTileSizeId(tile);
+  return Boolean(size && getHomeTileDefinition(tile.type).compactHeightSizes?.includes(size));
 }
 
 /**

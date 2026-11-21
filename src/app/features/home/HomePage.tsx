@@ -203,6 +203,7 @@ export function HomePage({
   onOpenProjectDashboards,
   onOpenTool,
   onOpenExplore,
+  canRunVerifaiReview = false,
 }: HomePageProps) {
   const [homeVisit, setHomeVisit] = useState(() => ({ userId: homeLayoutUserId, first: isFirstHomeVisit(homeLayoutUserId) }));
   let firstHomeVisit = homeVisit.first;
@@ -378,7 +379,10 @@ export function HomePage({
     && workWithPin.some((item) => item.kind === "chat")
     ? "returning"
     : "guided";
-  const homeBuilder = useHomeLayout(homeLayoutUserId, homeStage);
+  const homeBuilder = useHomeLayout(homeLayoutUserId, homeStage, {
+    hasProjects: activeProjects.length > 0,
+    canRunVerifai: canRunVerifaiReview,
+  });
 
   if (browseMode === "your-work") {
     return (
@@ -1021,7 +1025,7 @@ export function HomePage({
       return (
         <ToolHomeTile
           tool={tool}
-          density={density === "small" ? "small" : "medium"}
+          density={density}
           onOpen={() => onOpenTool(tool.id)}
         />
       );
