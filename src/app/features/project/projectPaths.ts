@@ -197,6 +197,20 @@ export function getToolsPath(): string {
   return "/tools";
 }
 
+/** Luxia AI workspace (standalone assistant, no Project): a new conversation, or one saved conversation. */
+export function getLuxiaAiPath(conversationId: string | null = null): string {
+  return conversationId ? `/luxia-ai/${encodeURIComponent(conversationId)}` : "/luxia-ai";
+}
+
+/** `/luxia-ai` → new conversation; `/luxia-ai/:id` → that conversation; anything else → undefined. */
+export function parseLuxiaAiPath(pathname: string): { conversationId: string | null } | undefined {
+  if (/^\/luxia-ai\/?$/.test(pathname)) return { conversationId: null };
+  const match = /^\/luxia-ai\/([^/]+)\/?$/.exec(pathname);
+  if (!match) return undefined;
+  const conversationId = decodePathSegment(match[1]);
+  return conversationId ? { conversationId } : undefined;
+}
+
 /** VerifAI Tool landing page. */
 export function getVerifaiToolPath(): string {
   return "/tools/verifai";
@@ -587,6 +601,7 @@ export type LuxiaResolvedPath =
   | { kind: "writing-assistant" }
   | { kind: "tools" }
   | { kind: "verifai-tool"; view: VerifaiToolView; reviewId: string | null }
+  | { kind: "luxia-ai"; conversationId: string | null }
   | { kind: "explore"; section: ExplorePathSection | null; slug: string | null }
   | { kind: "shared-review"; shareId: string }
   | { kind: "personal-settings" }
@@ -649,6 +664,11 @@ export function resolveLuxiaPathname(pathname: string): LuxiaResolvedPath {
   const verifaiTool = parseVerifaiToolPath(pathname);
   if (verifaiTool) {
     return { kind: "verifai-tool", view: verifaiTool.view, reviewId: verifaiTool.reviewId };
+  }
+
+  const luxiaAi = parseLuxiaAiPath(pathname);
+  if (luxiaAi) {
+    return { kind: "luxia-ai", conversationId: luxiaAi.conversationId };
   }
 
   const explore = parseExplorePath(pathname);

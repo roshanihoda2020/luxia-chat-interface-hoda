@@ -4,7 +4,8 @@ import type { HomeEntityKey } from "./homeEntityKeys";
 import { workItemEntityKey } from "./homeEntityKeys";
 import type { HomeRecentWorkItem } from "./types";
 
-export type ContinueEntityFilter = "all" | "galaxy" | "chat";
+/** "luxia-ai" lists only Luxia AI conversations (kept by the Luxia AI store, not as work items). */
+export type ContinueEntityFilter = "all" | "galaxy" | "chat" | "luxia-ai";
 export type ContinueSourceFilter = "all" | "database" | "csv" | "pdf";
 export type ContinueVisibilityFilter = "all" | "visible" | "hidden";
 export type ContinueSortMode =
@@ -94,6 +95,7 @@ export function filterContinueWorkItems(
     if (options.visibilityFilter === "visible" && isHidden) return false;
     if (options.visibilityFilter === "hidden" && !isHidden) return false;
 
+    if (options.entityFilter === "luxia-ai") return false;
     if (options.entityFilter === "galaxy" && item.kind !== "galaxySession") return false;
     if (options.entityFilter === "chat" && item.kind !== "chat") return false;
 

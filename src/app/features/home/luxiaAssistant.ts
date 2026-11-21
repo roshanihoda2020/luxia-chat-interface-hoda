@@ -43,6 +43,9 @@ export type LuxiaAssistantActionId =
   | "new-project"
   | "data-sources"
   | "writing-assistant"
+  | "verifai"
+  | "tools"
+  | "luxia-ai-workspace"
   | "chat-history"
   | "customize-home"
   | "explore"
@@ -53,7 +56,10 @@ export const LUXIA_ASSISTANT_ACTION_LABELS: Record<LuxiaAssistantActionId, strin
   "new-project": "New Project",
   "data-sources": "Open Data Sources",
   "writing-assistant": "Open Writing Assistant",
-  "chat-history": "Open Chat history",
+  verifai: "Open VerifAI",
+  tools: "Open Tools",
+  "luxia-ai-workspace": "Open Luxia AI workspace",
+  "chat-history": "Open All conversations",
   "customize-home": "Customize Home",
   explore: "Open Explore Luxia",
   "project-chat": "Chat in a Project",
@@ -151,8 +157,8 @@ const TOPICS: readonly Topic[] = [
     id: "chats",
     keywords: ["chat history", "my chats", "previous", "recent chats", "conversations", "where are my chats", "continue", "chats"],
     answer: () =>
-      "Your Project Chats and Galaxy conversations are listed in Chat history, most recent first. The latest ones also appear under Continue, just below this box. This Luxia AI conversation is separate and stays on Home.",
-    actions: () => ["chat-history"],
+      "Your Luxia AI conversations are saved in the Luxia AI workspace, where you can search, rename and delete them. The latest ones appear under Recent Luxia AI conversations, just below this box; View all opens the full list. Your Project Chats and Galaxy conversations stay in their Projects, and All conversations lists every type together.",
+    actions: () => ["luxia-ai-workspace", "chat-history"],
     followUps: ["What is a Galaxy?", "How do I customize Home?"],
   },
   {
@@ -164,11 +170,19 @@ const TOPICS: readonly Topic[] = [
     followUps: ["What tools are there?", "What can Luxia do?"],
   },
   {
+    id: "verifai",
+    keywords: ["verifai", "verify", "verification", "checklist", "checklists", "compliance"],
+    answer: () =>
+      "VerifAI checks documents against a checklist and lists its findings. A review uses a Constellation you can use in one of your Projects. It runs in the VerifAI workspace, and with @verifai in a Project Chat, not inside this conversation.",
+    actions: () => ["verifai"],
+    followUps: ["What tools are there?", "What is a Constellation?"],
+  },
+  {
     id: "tools",
     keywords: ["tool", "tools", "agents", "agent"],
     answer: () =>
-      "Tools are standalone capabilities in the sidebar. Today that's the Writing Assistant. New tools will appear there and can be added to Home as tiles.",
-    actions: () => ["writing-assistant"],
+      "Tools are standalone workspaces, listed under Tools in the sidebar: the Writing Assistant and VerifAI. Each opens in its own workspace with its own history; they don't run inside this conversation. You can also add them to Home as tiles.",
+    actions: () => ["tools", "writing-assistant", "verifai"],
     followUps: ["How do I customize Home?"],
   },
   {
@@ -232,14 +246,4 @@ export function answerLuxiaAssistant(question: string, abilities: LuxiaAssistant
   return { text: best.answer(abilities), actions: best.actions(abilities), followUps: [...best.followUps] };
 }
 
-/** Each user's Home conversation, kept for this browser session (until reload). */
-const conversations = new Map<string, LuxiaAssistantMessage[]>();
-
-export function readLuxiaConversation(key: string): LuxiaAssistantMessage[] {
-  return conversations.get(key) ?? [];
-}
-
-export function writeLuxiaConversation(key: string, messages: LuxiaAssistantMessage[]): void {
-  if (messages.length === 0) conversations.delete(key);
-  else conversations.set(key, messages);
-}
+/** Conversations are kept by `features/luxia-ai/conversationStore.ts` (per user, with history). */

@@ -325,6 +325,7 @@ import {
   queueWritingAssistantHandoff,
 } from "@/app/features/writing-assistant";
 import { ToolsPage } from "@/app/features/tools";
+import { LuxiaAiWorkspacePage } from "@/app/features/luxia-ai";
 import { ExplorePage } from "@/app/features/explore/ExplorePage";
 import { useExploreFeed } from "@/app/features/explore/useExploreFeed";
 import type { ExploreAction, ExploreContentSectionId, ExploreReturnTo, ExploreSectionId } from "@/app/features/explore/types";
@@ -420,7 +421,7 @@ import {
   type VerifaiStartInput,
 } from "@/app/features/verifai";
 import { VerifaiToolPage, type VerifaiToolConstellation, type VerifaiToolProject } from "@/app/features/verifai/tool/VerifaiToolPage";
-import { getVerifaiHistoryPath, getVerifaiReviewPath, getVerifaiToolPath, type VerifaiToolView } from "@/app/features/project/projectPaths";
+import { getLuxiaAiPath, getVerifaiHistoryPath, getVerifaiReviewPath, getVerifaiToolPath, type VerifaiToolView } from "@/app/features/project/projectPaths";
 import { ShieldCheck } from "lucide-react";
 import { resolveNewChatKnowledge } from "@/app/features/chat/newChatKnowledge";
 import { ComposerContextRow, type KnowledgeContextOption, type ProjectContextOption } from "@/app/features/chat-context/ComposerContextRow";
@@ -617,6 +618,7 @@ type LuxiaAppView =
   | "writing-assistant"
   | "tools"
   | "verifai-tool"
+  | "luxia-ai"
   | "explore"
   | "shared-review";
 
@@ -1090,6 +1092,8 @@ export default function App() {
   /** VerifAI Tool: workspace (new review, or the review shown) or Review History. */
   const [verifaiToolView, setVerifaiToolView] = useState<VerifaiToolView>("workspace");
   const [verifaiToolReviewId, setVerifaiToolReviewId] = useState<string | null>(null);
+  /** Luxia AI workspace: the open conversation (null = a new one). */
+  const [luxiaAiConversationId, setLuxiaAiConversationId] = useState<string | null>(null);
   /** One entry's full page (its slug) in the current section, or null. */
   const [exploreSlug, setExploreSlug] = useState<string | null>(INITIAL_SHELL.exploreSlug);
   /** Where an entry page was opened from, for its Back link (null: its own section). */
@@ -1914,6 +1918,19 @@ export default function App() {
         return;
       }
 
+      if (resolved.kind === "luxia-ai") {
+        setActiveProjectId(null);
+        setSettingsConstellationId(null);
+        setSettingsCapabilityPath(null);
+        setAccessLevelId(null);
+        setOrganizationUserId(null);
+        setDataSourceSettingsId(null);
+        // The conversation is looked up in the signed-in user's own history by the page.
+        setLuxiaAiConversationId(resolved.conversationId);
+        setAppView("luxia-ai");
+        return;
+      }
+
       if (resolved.kind === "explore") {
         setActiveProjectId(null);
         setSettingsConstellationId(null);
@@ -2264,6 +2281,7 @@ export default function App() {
     || appView === "writing-assistant"
     || appView === "tools"
     || appView === "verifai-tool"
+    || appView === "luxia-ai"
     || appView === "explore"
     ? null
     : appView === "project" || appView === "constellation-create" || appView === "constellation-settings" || appView === "galaxy-settings" || appView === "project-members" || appView === "project-vidgets" || appView === "project-pipelines" || appView === "pipeline-detail" || appView === "pipeline-run-detail" || appView === "vidget-inbox" || appView === "vidget-settings"
@@ -3468,6 +3486,25 @@ export default function App() {
     else if (toolId === "tools") handleOpenTools();
   }
 
+  /** Luxia AI workspace: a global page (no Project), on one saved conversation or a new one. */
+  function handleOpenLuxiaAi(conversationId: string | null = null, options: { replace?: boolean } = {}) {
+    setActiveProjectId(null);
+    setSettingsConstellationId(null);
+    setSettingsCapabilityPath(null);
+    setAccessLevelId(null);
+    setOrganizationUserId(null);
+    setDataSourceSettingsId(null);
+    setLuxiaAiConversationId(conversationId);
+    setAppView("luxia-ai");
+    if (typeof window !== "undefined") {
+      const next = getLuxiaAiPath(conversationId);
+      if (window.location.pathname !== next) {
+        if (options.replace) luxiaHistory.replace({ luxiaView: "luxia-ai" }, "", next);
+        else luxiaHistory.push({ luxiaView: "luxia-ai" }, "", next);
+      }
+    }
+  }
+
   function handleOpenAccountSettings(section: AccountSettingsSectionId = accountSettingsSection) {
     const next =
       section === "analytics" && !canViewOrganizationAnalytics(prototypeUserId)
@@ -4017,6 +4054,7 @@ export default function App() {
         || appView === "writing-assistant"
         || appView === "tools"
         || appView === "verifai-tool"
+        || appView === "luxia-ai"
         || appView === "explore"
         ? null
         : (activeProjectId
@@ -7529,7 +7567,7 @@ export default function App() {
         isMobileDrawer={isMobileNav}
         mobileOpen={mobileNavOpen}
         onMobileClose={() => setMobileNavOpen(false)}
-        homeActive={appView === "home"}
+        homeActive={appView === "home" || appView === "luxia-ai"}
         organizationUsersActive={
           appView === "organization-users" || appView === "organization-user"
         }
@@ -7706,6 +7744,7 @@ export default function App() {
               onOpenExplore={(section, slug) => handleOpenExplore(section ?? null, { slug, from: "home" })}
               onOpenDashboard={(projectId, dashboardId) => handleOpenProjectDashboard(projectId, dashboardId ?? null)}
               onOpenTool={handleOpenTool}
+              onOpenLuxiaAi={(conversationId) => handleOpenLuxiaAi(conversationId)}
             />
           </HomePageShell>
         ) : appView === "project" ? (
@@ -8869,6 +8908,34 @@ export default function App() {
               }}
               onNavigateHome={handleNavigateHome}
               onAction={handleExploreAction}
+            />
+          </HomePageShell>
+        ) : appView === "luxia-ai" ? (
+          <HomePageShell scrollRequest={homeScrollRequest} framed={false}>
+            <LuxiaAiWorkspacePage
+              key={prototypeUserId}
+              userId={prototypeUserId}
+              conversationId={luxiaAiConversationId}
+              abilities={{
+                canCreateProject: canCreateProject(),
+                canAddDataSources: canCreateOrganizationalDataSource(prototypeUserId),
+                hasProjects: filterActiveProjects(accessibleHomeProjects).length > 0,
+              }}
+              actions={{
+                projects: () => navigateHomeView("projects"),
+                "new-project": canCreateProject() ? () => setShowNewProjectModal(true) : undefined,
+                "data-sources": handleOpenDataSources,
+                "writing-assistant": handleOpenWritingAssistant,
+                verifai: () => handleOpenVerifaiTool(),
+                tools: handleOpenTools,
+                "chat-history": () => navigateHomeView("your-work"),
+                explore: () => handleOpenExplore("whats-new"),
+              }}
+              onOpenConversation={(conversationId, options) => handleOpenLuxiaAi(conversationId, options)}
+              onNavigateHome={handleNavigateHome}
+              onOpenAllConversations={() => navigateHomeView("your-work")}
+              onOpenTool={handleOpenTool}
+              onOpenTools={handleOpenTools}
             />
           </HomePageShell>
         ) : appView === "tools" ? (

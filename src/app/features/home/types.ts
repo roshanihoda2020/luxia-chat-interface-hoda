@@ -163,4 +163,6 @@ export interface HomePageProps {
   onOpenProjectDashboards?: (projectId: string) => void;
   /** Opens a Tool's own workspace ("tools" opens the Tools page). */
   onOpenTool?: (toolId: string) => void;
+  /** Opens the Luxia AI workspace, on one saved conversation or a new one (null). */
+  onOpenLuxiaAi?: (conversationId: string | null) => void;
 }
