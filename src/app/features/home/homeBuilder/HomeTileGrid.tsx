@@ -30,6 +30,7 @@ import {
 } from "./dragGeometry";
 import {
   HOME_TILE_GRID,
+  HOME_TILE_SECTION_HEADER,
   HOME_TILE_SIZE_PRESETS,
   findHomeTileSizeByDimensions,
   homeTileBodyHeightPx,
@@ -52,6 +53,8 @@ import {
   getHomeTileSizeId,
   getHomeTileSurfaceStyle,
   homeTileHasOwnBottomSpacing,
+  homeTileHidesSectionHeading,
+  homeTileUsesCompactHeight,
   homeTileUsesContentHeight,
 } from "./registry";
 import type { HomeLayout, HomeTile, HomeTileSize } from "./types";
@@ -602,7 +605,10 @@ export function HomeTileGrid({
           startLeft: frame.left,
           startWidth: frame.width,
           startHeight: frame.height,
-          headerPx: body.top - frame.top,
+          // A visually hidden heading still counts, so resizing snaps exactly as for a headed tile.
+          headerPx: homeTileHidesSectionHeading(tile) && getTileSection?.(tile)
+            ? HOME_TILE_SECTION_HEADER.heightPx + HOME_TILE_SECTION_HEADER.gapPx
+            : body.top - frame.top,
           width: frame.width,
           height: frame.height,
           hint: null,
@@ -1088,6 +1094,8 @@ export function HomeTileGrid({
         ref={gridRef}
         // isolate: the drag guides sit behind the tiles (z -1) without leaving the grid.
         className="luxia-home-tile-grid relative isolate grid min-w-0"
+        // Stacked (tablet / phone): tiles can adapt their inner composition to a full-width, content-height card.
+        data-stacked={stacked ? "" : undefined}
         style={{
           gridTemplateColumns: `repeat(${HOME_TILE_GRID.columns}, minmax(0, 1fr))`,
           columnGap: HOME_TILE_GRID.gapPx,
@@ -1151,21 +1159,44 @@ export function HomeTileGrid({
           // (collections show as many rows as fit) instead of growing the tile and stretching
           // its row. Stacked (tablet / phone): cards follow their content, never shorter than
           // a Small tile. Only the rendering changes; saved sizes and positions are untouched.
-          const slotHeight = sectionTile ? undefined : homeTileBodyHeightPx(stacked ? 2 : tile.h, Boolean(section));
-          const fixedBody = !sectionTile && !stacked;
+          // Compact cards (a Large tool card) follow their content like stacked cards do, so a row of
+          // them is only as tall as its content; beside a taller tile they still stretch to match.
+          const compact = !sectionTile && homeTileUsesCompactHeight(tile);
+          // A compact card that shares every one of its rows with fixed-height tiles is stretched to their
+          // height, so it can use its taller composition (layout only; the saved size is unchanged).
+          const stretchedByNeighbours = compact && !stacked && (() => {
+            const covered = new Set<number>();
+            for (const other of placements) {
+              if (other.tile.id === tile.id) continue;
+              if (homeTileUsesCompactHeight(other.tile) || homeTileUsesContentHeight(other.tile)) continue;
+              for (let row = Math.max(rowStart, other.rowStart); row < Math.min(rowEnd, other.rowEnd); row += 1) covered.add(row);
+            }
+            return covered.size >= rowEnd - rowStart;
+          })();
+          // A tile whose card carries its own title keeps its heading for screen readers only; on the grid
+          // its card takes the heading's height, so its top and bottom line up with headed neighbours.
+          const headingHidden = Boolean(section) && homeTileHidesSectionHeading(tile);
+          const headingSpace = headingHidden && !stacked && !compact
+            ? HOME_TILE_SECTION_HEADER.heightPx + HOME_TILE_SECTION_HEADER.gapPx
+            : 0;
+          const slotHeight = sectionTile ? undefined : homeTileBodyHeightPx(stacked || compact ? 2 : tile.h, Boolean(section)) + headingSpace;
+          const fixedBody = !sectionTile && !stacked && !compact;
           const bodyStyle: CSSProperties = fixedBody
             ? { height: slotHeight, minHeight: slotHeight }
             : { minHeight: slotHeight };
           const bodyFlex = fixedBody ? "flex-none" : "flex-1";
-          const sectionHeader = section
-            ? <HomeTileSectionHeader section={section} id={headingId} compact={!stacked && tile.w <= 3} />
-            : null;
+          const sectionHeader = !section
+            ? null
+            : headingHidden
+              ? <h2 id={headingId} className="sr-only">{section.title}</h2>
+              : <HomeTileSectionHeader section={section} id={headingId} compact={!stacked && tile.w <= 3} />;
           return (
             <div
               key={tile.id}
               className="luxia-home-tile flex min-w-0 flex-col"
               data-home-tile-id={tile.id}
               data-home-tile-type={tile.type}
+              data-home-tile-stretched={stretchedByNeighbours ? "" : undefined}
               style={style}
             >
               {isLifted ? (

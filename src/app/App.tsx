@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import {
   LoginPage,
   MfaInAppNudge,
@@ -325,6 +325,7 @@ import {
   queueWritingAssistantHandoff,
 } from "@/app/features/writing-assistant";
 import { ToolsPage } from "@/app/features/tools";
+import { LuxiaAiWorkspacePage } from "@/app/features/luxia-ai";
 import { ExplorePage } from "@/app/features/explore/ExplorePage";
 import { useExploreFeed } from "@/app/features/explore/useExploreFeed";
 import type { ExploreAction, ExploreContentSectionId, ExploreReturnTo, ExploreSectionId } from "@/app/features/explore/types";
@@ -408,6 +409,7 @@ import {
   VerifaiChatActionsContext,
   VerifaiComposerIndicator,
   VerifyReviewModal,
+  canRunVerifaiReview,
   useVerifaiFollowUp,
   answerReviewFollowUp,
   getVerifaiFollowUp,
@@ -418,6 +420,8 @@ import {
   type VerifaiLaunchContext,
   type VerifaiStartInput,
 } from "@/app/features/verifai";
+import { VerifaiToolPage, type VerifaiToolConstellation, type VerifaiToolProject } from "@/app/features/verifai/tool/VerifaiToolPage";
+import { getLuxiaAiPath, getVerifaiHistoryPath, getVerifaiReviewPath, getVerifaiToolPath, type VerifaiToolView } from "@/app/features/project/projectPaths";
 import { ShieldCheck } from "lucide-react";
 import { resolveNewChatKnowledge } from "@/app/features/chat/newChatKnowledge";
 import { ComposerContextRow, type KnowledgeContextOption, type ProjectContextOption } from "@/app/features/chat-context/ComposerContextRow";
@@ -613,6 +617,8 @@ type LuxiaAppView =
   | "admin-pipelines"
   | "writing-assistant"
   | "tools"
+  | "verifai-tool"
+  | "luxia-ai"
   | "explore"
   | "shared-review";
 
@@ -1029,6 +1035,12 @@ function NewChatModal({
 
 export default function App() {
   const [chats, setChats] = useState<Chat[]>(INITIAL_CHATS);
+  /**
+   * Saved Chats only. Drafts (prepared by a Constellation switch, no message yet) are left out of
+   * EVERY list, count, search, metric and history built from this; the first message promotes a
+   * draft (same id). Use `chats` only to resolve a Chat by id (e.g. the open draft).
+   */
+  const persistedChats = useMemo(() => chats.filter((c) => !c.draft), [chats]);
   const [activeChat, setActiveChat] = useState(INITIAL_SHELL.activeChat);
   const [chatMessages, setChatMessages] = useState<Record<string, Message[]>>(INITIAL_MESSAGES);
   /** Unsent composer text, one per Chat — never shared across Chats or Projects. */
@@ -1083,6 +1095,11 @@ export default function App() {
   const [appView, setAppView] = useState<LuxiaAppView>(INITIAL_SHELL.appView);
   /** Explore Luxia section from the URL (null: the first visible section). */
   const [exploreSection, setExploreSection] = useState<ExplorePathSection | null>(INITIAL_SHELL.exploreSection);
+  /** VerifAI Tool: workspace (new review, or the review shown) or Review History. */
+  const [verifaiToolView, setVerifaiToolView] = useState<VerifaiToolView>("workspace");
+  const [verifaiToolReviewId, setVerifaiToolReviewId] = useState<string | null>(null);
+  /** Luxia AI workspace: the open conversation (null = a new one). */
+  const [luxiaAiConversationId, setLuxiaAiConversationId] = useState<string | null>(null);
   /** One entry's full page (its slug) in the current section, or null. */
   const [exploreSlug, setExploreSlug] = useState<string | null>(INITIAL_SHELL.exploreSlug);
   /** Where an entry page was opened from, for its Back link (null: its own section). */
@@ -1893,6 +1910,33 @@ export default function App() {
         return;
       }
 
+      if (resolved.kind === "verifai-tool") {
+        setActiveProjectId(null);
+        setSettingsConstellationId(null);
+        setSettingsCapabilityPath(null);
+        setAccessLevelId(null);
+        setOrganizationUserId(null);
+        setDataSourceSettingsId(null);
+        // Access to the review itself is checked by the page against the signed-in user.
+        setVerifaiToolView(resolved.view);
+        setVerifaiToolReviewId(resolved.reviewId);
+        setAppView("verifai-tool");
+        return;
+      }
+
+      if (resolved.kind === "luxia-ai") {
+        setActiveProjectId(null);
+        setSettingsConstellationId(null);
+        setSettingsCapabilityPath(null);
+        setAccessLevelId(null);
+        setOrganizationUserId(null);
+        setDataSourceSettingsId(null);
+        // The conversation is looked up in the signed-in user's own history by the page.
+        setLuxiaAiConversationId(resolved.conversationId);
+        setAppView("luxia-ai");
+        return;
+      }
+
       if (resolved.kind === "explore") {
         setActiveProjectId(null);
         setSettingsConstellationId(null);
@@ -2242,6 +2286,8 @@ export default function App() {
     || appView === "admin-pipelines"
     || appView === "writing-assistant"
     || appView === "tools"
+    || appView === "verifai-tool"
+    || appView === "luxia-ai"
     || appView === "explore"
     ? null
     : appView === "project" || appView === "constellation-create" || appView === "constellation-settings" || appView === "galaxy-settings" || appView === "project-members" || appView === "project-vidgets" || appView === "project-pipelines" || appView === "pipeline-detail" || appView === "pipeline-run-detail" || appView === "vidget-inbox" || appView === "vidget-settings"
@@ -2311,7 +2357,7 @@ export default function App() {
     // Seeded Chats use their LIVE version (e.g. after a rename); then Chats created this session.
     const source = [
       ...INITIAL_CHATS.map((seed) => chats.find((c) => c.id === seed.id) ?? seed),
-      ...chats.filter((c) => !INITIAL_CHATS.some((i) => i.id === c.id)),
+      ...persistedChats.filter((c) => !INITIAL_CHATS.some((i) => i.id === c.id)),
     ].filter((c) => !deletedChatIds.has(c.id));
     const byProject = new Map<string, number>();
     return source.map((chat) => {
@@ -2343,7 +2389,7 @@ export default function App() {
         lastOpenedTimestamp: Date.now() - hoursAgo * 3_600_000,
       };
     });
-  }, [chats, allConstellations, deletedChatIds]);
+  }, [chats, persistedChats, allConstellations, deletedChatIds]);
 
   const overviewConstellations: ProjectOverviewConstellation[] = useMemo(
     () => allConstellations
@@ -2529,8 +2575,9 @@ export default function App() {
 
   /**
    * Composer "Answers from:" selector. Constellation → empty Chat: changed in place;
-   * Chat with messages: new Chat in the same Project. Galaxy → the Project's Galaxy Chat.
-   * From Galaxy to a Constellation → a new Chat in the same Project. The unsent draft moves.
+   * Chat with messages: a draft conversation in the same Project. Galaxy → the Project's Galaxy
+   * Chat. From Galaxy to a Constellation → a draft conversation in the same Project. Drafts are
+   * saved only by their first message. The unsent text moves (never copied).
    */
   function handleComposerSelectKnowledge(option: KnowledgeContextOption) {
     const active = activeData;
@@ -2539,9 +2586,12 @@ export default function App() {
     const moveDraftTo = (targetId: string) => {
       if (!draft) return;
       setDraftsByChatId((p) => {
+        // Move only into an empty composer; otherwise the text stays where it is (never lost,
+        // never merged into another conversation's unsent text).
+        if ((p[targetId] ?? "").trim()) return p;
         const next = { ...p };
         delete next[active.id];
-        if (!next[targetId]) next[targetId] = draft;
+        next[targetId] = draft;
         return next;
       });
     };
@@ -2559,20 +2609,12 @@ export default function App() {
     }
     if (!assertConstellationUseAccess(active.projectId, option.id)) return;
     rememberedConstellationRef.current[active.projectId] = option.id;
-    const id = `c${Date.now()}`;
-    const created: Chat = {
-      id,
-      label: newChatTitle(),
-      chatType: "constellation",
-      projectId: active.projectId,
-      constellationId: option.id,
-    };
-    setChats((p) => [...p, created]);
-    setChatMessages((p) => ({ ...p, [id]: [] }));
-    markNewChat(id);
-    moveDraftTo(id);
+    // Galaxy → Constellation: a DRAFT (saved only when its first message is sent).
+    const created = startDraftChat(active.projectId, option.id, active.id);
+    if (!created) return;
+    moveDraftTo(created.id);
     focusChat(created);
-    setKnowledgeNotice({ chatId: id, kind: "from-galaxy", label: option.label });
+    setKnowledgeNotice({ chatId: created.id, kind: "from-galaxy", label: option.label, pending: true });
   }
 
   function openChatFinder() {
@@ -3420,6 +3462,51 @@ export default function App() {
     }
   }
 
+  /** VerifAI Tool: the workspace (new review, or one review — same id as in Chat) or Review History. */
+  function handleOpenVerifaiTool(reviewId: string | null = null, view: VerifaiToolView = "workspace") {
+    setActiveProjectId(null);
+    setSettingsConstellationId(null);
+    setSettingsCapabilityPath(null);
+    setAccessLevelId(null);
+    setOrganizationUserId(null);
+    setDataSourceSettingsId(null);
+    setVerifaiToolView(view);
+    setVerifaiToolReviewId(view === "history" ? null : reviewId);
+    setAppView("verifai-tool");
+    if (typeof window !== "undefined") {
+      const next = view === "history" ? getVerifaiHistoryPath() : reviewId ? getVerifaiReviewPath(reviewId) : getVerifaiToolPath();
+      if (window.location.pathname !== next) {
+        luxiaHistory.push({ luxiaView: "verifai-tool" }, "", next);
+      }
+    }
+  }
+
+  /** Opens a Tool from any Tools surface (Tools page, Home tiles, Luxia AI); "tools" opens the Tools page. */
+  function handleOpenTool(toolId: string) {
+    if (toolId === "writing-assistant") handleOpenWritingAssistant();
+    else if (toolId === "verifai") handleOpenVerifaiTool();
+    else if (toolId === "tools") handleOpenTools();
+  }
+
+  /** Luxia AI workspace: a global page (no Project), on one saved conversation or a new one. */
+  function handleOpenLuxiaAi(conversationId: string | null = null, options: { replace?: boolean } = {}) {
+    setActiveProjectId(null);
+    setSettingsConstellationId(null);
+    setSettingsCapabilityPath(null);
+    setAccessLevelId(null);
+    setOrganizationUserId(null);
+    setDataSourceSettingsId(null);
+    setLuxiaAiConversationId(conversationId);
+    setAppView("luxia-ai");
+    if (typeof window !== "undefined") {
+      const next = getLuxiaAiPath(conversationId);
+      if (window.location.pathname !== next) {
+        if (options.replace) luxiaHistory.replace({ luxiaView: "luxia-ai" }, "", next);
+        else luxiaHistory.push({ luxiaView: "luxia-ai" }, "", next);
+      }
+    }
+  }
+
   function handleOpenAccountSettings(section: AccountSettingsSectionId = accountSettingsSection) {
     const next =
       section === "analytics" && !canViewOrganizationAnalytics(prototypeUserId)
@@ -3968,6 +4055,8 @@ export default function App() {
         || appView === "admin-pipelines"
         || appView === "writing-assistant"
         || appView === "tools"
+        || appView === "verifai-tool"
+        || appView === "luxia-ai"
         || appView === "explore"
         ? null
         : (activeProjectId
@@ -4729,7 +4818,7 @@ export default function App() {
     [
       // Live chats with real activity this session (created on Home or anywhere) that are not
       // part of the seeded demo list; their recency is the real open/send time.
-      ...chats
+      ...persistedChats
         .filter((c) => chatActivityAt[c.id] && !HOME_RECENT_WORK.some((item) => item.chatId === c.id))
         .map((c): HomeRecentWorkItem => ({
           id: `work-live-${c.id}`,
@@ -4781,7 +4870,7 @@ export default function App() {
           projectDescription: projectCard?.description,
         };
       })
-  ), [allConstellations, chats, chatActivityAt, deletedChatIds, homeProjects, pinnedEntityOrder, projectMembershipsState, prototypeUserId, accessLevelsState, dataSourcesState, constellationSettingsById]);
+  ), [allConstellations, chats, persistedChats, chatActivityAt, deletedChatIds, homeProjects, pinnedEntityOrder, projectMembershipsState, prototypeUserId, accessLevelsState, dataSourcesState, constellationSettingsById]);
 
   useEffect(() => {
     const normalized = normalizeHomePrimaryPreference(
@@ -5579,7 +5668,7 @@ export default function App() {
    * Deleted chats are removed here, so their names become free (backend soft-delete: unverified).
    */
   function takenChatTitles(exceptId?: string): string[] {
-    return chats.filter((c) => c.id !== exceptId).map((c) => c.label);
+    return persistedChats.filter((c) => c.id !== exceptId).map((c) => c.label);
   }
 
   /** The single default name for every new chat until its first question. */
@@ -5614,7 +5703,7 @@ export default function App() {
   }
 
   /** Creates a chat record (access-checked) WITHOUT navigating. Shared by every create path. */
-  function createChatRecord(payload: NewChatPayload): Chat | null {
+  function createChatRecord(payload: NewChatPayload, options?: { draft?: boolean; draftFrom?: string }): Chat | null {
     if (
       payload.chatType === "constellation"
       && payload.constellationId
@@ -5633,6 +5722,10 @@ export default function App() {
       chatType: payload.chatType,
       projectId: payload.projectId,
       constellationId: payload.constellationId,
+      // Galaxy chats are never drafts (each Project has its own Galaxy chat).
+      ...(options?.draft && payload.chatType === "constellation"
+        ? { draft: true, ...(options.draftFrom ? { draftFrom: options.draftFrom } : {}) }
+        : {}),
     };
     setChats((p) => [...p, created]);
     setChatMessages((p) => ({ ...p, [id]: [] }));
@@ -5641,6 +5734,44 @@ export default function App() {
       setGalaxySessions((p) => ({ ...p, [id]: createIdleGalaxySession(projectName) }));
     }
     return created;
+  }
+
+  /**
+   * Constellation switch: prepare a DRAFT conversation (ready to type, not a saved Chat) in the
+   * same Project. An unused draft for the same Project and Constellation (no messages, no unsent
+   * text) is reused, so repeated switching never piles up "New chat (2)", "(3)"…
+   * Access is checked by createChatRecord / the caller.
+   */
+  function startDraftChat(projectId: string, constellationId: string, draftFrom: string): Chat | null {
+    const reusable = chats.find((c) =>
+      c.draft
+      && c.id !== draftFrom
+      && c.chatType === "constellation"
+      && c.projectId === projectId
+      && c.constellationId === constellationId
+      && !deletedChatIds.has(c.id)
+      && (chatMessages[c.id]?.length ?? 0) === 0
+      && !(draftsByChatId[c.id] ?? "").trim());
+    if (reusable) {
+      if (!assertConstellationUseAccess(projectId, constellationId)) return null;
+      rememberedConstellationRef.current[projectId] = constellationId;
+      if (reusable.draftFrom !== draftFrom) {
+        setChats((p) => p.map((c) => (c.id === reusable.id ? { ...c, draftFrom } : c)));
+      }
+      return { ...reusable, draftFrom };
+    }
+    return createChatRecord({ chatType: "constellation", projectId, constellationId }, { draft: true, draftFrom });
+  }
+
+  /** First successful message: the draft becomes a real Chat with the SAME id (no copy, no orphan). */
+  function promoteDraftChat(chatId: string) {
+    setChats((p) => (p.some((c) => c.id === chatId && c.draft)
+      ? p.map((c) => {
+        if (c.id !== chatId) return c;
+        const { draft: _draft, draftFrom: _from, ...saved } = c;
+        return saved;
+      })
+      : p));
   }
 
   function handleNewChatCreate(payload: NewChatPayload, draftOverride?: string) {
@@ -5812,9 +5943,10 @@ export default function App() {
 
   /**
    * Change the primary Constellation of the active Chat.
-   * Empty Chat: updated in place. Chat with messages: a NEW Chat in the same Project is
-   * started with the chosen Constellation (the original keeps its Project, Constellation,
-   * title, messages and history); the unsent draft moves to the new Chat.
+   * Empty Chat (or draft): updated in place. Chat with messages: a DRAFT conversation in the
+   * same Project is prepared with the chosen Constellation (the original keeps its Project,
+   * Constellation, title, messages and history); the unsent text moves to the draft. The draft
+   * becomes a saved Chat only when its first message is sent.
    */
   function handleConstellationChange(conId: string) {
     const active = chats.find((c) => c.id === activeChat);
@@ -5833,18 +5965,13 @@ export default function App() {
       setKnowledgeNotice({ chatId: active.id, kind: "in-place", label: newLabel });
       return;
     }
-    const id = `c${Date.now()}`;
-    const created: Chat = {
-      id,
-      label: newChatTitle(),
-      chatType: "constellation",
-      projectId: active.projectId,
-      constellationId: conId,
-    };
+    // Chat with messages: prepare a DRAFT (no saved Chat until the first message is sent).
+    const created = startDraftChat(active.projectId, conId, active.id);
+    if (!created) return;
+    const id = created.id;
     const draft = draftsByChatId[active.id] ?? "";
-    setChats((p) => [...p, created]);
-    setChatMessages((p) => ({ ...p, [id]: [] }));
-    markNewChat(id);
+    // The unsent text MOVES (never copied), so it can only be sent from one place: the draft,
+    // whose Constellation is shown in the composer and the notice. A reused draft has no text.
     setDraftsByChatId((p) => {
       const next = { ...p };
       delete next[active.id];
@@ -5852,7 +5979,7 @@ export default function App() {
       return next;
     });
     focusChat(created);
-    setKnowledgeNotice({ chatId: id, kind: "new-chat", label: newLabel, previousLabel: active.label });
+    setKnowledgeNotice({ chatId: id, kind: "new-chat", label: newLabel, previousLabel: active.label, pending: true });
   }
 
   function updateGalaxySession(chatId: string, patch: Partial<GalaxySessionState>) {
@@ -5914,24 +6041,26 @@ export default function App() {
         .map((item) => ({ id: item.id, label: item.label }));
     }
     setVerifaiLaunch({
-      chatId,
+      origin: { kind: "chat", chatId, chatType: chat.chatType },
+      userId: prototypeUserId,
       projectId: chat.projectId,
       projectName: getProjectNameById(chat.projectId, homeProjects),
-      chatType: chat.chatType,
       constellations,
     });
   }
 
   function handleStartVerifai(input: VerifaiStartInput) {
     setVerifaiLaunch(null);
+    const reviewId = startVerifaiReview(input);
+    if (input.origin.kind !== "chat") return;
+    const chatId = input.origin.chatId;
     const now = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
     const uid = `u${counterRef.current++}`, aid = `a${counterRef.current++}`;
-    const reviewId = startVerifaiReview(input);
-    noteChatActivity(input.chatId);
+    noteChatActivity(chatId);
     setChatMessages((p) => ({
       ...p,
-      [input.chatId]: [
-        ...(p[input.chatId] ?? []),
+      [chatId]: [
+        ...(p[chatId] ?? []),
         { id: uid, role: "user", content: `Verify ${input.document.name} against ${input.checklist.name}`, timestamp: now },
         { id: aid, role: "ai", content: "", timestamp: now, verifai: { reviewId } },
       ],
@@ -5939,25 +6068,31 @@ export default function App() {
   }
 
   // Review context is only turned on by these explicit actions, and unsent text is never replaced.
+  // Chat cards only show reviews that belong to that Chat, so `review.chatId` is set here.
   const verifaiChatActions: VerifaiChatActions = {
     askAboutFinding: (review, finding) => {
-      setVerifaiFollowUp(review.chatId, { reviewId: review.id, findingId: finding.id });
-      if (!(draftsByChatId[review.chatId] ?? "").trim()) {
-        setChatDraft(review.chatId, `Why is ${finding.requirementId} a problem and how do I fix it?`);
+      const chatId = review.chatId;
+      if (!chatId) return;
+      setVerifaiFollowUp(chatId, { reviewId: review.id, findingId: finding.id });
+      if (!(draftsByChatId[chatId] ?? "").trim()) {
+        setChatDraft(chatId, `Why is ${finding.requirementId} a problem and how do I fix it?`);
       }
       setComposerFocusNonce((n) => n + 1);
     },
     askAboutReview: (review) => {
+      if (!review.chatId) return;
       setVerifaiFollowUp(review.chatId, { reviewId: review.id });
       setComposerFocusNonce((n) => n + 1);
     },
     askFollowUp: (review, question) => {
-      const draft = draftsByChatId[review.chatId] ?? "";
-      setVerifaiFollowUp(review.chatId, { reviewId: review.id });
-      sendToChat(review.chatId, question, undefined, { reviewContext: true });
-      if (draft) setChatDraft(review.chatId, draft);
+      const chatId = review.chatId;
+      if (!chatId) return;
+      const draft = draftsByChatId[chatId] ?? "";
+      setVerifaiFollowUp(chatId, { reviewId: review.id });
+      sendToChat(chatId, question, undefined, { reviewContext: true });
+      if (draft) setChatDraft(chatId, draft);
     },
-    startNewReview: (review) => openVerifai(review.chatId),
+    startNewReview: (review) => openVerifai(review.chatId ?? activeChat),
   };
   const activeVerifaiFollowUp = useVerifaiFollowUp(activeChat);
 
@@ -6008,6 +6143,7 @@ export default function App() {
         ],
       }));
       if (verifaiContext.findingId) setVerifaiFollowUp(chatId, { reviewId: verifaiReview.id });
+      promoteDraftChat(chatId);
       return;
     }
 
@@ -6020,6 +6156,8 @@ export default function App() {
       ) {
         return;
       }
+      // The first message saves a draft as a real Chat (same id, Project and Constellation).
+      promoteDraftChat(chatId);
       const constellationRecord = active?.constellationId
         ? resolveConstellationSettingsRecordForView(active.constellationId)
         : undefined;
@@ -6788,10 +6926,12 @@ export default function App() {
     // Dashboard a Home tile just asked to open.
   }, [activeProjectId]);
 
+  /** Accessible saved Chats, plus the draft that is open right now (its tab only while open). */
   const workingAccessibleChats = useMemo(
-    () => chats.filter((chat) => isChatWorkingAccessible(chat)),
+    () => chats.filter((chat) => (!chat.draft || chat.id === activeChat) && isChatWorkingAccessible(chat)),
     [
       chats,
+      activeChat,
       prototypeUserId,
       projectMembershipsState,
       accessLevelsState,
@@ -6799,6 +6939,33 @@ export default function App() {
       constellationSettingsById,
     ],
   );
+
+  /**
+   * Leaving a draft without sending: its unsent text goes back to the Chat it came from (where it
+   * was typed, with that Chat's Constellation), so Back / opening that Chat shows it again. It
+   * only moves into an empty composer and is never copied, so it can never be sent twice or to a
+   * Constellation the user did not see. The unused draft stays hidden and is reused later.
+   */
+  const previousActiveChatRef = useRef(activeChat);
+  useEffect(() => {
+    const leftId = previousActiveChatRef.current;
+    previousActiveChatRef.current = activeChat;
+    if (!leftId || leftId === activeChat) return;
+    const left = chats.find((c) => c.id === leftId);
+    if (!left?.draft || !left.draftFrom || (chatMessages[leftId]?.length ?? 0) > 0) return;
+    const sourceId = left.draftFrom;
+    if (deletedChatIds.has(sourceId) || !chats.some((c) => c.id === sourceId)) return;
+    setDraftsByChatId((p) => {
+      const text = p[leftId] ?? "";
+      if (!text.trim() || (p[sourceId] ?? "").trim()) return p;
+      const next = { ...p };
+      delete next[leftId];
+      next[sourceId] = text;
+      return next;
+    });
+    // Only the change of active chat matters here; the other values are read at that moment.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeChat]);
 
   /** The open tabs: accessible Chats that are not closed. */
   const openAccessibleChats = useMemo(
@@ -6951,7 +7118,7 @@ export default function App() {
     dataSources: dataSourcesState.length,
     accessLevels: accessLevelsState.length,
     constellations: CANONICAL_CONSTELLATIONS.length,
-    chats: chats.length,
+    chats: persistedChats.length,
     dashboardOutputs: PROJECT_DASHBOARD_OUTPUTS.length,
     vidgets: vidgetsState.length,
   }), [
@@ -6959,7 +7126,7 @@ export default function App() {
     organizationUsersState,
     dataSourcesState,
     accessLevelsState,
-    chats,
+    persistedChats,
     vidgetsState,
   ]);
 
@@ -7009,6 +7176,42 @@ export default function App() {
     () => knowledgeOptionsFor(activeData?.projectId),
     [activeData?.projectId, chats, homeProjects, deletedChatIds, workingAccessibleOverviewConstellations], // eslint-disable-line react-hooks/exhaustive-deps
   );
+
+  // VerifAI Tool scope: Projects with an active membership (their real role, never implied by Org
+  // Admin) and only the Constellations this user can Use.
+  const verifaiToolProjects: VerifaiToolProject[] = useMemo(
+    () => accessibleHomeProjects.map((project) => ({
+      id: project.id,
+      name: project.name,
+      role: getActiveProjectMembership(project.id, projectMembershipsState, prototypeUserId)?.projectRole ?? null,
+    })),
+    [accessibleHomeProjects, projectMembershipsState, prototypeUserId],
+  );
+  const verifaiToolConstellations: VerifaiToolConstellation[] = useMemo(
+    () => workingAccessibleOverviewConstellations.map((item) => ({ id: item.id, label: item.label, projectId: item.projectId })),
+    [workingAccessibleOverviewConstellations],
+  );
+  /** Same rule and data as the VerifAI workspace: a Project role and a Constellation the user can use. */
+  const homeCanRunVerifaiReview = useMemo(
+    () => verifaiToolProjects.some((project) =>
+      verifaiToolConstellations.some((constellation) => constellation.projectId === project.id)
+      && canRunVerifaiReview(project.role, true)),
+    [verifaiToolProjects, verifaiToolConstellations],
+  );
+  const verifaiChatLabel = useCallback(
+    (chatId: string) => chats.find((chat) => chat.id === chatId)?.label ?? null,
+    [chats],
+  );
+  const handleVerifaiReviewUnavailable = useCallback(() => {
+    setVerifaiToolReviewId(null);
+    if (typeof window !== "undefined" && window.location.pathname !== getVerifaiToolPath()) {
+      luxiaHistory.replace({ luxiaView: "verifai-tool" }, "", getVerifaiToolPath());
+    }
+    // Next frame: on a direct URL this runs in the same commit that mounts the Toaster.
+    window.requestAnimationFrame(() => notifyRouteUnavailable("This review isn't available."));
+    // notifyRouteUnavailable only reads refs and the toast API.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ---------------------------------------------------------------------------------------------
   // Home inline Project Chat (uses the shared chat records, messages, drafts and send pipeline)
@@ -7096,7 +7299,7 @@ export default function App() {
     } : null);
   }
 
-  /** The real chat for Home's current scope; created on first need (an unused empty one is reused). */
+  /** The chat for Home's current scope; created on first need as a draft (an unused empty one is reused). */
   function ensureHomeChat(projectId: string): Chat | null {
     const current = resolveHomeSession(projectId);
     if (current.chat) return current.chat;
@@ -7109,13 +7312,18 @@ export default function App() {
       setHomeSessions((p) => ({ ...p, [projectId]: { chatId: galaxy.id, knowledge: { kind: "galaxy", id: knowledge.id }, draft: "" } }));
       return galaxy;
     }
-    const reusable = workingAccessibleChats.find((c) =>
+    // Reuse an unused empty chat or draft (drafts are not in workingAccessibleChats unless open).
+    const reusable = chats.find((c) =>
       c.projectId === projectId
       && c.chatType === "constellation"
       && c.constellationId === knowledge.id
+      && !deletedChatIds.has(c.id)
+      && isChatWorkingAccessible(c)
       && (chatMessages[c.id]?.length ?? 0) === 0
       && !(draftsByChatId[c.id] ?? "").trim());
-    const chat = reusable ?? createChatRecord({ chatType: "constellation", projectId, constellationId: knowledge.id });
+    // A DRAFT until its first message (sending right away promotes it in sendToChat), so
+    // "Open full chat" before any message never lists an empty chat.
+    const chat = reusable ?? createChatRecord({ chatType: "constellation", projectId, constellationId: knowledge.id }, { draft: true });
     if (!chat) return null;
     setHomeSessions((p) => ({ ...p, [projectId]: { chatId: chat.id, knowledge: { kind: "constellation", id: knowledge.id }, draft: "" } }));
     return chat;
@@ -7436,14 +7644,14 @@ export default function App() {
         isMobileDrawer={isMobileNav}
         mobileOpen={mobileNavOpen}
         onMobileClose={() => setMobileNavOpen(false)}
-        homeActive={appView === "home"}
+        homeActive={appView === "home" || appView === "luxia-ai"}
         organizationUsersActive={
           appView === "organization-users" || appView === "organization-user"
         }
         accessLevelsActive={appView === "access-levels" || appView === "access-level"}
         dataSourcesActive={appView === "data-sources" || appView === "data-source-settings"}
         adminPipelinesActive={appView === "admin-pipelines"}
-        toolsActive={appView === "tools" || appView === "writing-assistant"}
+        toolsActive={appView === "tools" || appView === "writing-assistant" || appView === "verifai-tool"}
         canAdministerPipelines={canAdministerAccessLevels(prototypeUserId)}
         collapsePipelinesCollector={
           viewportWidth < 1280
@@ -7546,6 +7754,7 @@ export default function App() {
           <HomePageShell scrollRequest={homeScrollRequest} variant="standard">
             <HomePage
               homeLayoutUserId={prototypeUserId}
+              canRunVerifaiReview={homeCanRunVerifaiReview}
               projects={accessibleHomeProjects}
               recentWork={recentWork}
               pinnedProjectIds={pinnedProjectIds}
@@ -7611,9 +7820,8 @@ export default function App() {
               onOpenDataSources={handleOpenDataSources}
               onOpenExplore={(section, slug) => handleOpenExplore(section ?? null, { slug, from: "home" })}
               onOpenDashboard={(projectId, dashboardId) => handleOpenProjectDashboard(projectId, dashboardId ?? null)}
-              onOpenTool={(toolId) => {
-                if (toolId === "writing-assistant") handleOpenWritingAssistant();
-              }}
+              onOpenTool={handleOpenTool}
+              onOpenLuxiaAi={(conversationId) => handleOpenLuxiaAi(conversationId)}
             />
           </HomePageShell>
         ) : appView === "project" ? (
@@ -8011,7 +8219,7 @@ export default function App() {
                     );
                   }}
                   focusHeadingToken={settingsFocusHeadingToken}
-                  relatedChats={chats
+                  relatedChats={persistedChats
                     .filter((chat) =>
                       chat.chatType === "constellation"
                       && chat.projectId === projectId
@@ -8779,15 +8987,57 @@ export default function App() {
               onAction={handleExploreAction}
             />
           </HomePageShell>
+        ) : appView === "luxia-ai" ? (
+          <HomePageShell scrollRequest={homeScrollRequest} framed={false}>
+            <LuxiaAiWorkspacePage
+              key={prototypeUserId}
+              userId={prototypeUserId}
+              conversationId={luxiaAiConversationId}
+              abilities={{
+                canCreateProject: canCreateProject(),
+                canAddDataSources: canCreateOrganizationalDataSource(prototypeUserId),
+                hasProjects: filterActiveProjects(accessibleHomeProjects).length > 0,
+              }}
+              actions={{
+                projects: () => navigateHomeView("projects"),
+                "new-project": canCreateProject() ? () => setShowNewProjectModal(true) : undefined,
+                "data-sources": handleOpenDataSources,
+                "writing-assistant": handleOpenWritingAssistant,
+                verifai: () => handleOpenVerifaiTool(),
+                tools: handleOpenTools,
+                "chat-history": () => navigateHomeView("your-work"),
+                explore: () => handleOpenExplore("whats-new"),
+              }}
+              onOpenConversation={(conversationId, options) => handleOpenLuxiaAi(conversationId, options)}
+              onNavigateHome={handleNavigateHome}
+              onOpenAllConversations={() => navigateHomeView("your-work")}
+              onOpenTool={handleOpenTool}
+              onOpenTools={handleOpenTools}
+            />
+          </HomePageShell>
         ) : appView === "tools" ? (
           <HomePageShell scrollRequest={homeScrollRequest} framed={false}>
             <ToolsPage
               onNavigateHome={handleNavigateHome}
-              onOpenTool={(tool) => {
-                if (tool.id === "writing-assistant") {
-                  handleOpenWritingAssistant();
-                }
-              }}
+              onOpenTool={(tool) => handleOpenTool(tool.id)}
+            />
+          </HomePageShell>
+        ) : appView === "verifai-tool" ? (
+          <HomePageShell scrollRequest={homeScrollRequest} framed={false}>
+            <VerifaiToolPage
+              key={prototypeUserId}
+              userId={prototypeUserId}
+              projects={verifaiToolProjects}
+              constellations={verifaiToolConstellations}
+              chatLabel={verifaiChatLabel}
+              view={verifaiToolView}
+              reviewId={verifaiToolReviewId}
+              onOpenReview={(id) => handleOpenVerifaiTool(id)}
+              onOpenWorkspace={() => handleOpenVerifaiTool(null)}
+              onOpenHistory={() => handleOpenVerifaiTool(null, "history")}
+              onNavigateHome={handleNavigateHome}
+              onNavigateTools={handleOpenTools}
+              onReviewUnavailable={handleVerifaiReviewUnavailable}
             />
           </HomePageShell>
         ) : appView === "writing-assistant" ? (

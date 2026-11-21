@@ -152,9 +152,17 @@ export interface HomePageProps {
   onOpenDataSources?: () => void;
   /** Opens Explore Luxia: What's New, or one update's page within it. */
   onOpenExplore?: (section?: "whats-new", updateId?: string) => void;
+  /**
+   * The user can run a VerifAI review (a Project role and a Constellation they can use), from the
+   * same access data as the VerifAI workspace. Only shapes the Luxia default Home.
+   */
+  canRunVerifaiReview?: boolean;
   /** Opens one named Dashboard in its Project (Project › Dashboards › name). */
   onOpenDashboard?: (projectId: string, dashboardId: string) => void;
   /** Opens a Project's Dashboards page (Project › Dashboards). */
   onOpenProjectDashboards?: (projectId: string) => void;
+  /** Opens a Tool's own workspace ("tools" opens the Tools page). */
   onOpenTool?: (toolId: string) => void;
+  /** Opens the Luxia AI workspace, on one saved conversation or a new one (null). */
+  onOpenLuxiaAi?: (conversationId: string | null) => void;
 }

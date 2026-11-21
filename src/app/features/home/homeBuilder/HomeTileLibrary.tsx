@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState, type ReactNode } from "react";
+import { LUXIA_TOOLS } from "@/app/features/tools/data";
 import { ArrowRight, ChevronLeft, ChevronRight, LayoutList, MousePointerClick } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import {
@@ -97,7 +98,7 @@ const CATEGORIES: LibraryCategory[] = [
     item: "your-focus",
     blurb: "Your most recent Chat or Galaxy",
   },
-  { id: "tools", label: "Tools", one: "tool", many: "tools", item: "tool", blurb: "Writing Assistant" },
+  { id: "tools", label: "Tools", one: "tool", many: "tools", item: "tool", blurb: LUXIA_TOOLS.map((tool) => tool.name).join(", ") },
   {
     id: "updates",
     label: "Updates",

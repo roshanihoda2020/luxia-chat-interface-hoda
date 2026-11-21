@@ -101,6 +101,14 @@ export interface Chat {
   projectId: string;
   constellationId?: string;
   pinned?: boolean;
+  /**
+   * Prototype-only: a conversation prepared by a Constellation switch (or Home "Open full chat")
+   * that has no message yet. It is open in Full Chat but is NOT a saved Chat: it is left out of
+   * every list, count, search and history until its first message promotes it (same id).
+   */
+  draft?: boolean;
+  /** Draft only: the Chat the switch started from (its unsent text returns there if left unsent). */
+  draftFrom?: string;
 }
 export interface Project {
   id: string;

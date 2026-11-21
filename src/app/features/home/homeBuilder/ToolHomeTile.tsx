@@ -1,7 +1,9 @@
 import { Button } from "@/app/components/ui/button";
-import { LuxiaArrowRightIcon, LuxiaWritingAssistantIcon } from "@/assets/icons";
+import { LuxiaArrowRightIcon } from "@/assets/icons";
+import { LuxiaToolIcon } from "@/app/features/tools/ToolIcon";
 import type { LuxiaToolDefinition } from "@/app/features/tools/types";
-import { LuxiaVignette } from "../LuxiaVignette";
+import { ToolHighlights } from "@/app/features/tools/ToolHighlights";
+import { ToolIllustration } from "@/app/features/tools/ToolIllustration";
 import {
   HOME_TILE_CORNER_CLEARANCE,
   HT,
@@ -10,7 +12,7 @@ import {
   HomeTileText,
   HomeTileTitleAction,
 } from "./HomeTileSurface";
-import { CardArrow, GlyphChip } from "./homeTileVisuals";
+import { CardArrow } from "./homeTileVisuals";
 
 const STATUS_LABEL: Record<NonNullable<LuxiaToolDefinition["status"]>, string> = {
   beta: "Beta",
@@ -19,8 +21,10 @@ const STATUS_LABEL: Record<NonNullable<LuxiaToolDefinition["status"]>, string> =
 
 /**
  * Tool shortcut Home Tile (e.g. Writing Assistant). A launcher, not the tool:
- * Small opens from anywhere on the card; Medium adds the tool's own
- * description and an explicit Open action anchored to the bottom.
+ * Small opens from anywhere on the card; Medium and Large are product cards
+ * with the tool's illustration, description, feature chips and an Open action.
+ * Each size has its own composition (homeTileSurfaces.css); the scene is always
+ * the tool's own drawing at its own 4:3 shape.
  */
 export function ToolHomeTile({
   tool,
@@ -28,57 +32,57 @@ export function ToolHomeTile({
   onOpen,
 }: {
   tool: LuxiaToolDefinition;
-  density: "small" | "medium";
+  density: "small" | "medium" | "large";
   onOpen: () => void;
 }) {
   const status = tool.status ? STATUS_LABEL[tool.status] : undefined;
-  const corner = { icon: (size: number) => <LuxiaWritingAssistantIcon size={size} color="currentColor" /> };
+  const corner = { icon: (size: number) => <LuxiaToolIcon toolId={tool.id} size={size} /> };
 
   if (density === "small") {
-    // A launcher: the tool's mark and name lead; the whole card opens it.
+    // A launcher; the whole card opens the tool. On the grid the scene sits in a band above the name
+    // (the card is taller than it is wide enough for a split); stacked, beside it.
     return (
       <HomeTileSurface density="small" label={`Tool ${tool.name}`} corner={corner}>
-        <div className="flex min-h-0 min-w-0 flex-1 items-center gap-3">
-          <GlyphChip size={44} tone="strong"><LuxiaWritingAssistantIcon size={22} color="currentColor" /></GlyphChip>
-          <div className="min-w-0 flex-1">
-            <div className={HOME_TILE_CORNER_CLEARANCE.small}>
+        <div className="lx-tool-mini" data-tool={tool.id}>
+          <div className="lx-tool-mini__band" data-tool-tile-illustration="" aria-hidden>
+            <ToolIllustration toolId={tool.id} className="lx-tool-mini__art" />
+          </div>
+          <div className="lx-tool-mini__body">
+            <div className={`lx-tool-mini__title ${HOME_TILE_CORNER_CLEARANCE.small}`}>
               <HomeTileTitleAction title={tool.name} onOpen={onOpen} ariaLabel={`Open ${tool.name}`} stretched size="dense" />
             </div>
             <HomeTileText lines={2}>{tool.description}</HomeTileText>
+            <div className="lx-tool-mini__open flex min-w-0 items-center justify-between gap-2">
+              {status ? <HomeTileStatus>{status}</HomeTileStatus> : <span />}
+              <span className="ml-auto luxia-type-label-small" style={{ color: HT.link }}>Open</span>
+              <CardArrow />
+            </div>
           </div>
-        </div>
-        <div className="flex min-w-0 items-center justify-between gap-2">
-          {status ? <HomeTileStatus>{status}</HomeTileStatus> : <span />}
-          <span className="ml-auto luxia-type-label-small" style={{ color: HT.link }}>Open</span>
-          <CardArrow />
         </div>
       </HomeTileSurface>
     );
   }
 
-  // Writing Assistant's own scene (the Discover "Write with AI" language) fills the space a tall or
-  // wide card leaves; where there's no room, homeTileSurfaces.css shows the glyph instead.
-  const art = tool.id === "writing-assistant" ? <LuxiaVignette kind="write" className="luxia-tool-tile-art" /> : null;
-  const glyph = <GlyphChip size={56} tone="strong"><LuxiaWritingAssistantIcon size={28} color="currentColor" /></GlyphChip>;
-
+  // A product card: the tool's own scene (shared registry, the same drawing as on the Tools page) on a
+  // soft panel that bleeds to the card's edges, and the name, description, feature chips and Open.
+  // homeTileSurfaces.css puts the panel beside the text in Large (and stacked) cards and above it in
+  // Medium ones, whose grid slot is tall rather than wide.
   return (
     <HomeTileSurface density="medium" label={`Tool ${tool.name}`} corner={corner}>
-      <div className={`flex min-h-0 flex-1 flex-col ${art ? "luxia-tool-tile-body" : ""}`}>
-        <div className="luxia-tool-tile-layout flex min-h-0 flex-1 flex-col justify-center gap-4">
-          {art ? (
-            <div className="luxia-tool-tile-visual" data-tool-tile-illustration="">
-              <span className="luxia-tool-tile-glyph">{glyph}</span>
-              {art}
-            </div>
-          ) : glyph}
-          <div className="luxia-tool-tile-content flex min-w-0 flex-col justify-center gap-4">
-            <div className="min-w-0 space-y-1.5">
-              <div className={`flex min-w-0 items-center gap-2 ${HOME_TILE_CORNER_CLEARANCE.medium}`}>
+      <div className="lx-tool-tile" data-tool={tool.id} data-size={density}>
+        <div className="lx-tool-tile__layout">
+          <div className="lx-tool-tile__panel" data-tool-tile-illustration="" aria-hidden>
+            <ToolIllustration toolId={tool.id} className="lx-tool-tile__art" />
+          </div>
+          <div className="lx-tool-tile__content">
+            <div className="min-w-0 space-y-1">
+              <div className="lx-tool-tile__title flex min-w-0 items-center gap-2">
                 <HomeTileTitleAction title={tool.name} onOpen={onOpen} ariaLabel={`Open ${tool.name}`} />
                 {status ? <HomeTileStatus>{status}</HomeTileStatus> : null}
               </div>
-              <HomeTileText lines={3}>{tool.description}</HomeTileText>
+              <HomeTileText lines={2}>{tool.description}</HomeTileText>
             </div>
+            <ToolHighlights tool={tool} />
             <div>
               <Button type="button" variant="primary" size="compact" onClick={onOpen} aria-label={`Open ${tool.name}`}>
                 Open {tool.name}

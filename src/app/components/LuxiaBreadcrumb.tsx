@@ -16,6 +16,7 @@ export type LuxiaBreadcrumbDestination =
   | { kind: "access-levels" }
   | { kind: "data-sources" }
   | { kind: "tools" }
+  | { kind: "verifai-tool" }
   | { kind: "members"; projectId: string }
   | { kind: "data-source-settings"; dataSourceId: string }
   | { kind: "current" };
@@ -44,6 +45,7 @@ export interface LuxiaBreadcrumbHandlers {
   onAccessLevels?: () => void;
   onDataSources?: () => void;
   onTools?: () => void;
+  onVerifaiTool?: () => void;
   onMembers?: (projectId: string) => void;
   onDataSourceSettings?: (dataSourceId: string) => void;
 }
@@ -99,6 +101,8 @@ function resolveNavigate(
       return handlers.onDataSources;
     case "tools":
       return handlers.onTools;
+    case "verifai-tool":
+      return handlers.onVerifaiTool;
     case "members":
       return handlers.onMembers
         ? () => handlers.onMembers!(destination.projectId)

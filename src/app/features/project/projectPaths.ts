@@ -197,6 +197,35 @@ export function getToolsPath(): string {
   return "/tools";
 }
 
+/** Luxia AI workspace (standalone assistant, no Project): a new conversation, or one saved conversation. */
+export function getLuxiaAiPath(conversationId: string | null = null): string {
+  return conversationId ? `/luxia-ai/${encodeURIComponent(conversationId)}` : "/luxia-ai";
+}
+
+/** `/luxia-ai` → new conversation; `/luxia-ai/:id` → that conversation; anything else → undefined. */
+export function parseLuxiaAiPath(pathname: string): { conversationId: string | null } | undefined {
+  if (/^\/luxia-ai\/?$/.test(pathname)) return { conversationId: null };
+  const match = /^\/luxia-ai\/([^/]+)\/?$/.exec(pathname);
+  if (!match) return undefined;
+  const conversationId = decodePathSegment(match[1]);
+  return conversationId ? { conversationId } : undefined;
+}
+
+/** VerifAI Tool landing page. */
+export function getVerifaiToolPath(): string {
+  return "/tools/verifai";
+}
+
+/** VerifAI Review History (secondary page). */
+export function getVerifaiHistoryPath(): string {
+  return "/tools/verifai/history";
+}
+
+/** One VerifAI review; the id is the same review id used in Chat. */
+export function getVerifaiReviewPath(reviewId: string): string {
+  return `/tools/verifai/reviews/${encodeURIComponent(reviewId)}`;
+}
+
 /** Explore Luxia sections that have their own URL. */
 export const EXPLORE_PATH_SECTIONS = ["overview", "whats-new", "products", "learn", "ideas", "stories", "services"] as const;
 export type ExplorePathSection = (typeof EXPLORE_PATH_SECTIONS)[number];
@@ -490,6 +519,21 @@ export function parseToolsPath(pathname: string): boolean {
   return /^\/tools\/?$/.test(pathname);
 }
 
+export type VerifaiToolView = "workspace" | "history";
+
+/**
+ * `/tools/verifai` → the workspace (new review); `/tools/verifai/reviews/:id` → the workspace showing
+ * that review; `/tools/verifai/history` → Review History. Anything else under /tools/verifai → null.
+ */
+export function parseVerifaiToolPath(pathname: string): { view: VerifaiToolView; reviewId: string | null } | null {
+  if (/^\/tools\/verifai\/?$/.test(pathname)) return { view: "workspace", reviewId: null };
+  if (/^\/tools\/verifai\/history\/?$/.test(pathname)) return { view: "history", reviewId: null };
+  const match = pathname.match(/^\/tools\/verifai\/reviews\/([^/]+)\/?$/);
+  if (!match) return null;
+  const reviewId = decodePathSegment(match[1]);
+  return reviewId ? { view: "workspace", reviewId } : null;
+}
+
 export function parseChatIdFromPath(pathname: string): string | null {
   const nested = parseConstellationChatFromPath(pathname);
   if (nested) return nested.chatId;
@@ -556,6 +600,8 @@ export type LuxiaResolvedPath =
   | { kind: "admin-pipelines" }
   | { kind: "writing-assistant" }
   | { kind: "tools" }
+  | { kind: "verifai-tool"; view: VerifaiToolView; reviewId: string | null }
+  | { kind: "luxia-ai"; conversationId: string | null }
   | { kind: "explore"; section: ExplorePathSection | null; slug: string | null }
   | { kind: "shared-review"; shareId: string }
   | { kind: "personal-settings" }
@@ -613,6 +659,16 @@ export function resolveLuxiaPathname(pathname: string): LuxiaResolvedPath {
 
   if (parseToolsPath(pathname)) {
     return { kind: "tools" };
+  }
+
+  const verifaiTool = parseVerifaiToolPath(pathname);
+  if (verifaiTool) {
+    return { kind: "verifai-tool", view: verifaiTool.view, reviewId: verifaiTool.reviewId };
+  }
+
+  const luxiaAi = parseLuxiaAiPath(pathname);
+  if (luxiaAi) {
+    return { kind: "luxia-ai", conversationId: luxiaAi.conversationId };
   }
 
   const explore = parseExplorePath(pathname);

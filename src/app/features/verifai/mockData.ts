@@ -1,9 +1,12 @@
 import type {
+  VerifaiChecklist,
+  VerifaiChecklistSource,
   VerifaiDocument,
   VerifaiDocumentTemplate,
   VerifaiFinding,
   VerifaiStage,
   VerifaiStageId,
+  VerifaiStartInput,
 } from "./types";
 
 export type VerifaiChecklistDefinition = {
@@ -103,15 +106,61 @@ export function checklistRequirementCount(checklist: VerifaiChecklistDefinition)
   return checklist.sections.reduce((total, section) => total + section.requirements.length, 0);
 }
 
-/** A checklist file uploaded in this session is read as these 12 requirements in 3 sections (simulated). */
+/** A demo checklist as checked by a review: every requirement keeps its section. */
+export function verifaiChecklistFromDefinition(def: VerifaiChecklistDefinition, source: VerifaiChecklistSource): VerifaiChecklist {
+  const requirements = def.sections.flatMap((s) => s.requirements.map((r) => ({ ...r, section: s.title })));
+  return {
+    kind: def.id,
+    name: def.fileName,
+    source,
+    requirementCount: requirements.length,
+    sectionCount: def.sections.length,
+    requirements,
+    originalIds: requirements.map((r) => r.id),
+  };
+}
+
+/** A checklist file uploaded in this session is read as these 12 requirements, keeping their sections (simulated). */
 const UPLOADED_SOURCE_IDS = ["REQ-01", "REQ-03", "REQ-04", "REQ-07", "REQ-08", "REQ-10", "REQ-11", "REQ-13", "REQ-14", "REQ-15", "REQ-16", "REQ-18"];
-export const VERIFAI_UPLOADED_CHECKLIST_SECTIONS = 3;
-export function uploadedChecklistRequirements() {
-  const all = VERIFAI_GDPR_CHECKLIST.sections.flatMap((s) => s.requirements);
-  return UPLOADED_SOURCE_IDS.map((sourceId, index) => ({
-    id: `UC-${String(index + 1).padStart(2, "0")}`,
-    text: all.find((r) => r.id === sourceId)!.text,
-  }));
+export function uploadedChecklistRequirements(): Array<{ id: string; text: string; section: string }> {
+  const all = VERIFAI_GDPR_CHECKLIST.sections.flatMap((s) => s.requirements.map((r) => ({ ...r, section: s.title })));
+  return UPLOADED_SOURCE_IDS.map((sourceId, index) => {
+    const source = all.find((r) => r.id === sourceId)!;
+    return { id: `UC-${String(index + 1).padStart(2, "0")}`, text: source.text, section: source.section };
+  });
+}
+/** Sections of the simulated uploaded checklist: the ones its requirements actually use. */
+export const VERIFAI_UPLOADED_CHECKLIST_SECTIONS = new Set(uploadedChecklistRequirements().map((r) => r.section)).size;
+
+/* ---------- Requirement results: Met only where the mock scenario says so ---------- */
+
+const normalizeRequirement = (text: string) => text.trim().toLowerCase().replace(/\s+/g, " ").replace(/[.;:]+$/, "");
+
+/**
+ * The approved demo requirement a requirement is, decided deterministically: the same text as a
+ * demo checklist requirement (ignoring case, spacing and a final full stop). An edited, new or
+ * different rule is not a demo requirement, whatever words it shares with one.
+ */
+export function knownVerifaiRequirement(
+  text: string,
+  kinds: Array<VerifaiChecklistDefinition["id"]>,
+): { kind: VerifaiChecklistDefinition["id"]; id: string } | null {
+  const value = normalizeRequirement(text);
+  for (const def of VERIFAI_CHECKLISTS.filter((c) => kinds.includes(c.id))) {
+    const match = def.sections.flatMap((s) => s.requirements).find((r) => normalizeRequirement(r.text) === value);
+    if (match) return { kind: def.id, id: match.id };
+  }
+  return null;
+}
+
+/**
+ * Whether a document's mock scenario defines results for a demo checklist: every listed finding is
+ * the only gap, so its other requirements are explicitly met. The GDPR checklist is defined for
+ * every demo document and simulated upload; the procurement checklist only for contracts.
+ */
+export function verifaiScenarioCovers(doc: VerifaiDocument, kind: VerifaiChecklistDefinition["id"]): boolean {
+  if (kind === "gdpr") return true;
+  return doc.template === "supplier" || doc.template === "upload";
 }
 
 export const VERIFAI_MANUAL_SAMPLE = [
@@ -136,6 +185,39 @@ export function verifaiScopeDocuments(constellationId: string): VerifaiDocument[
     id: `${constellationId}:doc-${index + 1}`,
     origin: "scope",
   }));
+}
+
+/**
+ * Three shared demo reviews in Project 01 / Constellation 01 (deterministic dates), covering the
+ * main outcomes: findings to fix, a clean pass, and a review that could not match the checklist.
+ */
+export function verifaiDemoReviewInputs(): Array<{ id: string; startedAt: number; input: VerifaiStartInput }> {
+  const constellationId = "con1";
+  const documents = verifaiScopeDocuments(constellationId);
+  const base = {
+    origin: { kind: "tool" as const },
+    createdByUserId: "user-01",
+    projectId: "project-01",
+    projectName: "Project name 01",
+    scope: { kind: "constellation" as const, constellationId, constellationLabel: "Constellation name 01" },
+  };
+  return [
+    {
+      id: "verifai-demo-01",
+      startedAt: Date.parse("2026-11-14T09:30:00Z"),
+      input: { ...base, document: documents[0], checklist: verifaiChecklistFromDefinition(VERIFAI_GDPR_CHECKLIST, "upload"), checklistFileId: "gdpr" },
+    },
+    {
+      id: "verifai-demo-02",
+      startedAt: Date.parse("2026-11-13T15:10:00Z"),
+      input: { ...base, document: documents[1], checklist: verifaiChecklistFromDefinition(VERIFAI_GDPR_CHECKLIST, "upload"), checklistFileId: "gdpr" },
+    },
+    {
+      id: "verifai-demo-03",
+      startedAt: Date.parse("2026-11-12T11:45:00Z"),
+      input: { ...base, document: documents[2], checklist: verifaiChecklistFromDefinition(VERIFAI_PROCUREMENT_CHECKLIST, "upload"), checklistFileId: "procurement" },
+    },
+  ];
 }
 
 export const VERIFAI_STAGE_BLUEPRINT: Array<Pick<VerifaiStage, "id" | "label" | "description">> = [

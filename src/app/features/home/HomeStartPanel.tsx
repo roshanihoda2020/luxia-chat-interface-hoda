@@ -2,7 +2,6 @@ import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Check, ChevronDown, ChevronRight, CircleAlert, Info } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { toast } from "sonner";
-import { LuxiaDialog } from "@/app/app-sections/ChatDialogs";
 import { Popover, PopoverContent, PopoverTrigger } from "@/app/components/ui/popover";
 import {
   Command,
@@ -13,25 +12,29 @@ import {
   CommandList,
 } from "@/app/components/ui/command";
 import { ChatSendButton } from "@/app/features/shared/ChatSendButton";
-import { LuxiaAiIcon, LuxiaChatIcon, LuxiaGalaxyIcon, LuxiaProjectsIcon } from "@/assets/icons";
+import { LuxiaAiIcon, LuxiaProjectsIcon } from "@/assets/icons";
 import { canCreateConstellation } from "@/app/features/permissions";
-import { HS } from "./homeSurfaces";
 import { HomeAssistantConversation, type HomeAssistantView } from "./HomeAssistantConversation";
 import {
   LUXIA_ASSISTANT_CONFIG,
-  answerLuxiaAssistant,
-  readLuxiaConversation,
-  writeLuxiaConversation,
   type LuxiaAssistantAbilities,
   type LuxiaAssistantActionId,
   type LuxiaAssistantMessage,
 } from "./luxiaAssistant";
+import {
+  askLuxiaAi,
+  setHomeLuxiaAiConversation,
+  useLuxiaAiConversations,
+} from "@/app/features/luxia-ai/conversationStore";
 import type { HomeProjectCard } from "./types";
 import { HomeKnowledgeSelect, HomeProjectConversation, OpenFullChatButton, type HomeProjectChatController } from "./HomeProjectChat";
 
 export interface HomeContinueItem {
   id: string;
-  kind: "chat" | "galaxy";
+  /** Luxia AI conversations resume in the Home box; Project Chats and Galaxies open in their Project. */
+  kind: "chat" | "galaxy" | "luxia-ai";
+  /** Luxia AI only: the saved conversation to resume. */
+  conversationId?: string;
   title: string;
   detail: string;
   /** Short time label shown on the chip; the full detail stays in its tooltip and label. */
@@ -66,10 +69,9 @@ interface HomeStartPanelProps {
     abilities: LuxiaAssistantAbilities;
     actions: Partial<Record<Exclude<LuxiaAssistantActionId, "project-chat">, () => void>>;
   };
+  /** Opens the Luxia AI workspace, on one saved conversation or a new one. */
+  onOpenLuxiaAiWorkspace?: (conversationId: string | null) => void;
 }
-
-/** How long a demo answer takes to appear, so the exchange reads as a conversation. */
-const DEMO_ANSWER_DELAY_MS = 600;
 
 const INK = "var(--luxia-purple-70)";
 const SOFT_BORDER = "var(--luxia-opacity-brand-secondary-24)";
@@ -300,14 +302,19 @@ export function HomeStartPanel({
   canCreateProject,
   onNewProject,
   assistant,
+  onOpenLuxiaAiWorkspace,
 }: HomeStartPanelProps) {
   const project = projects.find((entry) => entry.id === selectedProjectId) ?? projects[0] ?? null;
   const [mode, setMode] = useState<"luxia-ai" | "project">("luxia-ai");
   const [question, setQuestion] = useState("");
-  const [messages, setMessages] = useState<LuxiaAssistantMessage[]>(() => readLuxiaConversation(assistant.sessionKey));
-  const [pending, setPending] = useState(false);
+  // The Home box shows one saved Luxia AI conversation (shared with the workspace and All conversations).
+  const luxiaAi = useLuxiaAiConversations(assistant.sessionKey);
+  const homeConversation = luxiaAi.homeConversationId
+    ? luxiaAi.conversations.find((entry) => entry.id === luxiaAi.homeConversationId) ?? null
+    : null;
+  const messages: readonly LuxiaAssistantMessage[] = homeConversation?.messages ?? [];
+  const pending = Boolean(homeConversation && luxiaAi.pendingIds.has(homeConversation.id));
   const [view, setView] = useState<HomeAssistantView>("open");
-  const answerTimer = useRef<number | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const aiMode = mode === "luxia-ai";
   const showStarters = aiMode && messages.length === 0 && !pending;
@@ -323,58 +330,43 @@ export function HomeStartPanel({
     : pc && project ? `Send to ${project.name}`
     : !project ? "Ask" : question.trim() ? `Ask in ${project.name}` : `Start a Chat in ${project.name}`;
 
-  useEffect(() => {
-    writeLuxiaConversation(assistant.sessionKey, messages);
-  }, [assistant.sessionKey, messages]);
-
-  useEffect(() => () => {
-    if (answerTimer.current !== null) window.clearTimeout(answerTimer.current);
-  }, []);
-
   function askAssistant(text: string) {
     const trimmed = text.trim();
     if (!trimmed || pending) return;
-    const asked: LuxiaAssistantMessage = { id: `u-${Date.now()}`, role: "user", text: trimmed };
-    setMessages((current) => [...current, asked]);
+    askLuxiaAi(assistant.sessionKey, homeConversation?.id ?? null, trimmed, assistant.abilities, { forHome: true });
     setQuestion("");
     setView((current) => (current === "collapsed" ? "open" : current));
-    setPending(true);
-    answerTimer.current = window.setTimeout(() => {
-      answerTimer.current = null;
-      setMessages((current) => [...current, { id: `a-${Date.now()}`, role: "assistant", ...answerLuxiaAssistant(trimmed, assistant.abilities) }]);
-      setPending(false);
-    }, DEMO_ANSWER_DELAY_MS);
     inputRef.current?.focus();
   }
 
   /**
-   * Luxia AI "Start a new conversation" clears THIS conversation (it is not a saved chat), so it
-   * asks first when there is something to lose, then offers a short Undo from memory.
+   * "New conversation" starts a fresh box. The current conversation is saved (Luxia AI workspace,
+   * All conversations, Continue), so nothing is lost; Undo brings it back into the box.
    */
-  const [confirmNewConversation, setConfirmNewConversation] = useState(false);
   function requestNewConversation() {
-    if (messages.length === 0 && !pending) { clearConversation(); return; }
-    setConfirmNewConversation(true);
-  }
-  function confirmNewLuxiaConversation() {
-    const snapshot = messages;
-    setConfirmNewConversation(false);
-    clearConversation();
-    if (snapshot.length === 0) return;
-    toast("Conversation cleared", {
+    const previous = homeConversation?.id ?? null;
+    setHomeLuxiaAiConversation(assistant.sessionKey, null);
+    setView("open");
+    inputRef.current?.focus();
+    if (!previous) return;
+    toast("New chat started. Your previous conversation is saved in Recent Luxia AI conversations.", {
       id: "luxia-ai-new-conversation",
       duration: 6000,
-      action: { label: "Undo", onClick: () => { setMessages(snapshot); setView("open"); } },
+      action: { label: "Undo", onClick: () => { setHomeLuxiaAiConversation(assistant.sessionKey, previous); setView("open"); } },
     });
   }
 
-  function clearConversation() {
-    if (answerTimer.current !== null) window.clearTimeout(answerTimer.current);
-    answerTimer.current = null;
-    setPending(false);
-    setMessages([]);
+  /** Continue: a Luxia AI conversation resumes right here, in the Home box. */
+  function resumeLuxiaAiConversation(conversationId: string) {
+    setHomeLuxiaAiConversation(assistant.sessionKey, conversationId);
+    setMode("luxia-ai");
     setView("open");
-    inputRef.current?.focus();
+    window.requestAnimationFrame(() => {
+      const composer = inputRef.current?.closest<HTMLElement>("[data-home-ask-composer]");
+      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      composer?.scrollIntoView({ block: "nearest", behavior: reduce ? "auto" : "smooth" });
+      inputRef.current?.focus({ preventScroll: true });
+    });
   }
 
   function canRun(action: LuxiaAssistantActionId) {
@@ -477,6 +469,9 @@ export function HomeStartPanel({
               onFollowUp={askAssistant}
               canRun={canRun}
               onRun={run}
+              onOpenWorkspace={onOpenLuxiaAiWorkspace && homeConversation
+                ? () => onOpenLuxiaAiWorkspace(homeConversation.id)
+                : undefined}
             />
           ) : null}
           <label htmlFor="home-ask-input" className="sr-only">
@@ -616,50 +611,64 @@ export function HomeStartPanel({
           </div>
         </div>
 
-        {continueItems.length > 0 ? (
-          <nav aria-labelledby="home-continue-title" className="mt-3 min-w-0" data-home-continue="">
-            <div className="mb-1.5 flex min-w-0 items-center justify-between gap-3 px-1">
-              <h3 id="home-continue-title" className="min-w-0 truncate luxia-type-body-dense-strong" style={{ color: "var(--luxia-text-secondary)" }}>
-                Continue where you left off
-              </h3>
-              <button
-                type="button"
-                onClick={onViewAllWork}
-                aria-label="Chat history: open Chats & Galaxies"
-                title="Open Chats & Galaxies"
-                data-home-continue-all=""
-                className={`-mr-1 inline-flex min-h-7 shrink-0 items-center gap-0.5 rounded-[8px] px-1.5 luxia-type-body-dense-strong hover:underline ${FOCUS_RING}`}
-                style={{ color: "var(--luxia-purple-60)" }}
-              >
-                Chat history
-                <ChevronRight size={15} aria-hidden />
-              </button>
-            </div>
+        {/* Recent Luxia AI conversations only. Project Chats and Galaxies keep their own Project history. */}
+        <nav aria-labelledby="home-continue-title" className="mt-3 min-w-0" data-home-continue="" data-home-luxia-recents="">
+          <div className="mb-1.5 flex min-w-0 items-center justify-between gap-3 px-1">
+            <h3 id="home-continue-title" className="min-w-0 truncate luxia-type-body-dense-strong" style={{ color: "var(--luxia-text-secondary)" }}>
+              Recent {LUXIA_ASSISTANT_CONFIG.displayName} conversations
+            </h3>
+            <button
+              type="button"
+              onClick={onOpenLuxiaAiWorkspace ? () => onOpenLuxiaAiWorkspace(null) : onViewAllWork}
+              aria-label={`View all ${LUXIA_ASSISTANT_CONFIG.displayName} conversations`}
+              title={`All ${LUXIA_ASSISTANT_CONFIG.displayName} conversations, in the ${LUXIA_ASSISTANT_CONFIG.displayName} workspace`}
+              data-home-continue-all=""
+              className={`-mr-1 inline-flex min-h-7 shrink-0 items-center gap-0.5 rounded-[8px] px-1.5 luxia-type-body-dense-strong hover:underline ${FOCUS_RING}`}
+              style={{ color: "var(--luxia-purple-60)" }}
+            >
+              View all
+              <ChevronRight size={15} aria-hidden />
+            </button>
+          </div>
+          {continueItems.length === 0 ? (
+            <p
+              className="flex min-h-11 min-w-0 items-center gap-2 rounded-[14px] border border-dashed px-3 py-2 luxia-type-caption"
+              style={{ borderColor: SOFT_BORDER, color: "var(--luxia-text-secondary)" }}
+              data-home-luxia-recents-empty=""
+            >
+              <LuxiaAiIcon size={15} color="var(--luxia-purple-60)" aria-hidden />
+              <span className="min-w-0">No conversations yet. Your questions to {LUXIA_ASSISTANT_CONFIG.displayName} are saved automatically and appear here.</span>
+            </p>
+          ) : (
             <ul className="grid min-w-0 grid-cols-1 gap-2 @[620px]:grid-cols-3">
               {continueItems.map((item, index) => {
-                const isGalaxy = item.kind === "galaxy";
-                const meta = [item.projectName, item.when].filter(Boolean).join(" · ") || item.detail;
+                const conversationId = item.conversationId ?? item.id;
+                const current = conversationId === homeConversation?.id;
+                const meta = current ? "Open above" : item.when ?? "";
                 return (
                   <li key={item.id} className={`min-w-0 ${index >= 2 ? "@max-[619px]:hidden" : ""}`}>
                     <button
                       type="button"
-                      onClick={item.onOpen}
-                      aria-label={`Continue ${isGalaxy ? "Galaxy" : "Chat"} ${item.title}, ${item.detail}${item.pinned ? ", pinned" : ""}`}
-                      title={`${item.title} · ${item.detail}`}
+                      onClick={() => resumeLuxiaAiConversation(conversationId)}
+                      aria-label={`Resume ${LUXIA_ASSISTANT_CONFIG.displayName} conversation ${item.title}${item.when ? `, ${item.when}` : ""}`}
+                      aria-current={current ? "true" : undefined}
+                      title={`${item.title}${item.when ? ` · ${item.when}` : ""}`}
                       data-home-continue-item=""
                       data-kind={item.kind}
-                      data-pinned={item.pinned ? "" : undefined}
+                      data-current={current ? "" : undefined}
                       className={`flex min-h-11 w-full min-w-0 items-center gap-2.5 rounded-[14px] border py-1 pl-1 pr-3 text-left transition-colors hover:border-[var(--luxia-opacity-brand-secondary-32)] hover:bg-[var(--luxia-opacity-brand-secondary-04)] ${FOCUS_RING}`}
-                      style={{ borderColor: SOFT_BORDER, background: "var(--luxia-surface)", color: INK }}
+                      style={{
+                        borderColor: current ? "var(--luxia-opacity-brand-secondary-32)" : SOFT_BORDER,
+                        background: current ? "var(--luxia-opacity-brand-secondary-04)" : "var(--luxia-surface)",
+                        color: INK,
+                      }}
                     >
                       <span
                         aria-hidden
                         className="flex size-8 shrink-0 items-center justify-center rounded-full"
-                        style={isGalaxy
-                          ? { background: HS.accentGalaxySoft, color: HS.accentGalaxy }
-                          : { background: "var(--luxia-opacity-brand-tertiary-24)", color: HS.accentChat }}
+                        style={{ background: "var(--luxia-opacity-brand-secondary-12)", color: "var(--luxia-purple-60)" }}
                       >
-                        {isGalaxy ? <LuxiaGalaxyIcon size={16} color="currentColor" /> : <LuxiaChatIcon size={16} color="currentColor" />}
+                        <LuxiaAiIcon size={16} color="currentColor" />
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate luxia-type-body-dense-strong">{item.title}</span>
@@ -670,24 +679,9 @@ export function HomeStartPanel({
                 );
               })}
             </ul>
-          </nav>
-        ) : null}
+          )}
+        </nav>
       </div>
-      <LuxiaDialog
-        open={confirmNewConversation}
-        onClose={() => setConfirmNewConversation(false)}
-        size="compact"
-        role="alertdialog"
-        title="Start a new conversation?"
-        footer={<>
-          <Button type="button" variant="secondary" onClick={() => setConfirmNewConversation(false)} data-home-ai-new-cancel="">Cancel</Button>
-          <Button type="button" variant="primary" onClick={confirmNewLuxiaConversation} data-home-ai-new-confirm="">Start new</Button>
-        </>}
-      >
-        <p className="py-4 luxia-type-body-small" style={{ color: "var(--luxia-text-secondary)" }}>
-          Your current Luxia AI conversation will be cleared from this page.
-        </p>
-      </LuxiaDialog>
     </section>
   );
 }

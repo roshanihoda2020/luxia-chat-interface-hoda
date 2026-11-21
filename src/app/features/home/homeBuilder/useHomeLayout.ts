@@ -1,7 +1,7 @@
 import { createElement, useEffect, useMemo, useRef, useState } from "react";
 import { Undo2 } from "lucide-react";
 import { luxiaToast } from "@/app/features/shared/luxiaToast";
-import { createDefaultHomeLayout, type HomeDefaultStage } from "./defaultLayout";
+import { createDefaultHomeLayout, type HomeDefaultFacts, type HomeDefaultStage } from "./defaultLayout";
 import { addHomeTile, configureHomeTile, removeHomeTile, setHomeTileConfig } from "./layoutOps";
 import { isHomeGuideTile, isHomeTileCollapsed } from "./registry";
 import {
@@ -53,11 +53,16 @@ function nextUndoToastId(): string {
  * A user with no saved layout follows the Luxia default for their setup stage;
  * a saved layout is never replaced by it.
  */
-export function useHomeLayout(userId: string, stage: HomeDefaultStage = "returning") {
+export function useHomeLayout(userId: string, stage: HomeDefaultStage = "returning", facts: HomeDefaultFacts = {}) {
+  const hasProjects = Boolean(facts.hasProjects);
+  const canRunVerifai = Boolean(facts.canRunVerifai);
   const [state, setState] = useState(() => ({ userId, layout: readSavedLayout(userId) }));
   const storedLayout = useMemo(() => readSavedLayout(userId), [userId]);
   const savedLayout = state.userId === userId ? state.layout : storedLayout;
-  const defaultLayout = useMemo(() => createDefaultHomeLayout(stage), [stage]);
+  const defaultLayout = useMemo(
+    () => createDefaultHomeLayout(stage, { hasProjects, canRunVerifai }),
+    [stage, hasProjects, canRunVerifai],
+  );
   const layout = savedLayout ?? defaultLayout;
 
   const [myDefaultState, setMyDefaultState] = useState(() => ({ userId, value: readHomeMyDefault(userId) }));

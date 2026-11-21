@@ -94,8 +94,9 @@ import {
   getOrganizationUserById,
 } from "@/app/features/permissions";
 import { HomeStartPanel, type HomeContinueItem } from "./HomeStartPanel";
+import { useLuxiaAiConversations } from "@/app/features/luxia-ai/conversationStore";
 import { readUserHomePreference, writeUserHomePreference } from "./homePreferenceScope";
-import { filterContinueWorkItems, sortContinueWorkItems } from "./browserUtils";
+import { sortContinueWorkItems } from "./browserUtils";
 import { getHomeLayoutStorageKey, type HomeDefaultStage } from "./homeBuilder";
 import type { HomeTileViewAll } from "./homeBuilder/homeTileVisuals";
 import {
@@ -203,6 +204,8 @@ export function HomePage({
   onOpenProjectDashboards,
   onOpenTool,
   onOpenExplore,
+  canRunVerifaiReview = false,
+  onOpenLuxiaAi,
 }: HomePageProps) {
   const [homeVisit, setHomeVisit] = useState(() => ({ userId: homeLayoutUserId, first: isFirstHomeVisit(homeLayoutUserId) }));
   let firstHomeVisit = homeVisit.first;
@@ -378,11 +381,19 @@ export function HomePage({
     && workWithPin.some((item) => item.kind === "chat")
     ? "returning"
     : "guided";
-  const homeBuilder = useHomeLayout(homeLayoutUserId, homeStage);
+  const homeBuilder = useHomeLayout(homeLayoutUserId, homeStage, {
+    hasProjects: activeProjects.length > 0,
+    canRunVerifai: canRunVerifaiReview,
+  });
+  /** This user's saved Luxia AI conversations (the standalone assistant; never Project content). */
+  const luxiaAi = useLuxiaAiConversations(homeLayoutUserId);
 
   if (browseMode === "your-work") {
     return (
       <ContinueWorkingBrowser
+        luxiaConversations={luxiaAi.conversations}
+        onOpenLuxiaConversation={onOpenLuxiaAi ? (conversationId) => onOpenLuxiaAi(conversationId) : undefined}
+        onOpenLuxiaWorkspace={onOpenLuxiaAi ? () => onOpenLuxiaAi(null) : undefined}
         items={workWithPin}
         dismissedKeys={dismissedContinueKeys}
         heroEntityKey={heroResolution.heroEntityKey}
@@ -1021,7 +1032,7 @@ export function HomePage({
       return (
         <ToolHomeTile
           tool={tool}
-          density={density === "small" ? "small" : "medium"}
+          density={density}
           onOpen={() => onOpenTool(tool.id)}
         />
       );
@@ -1390,30 +1401,22 @@ export function HomePage({
     return undefined;
   }
 
-  /** Items hidden from Home are left out (as on Chats & Galaxies); most recently opened first. */
-  const continueItems: HomeContinueItem[] = sortContinueWorkItems(
-    filterContinueWorkItems(workWithPin, {
-      query: "",
-      entityFilter: "all",
-      sourceFilter: "all",
-      visibilityFilter: "visible",
-      dismissedKeys: new Set(dismissedContinueKeys),
-    }),
-    "opened",
-  )
+  /**
+   * Recent Luxia AI conversations under Ask Luxia: this user's three most recent, newest first.
+   * Project Chats and Galaxies are not listed here; they keep their Project history and All conversations.
+   */
+  const continueItems: HomeContinueItem[] = luxiaAi.conversations
     .slice(0, 3)
-    .map((item) => {
-      const projectName = projectById.get(item.projectId)?.name ?? item.projectName;
-      const when = formatHomeChatActivity(item.lastOpenedAt, item.updatedAt)?.short;
+    .map((conversation) => {
+      const when = formatHomeChatActivity(conversation.updatedAt, undefined)?.short;
       return {
-        id: item.id,
-        kind: item.kind === "galaxySession" ? "galaxy" : "chat",
-        title: item.title,
-        detail: [item.kind === "galaxySession" ? "Galaxy" : projectName, when].filter(Boolean).join(" · "),
+        id: `luxia-ai:${conversation.id}`,
+        kind: "luxia-ai",
+        conversationId: conversation.id,
+        title: conversation.title,
+        detail: ["Luxia AI", when].filter(Boolean).join(" · "),
         when,
-        projectName,
-        pinned: Boolean(item.isPinned),
-        onOpen: () => onContinueWork(item),
+        onOpen: () => onOpenLuxiaAi?.(conversation.id),
       };
     });
 
@@ -1486,8 +1489,12 @@ export function HomePage({
             "chat-history": () => onBrowseModeChange("your-work"),
             "customize-home": homeBuilder.startEditing,
             explore: onOpenExplore ? () => onOpenExplore("whats-new") : undefined,
+            verifai: onOpenTool ? () => onOpenTool("verifai") : undefined,
+            tools: onOpenTool ? () => onOpenTool("tools") : undefined,
+            "luxia-ai-workspace": onOpenLuxiaAi ? () => onOpenLuxiaAi(null) : undefined,
           },
         }}
+        onOpenLuxiaAiWorkspace={onOpenLuxiaAi}
         recentProjectIds={recentAskProjectIds}
         onAsk={startChatInProject}
         projectChat={projectChat}

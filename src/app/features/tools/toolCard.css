@@ -1,0 +1,118 @@
+/* Tool product card (Tools page) and the shared feature chips (Tools page + Home tool tiles).
+   Same anatomy as the Home tool tile: name, description, chips and Open on one side, the tool's
+   scene on a soft panel on the other. Each tool tints its panel through --lx-tool-tint. */
+
+/* ---- Feature chips (shared) ---- */
+.lx-tool-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.lx-tool-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 9px 0 8px;
+  border: 1px solid var(--lx-chip-border, var(--luxia-opacity-brand-secondary-24));
+  border-radius: 999px;
+  background: var(--lx-chip-bg, var(--luxia-surface));
+  color: var(--lx-chip-fg, var(--luxia-text-secondary));
+  white-space: nowrap;
+}
+.lx-tool-chip::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--lx-chip-dot, var(--luxia-purple-50));
+}
+
+/* ---- Tools page card ---- */
+.lx-tool-card {
+  --lx-tool-tint: var(--luxia-opacity-purple-08);
+  container: lx-tool-card / inline-size;
+  position: relative;
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+  border: 1px solid var(--luxia-border-subtle);
+  border-radius: var(--luxia-radius-16);
+  background: var(--luxia-surface);
+  box-shadow: var(--luxia-shadow-xs);
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+.lx-tool-card[data-tool="verifai"] { --lx-tool-tint: var(--luxia-purple-10); }
+.lx-tool-card:hover { border-color: var(--luxia-purple-20); box-shadow: var(--luxia-shadow-md); }
+.lx-tool-card:focus-within { border-color: var(--luxia-purple-30); }
+
+.lx-tool-card__layout {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.lx-tool-card__stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 176px;
+  padding: 18px 24px;
+  background:
+    radial-gradient(70% 90% at 50% 50%, var(--lx-tool-tint) 0%, transparent 70%),
+    linear-gradient(160deg, var(--luxia-surface) 0%, var(--luxia-opacity-purple-08) 100%);
+  border-bottom: 1px solid var(--luxia-border-subtle);
+}
+.lx-tool-card__art {
+  height: 100%;
+  width: auto;
+  max-width: 100%;
+  box-shadow: inset 0 0 0 1px var(--luxia-opacity-brand-secondary-16), var(--luxia-shadow-sm) !important;
+  transition: transform 200ms ease;
+}
+.lx-tool-card:hover .lx-tool-card__art { transform: translateY(-3px); }
+
+.lx-tool-card__body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  justify-content: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 20px 22px 22px;
+}
+.lx-tool-card__identity { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.lx-tool-card__identity h2 { flex: 0 1 auto; overflow-wrap: break-word; }
+.lx-tool-card__glyph {
+  display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center; width: 34px; height: 34px;
+  border-radius: 10px; color: var(--luxia-purple-60); background: var(--luxia-opacity-purple-08);
+  box-shadow: inset 0 0 0 1px var(--luxia-opacity-brand-secondary-12);
+}
+.lx-tool-card__description {
+  margin: 0; color: var(--luxia-text-secondary);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.lx-tool-card__actions { padding-top: 4px; }
+
+/* Wide cards: text left, the scene on a full-height panel to the right. */
+@container lx-tool-card (min-width: 500px) {
+  .lx-tool-card__layout { flex-direction: row; }
+  .lx-tool-card__body { flex: 1 1 0; padding: 24px 20px 24px 24px; }
+  .lx-tool-card__stage {
+    order: 2;
+    flex: 0 0 41%;
+    height: auto;
+    min-height: 220px;
+    padding: 18px;
+    border-bottom: 0;
+    border-left: 1px solid var(--luxia-border-subtle);
+  }
+  .lx-tool-card__art { width: min(100%, 264px); height: auto; aspect-ratio: 4 / 3; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lx-tool-card, .lx-tool-card__art { transition: none; }
+  .lx-tool-card:hover .lx-tool-card__art { transform: none; }
+}

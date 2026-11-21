@@ -48,11 +48,25 @@ import {
   type CollectorViewMode,
 } from "@/app/features/shared";
 import type { HomeProjectCard, HomeRecentWorkItem } from "./types";
+import { LuxiaAiIcon } from "@/assets/icons";
+import { formatHomeChatActivity } from "./homeBuilder/chatActivity";
+import {
+  lastLuxiaAiMessagePreview,
+  matchesLuxiaAiConversation,
+  type LuxiaAiConversation,
+} from "@/app/features/luxia-ai/conversationStore";
 
-const PAGE_TITLE = "Chats & Galaxies";
-const PAGE_DESCRIPTION = "Search, organize, and continue your Chats and Galaxies.";
+const PAGE_TITLE = "All conversations";
+const PAGE_TYPE_LABEL = "CONVERSATIONS";
+const PAGE_DESCRIPTION = "Your Luxia AI conversations, Project Chats and Galaxies, each labelled by type. Writing Assistant documents and VerifAI reviews stay in their own tools.";
 
 interface ContinueWorkingBrowserProps {
+  /** Saved Luxia AI conversations (standalone assistant, no Project). Listed only with `onOpenLuxiaConversation`. */
+  luxiaConversations?: readonly LuxiaAiConversation[];
+  /** Opens one Luxia AI conversation in the Luxia AI workspace. */
+  onOpenLuxiaConversation?: (conversationId: string) => void;
+  /** Opens the Luxia AI workspace. */
+  onOpenLuxiaWorkspace?: () => void;
   items: HomeRecentWorkItem[];
   dismissedKeys: HomeEntityKey[];
   heroEntityKey: HomeEntityKey | null;
@@ -324,11 +338,105 @@ function WorkItemRow({
   );
 }
 
+/** Type label for a Luxia AI conversation, in the same style as CHAT / GALAXY. */
+function LuxiaAiIdentityRow() {
+  return (
+    <div className="flex min-w-0 items-center gap-1.5">
+      <span role="img" aria-label="Luxia AI" className="inline-flex shrink-0" style={{ color: LUXIA_AI_ACCENT }}>
+        <LuxiaAiIcon size={18} color="currentColor" />
+      </span>
+      <span className="truncate luxia-type-caption" style={{ color: LUXIA_AI_ACCENT, letterSpacing: "0.06em", fontWeight: 700 }}>
+        LUXIA AI
+      </span>
+    </div>
+  );
+}
+
+const LUXIA_AI_ACCENT = "var(--luxia-purple-60)";
+
+function luxiaAiActivity(conversation: LuxiaAiConversation): string {
+  return formatHomeChatActivity(conversation.updatedAt, undefined)?.long.replace(/^Opened/, "Updated") ?? "Updated recently";
+}
+
+/** A Luxia AI conversation card: not part of a Project, managed (rename, delete) in the Luxia AI workspace. */
+function LuxiaAiConversationCard({ conversation, onContinue }: { conversation: LuxiaAiConversation; onContinue: () => void }) {
+  const cardStyle = getHomeCardStyle("supportingProject");
+  return (
+    <article
+      className="relative flex h-full min-w-0 flex-col overflow-hidden p-4 transition-colors hover:border-[var(--luxia-opacity-brand-primary-16)]"
+      style={{ background: cardStyle.bg, border: `1px solid ${cardStyle.border}`, borderRadius: "var(--luxia-radius-12)" }}
+      data-luxia-ai-conversation-card={conversation.id}
+    >
+      <div className="relative z-[1] min-w-0">
+        <LuxiaAiIdentityRow />
+        <h3 className="mt-1.5 line-clamp-2 luxia-type-title-card" style={{ color: HS.workCardTitle }} title={conversation.title}>
+          {conversation.title}
+        </h3>
+        <p className="mt-1.5 line-clamp-2 luxia-type-body-dense" style={{ color: "var(--luxia-text-secondary)" }}>
+          {lastLuxiaAiMessagePreview(conversation)}
+        </p>
+        <p className="mt-2 luxia-type-caption" style={{ color: "var(--luxia-text-muted)" }}>
+          Not in a Project · {luxiaAiActivity(conversation)}
+        </p>
+      </div>
+      <div className="relative z-[1] mt-auto flex flex-wrap items-center pt-3">
+        <Button type="button" variant="primary" size="compact" onClick={onContinue} aria-label={`Continue Luxia AI conversation ${conversation.title}`}>
+          Continue
+        </Button>
+      </div>
+    </article>
+  );
+}
+
+function LuxiaAiConversationRow({ conversation, onContinue }: { conversation: LuxiaAiConversation; onContinue: () => void }) {
+  return (
+    <div
+      role="listitem"
+      className="flex min-w-0 flex-wrap items-center gap-3 border-b px-4 py-3 last:border-b-0"
+      style={{ borderColor: "var(--luxia-border-default)" }}
+      data-luxia-ai-conversation-row={conversation.id}
+    >
+      <div className="min-w-0 flex-1">
+        <LuxiaAiIdentityRow />
+        <p className="mt-1 truncate luxia-type-body-dense-strong" style={{ color: HS.workCardTitle }} title={conversation.title}>
+          {conversation.title}
+        </p>
+        <p className="mt-0.5 flex min-w-0 items-center gap-1.5 luxia-type-caption" style={{ color: "var(--luxia-text-muted)" }}>
+          <span className="shrink-0">Not in a Project</span>
+          <span aria-hidden>·</span>
+          <span className="min-w-0 truncate">{luxiaAiActivity(conversation)}</span>
+        </p>
+      </div>
+      <div className="flex shrink-0 items-center justify-end gap-2">
+        <Button type="button" variant="primary" size="compact" onClick={onContinue} aria-label={`Continue Luxia AI conversation ${conversation.title}`}>
+          Continue
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+type ConversationEntry =
+  | { kind: "work"; key: string; title: string; at: number; pinned: boolean; item: HomeRecentWorkItem }
+  | { kind: "luxia-ai"; key: string; title: string; at: number; pinned: boolean; conversation: LuxiaAiConversation };
+
+function compareEntries(sortMode: ContinueSortMode) {
+  return (a: ConversationEntry, b: ConversationEntry): number => {
+    if (sortMode === "name-asc") return a.title.localeCompare(b.title, undefined, { sensitivity: "base" });
+    if (sortMode === "name-desc") return b.title.localeCompare(a.title, undefined, { sensitivity: "base" });
+    if (sortMode === "opened-oldest") return a.at - b.at;
+    if (sortMode === "pinned" && a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+    return b.at - a.at;
+  };
+}
+
 function PageHeaderStack({
   onBack,
+  actions,
   children,
 }: {
   onBack: () => void;
+  actions?: ReactNode;
   children: ReactNode;
 }) {
   return (
@@ -336,7 +444,8 @@ function PageHeaderStack({
       <LuxiaPageHeader
         contentGap="page"
         className="luxia-home-browser-header"
-        pageTypeLabel="CHATS & GALAXIES"
+        pageTypeLabel={PAGE_TYPE_LABEL}
+        actions={actions}
         title={PAGE_TITLE}
         titleStyle={{ color: HS.sectionHeading }}
         breadcrumb={
@@ -357,6 +466,9 @@ function PageHeaderStack({
 }
 
 export function ContinueWorkingBrowser({
+  luxiaConversations = [],
+  onOpenLuxiaConversation,
+  onOpenLuxiaWorkspace,
   items,
   dismissedKeys,
   heroEntityKey,
@@ -388,10 +500,16 @@ export function ContinueWorkingBrowser({
   const collection = useMemo(() => listContinueWorkingCollection(items), [items]);
   const dismissedSet = useMemo(() => new Set(dismissedKeys), [dismissedKeys]);
   const allHidden = areAllWorkItemsHidden(items, dismissedKeys);
-  const genuinelyEmpty = collection.length === 0;
+  const showsLuxiaAi = Boolean(onOpenLuxiaConversation);
+  const listedLuxiaConversations = showsLuxiaAi ? luxiaConversations : [];
+  const genuinelyEmpty = collection.length === 0 && listedLuxiaConversations.length === 0;
 
-  const filteredItems = useMemo(
-    () => sortContinueWorkItems(
+  /**
+   * One list of conversations: Project Chats and Galaxies (with their Project filters) and Luxia AI
+   * conversations, which have no Project, Source or Home visibility, so those filters leave them out.
+   */
+  const filteredItems = useMemo((): ConversationEntry[] => {
+    const work: ConversationEntry[] = sortContinueWorkItems(
       filterContinueWorkItems(items, {
         query,
         entityFilter,
@@ -401,18 +519,28 @@ export function ContinueWorkingBrowser({
         projects,
       }),
       sortMode,
-    ),
-    [
-      items,
-      query,
-      entityFilter,
-      sourceFilter,
-      visibilityFilter,
-      dismissedSet,
-      sortMode,
-      projects,
-    ],
-  );
+    ).map((item) => ({ kind: "work", key: item.id, title: item.title, at: item.lastOpenedAt ?? 0, pinned: Boolean(item.isPinned), item }));
+    const q = query.trim().toLowerCase();
+    const luxia: ConversationEntry[] = (entityFilter === "all" || entityFilter === "luxia-ai")
+      && sourceFilter === "all"
+      && visibilityFilter !== "hidden"
+      ? listedLuxiaConversations
+        .filter((conversation) => matchesLuxiaAiConversation(conversation, q) || (q.length > 0 && "luxia ai".includes(q)))
+        .map((conversation) => ({ kind: "luxia-ai", key: `luxia-ai:${conversation.id}`, title: conversation.title, at: conversation.updatedAt, pinned: false, conversation }))
+      : [];
+    // Stable sort: Project items keep their existing order among themselves.
+    return [...work, ...luxia].sort(compareEntries(sortMode));
+  }, [
+    items,
+    listedLuxiaConversations,
+    query,
+    entityFilter,
+    sourceFilter,
+    visibilityFilter,
+    dismissedSet,
+    sortMode,
+    projects,
+  ]);
 
   const totalPages = Math.max(1, Math.ceil(filteredItems.length / BROWSER_PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
@@ -442,10 +570,16 @@ export function ContinueWorkingBrowser({
   }, [query, entityFilter, sourceFilter, visibilityFilter, sortMode]);
 
   const galaxyProject = projects.find((project) => !project.isEmpty) ?? projects[0];
+  const workspaceAction = onOpenLuxiaWorkspace ? (
+    <Button type="button" variant="outline" size="compact" onClick={onOpenLuxiaWorkspace} data-open-luxia-ai-workspace="">
+      <LuxiaAiIcon size={15} color="currentColor" aria-hidden />
+      Luxia AI workspace
+    </Button>
+  ) : undefined;
 
   if (genuinelyEmpty) {
     return (
-      <PageHeaderStack onBack={onBack}>
+      <PageHeaderStack onBack={onBack} actions={workspaceAction}>
         <div
           className="rounded-[12px] border px-5 py-6"
           style={{
@@ -454,10 +588,10 @@ export function ContinueWorkingBrowser({
           }}
         >
           <h2 className="luxia-type-title-component" style={{ color: HS.sectionHeading }}>
-            No Chats or Galaxies yet
+            No conversations yet
           </h2>
           <p className="mt-2 luxia-type-body-dense" style={{ color: "var(--luxia-text-secondary)" }}>
-            Start a Chat or open a Project Galaxy to see your work here.
+            Ask Luxia AI on Home, start a Chat or open a Project Galaxy to see your conversations here.
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             <Button type="button" variant="primary" onClick={onNewChat}>
@@ -530,12 +664,13 @@ export function ContinueWorkingBrowser({
     <>
       <BrowserShell
         title={PAGE_TITLE}
-        pageTypeLabel="CHATS & GALAXIES"
+        pageTypeLabel={PAGE_TYPE_LABEL}
         archiveId="your-work"
         description={PAGE_DESCRIPTION}
         onBack={onBack}
-        searchLabel="Search Chats and Galaxies"
-        searchPlaceholder="Search Chats and Galaxies"
+        actions={workspaceAction}
+        searchLabel="Search conversations"
+        searchPlaceholder="Search conversations"
         searchValue={query}
         onSearchChange={setQuery}
         banner={allHiddenBanner}
@@ -561,8 +696,13 @@ export function ContinueWorkingBrowser({
                 <FilterChip active={entityFilter === "all"} onClick={() => setEntityFilter("all")}>
                   All
                 </FilterChip>
+                {showsLuxiaAi ? (
+                  <FilterChip active={entityFilter === "luxia-ai"} onClick={() => setEntityFilter("luxia-ai")}>
+                    Luxia AI
+                  </FilterChip>
+                ) : null}
                 <FilterChip active={entityFilter === "chat"} onClick={() => setEntityFilter("chat")}>
-                  Chats
+                  Project Chats
                 </FilterChip>
                 <FilterChip active={entityFilter === "galaxy"} onClick={() => setEntityFilter("galaxy")}>
                   Galaxies
@@ -599,7 +739,7 @@ export function ContinueWorkingBrowser({
 
             <BrowserFilterDropdown
               label="Sort"
-              ariaLabel="Sort Chats and Galaxies"
+              ariaLabel="Sort conversations"
               value={sortMode}
               onValueChange={(value) => setSortMode(value as ContinueSortMode)}
               dataAttr="sort"
@@ -623,7 +763,7 @@ export function ContinueWorkingBrowser({
       >
         {pageItems.length === 0 ? (
           <FilteredEmptyState
-            title="No matching Chats or Galaxies"
+            title="No matching conversations"
             onClear={hasActiveFilters ? clearFilters : undefined}
           />
         ) : (
@@ -631,10 +771,21 @@ export function ContinueWorkingBrowser({
             className={viewMode === "grid" ? WORK_ARCHIVE_GRID : "overflow-hidden rounded-[var(--luxia-radius-12)] border bg-white"}
             style={viewMode === "grid" ? undefined : { borderColor: "var(--luxia-border-default)" }}
             role={viewMode === "grid" ? undefined : "list"}
-            aria-label={viewMode === "grid" ? undefined : "Chats and Galaxies"}
+            aria-label={viewMode === "grid" ? undefined : "Conversations"}
             data-work-view={viewMode}
           >
-            {pageItems.map((item) => {
+            {pageItems.map((entry) => {
+              if (entry.kind === "luxia-ai") {
+                const LuxiaView = viewMode === "grid" ? LuxiaAiConversationCard : LuxiaAiConversationRow;
+                return (
+                  <LuxiaView
+                    key={entry.key}
+                    conversation={entry.conversation}
+                    onContinue={() => onOpenLuxiaConversation?.(entry.conversation.id)}
+                  />
+                );
+              }
+              const item = entry.item;
               const entityKey = workItemEntityKey(item);
               const isHidden = dismissedSet.has(entityKey);
               const isHomeFocus = heroEntityKey === entityKey && !isHidden;

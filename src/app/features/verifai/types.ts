@@ -42,7 +42,21 @@ export type VerifaiChecklistSource = "upload" | "structured" | "manual";
 /** gdpr / procurement: the two demo checklists. upload: a checklist file added in this session. */
 export type VerifaiChecklistKind = "gdpr" | "procurement" | "upload" | "manual";
 
-export type VerifaiRequirement = { id: string; text: string };
+/** `section`: the checklist section it belongs to, when the checklist has sections. */
+export type VerifaiRequirement = { id: string; text: string; section?: string };
+
+/**
+ * Simulated result for one requirement, stored on the review (never inferred in the UI).
+ * "Not assessed": the review stopped before this requirement was checked.
+ */
+export type VerifaiRequirementStatus = "Met" | "Not met" | "Partially met" | "Unclear" | "Not assessed";
+
+export type VerifaiRequirementResult = {
+  requirementId: string;
+  status: VerifaiRequirementStatus;
+  /** The finding that explains this result, when there is one. */
+  findingId?: string;
+};
 
 export type VerifaiChecklist = {
   kind: VerifaiChecklistKind;
@@ -82,9 +96,24 @@ export type VerifaiFailure = {
   detail: string;
 };
 
+/** Where a review was started. Both kinds share one store and one review id. */
+export type VerifaiReviewOrigin = "chat" | "tool";
+
+/**
+ * private: only its creator can see it (every user-created review, including Chat reviews).
+ * constellation: anyone with Use access to its Constellation (seeded demo reviews only for now).
+ */
+export type VerifaiReviewVisibility = "private" | "constellation";
+
 export type VerifaiReview = {
   id: string;
-  chatId: string;
+  origin: VerifaiReviewOrigin;
+  /** The Chat that shows this review; null for a review started in the VerifAI Tool. */
+  chatId: string | null;
+  createdByUserId: string;
+  visibility: VerifaiReviewVisibility;
+  /** Seeded demo review (shown as a demo, never as a real user's work). */
+  isDemo?: boolean;
   projectId: string;
   projectName: string;
   scope: VerifaiScope;
@@ -94,6 +123,8 @@ export type VerifaiReview = {
   progress: number;
   stages: VerifaiStage[];
   findings: VerifaiFinding[];
+  /** One result per checklist requirement, in checklist order. */
+  requirementResults: VerifaiRequirementResult[];
   failure?: VerifaiFailure;
   startedAt: number;
   completedAt?: number;
@@ -101,25 +132,43 @@ export type VerifaiReview = {
   reportFindingIds: string[];
 };
 
+/** One turn in the VerifAI Tool's review assistant (simulated answers; never sent to a Chat). */
+export type VerifaiAssistantMessage = {
+  id: string;
+  role: "user" | "assistant";
+  text: string;
+  /** The finding the question was about, when one was selected. */
+  findingId?: string;
+};
+
 export type VerifaiFollowUpContext = {
   reviewId: string;
   findingId?: string;
 };
 
+/** Chat: started from @verifai in that Chat. Tool: started in the VerifAI Tool. */
+export type VerifaiLaunchOrigin =
+  | { kind: "chat"; chatId: string; chatType: "constellation" | "galaxy" }
+  | { kind: "tool" };
+
 export type VerifaiStartInput = {
-  chatId: string;
+  origin: VerifaiLaunchOrigin;
+  createdByUserId: string;
   projectId: string;
   projectName: string;
   scope: VerifaiScope;
   document: VerifaiDocument;
   checklist: VerifaiChecklist;
+  /** Library checklist file used (Upload mode); Structured and Manual checklists are review-only. */
+  checklistFileId?: string;
 };
 
 export type VerifaiLaunchContext = {
-  chatId: string;
+  origin: VerifaiLaunchOrigin;
+  /** The signed-in user: owns new uploads and the review; only their private files are listed. */
+  userId: string;
   projectId: string;
   projectName: string;
-  chatType: "constellation" | "galaxy";
-  /** Constellation Chat: its Constellation. Galaxy Chat: the Constellations the user can Use. */
+  /** Constellation Chat or Tool: the chosen Constellation. Galaxy Chat: the Constellations the user can Use. */
   constellations: Array<{ id: string; label: string }>;
 };

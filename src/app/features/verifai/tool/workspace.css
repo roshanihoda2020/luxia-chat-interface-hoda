@@ -1,0 +1,152 @@
+/* VerifAI Tool workspace (states A–D) and Review History. Builds on verifai.css. */
+
+/* ---------- State A: inline setup (shared VerifySetupPanel, page layout) ---------- */
+.lx-vws-setup { container-type: inline-size; max-width: 1200px; }
+.lx-vfy-modal__body.lx-vfy-setup--page {
+  grid-template-columns: minmax(0, 58fr) minmax(0, 42fr); gap: 20px; padding: 0; overflow: visible;
+}
+.lx-vfy-setup--page .lx-vfy-modal__col { padding: 20px; }
+.lx-vfy-setup--page .lx-vfy-textarea { height: 320px; max-height: min(560px, 60dvh); }
+.lx-vfy-setup--page .lx-vfy-structured { max-height: none; }
+@container (max-width: 760px) {
+  .lx-vfy-modal__body.lx-vfy-setup--page { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .lx-vfy-setup--page .lx-vfy-modal__col { padding: 16px; }
+  /* Stacked: Start stays reachable at the bottom while scrolling. */
+  .lx-vfy-setup--page .lx-vfy-modal__start {
+    position: sticky; bottom: 0; z-index: 2; margin: 12px -16px -16px; padding: 12px 16px 14px;
+    background: var(--luxia-surface); border-top: 1px solid var(--luxia-border-default);
+    border-radius: 0 0 var(--luxia-radius-12) var(--luxia-radius-12);
+  }
+}
+
+/* ---------- State headings and status layouts ---------- */
+.lx-vws-state-title { margin: 0 0 12px; font-size: 15px; line-height: 22px; font-weight: 700; color: var(--luxia-neutral-800); }
+.lx-vws-state-title:focus { outline: none; }
+.lx-vws-status-card { max-width: 760px; }
+.lx-vws-note { margin: 10px 0 0; font-size: 12.5px; line-height: 18px; color: var(--luxia-neutral-600); }
+.lx-vws-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+
+/* ---------- State C: three coordinated panels ---------- */
+.lx-vws-results { min-width: 0; }
+.lx-vws-grid { display: grid; gap: 16px; align-items: start; min-width: 0; }
+.lx-vws-grid--three { grid-template-columns: minmax(240px, 280px) minmax(0, 1fr) minmax(280px, 340px); }
+.lx-vws-grid--two { grid-template-columns: minmax(0, 1fr) minmax(260px, 320px); }
+.lx-vws-results__bar { display: flex; justify-content: flex-start; margin-bottom: 12px; }
+
+.lx-vws-panel {
+  min-width: 0; display: flex; flex-direction: column; border-radius: var(--luxia-radius-12);
+  background: var(--luxia-surface); border: 1px solid var(--luxia-border-default);
+}
+.lx-vws-results[data-mode="three"] .lx-vws-panel,
+.lx-vws-results[data-mode="two"] .lx-vws-panel { position: sticky; top: 0; max-height: calc(100dvh - 120px); }
+.lx-vws-panel__head { display: grid; gap: 10px; padding: 14px 14px 10px; border-bottom: 1px solid var(--luxia-border-subtle); }
+.lx-vws-panel__scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 14px; }
+/* Navigator in a sheet (two-panel widths): fills the sheet; search and filters stay, the list scrolls. */
+.lx-vws-sheet .lx-vws-panel {
+  flex: 1 1 auto; min-height: 0; max-height: none; position: static; border: 0; border-radius: 0;
+}
+.lx-vws-panel__scroll--findings { display: grid; gap: 12px; align-content: start; }
+.lx-vws-panel__title {
+  display: flex; align-items: center; gap: 6px; margin: 0; font-size: 13px; line-height: 18px; font-weight: 700;
+  letter-spacing: 0.02em; color: var(--luxia-neutral-800);
+}
+.lx-vws-panel__title--lg { font-size: 15px; line-height: 22px; }
+.lx-vws-panel__title:focus { outline: none; }
+.lx-vws-panel__meta { margin: -4px 0 0; font-size: 12px; line-height: 16px; color: var(--luxia-neutral-600); }
+.lx-vws-empty { margin: 0; padding: 6px 0; font-size: 12.5px; line-height: 18px; color: var(--luxia-neutral-500); }
+
+.lx-vws-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.lx-vws-chip {
+  min-height: 28px; padding: 3px 10px; border-radius: var(--luxia-radius-pill); border: 1px solid var(--luxia-border-default);
+  background: var(--luxia-surface); font: inherit; font-size: 12px; font-weight: 600; color: var(--luxia-neutral-600); cursor: pointer;
+}
+.lx-vws-chip:hover { color: var(--luxia-purple-70); border-color: var(--luxia-purple-20); }
+.lx-vws-chip[aria-pressed="true"] { color: var(--luxia-purple-70); background: var(--luxia-surface-selected); border-color: var(--luxia-purple-30); }
+.lx-vws-chip:focus-visible, .lx-vws-nav__req:focus-visible, .lx-vws-tab:focus-visible {
+  outline: 2px solid var(--luxia-border-focus); outline-offset: 2px;
+}
+.lx-vws-filters { display: grid; gap: 8px; }
+
+/* Checklist Navigator */
+.lx-vws-nav__section + .lx-vws-nav__section { margin-top: 14px; }
+.lx-vws-nav__section-title { margin: 0 0 6px; font-size: 11px; line-height: 16px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--luxia-neutral-600); }
+.lx-vws-nav__section-title span { color: var(--luxia-neutral-400); }
+.lx-vws-nav__section ul { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.lx-vws-nav__req {
+  display: flex; width: 100%; gap: 8px; align-items: flex-start; padding: 7px 8px; border: 1px solid transparent; border-radius: 8px;
+  background: transparent; text-align: left; font: inherit; cursor: pointer;
+}
+.lx-vws-nav__req:hover { background: var(--luxia-surface-hover); }
+.lx-vws-nav__req[data-selected] { background: var(--luxia-surface-selected); border-color: var(--luxia-purple-20); }
+.lx-vws-nav__req-body { display: grid; gap: 2px; min-width: 0; }
+.lx-vws-nav__req-top { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.lx-vws-nav__req-text {
+  font-size: 12.5px; line-height: 17px; color: var(--luxia-neutral-700);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.lx-vws-status-dot { flex-shrink: 0; width: 8px; height: 8px; margin-top: 5px; border-radius: 50%; background: var(--luxia-neutral-400); }
+.lx-vws-status-label { margin: 0; font-size: 11px; line-height: 14px; font-weight: 700; color: var(--luxia-neutral-600); }
+[data-tone="met"].lx-vws-status-dot { background: var(--luxia-success); }
+[data-tone="not-met"].lx-vws-status-dot { background: var(--luxia-error); }
+[data-tone="partial"].lx-vws-status-dot { background: var(--luxia-warning-50); }
+[data-tone="unclear"].lx-vws-status-dot { background: var(--luxia-purple-50); }
+[data-tone="met"].lx-vws-status-label { color: var(--luxia-success-70); }
+[data-tone="not-met"].lx-vws-status-label { color: var(--luxia-error-70); }
+[data-tone="partial"].lx-vws-status-label { color: var(--luxia-warning-90); }
+[data-tone="unclear"].lx-vws-status-label { color: var(--luxia-purple-60); }
+
+/* Findings: selected finding */
+.lx-vfy-finding[data-selected] { border-color: var(--luxia-purple-30); box-shadow: 0 0 0 2px var(--luxia-purple-10); }
+
+/* Evidence & Assistant */
+.lx-vws-side__block + .lx-vws-side__block { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--luxia-border-subtle); }
+.lx-vws-side__block .lx-vws-panel__title { margin-bottom: 10px; }
+.lx-vws-side__req { margin: 0 0 6px; font-size: 13px; line-height: 19px; color: var(--luxia-neutral-800); }
+.lx-vws-side__fix { margin: 10px 0 0; font-size: 12.5px; line-height: 18px; color: var(--luxia-neutral-700); }
+.lx-vws-thread { display: grid; gap: 8px; max-height: 320px; overflow-y: auto; margin-bottom: 10px; }
+.lx-vws-msg { padding: 8px 10px; border-radius: 10px; background: var(--luxia-neutral-50); }
+.lx-vws-msg[data-role="user"] { background: var(--luxia-surface-selected); }
+.lx-vws-msg__who { margin: 0 0 2px; font-size: 11px; line-height: 14px; font-weight: 700; color: var(--luxia-neutral-600); }
+.lx-vws-msg__text { margin: 0; font-size: 12.5px; line-height: 18px; color: var(--luxia-neutral-800); white-space: pre-wrap; }
+.lx-vws-ask { display: flex; gap: 8px; align-items: flex-end; margin-top: 10px; }
+.lx-vws-ask__input {
+  flex: 1; min-width: 0; min-height: 40px; max-height: 140px; padding: 8px 10px; resize: vertical;
+  border-radius: var(--luxia-radius-sm); border: 1px solid var(--luxia-border-strong); background: var(--luxia-surface);
+  font: inherit; font-size: 13px; line-height: 19px; color: var(--luxia-neutral-800);
+}
+.lx-vws-ask__input:focus-visible { outline: 2px solid var(--luxia-border-focus); outline-offset: 1px; }
+
+/* Tabs (narrow) */
+.lx-vws-tabs {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 4px; margin-bottom: 12px;
+  border-radius: 10px; background: var(--luxia-neutral-100); position: sticky; top: 0; z-index: 3;
+}
+.lx-vws-tab {
+  min-height: 40px; border: 0; border-radius: 8px; background: transparent; font: inherit; font-size: 13px; font-weight: 600;
+  color: var(--luxia-neutral-600); cursor: pointer;
+}
+.lx-vws-tab[aria-selected="true"] { background: var(--luxia-surface); color: var(--luxia-purple-60); box-shadow: var(--luxia-shadow-xs); }
+.lx-vws-tabpanel .lx-vws-panel { max-height: none; }
+
+/* Header actions on phone widths: History, Review library and Export show their icon only (the label
+   stays as the accessible name), so all four actions fit and stay reachable. */
+@media (max-width: 479px) {
+  .lx-vws-compact-action { min-width: 40px; min-height: 40px; padding-inline: 10px; }
+  .lx-vws-compact-action__label {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
+    clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+  }
+}
+
+/* Severity metrics in the workspace: the label wraps rather than truncating ("Need Review"). */
+.lx-vws-findings .lx-vfy-metric__label { white-space: normal; overflow: visible; text-overflow: clip; }
+
+/* Reduced motion (Tool only): progress spinners stop instead of slowing down. */
+@media (prefers-reduced-motion: reduce) {
+  .lx-vws-status-card .lx-vfy-spin, .lx-vws-side .lx-vfy-spin, .lx-vws-results .lx-vfy-spin { animation: none; }
+}
+
+.lx-vws-demo {
+  display: inline-flex; align-items: center; padding: 0 6px; border-radius: var(--luxia-radius-pill);
+  border: 1px solid var(--luxia-border-subtle); font-size: 11px; line-height: 18px; color: var(--luxia-neutral-600);
+}
