@@ -84,33 +84,7 @@ function knowledgeLabel(project: HomeProjectCard): string {
   return `${project.constellationCount} Constellation${project.constellationCount === 1 ? "" : "s"}`;
 }
 
-function HeroMark() {
-  return (
-    <svg
-      viewBox="0 0 150 96"
-      aria-hidden
-      focusable="false"
-      className="pointer-events-none absolute right-6 top-4 hidden h-[96px] w-[150px] xl:block"
-    >
-      <g stroke="var(--luxia-purple-20)" strokeWidth="1.6" strokeDasharray="1 5" strokeLinecap="round" fill="none">
-        <path d="M18 70 L56 40 L92 56 L130 22" />
-        <path d="M56 40 L64 12" />
-      </g>
-      <circle cx="18" cy="70" r="4" fill="var(--luxia-purple-50)" />
-      <circle cx="56" cy="40" r="5.5" fill="var(--luxia-purple-70)" />
-      <circle cx="92" cy="56" r="4" fill="var(--luxia-brand-tertiary)" />
-      <circle cx="130" cy="22" r="5" fill="var(--luxia-purple-60)" />
-      <circle cx="64" cy="12" r="3" fill="var(--luxia-purple-20)" />
-      <path
-        transform="translate(118 74)"
-        d="M0 -8C1 -2.3 2.3 -1 8 0C2.3 1 1 2.3 0 8C-1 2.3-2.3 1-8 0C-2.3-1-1-2.3 0-8Z"
-        fill="var(--luxia-data-yellow)"
-      />
-    </svg>
-  );
-}
-
-/** Atmospheric light: a soft aurora band, a quiet lower-left glow and two faint orbits around the constellation. */
+/** Atmospheric light: a soft aurora band, a quiet lower-left glow and two faint orbits. */
 function HeroBackdrop() {
   return (
     <span aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden rounded-[24px]" data-home-hero-backdrop="">
@@ -442,7 +416,6 @@ export function HomeStartPanel({
       }}
     >
       <HeroBackdrop />
-      <HeroMark />
       {/* Chat column: 1000–1320px on desktop, never wider than its container. */}
       <div className="@container relative mx-auto min-w-0" style={{ width: "min(100%, clamp(1000px, calc(76% + 48px), 1320px))" }} data-home-hero-column="">
         <h2
