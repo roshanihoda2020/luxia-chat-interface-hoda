@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { Check, ChevronDown, ChevronRight, CircleAlert, Info } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, CircleAlert, Info, MessageSquare } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@/app/components/ui/popover";
@@ -300,7 +300,7 @@ export function HomeStartPanel({
   const inlineConversation = (aiMode && messages.length > 0) || Boolean(pc && pc.messageCount > 0);
   const canAddKnowledge = Boolean(project && onOpenConstellations && canCreateConstellation(project.viewerProjectRole));
   const sendLabel = aiMode
-    ? `Ask ${LUXIA_ASSISTANT_CONFIG.displayName}`
+    ? LUXIA_ASSISTANT_CONFIG.displayName
     : pc && project ? `Send to ${project.name}`
     : !project ? "Ask" : question.trim() ? `Ask in ${project.name}` : `Start a Chat in ${project.name}`;
 
@@ -323,7 +323,7 @@ export function HomeStartPanel({
     setView("open");
     inputRef.current?.focus();
     if (!previous) return;
-    toast("New chat started. Your previous conversation is saved in Recent Luxia AI conversations.", {
+    toast("New chat started. Your previous conversation is saved in Recent Ask Luxia conversations.", {
       id: "luxia-ai-new-conversation",
       duration: 6000,
       action: { label: "Undo", onClick: () => { setHomeLuxiaAiConversation(assistant.sessionKey, previous); setView("open"); } },
@@ -390,7 +390,7 @@ export function HomeStartPanel({
   }
 
   const placeholder = aiMode
-    ? `Ask ${LUXIA_ASSISTANT_CONFIG.displayName} about using Luxia…`
+    ? `${LUXIA_ASSISTANT_CONFIG.displayName} about using Luxia…`
     : !project
       ? "Projects hold the documents and data Luxia answers from."
       : pc && hasKnowledge && !pc.knowledge
@@ -609,7 +609,7 @@ export function HomeStartPanel({
               style={{ borderColor: SOFT_BORDER, color: "var(--luxia-text-secondary)" }}
               data-home-luxia-recents-empty=""
             >
-              <LuxiaAiIcon size={15} color="var(--luxia-purple-60)" aria-hidden />
+              <MessageSquare size={15} aria-hidden className="shrink-0" style={{ color: "var(--luxia-text-muted)" }} />
               <span className="min-w-0">No conversations yet. Your questions to {LUXIA_ASSISTANT_CONFIG.displayName} are saved automatically and appear here.</span>
             </p>
           ) : (
@@ -639,9 +639,10 @@ export function HomeStartPanel({
                       <span
                         aria-hidden
                         className="flex size-8 shrink-0 items-center justify-center rounded-full"
-                        style={{ background: "var(--luxia-opacity-brand-secondary-12)", color: "var(--luxia-purple-60)" }}
+                        style={{ background: "var(--luxia-neutral-100)", color: "var(--luxia-text-secondary)" }}
+                        data-home-continue-icon=""
                       >
-                        <LuxiaAiIcon size={16} color="currentColor" />
+                        <MessageSquare size={16} />
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate luxia-type-body-dense-strong">{item.title}</span>

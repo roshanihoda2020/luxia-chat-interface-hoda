@@ -9013,6 +9013,15 @@ export default function App() {
               onOpenAllConversations={() => navigateHomeView("your-work")}
               onOpenTool={handleOpenTool}
               onOpenTools={handleOpenTools}
+              // Same "@" Tools as Project Chat. Ask Luxia has no Project or Chat, so VerifAI opens its own
+              // workspace (Project › Constellation chosen there) instead of the Chat-scoped Verify Review;
+              // offered only when the VerifAI access rule allows this user to run a review somewhere.
+              composerTools={homeCanRunVerifaiReview ? composerTools : undefined}
+              onSelectComposerTool={(id) => { if (id === VERIFAI_COMMAND.id) handleOpenVerifaiTool(); }}
+              // Project Chat's "Open in Writing Assistant"; Ask Luxia has no Project, so the document has none.
+              onOpenInWritingAssistant={(content) => {
+                if (queueWritingAssistantHandoff(content, { projectId: null })) handleOpenWritingAssistant();
+              }}
             />
           </HomePageShell>
         ) : appView === "tools" ? (

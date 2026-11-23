@@ -14,6 +14,7 @@ import { GalaxyRouteSelector, type GalaxyMatchedConstellation } from "@/app/feat
 import { LX } from "@/app/features/active-data-tables/tokens";
 import { ChatSendButton } from "@/app/features/shared/ChatSendButton";
 import type { ChatScope, ConstellationType } from "./appSectionShared";
+import "@/app/features/chat-context/composerContext.css";
 
 const LANGUAGES = [
   { code: "EN", flagUrl: flagUs, label: "English",  sublabel: "United States" },
@@ -309,6 +310,92 @@ function matchTools(value: string, tools: ComposerTool[]) {
   return { token, matches: tools.filter((tool) => tool.trigger.toLowerCase().startsWith(query)) };
 }
 
+/**
+ * The Chat "@" Tools menu: matching, keyboard (↑ ↓ Enter Tab Esc), aria wiring and the portal list.
+ * Shared by the Project Chat composer and Ask Luxia so both behave the same.
+ */
+export function useComposerToolMenu({
+  value,
+  onChange,
+  tools,
+  onSelectTool,
+  inputRef,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  tools?: ComposerTool[];
+  onSelectTool?: (id: string) => void;
+  inputRef: React.RefObject<HTMLTextAreaElement | null>;
+}) {
+  const [toolIndex, setToolIndex] = useState(0);
+  const [dismissedToken, setDismissedToken] = useState<string | null>(null);
+  const [toolPos, setToolPos] = useState<{ bottom: number; left: number } | null>(null);
+  const toolMatch = tools?.length && onSelectTool ? matchTools(value, tools) : { token: null, matches: [] as ComposerTool[] };
+  const toolMenuOpen = Boolean(toolMatch.token && toolMatch.matches.length && dismissedToken !== value);
+
+  useEffect(() => { setToolIndex(0); }, [toolMatch.token]);
+  useEffect(() => {
+    if (!toolMenuOpen || !inputRef.current) { setToolPos(null); return; }
+    const r = inputRef.current.getBoundingClientRect();
+    setToolPos({ bottom: window.innerHeight - r.top + 14, left: Math.max(8, Math.min(r.left - 8, window.innerWidth - 368)) });
+  }, [toolMenuOpen, inputRef]);
+
+  function selectTool(tool: ComposerTool) {
+    onChange(value.replace(TOOL_TOKEN, "$1").trimEnd());
+    onSelectTool?.(tool.id);
+  }
+
+  /** Returns true when the key was used by the open menu. */
+  function handleMenuKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>): boolean {
+    if (!toolMenuOpen) return false;
+    const count = toolMatch.matches.length;
+    if (e.key === "ArrowDown") { e.preventDefault(); setToolIndex((i) => (i + 1) % count); return true; }
+    if (e.key === "ArrowUp") { e.preventDefault(); setToolIndex((i) => (i - 1 + count) % count); return true; }
+    if (e.key === "Escape") { e.preventDefault(); setDismissedToken(value); return true; }
+    if ((e.key === "Enter" && !e.shiftKey) || e.key === "Tab") {
+      e.preventDefault();
+      selectTool(toolMatch.matches[Math.min(toolIndex, count - 1)]);
+      return true;
+    }
+    return false;
+  }
+
+  const inputAria = {
+    "aria-autocomplete": tools?.length ? ("list" as const) : undefined,
+    "aria-controls": toolMenuOpen ? "luxia-composer-tools" : undefined,
+    "aria-activedescendant": toolMenuOpen ? `luxia-composer-tool-${toolMatch.matches[Math.min(toolIndex, toolMatch.matches.length - 1)]?.id}` : undefined,
+  };
+
+  const menu = toolMenuOpen && toolPos ? ReactDOM.createPortal(
+    <div id="luxia-composer-tools" role="listbox" aria-label="Tools" className="lx-composer-tools" style={{ bottom: toolPos.bottom, left: toolPos.left }}>
+      <p className="lx-composer-tools__label" aria-hidden>Tools</p>
+      {toolMatch.matches.map((tool, index) => (
+        <button
+          key={tool.id}
+          id={`luxia-composer-tool-${tool.id}`}
+          type="button"
+          role="option"
+          aria-selected={index === toolIndex}
+          data-active={index === toolIndex || undefined}
+          className="lx-composer-tools__item"
+          onMouseDown={(e) => e.preventDefault()}
+          onMouseEnter={() => setToolIndex(index)}
+          onClick={() => selectTool(tool)}
+        >
+          <span className="lx-composer-tools__icon" aria-hidden>{tool.icon}</span>
+          <span className="min-w-0">
+            <span className="lx-composer-tools__name">{tool.label}</span>
+            <span className="lx-composer-tools__desc">{tool.description}</span>
+          </span>
+        </button>
+      ))}
+    </div>,
+    document.body,
+  ) : null;
+
+  return { menu, inputAria, handleMenuKeyDown };
+}
+
 export function PromptComposer({
   value,
   onChange,
@@ -357,36 +444,10 @@ export function PromptComposer({
 }) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const hasText = value.trim().length > 0;
-  const [toolIndex, setToolIndex] = useState(0);
-  const [dismissedToken, setDismissedToken] = useState<string | null>(null);
-  const [toolPos, setToolPos] = useState<{ bottom: number; left: number } | null>(null);
-  const toolMatch = tools?.length && onSelectTool ? matchTools(value, tools) : { token: null, matches: [] as ComposerTool[] };
-  const toolMenuOpen = Boolean(toolMatch.token && toolMatch.matches.length && dismissedToken !== value);
-
-  useEffect(() => { setToolIndex(0); }, [toolMatch.token]);
-  useEffect(() => {
-    if (!toolMenuOpen || !ref.current) { setToolPos(null); return; }
-    const r = ref.current.getBoundingClientRect();
-    setToolPos({ bottom: window.innerHeight - r.top + 14, left: Math.max(8, Math.min(r.left - 8, window.innerWidth - 368)) });
-  }, [toolMenuOpen]);
-
-  function selectTool(tool: ComposerTool) {
-    onChange(value.replace(TOOL_TOKEN, "$1").trimEnd());
-    onSelectTool?.(tool.id);
-  }
+  const toolMenu = useComposerToolMenu({ value, onChange, tools, onSelectTool, inputRef: ref });
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (toolMenuOpen) {
-      const count = toolMatch.matches.length;
-      if (e.key === "ArrowDown") { e.preventDefault(); setToolIndex((i) => (i + 1) % count); return; }
-      if (e.key === "ArrowUp") { e.preventDefault(); setToolIndex((i) => (i - 1 + count) % count); return; }
-      if (e.key === "Escape") { e.preventDefault(); setDismissedToken(value); return; }
-      if ((e.key === "Enter" && !e.shiftKey) || e.key === "Tab") {
-        e.preventDefault();
-        selectTool(toolMatch.matches[Math.min(toolIndex, count - 1)]);
-        return;
-      }
-    }
+    if (toolMenu.handleMenuKeyDown(e)) return;
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(); }
   }
   const isConstellationChat = chatType === "constellation";
@@ -439,37 +500,10 @@ export function PromptComposer({
               placeholder={placeholder}
               className="luxia-chat-composer__input"
               aria-label="Message"
-              aria-autocomplete={tools?.length ? "list" : undefined}
-              aria-controls={toolMenuOpen ? "luxia-composer-tools" : undefined}
-              aria-activedescendant={toolMenuOpen ? `luxia-composer-tool-${toolMatch.matches[Math.min(toolIndex, toolMatch.matches.length - 1)]?.id}` : undefined}
+              {...toolMenu.inputAria}
             />
           </div>
-          {toolMenuOpen && toolPos ? ReactDOM.createPortal(
-            <div id="luxia-composer-tools" role="listbox" aria-label="Tools" className="lx-composer-tools" style={{ bottom: toolPos.bottom, left: toolPos.left }}>
-              <p className="lx-composer-tools__label" aria-hidden>Tools</p>
-              {toolMatch.matches.map((tool, index) => (
-                <button
-                  key={tool.id}
-                  id={`luxia-composer-tool-${tool.id}`}
-                  type="button"
-                  role="option"
-                  aria-selected={index === toolIndex}
-                  data-active={index === toolIndex || undefined}
-                  className="lx-composer-tools__item"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onMouseEnter={() => setToolIndex(index)}
-                  onClick={() => selectTool(tool)}
-                >
-                  <span className="lx-composer-tools__icon" aria-hidden>{tool.icon}</span>
-                  <span className="min-w-0">
-                    <span className="lx-composer-tools__name">{tool.label}</span>
-                    <span className="lx-composer-tools__desc">{tool.description}</span>
-                  </span>
-                </button>
-              ))}
-            </div>,
-            document.body,
-          ) : null}
+          {toolMenu.menu}
           {isConstellationChat ? (
             <div className="luxia-chat-composer__mode" data-luxia-composer-mode={contextControls ? "response" : "assistant"}>
               {contextControls

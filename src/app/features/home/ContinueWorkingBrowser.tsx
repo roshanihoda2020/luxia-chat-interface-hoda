@@ -58,7 +58,7 @@ import {
 
 const PAGE_TITLE = "All conversations";
 const PAGE_TYPE_LABEL = "CONVERSATIONS";
-const PAGE_DESCRIPTION = "Your Luxia AI conversations, Project Chats and Galaxies, each labelled by type. Writing Assistant documents and VerifAI reviews stay in their own tools.";
+const PAGE_DESCRIPTION = "Your Ask Luxia conversations, Project Chats and Galaxies, each labelled by type. Writing Assistant documents and VerifAI reviews stay in their own tools.";
 
 interface ContinueWorkingBrowserProps {
   /** Saved Luxia AI conversations (standalone assistant, no Project). Listed only with `onOpenLuxiaConversation`. */
@@ -342,11 +342,11 @@ function WorkItemRow({
 function LuxiaAiIdentityRow() {
   return (
     <div className="flex min-w-0 items-center gap-1.5">
-      <span role="img" aria-label="Luxia AI" className="inline-flex shrink-0" style={{ color: LUXIA_AI_ACCENT }}>
+      <span role="img" aria-label="Ask Luxia" className="inline-flex shrink-0" style={{ color: LUXIA_AI_ACCENT }}>
         <LuxiaAiIcon size={18} color="currentColor" />
       </span>
       <span className="truncate luxia-type-caption" style={{ color: LUXIA_AI_ACCENT, letterSpacing: "0.06em", fontWeight: 700 }}>
-        LUXIA AI
+        ASK LUXIA
       </span>
     </div>
   );
@@ -380,7 +380,7 @@ function LuxiaAiConversationCard({ conversation, onContinue }: { conversation: L
         </p>
       </div>
       <div className="relative z-[1] mt-auto flex flex-wrap items-center pt-3">
-        <Button type="button" variant="primary" size="compact" onClick={onContinue} aria-label={`Continue Luxia AI conversation ${conversation.title}`}>
+        <Button type="button" variant="primary" size="compact" onClick={onContinue} aria-label={`Continue Ask Luxia conversation ${conversation.title}`}>
           Continue
         </Button>
       </div>
@@ -408,7 +408,7 @@ function LuxiaAiConversationRow({ conversation, onContinue }: { conversation: Lu
         </p>
       </div>
       <div className="flex shrink-0 items-center justify-end gap-2">
-        <Button type="button" variant="primary" size="compact" onClick={onContinue} aria-label={`Continue Luxia AI conversation ${conversation.title}`}>
+        <Button type="button" variant="primary" size="compact" onClick={onContinue} aria-label={`Continue Ask Luxia conversation ${conversation.title}`}>
           Continue
         </Button>
       </div>
@@ -525,7 +525,7 @@ export function ContinueWorkingBrowser({
       && sourceFilter === "all"
       && visibilityFilter !== "hidden"
       ? listedLuxiaConversations
-        .filter((conversation) => matchesLuxiaAiConversation(conversation, q) || (q.length > 0 && "luxia ai".includes(q)))
+        .filter((conversation) => matchesLuxiaAiConversation(conversation, q) || (q.length > 0 && ("ask luxia".includes(q) || "luxia ai".includes(q))))
         .map((conversation) => ({ kind: "luxia-ai", key: `luxia-ai:${conversation.id}`, title: conversation.title, at: conversation.updatedAt, pinned: false, conversation }))
       : [];
     // Stable sort: Project items keep their existing order among themselves.
@@ -573,7 +573,7 @@ export function ContinueWorkingBrowser({
   const workspaceAction = onOpenLuxiaWorkspace ? (
     <Button type="button" variant="outline" size="compact" onClick={onOpenLuxiaWorkspace} data-open-luxia-ai-workspace="">
       <LuxiaAiIcon size={15} color="currentColor" aria-hidden />
-      Luxia AI workspace
+      Ask Luxia workspace
     </Button>
   ) : undefined;
 
@@ -591,7 +591,7 @@ export function ContinueWorkingBrowser({
             No conversations yet
           </h2>
           <p className="mt-2 luxia-type-body-dense" style={{ color: "var(--luxia-text-secondary)" }}>
-            Ask Luxia AI on Home, start a Chat or open a Project Galaxy to see your conversations here.
+            Use Ask Luxia on Home, start a Chat or open a Project Galaxy to see your conversations here.
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             <Button type="button" variant="primary" onClick={onNewChat}>
@@ -698,7 +698,7 @@ export function ContinueWorkingBrowser({
                 </FilterChip>
                 {showsLuxiaAi ? (
                   <FilterChip active={entityFilter === "luxia-ai"} onClick={() => setEntityFilter("luxia-ai")}>
-                    Luxia AI
+                    Ask Luxia
                   </FilterChip>
                 ) : null}
                 <FilterChip active={entityFilter === "chat"} onClick={() => setEntityFilter("chat")}>
