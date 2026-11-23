@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
 import { ChevronDown, ChevronUp, Maximize2, Minimize2, PanelsTopLeft, SquarePen } from "lucide-react";
 import { LuxiaStarLogo } from "@/app/components/LuxiaStarLogo";
 import { LuxiaAiIcon, LuxiaArrowRightIcon } from "@/assets/icons";
@@ -108,8 +108,8 @@ export function HomeAssistantConversation({
             <button
               type="button"
               onClick={onOpenWorkspace}
-              aria-label="Open this conversation in the Luxia AI workspace"
-              title="Open in Luxia AI workspace"
+              aria-label="Open this conversation in the Ask Luxia workspace"
+              title="Open in Ask Luxia workspace"
               className={ICON_BUTTON}
               style={{ color: "var(--luxia-purple-60)" }}
               data-home-ai-open-workspace=""
@@ -179,12 +179,15 @@ export function LuxiaAiMessageList({
   onFollowUp,
   canRun,
   onRun,
+  renderAnswerFooter,
 }: {
   messages: readonly LuxiaAssistantMessage[];
   pending: boolean;
   onFollowUp: (question: string) => void;
   canRun: (action: LuxiaAssistantActionId) => boolean;
   onRun: (action: LuxiaAssistantActionId) => void;
+  /** Optional actions under one answer (the Ask Luxia workspace adds "Open in Writing Assistant"). Home passes none. */
+  renderAnswerFooter?: (message: LuxiaAssistantMessage) => ReactNode;
 }) {
   const last = messages[messages.length - 1];
   const lastAnswer = last?.role === "assistant" ? last : null;
@@ -227,6 +230,7 @@ export function LuxiaAiMessageList({
                   ))}
                 </span>
               ) : null}
+              {message.role === "assistant" && renderAnswerFooter ? renderAnswerFooter(message) : null}
             </div>
           </li>
         ))}

@@ -1414,7 +1414,7 @@ export function HomePage({
         kind: "luxia-ai",
         conversationId: conversation.id,
         title: conversation.title,
-        detail: ["Luxia AI", when].filter(Boolean).join(" · "),
+        detail: ["Ask Luxia", when].filter(Boolean).join(" · "),
         when,
         onOpen: () => onOpenLuxiaAi?.(conversation.id),
       };

@@ -64,7 +64,8 @@ type MenuAction = {
   separatorBefore?: boolean;
 };
 
-function ResponseActionButton({
+/** One response action (icon + label, or icon with tooltip). Shared by Project Chat answers and Ask Luxia. */
+export function ResponseActionButton({
   icon: Icon,
   label,
   showLabel,

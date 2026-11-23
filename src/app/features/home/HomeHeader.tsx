@@ -36,7 +36,7 @@ export function HomeHeader({ userName, onNewProject, onCustomize, customizing, f
       titleStyle={{ color: "var(--luxia-purple-70)", letterSpacing: "-0.025em" }}
       context={
         firstVisit ? (
-          <LuxiaPageContext>Ask Luxia AI for guidance, discover what Luxia can do and start building your workspace.</LuxiaPageContext>
+          <LuxiaPageContext>Use Ask Luxia for guidance, discover what Luxia can do and start building your workspace.</LuxiaPageContext>
         ) : undefined
       }
       secondaryAction={

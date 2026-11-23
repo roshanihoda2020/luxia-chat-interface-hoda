@@ -300,7 +300,7 @@ export function HomeStartPanel({
   const inlineConversation = (aiMode && messages.length > 0) || Boolean(pc && pc.messageCount > 0);
   const canAddKnowledge = Boolean(project && onOpenConstellations && canCreateConstellation(project.viewerProjectRole));
   const sendLabel = aiMode
-    ? `Ask ${LUXIA_ASSISTANT_CONFIG.displayName}`
+    ? LUXIA_ASSISTANT_CONFIG.displayName
     : pc && project ? `Send to ${project.name}`
     : !project ? "Ask" : question.trim() ? `Ask in ${project.name}` : `Start a Chat in ${project.name}`;
 
@@ -323,7 +323,7 @@ export function HomeStartPanel({
     setView("open");
     inputRef.current?.focus();
     if (!previous) return;
-    toast("New chat started. Your previous conversation is saved in Recent Luxia AI conversations.", {
+    toast("New chat started. Your previous conversation is saved in Recent Ask Luxia conversations.", {
       id: "luxia-ai-new-conversation",
       duration: 6000,
       action: { label: "Undo", onClick: () => { setHomeLuxiaAiConversation(assistant.sessionKey, previous); setView("open"); } },
@@ -390,7 +390,7 @@ export function HomeStartPanel({
   }
 
   const placeholder = aiMode
-    ? `Ask ${LUXIA_ASSISTANT_CONFIG.displayName} about using Luxia…`
+    ? `${LUXIA_ASSISTANT_CONFIG.displayName} about using Luxia…`
     : !project
       ? "Projects hold the documents and data Luxia answers from."
       : pc && hasKnowledge && !pc.knowledge

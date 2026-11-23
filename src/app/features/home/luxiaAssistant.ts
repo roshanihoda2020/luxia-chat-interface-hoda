@@ -29,7 +29,7 @@ export interface LuxiaAssistantConfig {
 }
 
 export const LUXIA_ASSISTANT_CONFIG: LuxiaAssistantConfig = {
-  displayName: "Luxia AI",
+  displayName: "Ask Luxia",
   responseMode: "demo",
   disclosure: "Demo answers: prepared help about using Luxia, not a live AI model.",
   suggestedQuestions: ["What can Luxia do?", "How do I get started?", "What tools can I use?"],
@@ -58,7 +58,7 @@ export const LUXIA_ASSISTANT_ACTION_LABELS: Record<LuxiaAssistantActionId, strin
   "writing-assistant": "Open Writing Assistant",
   verifai: "Open VerifAI",
   tools: "Open Tools",
-  "luxia-ai-workspace": "Open Luxia AI workspace",
+  "luxia-ai-workspace": "Open Ask Luxia workspace",
   "chat-history": "Open All conversations",
   "customize-home": "Customize Home",
   explore: "Open Explore Luxia",
@@ -97,9 +97,9 @@ const TOPICS: readonly Topic[] = [
   },
   {
     id: "difference",
-    keywords: ["difference", "different", "project chat", "luxia ai", "who are you", "what are you"],
+    keywords: ["difference", "different", "project chat", "luxia ai", "ask luxia", "who are you", "what are you"],
     answer: () =>
-      "I'm Luxia AI, for help with using Luxia itself. To ask about your organisation's documents and data, use Chat in a Project: those answers come only from that Project's knowledge, with sources. I can't see any Project content.",
+      "This is Ask Luxia, for help with using Luxia itself. To ask about your organisation's documents and data, use Chat in a Project: those answers come only from that Project's knowledge, with sources. I can't see any Project content.",
     actions: (a) => (a.hasProjects ? ["project-chat"] : []),
     followUps: ["What is a Galaxy?", "What is a Constellation?"],
   },
@@ -157,7 +157,7 @@ const TOPICS: readonly Topic[] = [
     id: "chats",
     keywords: ["chat history", "my chats", "previous", "recent chats", "conversations", "where are my chats", "continue", "chats"],
     answer: () =>
-      "Your Luxia AI conversations are saved in the Luxia AI workspace, where you can search, rename and delete them. The latest ones appear under Recent Luxia AI conversations, just below this box; View all opens the full list. Your Project Chats and Galaxy conversations stay in their Projects, and All conversations lists every type together.",
+      "Your Ask Luxia conversations are saved in the Ask Luxia workspace, where you can search, rename and delete them. The latest ones appear under Recent Ask Luxia conversations, just below this box; View all opens the full list. Your Project Chats and Galaxy conversations stay in their Projects, and All conversations lists every type together.",
     actions: () => ["luxia-ai-workspace", "chat-history"],
     followUps: ["What is a Galaxy?", "How do I customize Home?"],
   },

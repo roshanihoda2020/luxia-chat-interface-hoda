@@ -24,6 +24,11 @@ import {
 import { LUXIA_TOOLS } from "@/app/features/tools/data";
 import { LuxiaToolIcon } from "@/app/features/tools/ToolIcon";
 import { LuxiaAiIcon } from "@/assets/icons";
+import { FileText } from "lucide-react";
+// Same Chat Tool pieces as Project Chat: the "@" Tools menu and the answer's Writing Assistant action.
+import { useComposerToolMenu, type ComposerTool } from "@/app/app-sections/ChatComposerSection";
+import { ResponseActionButton } from "@/app/features/chat/ResponseActionsFooter";
+import { isEligibleWritingAssistantContent } from "@/app/features/writing-assistant/chatHandoff";
 import {
   askLuxiaAi,
   deleteLuxiaAiConversation,
@@ -55,6 +60,15 @@ export interface LuxiaAiWorkspacePageProps {
   /** Opens a Tool in its own workspace. */
   onOpenTool: (toolId: string) => void;
   onOpenTools: () => void;
+  /**
+   * Tools offered on "@" — the same list and menu as Project Chat. Given only when this user may use
+   * them (App applies the Tool's existing access rule); omitted = no menu.
+   */
+  composerTools?: ComposerTool[];
+  /** A Tool chosen from the "@" menu (or typed "@verifai" and sent), as in Project Chat. */
+  onSelectComposerTool?: (toolId: string) => void;
+  /** Project Chat's "Open in Writing Assistant" for one answer (existing Chat → Writing Assistant handoff). */
+  onOpenInWritingAssistant?: (content: string) => void;
 }
 
 function activityLabel(conversation: LuxiaAiConversation): string {
@@ -77,6 +91,9 @@ export function LuxiaAiWorkspacePage({
   onOpenAllConversations,
   onOpenTool,
   onOpenTools,
+  composerTools,
+  onSelectComposerTool,
+  onOpenInWritingAssistant,
 }: LuxiaAiWorkspacePageProps) {
   const { conversations, pendingIds } = useLuxiaAiConversations(userId);
   const active = conversationId ? conversations.find((entry) => entry.id === conversationId) ?? null : null;
@@ -91,6 +108,7 @@ export function LuxiaAiWorkspacePage({
   const [narrowPane, setNarrowPane] = useState<"list" | "conversation">(conversationId ? "conversation" : "list");
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const logRef = useRef<HTMLDivElement>(null);
+  const toolMenu = useComposerToolMenu({ value: draft, onChange: setDraft, tools: composerTools, onSelectTool: onSelectComposerTool, inputRef });
 
   const visible = useMemo(
     () => conversations.filter((conversation) => matchesLuxiaAiConversation(conversation, query)),
@@ -130,10 +148,22 @@ export function LuxiaAiWorkspacePage({
     inputRef.current?.focus();
   }
 
+  /** Send. As in Project Chat, a message starting with a Tool's "@" trigger opens that Tool instead. */
+  function submitComposer() {
+    const typedTool = composerTools?.find((tool) => new RegExp(`^${tool.trigger}\\b`, "i").test(draft.trim()));
+    if (typedTool && onSelectComposerTool) {
+      setDraft(draft.trim().replace(new RegExp(`^${typedTool.trigger}\\b\\s*`, "i"), ""));
+      onSelectComposerTool(typedTool.id);
+      return;
+    }
+    ask(draft);
+  }
+
   function onKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (toolMenu.handleMenuKeyDown(event)) return;
     if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
       event.preventDefault();
-      ask(draft);
+      submitComposer();
     }
   }
 
@@ -192,7 +222,7 @@ export function LuxiaAiWorkspacePage({
         </Button>
       </div>
       <label className="relative mb-2 block">
-        <span className="sr-only">Search Luxia AI conversations</span>
+        <span className="sr-only">Search Ask Luxia conversations</span>
         <Search size={15} aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--luxia-text-muted)" }} />
         <input
           type="search"
@@ -213,7 +243,7 @@ export function LuxiaAiWorkspacePage({
           No conversations match &ldquo;{query.trim()}&rdquo;.
         </p>
       ) : (
-        <ul className="luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical -mx-1 min-h-0 flex-1 space-y-1 overflow-y-auto px-1" aria-label="Luxia AI conversations">
+        <ul className="luxia-scrollbar luxia-scrollbar-light luxia-scrollbar-vertical -mx-1 min-h-0 flex-1 space-y-1 overflow-y-auto px-1" aria-label="Ask Luxia conversations">
           {visible.map((conversation) => {
             const current = conversation.id === conversationId;
             return (
@@ -273,7 +303,7 @@ export function LuxiaAiWorkspacePage({
     >
       <h2 id="luxia-ai-tools-title" className="luxia-type-body-dense-strong" style={{ color: INK }}>Tools</h2>
       <p className="mt-1 luxia-type-caption" style={{ color: "var(--luxia-text-secondary)" }}>
-        Each tool opens in its own workspace, with its own history. Tools don&rsquo;t run inside Luxia AI conversations.
+        Each tool opens in its own workspace, with its own history. Tools don&rsquo;t run inside Ask Luxia conversations.
       </p>
       <ul className="mt-3 space-y-2">
         {LUXIA_TOOLS.map((tool) => (
@@ -360,7 +390,24 @@ export function LuxiaAiWorkspacePage({
             <Button type="button" variant="primary" size="compact" className="mt-4" onClick={startNew}>New conversation</Button>
           </div>
         ) : active ? (
-          <LuxiaAiMessageList messages={active.messages} pending={pending} onFollowUp={ask} canRun={canRun} onRun={run} />
+          <LuxiaAiMessageList
+            messages={active.messages}
+            pending={pending}
+            onFollowUp={ask}
+            canRun={canRun}
+            onRun={run}
+            // Project Chat's answer action (same button, icon, label and eligibility rule); only this answer's text.
+            renderAnswerFooter={onOpenInWritingAssistant ? (message) => (isEligibleWritingAssistantContent(message.text) ? (
+              <span className="-ml-2 mt-1.5 flex" data-luxia-ai-open-wa={message.id}>
+                <ResponseActionButton
+                  icon={FileText}
+                  label="Open in Writing Assistant"
+                  showLabel
+                  onClick={() => onOpenInWritingAssistant(message.text)}
+                />
+              </span>
+            ) : null) : undefined}
+          />
         ) : (
           <div className="mx-auto flex max-w-[520px] flex-col items-center py-8 text-center" data-luxia-ai-intro="">
             <span aria-hidden className="flex size-11 items-center justify-center rounded-full" style={{ background: "var(--luxia-opacity-brand-secondary-12)", color: ACCENT }}>
@@ -403,15 +450,17 @@ export function LuxiaAiWorkspacePage({
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
               onKeyDown={onKeyDown}
-              placeholder={`Ask ${LUXIA_ASSISTANT_CONFIG.displayName} about using Luxia…`}
+              placeholder={`${LUXIA_ASSISTANT_CONFIG.displayName} about using Luxia…`}
               className="block min-h-[38px] w-full min-w-0 resize-none bg-transparent px-1 py-1.5 text-[16px] leading-[24px] outline-none placeholder:text-[var(--luxia-text-muted)]"
               style={{ color: "var(--luxia-text-primary)" }}
               data-luxia-ai-input=""
+              {...toolMenu.inputAria}
             />
+            {toolMenu.menu}
             <ChatSendButton
               canSend={Boolean(draft.trim()) && !pending}
-              onClick={() => ask(draft)}
-              aria-label={`Ask ${LUXIA_ASSISTANT_CONFIG.displayName}`}
+              onClick={submitComposer}
+              aria-label={LUXIA_ASSISTANT_CONFIG.displayName}
               className="h-10 w-10 shrink-0"
             />
           </div>
@@ -431,7 +480,7 @@ export function LuxiaAiWorkspacePage({
         title={LUXIA_ASSISTANT_CONFIG.displayName}
         titleStyle={{ color: HS.sectionHeading }}
         breadcrumb={<LuxiaBreadcrumb tone="page" items={breadcrumbItems} handlers={{ onHome: onNavigateHome }} />}
-        guide="Your Luxia AI conversations, and the Tools it can point you to. Luxia AI is separate from Project Chats and never answers from Project knowledge."
+        guide="Your Ask Luxia conversations, and the Tools it can point you to. Ask Luxia is separate from Project Chats and never answers from Project knowledge."
         guideIcon={false}
         actions={(
           <Button type="button" variant="outline" size="compact" onClick={onOpenAllConversations} data-luxia-ai-all-conversations="">
@@ -486,7 +535,7 @@ export function LuxiaAiWorkspacePage({
         </>}
       >
         <p className="py-4 luxia-type-body-small" style={{ color: "var(--luxia-text-secondary)" }}>
-          &ldquo;{deleting?.title}&rdquo; will be removed from your Luxia AI conversations. This can&rsquo;t be undone.
+          &ldquo;{deleting?.title}&rdquo; will be removed from your Ask Luxia conversations. This can&rsquo;t be undone.
         </p>
       </LuxiaDialog>
     </LuxiaPageFrame>

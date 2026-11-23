@@ -263,7 +263,7 @@ export const EXPLORE_ENTRIES: readonly ExploreEntry[] = [
           { title: "Follow up", text: "Ask a narrower question in the same Chat to go deeper." },
         ],
       },
-      { type: "paragraphs", title: "Where your Chats are", items: ["Project Chats and Galaxy conversations are listed in All conversations, most recent first, together with your Luxia AI conversations, each labelled by type. Luxia AI is a separate helper for using Luxia, and doesn't answer from your Projects."] },
+      { type: "paragraphs", title: "Where your Chats are", items: ["Project Chats and Galaxy conversations are listed in All conversations, most recent first, together with your Ask Luxia conversations, each labelled by type. Ask Luxia is a separate helper for using Luxia, and doesn't answer from your Projects."] },
     ],
   },
 ];
