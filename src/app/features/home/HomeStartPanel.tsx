@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { Check, ChevronDown, ChevronRight, CircleAlert, Info } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, CircleAlert, Info, MessageSquare } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@/app/components/ui/popover";
@@ -609,7 +609,7 @@ export function HomeStartPanel({
               style={{ borderColor: SOFT_BORDER, color: "var(--luxia-text-secondary)" }}
               data-home-luxia-recents-empty=""
             >
-              <LuxiaAiIcon size={15} color="var(--luxia-purple-60)" aria-hidden />
+              <MessageSquare size={15} aria-hidden className="shrink-0" style={{ color: "var(--luxia-text-muted)" }} />
               <span className="min-w-0">No conversations yet. Your questions to {LUXIA_ASSISTANT_CONFIG.displayName} are saved automatically and appear here.</span>
             </p>
           ) : (
@@ -639,9 +639,10 @@ export function HomeStartPanel({
                       <span
                         aria-hidden
                         className="flex size-8 shrink-0 items-center justify-center rounded-full"
-                        style={{ background: "var(--luxia-opacity-brand-secondary-12)", color: "var(--luxia-purple-60)" }}
+                        style={{ background: "var(--luxia-neutral-100)", color: "var(--luxia-text-secondary)" }}
+                        data-home-continue-icon=""
                       >
-                        <LuxiaAiIcon size={16} color="currentColor" />
+                        <MessageSquare size={16} />
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate luxia-type-body-dense-strong">{item.title}</span>
